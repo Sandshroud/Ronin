@@ -345,7 +345,6 @@ void SpellManager::PoolSpellData()
     dbcSpellEffect.Unload();
     dbcSpellEquippedItems.Unload();
     dbcSpellInterrupts.Unload();
-    dbcSpellItemEnchant.Unload();
     dbcSpellLevels.Unload();
     dbcSpellPower.Unload();
     dbcSpellRadius.Unload();
@@ -381,6 +380,20 @@ bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, W
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_dummyEffectHandlers.find(spEff) != m_dummyEffectHandlers.end())
         return (*m_dummyEffectHandlers.at(spEff))(sp, effIndex, caster, target, amount);
+    return false;
+}
+
+bool SpellManager::CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr)
+{
+    if(m_canCastCCSTriggers.find(sp->Id) != m_canCastCCSTriggers.end())
+        return (*m_canCastCCSTriggers.at(sp->Id))(sp, ctr);
+    return true;
+}
+
+bool SpellManager::GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid)
+{
+    if(m_genCCSTargetTriggers.find(sp->Id) != m_genCCSTargetTriggers.end())
+        return (*m_genCCSTargetTriggers.at(sp->Id))(sp, ctr, targets, attackGuid);
     return false;
 }
 

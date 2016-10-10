@@ -1140,6 +1140,9 @@ struct SpellEntry
     bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
     bool IsSpellWeaponSpell() { return spellType <= 3; }
 
+    bool isSpellInterruptOnMovement() { return (InterruptFlags & 0x08) || (IsSpellChannelSpell() && (ChannelInterruptFlags & 0x08)); }
+    bool isSpellAttackInterrupting() { return !IsSpellChannelSpell() || (IsSpellChannelSpell() && isAttackInterrupting()); }
+
 };
 
 // SpellAuraOptions.dbc
@@ -1398,8 +1401,8 @@ struct SpellItemEnchantEntry
     uint32 Id;
     //uint32 charges;
     uint32 type[3];
-    //int32 minPoints[3]; // min always equals max
-    int32 maxPoints[3];
+    int32 minPoints[3]; // min always equals max
+    //int32 maxPoints[3];
     uint32 spell[3];
     char *description;
     uint32 visualAura;

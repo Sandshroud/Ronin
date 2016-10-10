@@ -71,7 +71,7 @@ typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetMap;
 class BaseSpell
 {
 public:
-    BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber);
+    BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid);
     ~BaseSpell();
 
     void _Prepare();
@@ -153,6 +153,7 @@ protected:
 protected:
     WorldObject *m_caster;
     SpellEntry *m_spellInfo;
+    WoWGuid m_itemCaster;
     uint8 m_castNumber;
 
     int32  m_duration;

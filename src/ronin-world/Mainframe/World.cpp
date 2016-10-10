@@ -95,6 +95,12 @@ uint32 World::GetMaxLevelStatCalc()
     return MAXIMUM_ATTAINABLE_LEVEL;
 }
 
+void World::CharEnumDisplayData(QueryResultVector& results, uint32 AccountId)
+{
+    if(WorldSession *s = FindSession(AccountId))
+        s->CharEnumDisplayData(results);
+}
+
 bool World::CompressPacketData(z_stream *stream, const void *data, uint32 len, ByteBuffer *output)
 {
     uint32 destSize = compressBound(len);

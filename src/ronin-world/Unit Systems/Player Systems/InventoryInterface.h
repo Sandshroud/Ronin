@@ -58,7 +58,7 @@ public:
     uint32 m_CreateForPlayer(ByteBuffer *data);
     void m_DestroyForPlayer(Player* plr);
 
-    void mLoadItemsFromDatabase(QueryResult * result);
+    void mLoadItemsFromDatabase(QueryResult * inventory, QueryResult *enchants);
     void mSaveItemsToDatabase(bool first, QueryBuffer * buf);
 
     void mAddItemToBestSlot(ItemPrototype *proto, uint32 count, bool fromDB);
@@ -121,7 +121,7 @@ public:
     Item* GetItemByGUID(uint64 itemGuid);
 
 
-    void BuildInventoryChangeError(Item* SrcItem, Item* DstItem, uint8 Error);
+    void BuildInventoryChangeError(Item* SrcItem, Item* DstItem, uint8 Error, WoWGuid srcGuidRep = 0, WoWGuid dstGuidRep = 0);
     bool SwapItemSlots(int16 srcslot, int16 dstslot);
 
     int16 GetInternalBankSlotFromPlayer(int16 islot); //converts inventory slots into 0-x numbers

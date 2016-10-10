@@ -102,6 +102,7 @@ public:
     ~WorldSession();
 
     bool InitializeZLibCompression();
+    void CharEnumDisplayData(QueryResultVector& results);
 
     RONIN_INLINE bool IsLoggingIn() { return (m_loggingInPlayer != NULL); };
     Player* m_loggingInPlayer;
@@ -708,6 +709,7 @@ private:
 
     bool _loggingOut;
     bool _recentlogout;
+    bool m_asyncQuery;
     uint32 _latency;
     uint32 client_build;
     uint8 _updatecount;

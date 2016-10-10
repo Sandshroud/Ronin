@@ -187,6 +187,12 @@ struct PetSpellCooldown
     int32 cooldown;
 };
 
+struct CreatureSpell
+{
+    uint32 castTimer;
+    SpellEntry *spellEntry;
+};
+
 class AuctionHouse;
 
 #define TRIGGER_AI_EVENT(obj, func)
@@ -224,7 +230,7 @@ public:
         return _creatureData->maleName.c_str();
     }
 
-    void EventUpdateCombat();
+    void EventUpdateCombat(uint32 msTime, uint32 uiDiff);
     void EventAttackStop();
 
     float GetPowerMod() { return _creatureData->powerMod; }
@@ -535,4 +541,10 @@ public:
     uint32 m_enslaveSpell;
 
     WorldObject::InRangeSet m_inRangeHostiles;
+
+    //CreatureScript *m_script;
+
+    /// Creature spell casting system
+    std::vector<CreatureSpell*> m_combatSpells;
+
 };

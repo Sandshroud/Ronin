@@ -257,7 +257,8 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
         if( VisibleBase < PLAYER_CHOSEN_TITLE )
         {
             m_pOwner->SetUInt32Value( VisibleBase, item->GetUInt32Value( OBJECT_FIELD_ENTRY ) );
-            m_pOwner->SetUInt32Value( VisibleBase + 1, item->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA ) );
+            m_pOwner->SetUInt16Value( VisibleBase + 1, 0, item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
+            m_pOwner->SetUInt16Value( VisibleBase + 1, 1, item->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
         }
     }
 
@@ -1396,14 +1397,12 @@ uint32 PlayerInventory::GetEquippedCountByItemLimit(uint32 LimitId)
     uint32 count = 0;
     for(uint32 x = EQUIPMENT_SLOT_START; x < EQUIPMENT_SLOT_END; ++x)
     {
-        Item* it = m_pItems[x];
-
-        if(it != NULL)
+        if(Item* it = m_pItems[x])
         {
-            for(uint32 socketcount = 0; socketcount < it->GetMaxSocketsCount(); socketcount++)
+            for(uint32 s = 0; s < 3; s++)
             {
-                EnchantmentInstance* ei = it->GetEnchantment(SOCK_ENCHANTMENT_SLOT1 + socketcount);
-                if(ei && ei->Enchantment)
+                EnchantmentInstance* ei = it->GetEnchantment(SOCK_ENCHANTMENT_SLOT1 + s);
+                if(ei && ei->Enchantment && ei->Enchantment->GemEntry)
                 {
                     ItemPrototype* ip = sItemMgr.LookupEntry(ei->Enchantment->GemEntry);
                     if(ip && ip->ItemLimitCategory == LimitId)
@@ -1428,10 +1427,10 @@ int16 PlayerInventory::CanEquipItemInSlot2(int16 SrcSlot, int16 DstInvSlot, int1
 
     if((slot < INVENTORY_SLOT_BAG_END && DstInvSlot == INVENTORY_SLOT_NOT_SET) || (slot >= BANK_SLOT_BAG_START && slot < BANK_SLOT_BAG_END && DstInvSlot == INVENTORY_SLOT_NOT_SET))
     {
-        for(uint32 count = 0; count < item->GetMaxSocketsCount(); count++)
+        for(uint32 count = 0; count < 3; count++)
         {
             EnchantmentInstance* ei = item->GetEnchantment(SOCK_ENCHANTMENT_SLOT1 + count);
-            if(ei && ei->Enchantment->GemEntry ) //huh ? Gem without entry ?
+            if(ei && ei->Enchantment && ei->Enchantment->GemEntry ) //huh ? Gem without entry ?
             {
                 ItemPrototype* ip = sItemMgr.LookupEntry(ei->Enchantment->GemEntry);
 
@@ -1956,14 +1955,14 @@ Item* PlayerInventory::GetItemByGUID(uint64 Guid)
 //-------------------------------------------------------------------//
 //Description: Inventory Error report
 //-------------------------------------------------------------------//
-void PlayerInventory::BuildInventoryChangeError(Item* SrcItem, Item* DstItem, uint8 Error)
+void PlayerInventory::BuildInventoryChangeError(Item* SrcItem, Item* DstItem, uint8 Error, WoWGuid srcGuidRep, WoWGuid dstGuidRep)
 {
     WorldPacket data(SMSG_INVENTORY_CHANGE_FAILURE, 22);
     data << Error;
     if (Error != INV_ERR_OK)
     {
-        data << uint64(SrcItem ? SrcItem->GetGUID() : 0);
-        data << uint64(DstItem ? DstItem->GetGUID() : 0);
+        data << uint64(SrcItem ? SrcItem->GetGUID() : srcGuidRep);
+        data << uint64(DstItem ? DstItem->GetGUID() : dstGuidRep);
         data << uint8(0);
         switch(Error)
         {
@@ -2285,7 +2284,8 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
             {
                 int VisibleBase = PLAYER_VISIBLE_ITEM + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, m_pItems[srcslot]->GetEntry() );
-                m_pOwner->SetUInt32Value( VisibleBase + 1, m_pItems[srcslot]->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA ) );
+                m_pOwner->SetUInt16Value( VisibleBase + 1, 0, m_pItems[srcslot]->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
+                m_pOwner->SetUInt16Value( VisibleBase + 1, 1, m_pItems[srcslot]->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
             }
 
             // handle bind on equip
@@ -2318,7 +2318,8 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
             {
                 int VisibleBase = PLAYER_VISIBLE_ITEM + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
                 m_pOwner->SetUInt32Value( VisibleBase, m_pItems[dstslot]->GetEntry() );
-                m_pOwner->SetUInt32Value( VisibleBase + 1, m_pItems[dstslot]->GetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA));
+                m_pOwner->SetUInt16Value( VisibleBase + 1, 0, m_pItems[dstslot]->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
+                m_pOwner->SetUInt16Value( VisibleBase + 1, 1, m_pItems[dstslot]->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
             }
 
             // handle bind on equip
@@ -2355,13 +2356,13 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
 //-------------------------------------------------------------------//
 //Description: Item Loading
 //-------------------------------------------------------------------//
-void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
+void PlayerInventory::mLoadItemsFromDatabase(QueryResult * inventory, QueryResult *enchants)
 {
-    if( result )
+    if( inventory )
     {
         do
         {
-            Field* fields = result->Fetch();
+            Field* fields = inventory->Fetch();
             int8 containerslot = fields[15].GetInt8();
             uint8 slot = fields[16].GetUInt8();
             if(ItemPrototype *proto = sItemMgr.LookupEntry(fields[2].GetUInt32()))
@@ -2373,7 +2374,18 @@ void PlayerInventory::mLoadItemsFromDatabase(QueryResult * result)
                     item->m_isDirty = false;
                 else item->Destruct();
             }
-        } while( result->NextRow() );
+        } while( inventory->NextRow() );
+    }
+
+    if( enchants )
+    {
+        do
+        {
+            Field* fields = enchants->Fetch();
+            WoWGuid itemGuid = MAKE_NEW_GUID(fields[0].GetUInt32(), fields[1].GetUInt32(), HIGHGUID_TYPE_ITEM);
+            if(Item *item = GetItemByGUID(itemGuid))
+                item->LoadEnchantment(fields[2].GetUInt8(), fields[3].GetUInt32(), fields[4].GetUInt32(), fields[5].GetUInt32(), fields[6].GetUInt32());
+        } while( enchants->NextRow() );
     }
 }
 
@@ -2827,8 +2839,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
             item->SetUInt64Value(ITEM_FIELD_CREATOR, creator->GetGUID());
 
         item->Bind(ITEM_BIND_ON_PICKUP);
-        if( randomprop != 0 )
-            item->ApplyRandomProperties( false );
+        item->LoadRandomProperties();
 
         toadd = count > maxStack ? maxStack : count;
 
@@ -2957,14 +2968,12 @@ uint32 PlayerInventory::GetSocketedGemCountWithLimitId(uint32 Id)
     uint32 count = 0;
     for( uint32 x = EQUIPMENT_SLOT_START; x < EQUIPMENT_SLOT_END; ++x )
     {
-        Item* it = m_pItems[x];
-
-        if( it != NULL )
+        if( Item* it = m_pItems[x] )
         {
-            for( uint32 socketcount = 0; socketcount < it->GetMaxSocketsCount(); socketcount++ )
+            for( uint32 socketcount = 0; socketcount < 3; socketcount++ )
             {
                 EnchantmentInstance *e = it->GetEnchantment( 2 + socketcount );
-                if (e && e->Enchantment)
+                if (e && e->Enchantment && e->Enchantment->GemEntry)
                 {
                     ItemPrototype * ip = sItemMgr.LookupEntry(e->Enchantment->GemEntry);
                     if( ip && ip->ItemLimitCategory == Id )

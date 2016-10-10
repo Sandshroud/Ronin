@@ -6,6 +6,105 @@
 
 void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 {
+    CHECK_INWORLD_RETURN();
+
+    int8 DstInvSlot=0, DstSlot=0, SrcInvSlot=0, SrcSlot=0;
+    uint8 count=0;
+
+    AddItemResult result;
+
+    recv_data >> SrcInvSlot >> SrcSlot >> DstInvSlot >> DstSlot >> count;
+    if(!GetPlayer())
+        return;
+
+    if(count >= 127) /* exploit fix */      
+        return;
+
+    // f*ck wpe
+    if( !_player->GetInventory()->VerifyBagSlotsWithBank(SrcInvSlot, SrcSlot) )
+        return;
+
+    if( !_player->GetInventory()->VerifyBagSlotsWithBank(DstInvSlot, DstSlot) )
+        return;
+
+    int32 c = count;
+    Item* i1 = _player->GetInventory()->GetInventoryItem(SrcInvSlot,SrcSlot);
+    if(!i1)
+        return;
+    Item* i2=_player->GetInventory()->GetInventoryItem(DstInvSlot,DstSlot);
+
+    if( (i1 && i1->IsWrapped()) || (i2 && i2->IsWrapped()) )
+    {
+        GetPlayer()->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_CANT_STACK);
+        return;
+    }
+
+    if(i1 && (i1->GetProto()->MaxCount > 0 && i1->GetProto()->MaxCount < 2))
+    {
+        GetPlayer()->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_CANT_STACK);
+        return;
+    }
+
+    if(i2 && (count < 1 || (i2->GetProto()->MaxCount > 0 && i2->GetProto()->MaxCount < 2)))
+    {
+        GetPlayer()->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_CANT_STACK);
+        return;
+    }
+
+    if(i2)//smth already in this slot
+    {
+        if(i1->GetEntry()==i2->GetEntry() )
+        {
+            //check if player has the required stacks to avoid exploiting.
+            //safe exploit check
+            if(c < (int32)i1->GetUInt32Value(ITEM_FIELD_STACK_COUNT))
+            {
+                //check if there is room on the other item.
+                if(((c + i2->GetUInt32Value(ITEM_FIELD_STACK_COUNT)) <= (uint32)i2->GetProto()->MaxCount || i2->GetProto()->MaxCount < 0))
+                {
+                    i1->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, -c);
+                    i1->m_isDirty = true;
+                    i2->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT, +c);
+                    i2->m_isDirty = true;
+                } else GetPlayer()->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_CANT_STACK);
+            } else _player->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_SPLIT_FAILED); //error cant split item
+        } else GetPlayer()->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_CANT_STACK);
+    }
+    else
+    {
+        if(c < (int32)i1->GetUInt32Value(ITEM_FIELD_STACK_COUNT))
+        {
+            i1->ModUnsigned32Value(ITEM_FIELD_STACK_COUNT,-c);
+            i1->m_isDirty = true;
+
+            i2 = objmgr.CreateItem(i1->GetEntry(), _player, c);
+            i2->m_isDirty = true;
+
+            if(DstSlot == -1)
+            {
+                // Find a free slot
+                SlotResult res = _player->GetInventory()->FindFreeInventorySlot(i2->GetProto());
+                if(!res.Result)
+                {
+                    SendNotification("Internal Error");
+                    return;
+                }
+                else
+                {
+                    DstSlot = res.Slot;
+                    DstInvSlot = res.ContainerSlot;
+                }
+            }
+
+            if(!(result = _player->GetInventory()->SafeAddItem(i2,DstInvSlot,DstSlot)))
+            {
+                printf("HandleBuyItemInSlot: Error while adding item to dstslot");
+                //i2->DeleteFromDB();
+                i2->Destruct();
+                i2 = NULL;
+            }
+        } else _player->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_SPLIT_FAILED);
+    }
 }
 
 void WorldSession::HandleSwapItemOpcode(WorldPacket& recv_data)
@@ -1237,58 +1336,61 @@ int32 ConvertDB2DBCGemType(uint32 DBGemType)
 
 void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
 {
-    uint64 itemguid;
-    uint64 gemguid[3];
-    GemPropertyEntry * gp = NULL;
-    SpellItemEnchantEntry * Enchantment;
-    recvPacket >> itemguid;
-
     CHECK_INWORLD_RETURN();
 
-    Item* TargetItem =_player->GetInventory()->GetItemByGUID(itemguid);
+    WoWGuid itemGuid, gemGuid[3];
+    SpellItemEnchantEntry * Enchantment;
+    recvPacket >> itemGuid;
+    for(uint32 i = 0; i < 3; i++)
+        recvPacket >> gemGuid[i];
+
+    PlayerInventory *itemi = _player->GetInventory();
+    Item* TargetItem = itemi->GetItemByGUID(itemGuid);
     if(TargetItem == NULL)
         return;
 
-    int slot = _player->GetInventory()->GetInventorySlotByGuid(itemguid);
+    WorldPacket data(SMSG_SOCKET_GEMS_RESULT, 16);
+    data << itemGuid;
+
+    int slot = itemi->GetInventorySlotByGuid(itemGuid);
     bool apply = (slot >= 0 && slot < 19);
-    uint32 FilledSlots = 0;
+    uint32 filledSlots = 0;
 
     /* The following is a hack check to make sure player's aren't socketing more than they have,
         while still allowing socketing of items with prismatic sockets. */
-    bool sockenchgloves = (TargetItem->HasEnchantment(3723) && TargetItem->GetProto()->InventoryType == 10);
-    bool sockenchbracer = (TargetItem->HasEnchantment(3717) && TargetItem->GetProto()->InventoryType == 9);
-    bool sockenchbelt = (TargetItem->HasEnchantment(3729) && TargetItem->GetProto()->InventoryType == 6);
+    bool extraSocket = (TargetItem->HasEnchantment(3723) && TargetItem->GetProto()->InventoryType == 10)
+        || (TargetItem->HasEnchantment(3717) && TargetItem->GetProto()->InventoryType == 9)
+        || (TargetItem->HasEnchantment(3729) && TargetItem->GetProto()->InventoryType == 6);
 
-    bool ColorMatch[3];
+    bool colorMatch[3] = { true, true, true };
     for(uint32 i = 0; i < 3; i++)
     {
-        recvPacket >> gemguid[i];
-
-        if(i > ((sockenchgloves || sockenchbracer || sockenchbelt) ? TargetItem->GetMaxSocketsCount() + 1 : TargetItem->GetMaxSocketsCount()))
+        uint32 socketType = TargetItem->GetProto()->ItemSocket[i];
+        if(socketType == 0 && !(extraSocket && (i >= 1) && TargetItem->GetProto()->ItemSocket[i-1] != 0))
             continue;
 
-        ColorMatch[i] = false;
-
-        EnchantmentInstance * EI = TargetItem->GetEnchantment(2+i);
-        if(EI)
+        GemPropertyEntry *gp = NULL;
+        EnchantmentInstance *EI = NULL;
+        if(EI = TargetItem->GetEnchantment(2+i))
         {
-            gp = NULL;
-            FilledSlots++;
-            ItemPrototype * ip = sItemMgr.LookupEntry(EI->Enchantment->GemEntry);
-            if(ip != NULL)
+            filledSlots |= (1<<i);
+            if(ItemPrototype *ip = sItemMgr.LookupEntry(EI->Enchantment->GemEntry))
                 gp = dbcGemProperty.LookupEntry(ip->GemProperties);
 
-            if(gp && !(gp->SocketMask & TargetItem->GetProto()->ItemSocket[i]) && TargetItem->GetProto()->ItemSocket[i] != 0)
-                ColorMatch[i] = false;
-        }
+            if(gp && socketType && !(gp->SocketMask & socketType))
+                colorMatch[i] = false;
+        } else if(gemGuid[i].empty())
+            colorMatch[i] = false;
 
-        if(gemguid[i])//add or replace gem
+        if(gemGuid[i])//add or replace gem
         {
-            PlayerInventory *itemi = _player->GetInventory();
-            Item *it = itemi ? itemi->GetItemByGUID(gemguid[i]) : NULL;
+            Item *it = itemi ? itemi->GetItemByGUID(gemGuid[i]) : NULL;
             ItemPrototype * ip = it ? it->GetProto() : NULL;
             if( it == NULL || ip == NULL)
+            {
+                itemi->BuildInventoryChangeError( NULL, TargetItem, INV_ERR_OBJECT_IS_BUSY, gemGuid[i] );
                 continue;
+            }
 
             if (apply)
             {
@@ -1302,109 +1404,101 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
                 }
 
                 // Skill requirement
-                if( ip->RequiredSkill > 0 )
+                if( ip->RequiredSkill > 0 && ((uint32)ip->RequiredSkillRank > _player->_GetSkillLineCurrent( ip->RequiredSkill, true )) )
                 {
-                    if( (uint32)ip->RequiredSkillRank > _player->_GetSkillLineCurrent( ip->RequiredSkill, true ) )
-                    {
-                        itemi->BuildInventoryChangeError( it, TargetItem, INV_ERR_CANT_EQUIP_SKILL );
-                        continue;
-                    }
+                    itemi->BuildInventoryChangeError( it, TargetItem, INV_ERR_CANT_EQUIP_SKILL );
+                    continue;
                 }
 
-                if( ip->ItemLimitCategory )
+                ItemLimitCategoryEntry *il = NULL;
+                if( ip->ItemLimitCategory && (il = dbcItemLimitCategory.LookupEntry( ip->ItemLimitCategory )) && itemi->GetSocketedGemCountWithLimitId( ip->ItemLimitCategory ) >= il->MaxAmount )
                 {
-                    ItemLimitCategoryEntry * il = dbcItemLimitCategory.LookupEntry( ip->ItemLimitCategory );
-                    if( il != NULL && itemi->GetSocketedGemCountWithLimitId( ip->ItemLimitCategory ) >= il->MaxAmount )
-                    {
-                        itemi->BuildInventoryChangeError(it, TargetItem, INV_ERR_ITEM_MAX_COUNT_EQUIPPED_SOCKETED);
-                        continue;
-                    }
+                    itemi->BuildInventoryChangeError(it, TargetItem, INV_ERR_ITEM_MAX_COUNT_EQUIPPED_SOCKETED);
+                    continue;
                 }
             }
 
-            it = _player->GetInventory()->SafeRemoveAndRetreiveItemByGuid(gemguid[i], true);
-            if(it == NULL)
+            uint16 bagSlot = itemi->GetBagSlotByGuid(gemGuid[i]);
+            if(bagSlot == ITEM_NO_SLOT_AVAILABLE)
             {
                 itemi->BuildInventoryChangeError( it, TargetItem, INV_ERR_OBJECT_IS_BUSY );
                 continue;
             }
 
-            ip = it->GetProto();
-            if(ip == NULL)
-            {
-                itemi->BuildInventoryChangeError( it, TargetItem, INV_ERR_OBJECT_IS_BUSY );
-                continue;
-            }
-            sQuestMgr.OnPlayerDropItem(_player, ip->ItemId);
-            it->Destruct();
-            it = NULL;
-
+            bool applied = false;
             if(EI)//replace gem
+            {
                 TargetItem->RemoveEnchantment(2+i);//remove previous
-            else//add gem
-                FilledSlots++;
+                filledSlots &= ~(1<<i);
+            }
 
-            uint32 EnchantID = 0;
-            gp = dbcGemProperty.LookupEntry(ip->GemProperties);
-            if(gp != NULL)
+            if((gp = dbcGemProperty.LookupEntry(ip->GemProperties)) && (Enchantment = dbcSpellItemEnchant.LookupEntry(gp->EnchantmentID)))
             {
                 if(!(gp->SocketMask & TargetItem->GetProto()->ItemSocket[i]))
-                    ColorMatch[i] = false;
-                Enchantment = dbcSpellItemEnchant.LookupEntry(gp->EnchantmentID);
-                if(gp->EnchantmentID && Enchantment != NULL)
-                    TargetItem->AddEnchantment(Enchantment, 0, true,apply,false,2+i);
+                    colorMatch[i] = false;
+                TargetItem->AddEnchantment(Enchantment, 0, true, apply, false, SOCK_ENCHANTMENT_SLOT1+i);
+                applied = true;
             }
             else
             {   // Lacking DBC data, pull from proto.
                 uint32 gemmask = ConvertDB2DBCGemType(ip->SubClass);
                 if(gemmask == -1 || !(gemmask & TargetItem->GetProto()->ItemSocket[i]))
-                    ColorMatch[i] = false;
+                    colorMatch[i] = false;
 
-                if(ip->GemProperties < 0)
-                {   // If we're negative, its a dummy gem.
-                    Enchantment = dbcSpellItemEnchant.LookupEntry(-ip->GemProperties);
-                    if(Enchantment != NULL)
-                        TargetItem->AddEnchantment(Enchantment, 0, true,apply,false,2+i,0,true);
+                // If we're negative, its a dummy gem.
+                if(ip->GemProperties < 0 && (Enchantment = dbcSpellItemEnchant.LookupEntry(-ip->GemProperties)))
+                {
+                    TargetItem->AddEnchantment(Enchantment, 0, true, apply, false, SOCK_ENCHANTMENT_SLOT1+i, 0, true);
+                    applied = true;
+                }
+            }
+
+            if(applied)
+            {
+                filledSlots |= (1<<i);
+                uint32 stackCount = 0;
+                if((stackCount = it->GetStackCount()) > 1)
+                {
+                    it->SetStackCount(stackCount-1);
+                    it->m_isDirty = true;
+                }
+                else if(Item *cleanup = itemi->SafeRemoveAndRetreiveItemByGuid(gemGuid[i], true))
+                {
+                    sQuestMgr.OnPlayerDropItem(_player, ip->ItemId);
+                    cleanup->Destruct();
                 }
             }
         }
     }
 
-    bool truecolormatch = false;
-
+    bool truecolormatch = true;
     for(uint32 i = 0; i < 3; i++)
-    {
         if(TargetItem->GetProto()->ItemSocket[i])
-        {
-            if(i <= TargetItem->GetMaxSocketsCount())
-            {
-                if(ColorMatch[i] == true)
-                    truecolormatch = true;
-                else
-                    truecolormatch = false;
-            }
-        }
-    }
+            if(colorMatch[i] == false)
+                truecolormatch = false;
 
     //Add color match bonus
     if(TargetItem->GetProto()->SocketBonus)
     {
-        if(truecolormatch && (FilledSlots >= TargetItem->GetMaxSocketsCount()))
+        if(truecolormatch)
         {
-            if(TargetItem->HasEnchantment(TargetItem->GetProto()->SocketBonus) > 0)
-                return;
-
-            Enchantment = dbcSpellItemEnchant.LookupEntry(TargetItem->GetProto()->SocketBonus);
-            if(Enchantment)
+            if(TargetItem->HasEnchantment(TargetItem->GetProto()->SocketBonus) == 0 && (Enchantment = dbcSpellItemEnchant.LookupEntry(TargetItem->GetProto()->SocketBonus)))
             {
-                uint32 Slot = TargetItem->FindFreeEnchantSlot(Enchantment,0);
-                TargetItem->AddEnchantment(Enchantment, 0, true,apply,false, Slot);
+                filledSlots |= (1<<3);
+                TargetItem->AddEnchantment(Enchantment, 0, true, apply, false, BONUS_ENCHANTMENT_SLOT);
             }
-        }
-        else //remove
-            TargetItem->RemoveSocketBonusEnchant();
+        } else TargetItem->RemoveSocketBonusEnchant();
     }
 
+    for(uint32 i = 0; i < 4; i++)
+    {
+        EnchantmentInstance *enchant = NULL;
+        if(filledSlots & (1<<i))
+            enchant = TargetItem->GetEnchantment(SOCK_ENCHANTMENT_SLOT1+i);
+        data << uint32(enchant ? enchant->Enchantment->Id : NULL);
+    }
+
+    SendPacket(&data);
     TargetItem->m_isDirty = true;
 }
 

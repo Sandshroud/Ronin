@@ -4,10 +4,15 @@
 
 #pragma once
 
+class Creature;
 class SpellEffectClass;
+class SpellCastTargets;
 
 typedef bool(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
+
+typedef bool(*tCanCastCCS)(SpellEntry *sp, Creature *ctr);
+typedef bool(*tGenCCSTargets)(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
 
 class SERVER_DECL SpellManager : public Singleton<SpellManager>
 {
@@ -26,6 +31,9 @@ public:
     bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
     bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
 
+    bool CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr);
+    bool GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
+
 private:    // Spell fixes, start with class then continue to zones, items, quests
     void _RegisterWarriorFixes();
     void _RegisterPaladinFixes();
@@ -41,6 +49,10 @@ private:    // Spell fixes, start with class then continue to zones, items, ques
     // Register handler
     RONIN_INLINE void _RegisterAmountModifier(uint32 spellId, uint32 effIndex, tSpellAmountModifier amountHandler) { m_amountModifierHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), amountHandler)); }
     RONIN_INLINE void _RegisterDummyEffect(uint32 spellId, uint32 effIndex, tSpellDummyEffect dummyHandler) { m_dummyEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), dummyHandler)); }
+
+
+    RONIN_INLINE void _RegisterCanCastCCS(uint32 spellId, tCanCastCCS canCastCCS) { m_canCastCCSTriggers.insert(std::make_pair(spellId, canCastCCS)); }
+    RONIN_INLINE void _RegisterGenCCSTargets(uint32 spellId, tGenCCSTargets genCCSTargets) { m_genCCSTargetTriggers.insert(std::make_pair(spellId, genCCSTargets)); }
 
 private:
     // Sets default values for custom fields
@@ -67,6 +79,10 @@ private:
     // Dummy effect handler storage
     std::map<std::pair<uint32, uint32>, tSpellAmountModifier> m_amountModifierHandlers;
     std::map<std::pair<uint32, uint32>, tSpellDummyEffect> m_dummyEffectHandlers;
+
+    // Creature Combat spell limiters
+    std::map<uint32, tCanCastCCS> m_canCastCCSTriggers;
+    std::map<uint32, tGenCCSTargets> m_genCCSTargetTriggers;
 };
 
 #define sSpellMgr SpellManager::getSingleton()

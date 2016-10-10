@@ -48,8 +48,26 @@ void CapitalizeString(std::string& arg)
 
 void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
 {
+    if(m_asyncQuery)
+        return;
+
+    m_asyncQuery = true;
+    AsyncQuery * q = new AsyncQuery( new SQLClassCallbackP1<World, uint32>(World::getSingletonPtr(), &World::CharEnumDisplayData, GetAccountId()) );
+    uint8 index = 0;
+    uint32 count = 0, num = std::min<uint32>(MAXIMUM_CHAR_PER_ENUM, m_charData.size());
+    for(auto itr = m_charData.begin(); itr != m_charData.end() && count < num; itr++, count++)
+    {
+        q->AddQuery("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", itr->second->charGuid.getLow());
+        q->AddQuery("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", itr->second->charGuid.getLow());
+    }
+    CharacterDatabase.QueueAsyncQuery(q);
+}
+
+void WorldSession::CharEnumDisplayData(QueryResultVector& results)
+{
     //Erm, reset it here in case player deleted his DK.
     m_hasDeathKnight = false;
+    m_asyncQuery = false;
 
     ByteBuffer bitBuff, byteBuff;
     bitBuff.WriteBits(0, 23);
@@ -105,7 +123,7 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
             player_flags |= 0x1000000;*/
 
             uint32 petFamily = 0, petLevel = 0, petDisplay = 0;
-            if(QueryResult *res = CharacterDatabase.Query("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", info->charGuid.getLow()))
+            if(QueryResult *res = results[count*2].result)
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
@@ -113,10 +131,9 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
                     petDisplay = petData->displayInfo[0];
                 }
                 petLevel = res->Fetch()[1].GetUInt32();
-                delete res;
             }
 
-            if(QueryResult *res = CharacterDatabase.Query("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", info->charGuid.getLow()))
+            if(QueryResult *res = results[count*2 + 1].result)
             {
                 do
                 {
@@ -131,7 +148,6 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
                             items[slot].enchantment = enc->visualAura;
                     }
                 } while(res->NextRow());
-                delete res;
             }
 
             // Packet content flags

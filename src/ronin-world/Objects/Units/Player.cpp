@@ -1008,6 +1008,7 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT * FROM character_exploration WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_glyphs WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT character_inventory.guid,character_inventory.itemguid,item_data.itementry,item_data.containerguid,item_data.creatorguid,item_data.count,item_data.flags,item_data.randomseed,item_data.randomproperty,item_data.durability,item_data.textid,item_data.playedtime,item_data.spellcharges,item_data.giftitemid,item_data.giftcreatorguid,character_inventory.container,character_inventory.slot FROM character_inventory JOIN item_data ON character_inventory.guid = item_data.ownerguid AND character_inventory.itemguid = item_data.itemguid WHERE character_inventory.guid = '%u' ORDER BY container,slot", m_objGuid.getLow());
+    q->AddQuery("SELECT item_enchantments.itemguid, item_data.itementry, item_enchantments.enchantslot, item_enchantments.enchantid, item_enchantments.enchantsuffix, item_enchantments.enchantcharges, item_enchantments.enchantexpiretimer FROM item_enchantments JOIN item_data ON item_data.itemguid = item_enchantments.itemguid WHERE item_enchantments.itemguid IN(SELECT item_data.itemguid FROM item_data WHERE item_data.ownerguid = '%u');", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_questlog WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_quests_completed WHERE guid = '%u'", m_objGuid.getLow());
@@ -1235,7 +1236,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
     _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
     _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
-    m_inventory.mLoadItemsFromDatabase(results[PLAYER_LO_ITEMS].result);
+    m_inventory.mLoadItemsFromDatabase(results[PLAYER_LO_ITEMS].result, results[PLAYER_LO_ITEM_ENCHANTS].result);
 
     if(m_session->CanUseCommand('c'))
         _AddLanguages(true);
@@ -2918,8 +2919,7 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
                     if(apply)
                         AddShapeShiftSpell( spells->Id );
                     else RemoveShapeShiftSpell( spells->Id );
-                }
-                else if(apply == false)
+                } else if(apply == false)
                     RemoveAura( item->GetProto()->Spells[k].Id );
                 else
                 {
@@ -2937,6 +2937,21 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
         {
             // Todo:PROC
         }
+    }
+
+    // E N C H A N T S B O I S
+    for(uint8 i = 0; i < MAX_ENCHANTMENT_SLOT; i++)
+    {
+        // Apply visual enchant
+        if( slot < EQUIPMENT_SLOT_END && i <= TEMP_ENCHANTMENT_SLOT )
+            SetUInt16Value( (PLAYER_VISIBLE_ITEM + 1 + (slot * PLAYER_VISIBLE_ITEM_LENGTH)), i, 0 );
+
+        EnchantmentInstance *instance = item->GetEnchantment(i);
+        if(instance == NULL)
+            continue;
+        if( slot < EQUIPMENT_SLOT_END && i <= TEMP_ENCHANTMENT_SLOT )
+            SetUInt16Value( (PLAYER_VISIBLE_ITEM + 1 + (slot * PLAYER_VISIBLE_ITEM_LENGTH)), i, instance->Enchantment->Id );
+        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_PERM_ENCHANT + (i*4), ITEM_STAT_MOD_ENCHANTID, instance->Enchantment->Id, instance->RandomSuffix, item->GetItemPropertySeed());
     }
 }
 
@@ -5953,7 +5968,7 @@ int32 Player::GetBonusesFromItems(uint32 statType)
     return bonus;
 }
 
-void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val)
+void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val, int32 randSuffixAmt, int32 suffixSeed)
 {
     std::pair<uint64, uint32> guid_slot = std::make_pair(guid, slot);
     if(apply)
@@ -5972,15 +5987,60 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
     switch(slot)
     {
     case MOD_SLOT_ARMOR:
-        m_modQueuedModUpdates[6].empty();
+        TriggerModUpdate(UF_UTYPE_RESISTANCE);
         break;
     case MOD_SLOT_MINDAMAGE:
     case MOD_SLOT_MAXDAMAGE:
-        m_modQueuedModUpdates[9].empty();
+        TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
     case MOD_SLOT_WEAPONDELAY:
-        m_modQueuedModUpdates[5].empty();
+        TriggerModUpdate(UF_UTYPE_ATTACKTIME);
         break;
 
+        // Enchant modifier entries that are called back through are stat types
+    case MOD_SLOT_PERM_ENCHANT_1:
+    case MOD_SLOT_PERM_ENCHANT_2:
+    case MOD_SLOT_PERM_ENCHANT_3:
+    case MOD_SLOT_TEMP_ENCHANT_1:
+    case MOD_SLOT_TEMP_ENCHANT_2:
+    case MOD_SLOT_TEMP_ENCHANT_3:
+    case MOD_SLOT_SOCKET_ENCHANT_1_1:
+    case MOD_SLOT_SOCKET_ENCHANT_1_2:
+    case MOD_SLOT_SOCKET_ENCHANT_1_3:
+    case MOD_SLOT_SOCKET_ENCHANT_2_1:
+    case MOD_SLOT_SOCKET_ENCHANT_2_2:
+    case MOD_SLOT_SOCKET_ENCHANT_2_3:
+    case MOD_SLOT_SOCKET_ENCHANT_3_1:
+    case MOD_SLOT_SOCKET_ENCHANT_3_2:
+    case MOD_SLOT_SOCKET_ENCHANT_3_3:
+    case MOD_SLOT_BONUS_ENCHANT_1:
+    case MOD_SLOT_BONUS_ENCHANT_2:
+    case MOD_SLOT_BONUS_ENCHANT_3:
+    case MOD_SLOT_PRISMATIC_ENCHANT_1:
+    case MOD_SLOT_PRISMATIC_ENCHANT_2:
+    case MOD_SLOT_PRISMATIC_ENCHANT_3:
+    case MOD_SLOT_REFORGE_ENCHANT_1:
+    case MOD_SLOT_REFORGE_ENCHANT_2:
+    case MOD_SLOT_REFORGE_ENCHANT_3:
+    case MOD_SLOT_TRANSMOG_ENCHANT_1:
+    case MOD_SLOT_TRANSMOG_ENCHANT_2:
+    case MOD_SLOT_TRANSMOG_ENCHANT_3:
+    case MOD_SLOT_PROPRETY_ENCHANT_0_1:
+    case MOD_SLOT_PROPRETY_ENCHANT_0_2:
+    case MOD_SLOT_PROPRETY_ENCHANT_0_3:
+    case MOD_SLOT_PROPRETY_ENCHANT_1_1:
+    case MOD_SLOT_PROPRETY_ENCHANT_1_2:
+    case MOD_SLOT_PROPRETY_ENCHANT_1_3:
+    case MOD_SLOT_PROPRETY_ENCHANT_2_1:
+    case MOD_SLOT_PROPRETY_ENCHANT_2_2:
+    case MOD_SLOT_PROPRETY_ENCHANT_2_3:
+    case MOD_SLOT_PROPRETY_ENCHANT_3_1:
+    case MOD_SLOT_PROPRETY_ENCHANT_3_2:
+    case MOD_SLOT_PROPRETY_ENCHANT_3_3:
+    case MOD_SLOT_PROPRETY_ENCHANT_4_1:
+    case MOD_SLOT_PROPRETY_ENCHANT_4_2:
+    case MOD_SLOT_PROPRETY_ENCHANT_4_3:
+
+        // Stats pass through type and value
     case MOD_SLOT_STAT_1:
     case MOD_SLOT_STAT_2:
     case MOD_SLOT_STAT_3:
@@ -5991,43 +6051,121 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
     case MOD_SLOT_STAT_8:
     case MOD_SLOT_STAT_9:
     case MOD_SLOT_STAT_10:
-        switch(type)
         {
-        case ITEM_STAT_AGILITY:
-        case ITEM_STAT_STRENGTH:
-        case ITEM_STAT_INTELLECT:
-        case ITEM_STAT_SPIRIT:
-        case ITEM_STAT_STAMINA:
-            m_modQueuedModUpdates[1].empty();
-            break;
-        case ITEM_STAT_PHYSICAL_RESISTANCE:
-        case ITEM_STAT_FIRE_RESISTANCE:
-        case ITEM_STAT_FROST_RESISTANCE:
-        case ITEM_STAT_HOLY_RESISTANCE:
-        case ITEM_STAT_SHADOW_RESISTANCE:
-        case ITEM_STAT_NATURE_RESISTANCE:
-        case ITEM_STAT_ARCANE_RESISTANCE:
-            m_modQueuedModUpdates[6].empty();
-            break;
-        case ITEM_STAT_SPELL_HEALING_DONE:
-        case ITEM_STAT_SPELL_DAMAGE_DONE:
-        case ITEM_STAT_SPELL_POWER:
-            m_modQueuedModUpdates[51].empty();
-            break;
-        case ITEM_STAT_HIT_RATING:
-        case ITEM_STAT_CRITICAL_STRIKE_RATING:
-        case ITEM_STAT_HIT_REDUCTION_RATING:
-        case ITEM_STAT_RESILIENCE_RATING:
-        case ITEM_STAT_CRITICAL_REDUCTION_RATING:
-        case ITEM_STAT_HASTE_RATING:
-        case ITEM_STAT_EXPERTISE_RATING:
-        case ITEM_STAT_ARMOR_PENETRATION_RATING:
-        case ITEM_STAT_SPELL_PENETRATION:
-        case ITEM_STAT_MASTERY_RATING:
-            m_modQueuedModUpdates[52].empty();
-            break;
-        }
-        break;
+            switch(type)
+            {
+            case ITEM_STAT_AGILITY:
+            case ITEM_STAT_STRENGTH:
+            case ITEM_STAT_INTELLECT:
+            case ITEM_STAT_SPIRIT:
+            case ITEM_STAT_STAMINA:
+                TriggerModUpdate(UF_UTYPE_STATS);
+                break;
+            case ITEM_STAT_PHYSICAL_RESISTANCE:
+            case ITEM_STAT_FIRE_RESISTANCE:
+            case ITEM_STAT_FROST_RESISTANCE:
+            case ITEM_STAT_HOLY_RESISTANCE:
+            case ITEM_STAT_SHADOW_RESISTANCE:
+            case ITEM_STAT_NATURE_RESISTANCE:
+            case ITEM_STAT_ARCANE_RESISTANCE:
+                TriggerModUpdate(UF_UTYPE_RESISTANCE);
+                break;
+            case ITEM_STAT_SPELL_HEALING_DONE:
+            case ITEM_STAT_SPELL_DAMAGE_DONE:
+            case ITEM_STAT_SPELL_POWER:
+                TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
+                break;
+            case ITEM_STAT_HIT_RATING:
+            case ITEM_STAT_CRITICAL_STRIKE_RATING:
+            case ITEM_STAT_HIT_REDUCTION_RATING:
+            case ITEM_STAT_RESILIENCE_RATING:
+            case ITEM_STAT_CRITICAL_REDUCTION_RATING:
+            case ITEM_STAT_HASTE_RATING:
+            case ITEM_STAT_EXPERTISE_RATING:
+            case ITEM_STAT_ARMOR_PENETRATION_RATING:
+            case ITEM_STAT_SPELL_PENETRATION:
+            case ITEM_STAT_MASTERY_RATING:
+                TriggerModUpdate(UF_UTYPE_PLAYERRATINGS);
+                break;
+            case ITEM_STAT_MOD_DAMAGE_PHYSICAL:
+                TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
+                break;
+            case ITEM_STAT_MOD_DAMAGE_FIRE:
+            case ITEM_STAT_MOD_DAMAGE_FROST:
+            case ITEM_STAT_MOD_DAMAGE_HOLY:
+            case ITEM_STAT_MOD_DAMAGE_SHADOW:
+            case ITEM_STAT_MOD_DAMAGE_NATURE:
+            case ITEM_STAT_MOD_DAMAGE_ARCANE:
+                TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
+                break;
+            }
+        }break;
+        // Enchants passed through raw enchant ID
+    case MOD_SLOT_PERM_ENCHANT:
+    case MOD_SLOT_TEMP_ENCHANT:
+    case MOD_SLOT_SOCKET_ENCHANT_1:
+    case MOD_SLOT_SOCKET_ENCHANT_2:
+    case MOD_SLOT_SOCKET_ENCHANT_3:
+    case MOD_SLOT_BONUS_ENCHANT:
+    case MOD_SLOT_PRISMATIC_ENCHANT:
+    case MOD_SLOT_REFORGE_ENCHANT:
+    case MOD_SLOT_TRANSMOG_ENCHANT:
+    case MOD_SLOT_PROPRETY_ENCHANT_0:
+    case MOD_SLOT_PROPRETY_ENCHANT_1:
+    case MOD_SLOT_PROPRETY_ENCHANT_2:
+    case MOD_SLOT_PROPRETY_ENCHANT_3:
+    case MOD_SLOT_PROPRETY_ENCHANT_4:
+        {
+            if(val <= 0)
+            {
+                if(ItemPrototype *proto = sItemMgr.LookupEntry(val))
+                    for(uint8 i = 0; i < 3; i++)
+                        ModifyBonuses(apply, guid, slot+1+i, proto->Stats[i].Type, proto->Stats[i].Value);
+                break;
+            }
+
+            if(SpellItemEnchantEntry *enchant = dbcSpellItemEnchant.LookupEntry(val))
+            {
+                for(uint8 i = 0; i < 3; i++)
+                {
+                    if(enchant->type[i] == 0)
+                        continue;
+
+                    int32 value = randSuffixAmt ? float2int32( (((float)randSuffixAmt) * ((float)suffixSeed)) / 13340.0f ) : enchant->minPoints[i];
+                    switch(enchant->type[i])
+                    {
+                    case 1: // Trigger on melee
+                        break;
+                    case 2: // Damage done modifier
+                        break;
+                    case 3: // cast spell
+                        {
+                            if(apply == true)
+                            {
+                                if(SpellEntry *sp = dbcSpell.LookupEntry(enchant->spell[i]))
+                                {
+                                    if(Spell *spell = new Spell(this, sp))
+                                    {
+                                        SpellCastTargets targets;
+                                        targets.m_unitTarget = GetGUID();
+                                        spell->castedItemId = WoWGuid(guid).getEntry();
+                                        spell->prepare( &targets, true );
+                                    }
+                                }
+                            } else RemoveAura(enchant->spell[i]);
+                        }break;
+                    case 4: // Resistance
+                        ModifyBonuses(apply, guid, slot+1+i, ITEM_STAT_PHYSICAL_RESISTANCE+enchant->spell[i], value);
+                        break;
+                    case 5: // Stat
+                        ModifyBonuses(apply, guid, slot+1+i, enchant->spell[i], value);
+                        break;
+                    case 6: // Rockbiter
+                        break;
+                    }
+                }
+            }
+        }break;
     }
 }
 
@@ -6046,7 +6184,7 @@ void Player::SetShapeShift(uint8 ss)
 {
     uint8 old_ss = GetByte( UNIT_FIELD_BYTES_2, 3 );
     SetByte( UNIT_FIELD_BYTES_2, 3, ss );
-    m_modQueuedModUpdates[1].empty();
+    TriggerModUpdate(UF_UTYPE_STATS);
 
     //remove auras that we should not have
     m_AuraInterface.UpdateShapeShiftAuras(old_ss, ss);

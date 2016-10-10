@@ -15,7 +15,7 @@ enum SpellEffectIndex
 class SpellEffectClass : public BaseSpell
 {
 public:
-    SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber);
+    SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid);
     ~SpellEffectClass();
     virtual void Destruct();
 

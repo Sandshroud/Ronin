@@ -48,6 +48,8 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_pickPocketed = false; // 0x200
     haslinkupevent = false; // 0x400
     has_waypoint_text = has_combat_text = false; // 0x800  // 0x1000
+
+    //m_script = NULL;
 }
 
 Creature::~Creature()
@@ -135,7 +137,10 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
     }
 
     m_aiInterface.Update(uiDiff);
-    EventUpdateCombat();
+
+    // Combat handling, check if we have a script and if the script is not handling the combat update
+    //if(m_script == NULL || !m_script->EventUpdateCombat(msTime, uiDiff))
+        EventUpdateCombat(msTime, uiDiff);
 }
 
 void Creature::UpdateFieldValues()
@@ -237,11 +242,46 @@ void Creature::Tag(Player* plr)
     UpdateLootAnimation(plr);
 }
 
-void Creature::EventUpdateCombat()
+void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
 {
-    if(!hasStateFlag(UF_ATTACKING))
+    if(!hasStateFlag(UF_ATTACKING) || (isCasting() && GetCurrentSpell()->GetSpellProto()->isSpellAttackInterrupting()))
         return;
-    // Check spell casting
+
+    // Handle our creature spell casting
+    if(!m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SILENCE))
+    {   // Check our individual spells to cast
+        for(std::vector<CreatureSpell*>::iterator itr = m_combatSpells.begin(); itr != m_combatSpells.end(); itr++)
+        {
+            CreatureSpell *cSpell = (*itr);
+            if(cSpell->castTimer > uiDiff)
+            {
+                cSpell->castTimer -= uiDiff;
+                continue;
+            }
+
+            if(!sSpellMgr.CanCastCreatureCombatSpell(cSpell->spellEntry, this))
+                continue;
+
+            cSpell->castTimer = std::max<uint32>(5000, cSpell->spellEntry->RecoveryTime);
+            if(Spell *spell = new Spell(this, cSpell->spellEntry))
+            {
+                SpellCastTargets targets(m_attackTarget);
+                if(!sSpellMgr.GenerateCreatureCombatSpellTargets(cSpell->spellEntry, this, &targets, m_attackTarget))
+                {
+                    targets.m_targetMask |= TARGET_FLAG_UNIT;
+                    targets.m_unitTarget = m_attackTarget;
+                }
+
+                if(spell->prepare(&targets, false) == SPELL_CANCAST_OK)
+                {
+                    // Cancel auto attack if we have to cast
+                    if(cSpell->spellEntry->CastingTimeIndex)
+                        return;
+                    break;
+                }
+            }
+        }
+    }
 
     // Update our auto attack states
     UpdateAutoAttackState();

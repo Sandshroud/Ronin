@@ -271,6 +271,7 @@ enum dbcItemStatType : uint8
     ITEM_STAT_NATURE_RESISTANCE               = 55,
     ITEM_STAT_ARCANE_RESISTANCE               = 56,
 
+    // These aren't in the client, they're custom
     ITEM_STAT_MOD_DAMAGE_PHYSICAL,
     ITEM_STAT_MOD_DAMAGE_FIRE,
     ITEM_STAT_MOD_DAMAGE_FROST,
@@ -278,6 +279,8 @@ enum dbcItemStatType : uint8
     ITEM_STAT_MOD_DAMAGE_SHADOW,
     ITEM_STAT_MOD_DAMAGE_NATURE,
     ITEM_STAT_MOD_DAMAGE_ARCANE,
+
+    ITEM_STAT_MOD_ENCHANTID,
     ITEM_STAT_MAXIMUM
 };
 

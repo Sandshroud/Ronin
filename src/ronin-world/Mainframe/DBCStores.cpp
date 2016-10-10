@@ -243,7 +243,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellInterruptsEntry, dbcSpellInterrupts);
 static const char *spellinterruptFormat = "uuxuxu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellItemEnchantEntry, dbcSpellItemEnchant);
-static const char *spellitemenchantFormat = "uxuuuuuuuuuuuusxuuuxxxx";
+static const char *spellitemenchantFormat = "uxuuuuuuxxxuuusuuuuuuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellLevelsEntry, dbcSpellLevels);
 static const char *spelllevelFormat = "uuuu";
@@ -355,14 +355,18 @@ int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboP
     }
     else
     {
-        if (spellLevelMaxLevel)
-            level = std::min<int32>(level, spellLevelMaxLevel);
-        level = std::max<int32>(level, spellLevelBaseLevel);
-        level = std::max<int32>(level, spellLevelSpellLevel) - spellLevelSpellLevel;
+        if(spellLevelMaxLevel == 0 && spellLevelBaseLevel == spellLevelSpellLevel)
+            level = spellLevelSpellLevel-1;
+        else
+        {
+            if (spellLevelMaxLevel)
+                level = std::min<int32>(level, spellLevelMaxLevel);
+            level = std::max<int32>(level, spellLevelBaseLevel);
+            level = std::max<int32>(level, spellLevelSpellLevel) - spellLevelSpellLevel;
+        }
 
-        float basePointsPerLevel = EffectRealPointsPerLevel[effIndex];
         basePoints = EffectBasePoints[effIndex];
-        basePoints += int32(level * basePointsPerLevel);
+        basePoints += int32(level * EffectRealPointsPerLevel[effIndex]);
         comboDamage = EffectPointsPerComboPoint[effIndex];
         if(int32 randomPoints = int32(EffectDieSides[effIndex]))
         {

@@ -370,6 +370,8 @@ public:
     uint32 GetMaxLevel(Player* plr);
     uint32 GetMaxLevelStatCalc();
 
+    void CharEnumDisplayData(QueryResultVector& results, uint32 AccountId);
+
     /** Reloads the config and sets all of the setting variables
      */
     void Rehash(bool load);

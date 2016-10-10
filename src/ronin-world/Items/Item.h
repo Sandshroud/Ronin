@@ -30,16 +30,15 @@ enum EnchantmentSlot
 struct EnchantmentInstance
 {
     SpellItemEnchantEntry *Enchantment;
-    bool BonusApplied;
     uint32 Slot;
-    time_t ApplyTime;
-    uint32 Duration;
-    bool RemoveAtLogout;
     uint32 RandomSuffix;
+    uint32 Duration;
+    time_t ApplyTime;
+    bool RemoveAtLogout;
     bool Dummy;
 };
 
-typedef std::map< uint32, EnchantmentInstance > EnchantmentMap;
+typedef std::vector<EnchantmentInstance*> enchantVector;
 
 class SERVER_DECL Item : public Object
 {
@@ -58,6 +57,8 @@ public:
     void SaveToDB( int8 containerslot, uint8 slot, bool firstsave, QueryBuffer* buf );
     bool LoadAuctionItemFromDB( uint64 guid );
     void DeleteFromDB();
+
+    bool IsWrapped() { return false; }
 
     RONIN_INLINE ItemPrototype* GetProto() const { return m_proto; }
     RONIN_INLINE Player* GetOwner() const { return m_owner; }
@@ -157,15 +158,17 @@ public:
 
     RONIN_INLINE time_t GetEnchantmentApplytime( uint32 slot )
     {
-        EnchantmentMap::iterator itr;
-        if((itr = m_enchantments.find(slot)) != m_enchantments.end())
-            return itr->second.ApplyTime;
-        return 0;
+        time_t ret = 0;
+        m_enchantLock.Acquire();
+        if(EnchantmentInstance *enchant = m_enchantments[slot])
+            ret = enchant->ApplyTime;
+        m_enchantLock.Release();
+        return ret;
     }
 
     //! Adds an enchantment to the item.
     int32 AddEnchantment( SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
-    uint32 GetMaxSocketsCount();
+    void LoadEnchantment(uint8 slot, uint32 enchantId, uint32 suffix, uint32 expireTime, uint32 charges);
 
     const char* ConstructItemLink() { return m_proto->ConstructItemLink(GetItemRandomPropertyId(), GetItemPropertySeed(), GetStackCount()).c_str(); }
 
@@ -174,9 +177,6 @@ public:
 
     // Removes related temporary enchants
     void RemoveRelatedEnchants( SpellItemEnchantEntry* newEnchant );
-
-    //! Adds the bonus on an enchanted item.
-    void ApplyEnchantmentBonus( uint32 Slot, bool Apply );
 
     //! Applies all enchantment bonuses (use on equip)
     void ApplyEnchantmentBonuses();
@@ -202,10 +202,11 @@ public:
     //! Sends SMSG_ITEM_UPDATE_ENCHANT_TIME
     void SendEnchantTimeUpdate( uint32 Slot, uint32 Duration );
 
-    //! Applies any random properties the item has.
-    void ApplyRandomProperties( bool apply );
+    //! Loads any random properties the item has.
+    void LoadRandomProperties();
 
-    void RemoveProfessionEnchant();
+    void RemovePermanentEnchant();
+    void RemoveTemporaryEnchant();
     void RemoveSocketBonusEnchant();
 
     RONIN_INLINE void SetCount( uint32 amt ) { SetUInt32Value( ITEM_FIELD_STACK_COUNT, amt ); }
@@ -214,13 +215,27 @@ public:
     void RemoveFromWorld();
 
     bool locked;
-    bool m_isDirty;
+    bool m_isDirty, m_deleted;
 
     uint32 CountGemsWithLimitId(uint32 Limit);
-    EnchantmentInstance* GetEnchantment( uint32 slot );
+    EnchantmentInstance* GetEnchantment( uint32 slot ) { return m_enchantments[slot]; }
     bool IsGemRelated( SpellItemEnchantEntry* Enchantment );
 
-    bool HasEnchantments() { return ( m_enchantments.size() > 0 ) ? true : false; }
+    bool HasEnchantments()
+    {
+        bool ret = false;
+        m_enchantLock.Acquire();
+        for(uint8 i = 0; i < MAX_ENCHANTMENT_SLOT; i++)
+        {
+            if(m_enchantments[i])
+            {
+                ret = true;
+                break;
+            }
+        }
+        m_enchantLock.Release();
+        return false;
+    }
 
     uint32 GetTextID() { return m_textId; };
     void SetTextID(uint32 newtxt) { m_textId = newtxt; };
@@ -229,5 +244,7 @@ protected:
     Player* m_owner; // let's not bother the manager with unneeded requests
     ItemPrototype* m_proto;
     uint32 m_textId;
-    EnchantmentMap m_enchantments;
+
+    Mutex m_enchantLock;
+    enchantVector m_enchantments;
 };

@@ -336,6 +336,25 @@ class SERVER_DECL ThreatRedirectHandler
 
 };
 
+enum UnitFieldUpdateType
+{
+    UF_UTYPE_STATS = 1,
+    UF_UTYPE_HEALTH,
+    UF_UTYPE_POWER,
+    UF_UTYPE_REGEN,
+    UF_UTYPE_ATTACKTIME,
+    UF_UTYPE_RESISTANCE,
+    UF_UTYPE_ATTACKPOWER,
+    UF_UTYPE_RANGEDATTACKPOWER,
+    UF_UTYPE_ATTACKDAMAGE,
+    UF_UTYPE_POWERCOST,
+    UF_UTYPE_HOVER,
+    UF_UTYPE_PLAYERDAMAGEMODS,
+    UF_UTYPE_PLAYERRATINGS,
+    UF_UTYPE_MOVEMENT,
+
+};
+
 //====================================================================
 //  Unit
 //  Base object for Players and Creatures
@@ -880,6 +899,8 @@ public:
     virtual void OnAuraModChanged(uint32 modType);
     void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
 
+    // We can trigger an allocation using [] so we just check empty
+    void TriggerModUpdate(uint8 modUpdateType) { m_modQueuedModUpdates[modUpdateType].empty(); }
     Loki::AssocVector<uint8, std::vector<uint32> > m_modQueuedModUpdates;
 
     AuraInterface m_AuraInterface;

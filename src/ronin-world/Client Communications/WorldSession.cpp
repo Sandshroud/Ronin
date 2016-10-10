@@ -14,7 +14,7 @@ extern bool bServerShutdown;
 static OpcodeHandler *WorldPacketHandlers;
 
 WorldSession::WorldSession(uint32 id, std::string Name, WorldSocket *sock) : _socket(sock), _accountId(id), _accountName(Name),
-_logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), _zlibStream(NULL), m_tutorials(8*8)
+_logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _recentlogout(false), m_asyncQuery(false), _zlibStream(NULL), m_tutorials(8*8)
 {
     _player = NULL;
     m_hasDeathKnight = false;

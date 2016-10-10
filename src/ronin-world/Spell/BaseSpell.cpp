@@ -13,7 +13,7 @@ void SpellCastTargets::read( WorldPacket & data, uint64 caster )
     if( m_targetMask & (TARGET_FLAG_OBJECT | TARGET_FLAG_UNIT | TARGET_FLAG_CORPSE | TARGET_FLAG_CORPSE2 ) )
         data >> m_unitTarget.asPacked();
     else if( m_targetMask & ( TARGET_FLAG_ITEM | TARGET_FLAG_TRADE_ITEM ) )
-        data >> m_unitTarget.asPacked();
+        data >> m_itemTarget.asPacked();
 
     if( m_targetMask & TARGET_FLAG_SOURCE_LOCATION )
     {
@@ -84,7 +84,7 @@ void SpellCastTargets::write( WorldPacket& data )
         data << m_strTarget;
 }
 
-BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber) : m_caster(caster), m_spellInfo(info), m_castNumber(castNumber)
+BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : m_caster(caster), m_spellInfo(info), m_castNumber(castNumber), m_itemCaster(itemGuid)
 {
     m_duration = -1;
     m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;

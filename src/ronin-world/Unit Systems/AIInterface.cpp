@@ -42,6 +42,9 @@ void AIInterface::Update(uint32 p_time)
                 return;
             }
 
+            if(m_Creature->isCasting() && m_Creature->GetCurrentSpell()->GetSpellProto()->isSpellInterruptOnMovement())
+                return;
+
             if(FindTarget() == false)
             {
                 if(!m_path->hasDestination())
@@ -50,8 +53,7 @@ void AIInterface::Update(uint32 p_time)
                     {
                         m_waypointWaitTimer = m_pendingWaitTimer;
                         m_pendingWaitTimer = 0;
-                    }
-                    else if(m_waypointWaitTimer == 0)
+                    } else if(m_waypointWaitTimer == 0)
                         FindNextPoint();
                 } // The update block should stop here
                 return;
@@ -192,6 +194,12 @@ void AIInterface::_HandleCombatAI()
 {
     bool tooFarFromSpawn = false;
     Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
+    if(m_Creature->isCasting() && m_Creature->GetCurrentSpell()->GetSpellProto()->isSpellAttackInterrupting())
+    {
+        if(unitTarget) m_Creature->SetOrientation(m_Creature->GetAngle(unitTarget));
+        return;
+    }
+
     if (unitTarget == NULL || unitTarget->isDead() || (tooFarFromSpawn = (unitTarget->GetDistance2dSq(m_Creature->GetSpawnX(), m_Creature->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST))
         || !sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
     {

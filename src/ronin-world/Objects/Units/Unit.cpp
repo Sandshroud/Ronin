@@ -17,9 +17,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_dualWield = m_autoShot = false;
 
     baseStats = NULL;
-    m_modQueuedModUpdates[1].empty();
-    m_modQueuedModUpdates[2].empty();
-    m_modQueuedModUpdates[5].empty();
 
     m_state = 0;
     m_deathState = ALIVE;
@@ -78,6 +75,9 @@ Unit::~Unit()
 void Unit::Init()
 {
     WorldObject::Init();
+
+    // Trigger a stat update
+    TriggerModUpdate(UF_UTYPE_STATS);
 
     // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
@@ -174,51 +174,51 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_STAT:
     case SPELL_AURA_MOD_PERCENT_STAT:
     case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
-        pendingIndex.push_back(1);
+        pendingIndex.push_back(UF_UTYPE_STATS);
         break;
     case SPELL_AURA_MOD_BASE_HEALTH_PCT:
     case SPELL_AURA_MOD_INCREASE_HEALTH:
     case SPELL_AURA_MOD_INCREASE_MAX_HEALTH:
     case SPELL_AURA_MOD_INCREASE_HEALTH_2:
     case SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT:
-        pendingIndex.push_back(2);
+        pendingIndex.push_back(UF_UTYPE_HEALTH);
         break;
     case SPELL_AURA_MOD_INCREASE_ENERGY:
     case SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT:
-        pendingIndex.push_back(3);
+        pendingIndex.push_back(UF_UTYPE_POWER);
         break;
     case SPELL_AURA_MOD_POWER_REGEN:
     case SPELL_AURA_MOD_POWER_REGEN_PERCENT:
     case SPELL_AURA_MOD_MANA_REGEN_INTERRUPT:
-        pendingIndex.push_back(4);
+        pendingIndex.push_back(UF_UTYPE_REGEN);
         break;
     case SPELL_AURA_MOD_ATTACKSPEED:
-        pendingIndex.push_back(5);
+        pendingIndex.push_back(UF_UTYPE_ATTACKTIME);
         break;
     case SPELL_AURA_MOD_RESISTANCE:
     case SPELL_AURA_MOD_RESISTANCE_PCT:
     case SPELL_AURA_MOD_BASE_RESISTANCE:
     case SPELL_AURA_MOD_BASE_RESISTANCE_PCT:
     case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
-        pendingIndex.push_back(6);
+        pendingIndex.push_back(UF_UTYPE_RESISTANCE);
         break;
     case SPELL_AURA_MOD_ATTACK_POWER_PCT:
-        pendingIndex.push_back(7);
+        pendingIndex.push_back(UF_UTYPE_ATTACKPOWER);
         break;
     case SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT:
-        pendingIndex.push_back(8);
+        pendingIndex.push_back(UF_UTYPE_RANGEDATTACKPOWER);
         break;
     case SPELL_AURA_MOD_DAMAGE_DONE:
     case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
-        pendingIndex.push_back(9);
-        if(IsPlayer()) pendingIndex.push_back(51);
+        pendingIndex.push_back(UF_UTYPE_ATTACKDAMAGE);
+        if(IsPlayer()) pendingIndex.push_back(UF_UTYPE_PLAYERDAMAGEMODS);
         break;
     case SPELL_AURA_MOD_POWER_COST_SCHOOL:
     case SPELL_AURA_MOD_POWER_COST:
-        pendingIndex.push_back(10);
+        pendingIndex.push_back(UF_UTYPE_POWERCOST);
         break;
     case SPELL_AURA_HOVER:
-        pendingIndex.push_back(11);
+        pendingIndex.push_back(UF_UTYPE_HOVER);
         break;
         // Player opcode handling
     case SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT:
@@ -227,12 +227,12 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_HEALING_DONE:
     case SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT:
     case SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER:
-        if(IsPlayer()) pendingIndex.push_back(51);
+        if(IsPlayer()) pendingIndex.push_back(UF_UTYPE_PLAYERDAMAGEMODS);
         break;
     case SPELL_AURA_MASTERY:
     case SPELL_AURA_MOD_RATING:
     case SPELL_AURA_MOD_RATING_FROM_STAT:
-        if(IsPlayer()) pendingIndex.push_back(52);
+        if(IsPlayer()) pendingIndex.push_back(UF_UTYPE_PLAYERRATINGS);
         break;
         /// Movement handler opcodes
         // Enabler opcodes
@@ -252,7 +252,7 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
     case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
     case SPELL_AURA_MOD_MINIMUM_SPEED:
-        pendingIndex.push_back(100);
+        pendingIndex.push_back(UF_UTYPE_MOVEMENT);
         break;
     case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
     case SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS:
@@ -289,20 +289,20 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
 {
     switch(modUpdateType)
     {
-    case 1: UpdateStatValues(); break;
-    case 2: UpdateHealthValues(); break;
-    case 3: UpdatePowerValues(); break;
-    case 4: UpdateRegenValues(); break;
-    case 5: UpdateAttackTimeValues(); break;
-    case 6: UpdateResistanceValues(); break;
-    case 7: UpdateAttackPowerValues(modMap); break;
-    case 8: UpdateRangedAttackPowerValues(modMap); break;
-    case 9: UpdateAttackDamageValues(); break;
-    case 10: UpdatePowerCostValues(modMap); break;
-    case 11: UpdateHoverValues(); break;
-    case 51: castPtr<Player>(this)->UpdatePlayerDamageDoneMods(); break;
-    case 52: castPtr<Player>(this)->UpdatePlayerRatings(); break;
-    case 100: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
+    case UF_UTYPE_STATS: UpdateStatValues(); break;
+    case UF_UTYPE_HEALTH: UpdateHealthValues(); break;
+    case UF_UTYPE_POWER: UpdatePowerValues(); break;
+    case UF_UTYPE_REGEN: UpdateRegenValues(); break;
+    case UF_UTYPE_ATTACKTIME: UpdateAttackTimeValues(); break;
+    case UF_UTYPE_RESISTANCE: UpdateResistanceValues(); break;
+    case UF_UTYPE_ATTACKPOWER: UpdateAttackPowerValues(modMap); break;
+    case UF_UTYPE_RANGEDATTACKPOWER: UpdateRangedAttackPowerValues(modMap); break;
+    case UF_UTYPE_ATTACKDAMAGE: UpdateAttackDamageValues(); break;
+    case UF_UTYPE_POWERCOST: UpdatePowerCostValues(modMap); break;
+    case UF_UTYPE_HOVER: UpdateHoverValues(); break;
+    case UF_UTYPE_PLAYERDAMAGEMODS: castPtr<Player>(this)->UpdatePlayerDamageDoneMods(); break;
+    case UF_UTYPE_PLAYERRATINGS: castPtr<Player>(this)->UpdatePlayerRatings(); break;
+    case UF_UTYPE_MOVEMENT: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
     }
 }
 
@@ -374,13 +374,14 @@ void Unit::UpdateStatValues()
     }
 
     // Set stat values as updated to update affected auras
-    m_modQueuedModUpdates[2].empty();
-    m_modQueuedModUpdates[3].empty();
-    m_modQueuedModUpdates[4].empty();
-    m_modQueuedModUpdates[7].empty();
-    m_modQueuedModUpdates[8].empty();
-    m_modQueuedModUpdates[9].empty();
-    if(IsPlayer()) m_modQueuedModUpdates[51].empty();
+    TriggerModUpdate(UF_UTYPE_HEALTH);
+    TriggerModUpdate(UF_UTYPE_POWER);
+    TriggerModUpdate(UF_UTYPE_REGEN);
+    TriggerModUpdate(UF_UTYPE_RESISTANCE);
+    TriggerModUpdate(UF_UTYPE_ATTACKPOWER);
+    TriggerModUpdate(UF_UTYPE_RANGEDATTACKPOWER);
+    if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
+    if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERRATINGS);
 }
 
 void Unit::UpdateHealthValues()
@@ -553,7 +554,7 @@ void Unit::UpdateAttackTimeValues()
     if(updateMask > 0)
     {
         resetAttackDelay(updateMask);
-        m_modQueuedModUpdates[9].empty();
+        TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
     }
 }
 
@@ -761,8 +762,8 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
 
-    m_modQueuedModUpdates[9].empty();
-    if(IsPlayer()) m_modQueuedModUpdates[51].empty();
+    TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
+    if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
 }
 
 void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
@@ -792,7 +793,8 @@ void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
 
-    m_modQueuedModUpdates[9].empty();
+    TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
+    if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
 }
 
 void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
@@ -1329,7 +1331,7 @@ void Unit::SetDiminishTimer(uint32 index)
 
 void Unit::setLevel(uint32 level)
 {
-    m_modQueuedModUpdates[1].empty();
+    TriggerModUpdate(UF_UTYPE_STATS);
     m_AuraInterface.OnChangeLevel(level);
     SetUInt32Value(UNIT_FIELD_LEVEL, level);
     if((baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level)) == NULL)
