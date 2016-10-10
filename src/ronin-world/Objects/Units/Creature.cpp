@@ -74,7 +74,7 @@ void Creature::Init()
         if(spell->spellEntry = dbcSpell.LookupEntry(*itr))
         {
             spell->castTimer = std::min<uint32>(spell->spellEntry->StartRecoveryTime, std::min<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime));
-            spell->cooldownTimer = std::max<uint32>(spell->spellEntry->StartRecoveryTime, std::max<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime));
+            spell->cooldownTimer = std::min<uint32>(5000, std::max<uint32>(spell->spellEntry->StartRecoveryTime, std::max<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime)));
             if(spell->castTimer == 0 || spell->castTimer == spell->cooldownTimer)
                 spell->castTimer = 5000;
             m_combatSpells.push_back(spell);
@@ -291,18 +291,30 @@ void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
                 continue;
             }
 
+            // Soft reset for timer
+            cSpell->castTimer = 500;
             if(!sSpellMgr.CanCastCreatureCombatSpell(cSpell->spellEntry, this))
                 continue;
+
+            SpellCastTargets targets(m_attackTarget);
+            if(!sSpellMgr.GenerateCreatureCombatSpellTargets(cSpell->spellEntry, this, &targets, m_attackTarget))
+            {
+                targets.m_targetMask |= TARGET_FLAG_UNIT;
+                targets.m_unitTarget = m_attackTarget;
+            }
+
+            if(targets.m_targetMask & TARGET_FLAG_UNIT)
+            {
+                Unit *spellTarget = GetInRangeObject<Unit>(targets.m_unitTarget);
+                if(spellTarget == NULL)
+                    continue;
+                if(cSpell->spellEntry->isSpellAuraApplicator() && spellTarget->HasAura(cSpell->spellEntry->Id))
+                    continue;
+            }
 
             cSpell->castTimer = cSpell->cooldownTimer;
             if(Spell *spell = new Spell(this, cSpell->spellEntry))
             {
-                SpellCastTargets targets(m_attackTarget);
-                if(!sSpellMgr.GenerateCreatureCombatSpellTargets(cSpell->spellEntry, this, &targets, m_attackTarget))
-                {
-                    targets.m_targetMask |= TARGET_FLAG_UNIT;
-                    targets.m_unitTarget = m_attackTarget;
-                }
 
                 if(spell->prepare(&targets, false) == SPELL_CANCAST_OK)
                 {

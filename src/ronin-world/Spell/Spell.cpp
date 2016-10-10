@@ -50,9 +50,6 @@ Spell::~Spell()
 
 void Spell::Destruct()
 {
-    if( m_caster && m_caster->IsUnit() && castPtr<Unit>(m_caster)->GetCurrentSpell() == this )
-        castPtr<Unit>(m_caster)->SetCurrentSpell(NULL);
-
     objTargetGuid.Clean();
     itemTargetGuid.Clean();
     m_magnetTarget.Clean();
@@ -951,11 +948,7 @@ void Spell::cast(bool check)
                 std::vector<std::pair<WoWGuid, uint8>> m_spellMisses;
                 for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
                 {
-                    if(itr->first.getHigh() == HIGHGUID_TYPE_ITEM)
-                    {
-                        printf("");
-                    }
-                    else if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
+                    if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
                     {
                         uint8 hitResult = itr->second->HitResult;
                         if(hitResult != SPELL_DID_HIT_SUCCESS)
@@ -1091,9 +1084,7 @@ void Spell::Update(uint32 difftime)
             {
                 m_timer = 0;
                 cast(true);
-            }
-            else
-                m_timer -= difftime;
+            } else m_timer -= difftime;
         }break;
     case SPELL_STATE_CASTING:
         {
@@ -1152,15 +1143,8 @@ void Spell::finish()
     if( m_caster->IsPlayer() && m_spellInfo->HasEffect(SPELL_EFFECT_SUMMON_OBJECT) )
         castPtr<Player>(m_caster)->SetSummonedObject(NULL);
 
-    /*
-    We set current spell only if this spell has cast time or is channeling spell
-    otherwise it's instant spell and we delete it right after completion
-    */
-    if( m_caster->IsUnit() )
-    {
-        if(!m_triggeredSpell && (m_spellInfo->IsSpellChannelSpell() || m_castTime > 0))
-            castPtr<Unit>(m_caster)->SetCurrentSpell(NULL);
-    }
+    if(m_caster->IsUnit())
+        castPtr<Unit>(m_caster)->ClearCurrentSpell(this);
 
     if(m_caster->IsPlayer())
     {

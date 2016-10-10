@@ -133,8 +133,6 @@ void SpellEffectClass::HandleAddAura(Unit *target)
         return;
     }
 
-    if(target->IsPlayer())
-        printf("");
     // Add the aura to our target
     target->AddAura(aur);
 }
@@ -2060,7 +2058,10 @@ void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target
             continue;
         Spell* pSpell = new Spell(p_caster, sp);
         if(!pSpell->HasPower())
+        {
+            delete pSpell;
             continue;
+        }
 
         SpellCastTargets targets;
         pSpell->GenerateTargets(&targets);
@@ -2470,7 +2471,7 @@ void SpellEffectClass::SpellEffectForceCast(uint32 i, WorldObject *target, int32
     if(m_spellInfo == TriggeredSpell) // Infinite loop fix.
         return;
 
-    unitTarget->CastSpell( unitTarget, TriggeredSpell, true );
+    //unitTarget->CastSpell( unitTarget, TriggeredSpell, true );
 }
 
 void SpellEffectClass::SpellEffectTriggerSpellWithValue(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

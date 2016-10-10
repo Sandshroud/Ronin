@@ -86,6 +86,7 @@ void SpellCastTargets::write( WorldPacket& data )
 
 BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : m_caster(caster), m_spellInfo(info), m_castNumber(castNumber), m_itemCaster(itemGuid)
 {
+    m_isCasting = false;
     m_duration = -1;
     m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
     m_radius[1][0] = m_radius[1][1] = m_radius[1][2] = 0.f;

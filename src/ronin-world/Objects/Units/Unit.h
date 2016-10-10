@@ -733,6 +733,7 @@ public:
 
     RONIN_INLINE Spell* GetCurrentSpell() { return m_currentSpell; }
     RONIN_INLINE void SetCurrentSpell(Spell* cSpell) { m_currentSpell = cSpell; }
+    RONIN_INLINE void ClearCurrentSpell(Spell *cSpell) { if(m_currentSpell == cSpell) m_currentSpell = NULL; }
 
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
     void SendPlaySpellVisualKit(uint32 id, uint32 unkParam);

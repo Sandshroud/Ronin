@@ -2362,8 +2362,6 @@ void Unit::_UpdateSpells( uint32 time )
 
 void Unit::CastSpell( Spell* pSpell )
 {
-    if(m_currentSpell)
-        m_currentSpell->Destruct();
 
     m_currentSpell = pSpell;
     pLastSpell = pSpell->GetSpellProto();

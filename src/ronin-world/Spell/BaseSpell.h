@@ -65,6 +65,7 @@ struct SpellTarget
     uint32 accumAmount;
     uint32 destinationTime;
 };
+
 typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetMap;
 
 // Spell instance
@@ -170,6 +171,7 @@ protected:
 
     Aura* m_triggeredByAura;
     bool m_triggeredSpell;
+    bool m_isCasting;
 
 protected: // Spell targetting
     SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];

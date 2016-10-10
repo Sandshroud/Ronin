@@ -1140,6 +1140,7 @@ struct SpellEntry
     bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
     bool IsSpellWeaponSpell() { return spellType <= 3; }
 
+    bool isSpellAuraApplicator() { return (EffectApplyAuraName[0] || EffectApplyAuraName[1] || EffectApplyAuraName[2]); }
     bool isSpellInterruptOnMovement() { return (InterruptFlags & 0x08) || (IsSpellChannelSpell() && (ChannelInterruptFlags & 0x08)); }
     bool isSpellAttackInterrupting() { return !IsSpellChannelSpell() || (IsSpellChannelSpell() && isAttackInterrupting()); }
 

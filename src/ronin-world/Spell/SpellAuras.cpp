@@ -505,8 +505,7 @@ void Aura::Remove()
         {
             if(m_caster->GetCurrentSpell() && m_caster->GetCurrentSpell()->GetSpellProto()->Id == m_spellProto->Id)
             {
-                m_caster->GetCurrentSpell()->SendChannelUpdate(0);
-                m_caster->GetCurrentSpell()->finish();
+                m_caster->GetCurrentSpell()->cancel();
             }
         }
     }
