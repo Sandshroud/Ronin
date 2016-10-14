@@ -69,12 +69,11 @@ WorldSession::~WorldSession()
 
     if(_socket)
         _socket->SetSession(0);
+    _socket = NULL;
 
     if(m_loggingInPlayer)
-    {
-        m_loggingInPlayer->SetSession(NULL);
-        m_loggingInPlayer = NULL;
-    }
+        m_loggingInPlayer->ClearSession();
+    m_loggingInPlayer = NULL;
 
     if(_zlibStream)
     {
@@ -85,6 +84,14 @@ WorldSession::~WorldSession()
         delete _zlibStream;
         _zlibStream = NULL;
     }
+}
+
+void WorldSession::Init()
+{
+    m_maxLevel = sWorld.GetMaxLevel(this);
+    LoadTutorials();
+    LoadAccountData();
+    LoadCharacterData();
 }
 
 bool WorldSession::InitializeZLibCompression()
@@ -292,22 +299,12 @@ void WorldSession::LogoutPlayer()
         else if( plr->GetTeam() == 0 && sWorld.AlliancePlayers )
             sWorld.AlliancePlayers--;
 
-        if( plr->m_bg )
-            plr->m_bg->RemovePlayer( plr, true );
-
-        plr->RemoveFromBattlegroundQueue(0); // Pending BGs
-        plr->RemoveFromBattlegroundQueue(1); // Pending BGs
-        BattlegroundManager.RemovePlayerFromQueues( plr );
-
         //Issue a message telling all guild members that this player signed off
         guildmgr.PlayerLoggedOff(plr->getPlayerInfo());
 
         plr->GetInventory()->EmptyBuyBack();
 
         sLfgMgr.RemovePlayerFromLfgQueues( plr );
-
-        // Save HP/Mana
-        plr->load_health = plr->GetUInt32Value( UNIT_FIELD_HEALTH );
 
         objmgr.RemovePlayer( plr );
         plr->ok_to_remove = true;
@@ -320,7 +317,7 @@ void WorldSession::LogoutPlayer()
 
         plr->m_AuraInterface.RemoveAllAuras();
         plr->m_playerInfo->m_loggedInPlayer = NULL;
-        plr->SetSession(NULL);
+        plr->ClearSession();
 
         // We have to transfer to our global sessions
         SetEventInstanceId(-1);

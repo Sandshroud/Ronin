@@ -52,8 +52,8 @@ public:
     uint64 GetSinglePossibleFriend(uint32 i, float prange=0);
     //generate possible target list for a spell. Use as last resort since it is not acurate
     bool GenerateTargets(SpellCastTargets *);
-    // Fills the target map of the spell packet
-    void FillTargetMap(uint32);
+    // Fills the target map of the spell effects
+    void FillTargetMap();
     // Prepares the spell thats going to cast to targets
     uint8 prepare(SpellCastTargets *targets, bool triggered);
     // Cancels the current spell
@@ -205,8 +205,8 @@ protected:
     // Current Targets to be used in effect handler
     WoWGuid objTargetGuid, itemTargetGuid, m_magnetTarget;
 
-    uint8  cancastresult;
-    bool   m_cancelled;
+    uint8 m_canCastResult;
+    bool m_cancelled;
 
     void DamageGosAround(uint32 i);
     bool UseMissileDelay();

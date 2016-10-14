@@ -101,6 +101,8 @@ public:
     WorldSession(uint32 id, std::string Name, WorldSocket *sock);
     ~WorldSession();
 
+    void Init();
+
     bool InitializeZLibCompression();
     void CharEnumDisplayData(QueryResultVector& results);
 
@@ -230,7 +232,7 @@ public:
     int32 m_moveDelayTime;
     int32 m_clientTimeDelay;
 
-    void PlayerLoginProc(WoWGuid guid);
+    void PlayerLoginProc(PlayerInfo *info);
 
     RONIN_INLINE bool IsLoggingOut() { return _loggingOut; }
 
@@ -752,6 +754,7 @@ public:
     WorldPacket* BuildQuestQueryResponse(Quest *qst);
     uint32 m_muted;
     uint32 m_lastWhoTime;
+    uint32 m_maxLevel;
 
 protected:
     uint32 m_repeatTime;

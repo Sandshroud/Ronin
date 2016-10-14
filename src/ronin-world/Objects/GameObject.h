@@ -532,6 +532,7 @@ public:
 
     virtual bool IsActiveObject() { return true; }
     virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
+    virtual uint32 getConditionID() { return m_spawn ? m_spawn->conditionId : 0; }
 
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld();
@@ -607,7 +608,6 @@ public:
     Unit* m_summoner;
     int8 bannerslot;
     int8 bannerauraslot;
-    CBattleground* m_battleground;
 
     RONIN_INLINE bool HasAI() { return spell != 0; }
     GOSpawn * m_spawn;

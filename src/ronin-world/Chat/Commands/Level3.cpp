@@ -813,8 +813,6 @@ bool ChatHandler::HandleShowCheatsCommand(const char* args, WorldSession* m_sess
     print_cheat_status("Cooldown", plyr->CooldownCheat);
     print_cheat_status("CastTime", plyr->CastTimeCheat);
     print_cheat_status("Power", plyr->PowerCheat);
-    print_cheat_status("AuraStack", plyr->stack_cheat);
-    print_cheat_status("TriggerPass", plyr->triggerpass_cheat);
     SystemMessage(m_session, "%u cheats active, %u inactive.", active, inactive);
 
 #undef print_cheat_status
@@ -863,7 +861,7 @@ bool ChatHandler::HandleModifyLevelCommand(const char* args, WorldSession* m_ses
         u = m_session->GetPlayer();
 
     uint32 Level = args ? atol(args) : 0;
-    if(Level == 0 || u->IsPlayer() && Level > sWorld.GetMaxLevel(castPtr<Player>(u)))
+    if(Level == 0 || u->IsPlayer() && Level > castPtr<Player>(u)->GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
     {
         RedSystemMessage(m_session, "A level (numeric) is required to be specified after this command.");
         return true;
@@ -1008,7 +1006,6 @@ bool ChatHandler::HandleAllowWhispersCommand(const char* args, WorldSession* m_s
         return true;
     }
 
-    m_session->GetPlayer()->gmTargets.insert(plr);
     BlueSystemMessage(m_session, "Now accepting whispers from %s.", plr->GetName());
     return true;
 }
@@ -1025,7 +1022,6 @@ bool ChatHandler::HandleBlockWhispersCommand(const char* args, WorldSession* m_s
         return true;
     }
 
-    m_session->GetPlayer()->gmTargets.erase(plr);
     BlueSystemMessage(m_session, "Now blocking whispers from %s.", plr->GetName());
     return true;
 }
@@ -1206,51 +1202,25 @@ bool ChatHandler::HandleNullFollowCommand(const char* args, WorldSession * m_ses
 
 bool ChatHandler::HandleStackCheatCommand(const char* args, WorldSession * m_session)
 {
-    Player* plyr = getSelectedChar(m_session, true);
-    if(!plyr)
-        return true;
 
-    bool val = plyr->stack_cheat;
-    BlueSystemMessage(m_session, "%s aura stack cheat on %s.", val ? "Deactivating" : "Activating", plyr->GetName());
-    GreenSystemMessageToPlr(plyr, "%s %s an aura stack cheat on you.", m_session->GetPlayer()->GetName(), val ? "deactivated" : "activated");
-
-    plyr->stack_cheat = !val;
-    sWorld.LogGM(m_session, "used stack cheat on %s", plyr->GetName());
     return true;
 }
 
 bool ChatHandler::HandleTriggerpassCheatCommand(const char* args, WorldSession * m_session)
 {
-    Player* plr = getSelectedChar(m_session, true);
-    if(!plr)
-        return true;
 
-    bool val = plr->triggerpass_cheat;
-    BlueSystemMessage(m_session, "%s areatrigger prerequisites immunity cheat on %s.", val ? "Deactivated" : "Activated", plr->GetName());
-    GreenSystemMessageToPlr(plr, "%s %s areatrigger prerequisites immunity cheat on you.", m_session->GetPlayer()->GetName(), val ? "deactivated" : "activated");
-
-    plr->triggerpass_cheat = !val;
-    sWorld.LogGM(m_session, "used areatrigger cheat on %s", plr->GetName());
     return true;
 }
 
 bool ChatHandler::HandleVendorPassCheatCommand(const char* args, WorldSession * m_session)
 {
-    Player* plr = m_session->GetPlayer();
-    bool val = plr->vendorpass_cheat;
-    plr->vendorpass_cheat = !val;
-    GreenSystemMessage(m_session, "%s vendor requirement cheat.", val ? "Deactivated" : "Activated");
-    sWorld.LogGM(m_session, "used vendor requirement cheat.");
+
     return true;
 }
 
 bool ChatHandler::HandleItemReqCheatCommand(const char* args, WorldSession * m_session)
 {
-    Player* plr = m_session->GetPlayer();
-    bool val = plr->ignoreitemreq_cheat;
-    plr->ignoreitemreq_cheat = !val;
-    GreenSystemMessage(m_session, "%s item requirement cheat.", val ? "Deactivated" : "Activated");
-    sWorld.LogGM(m_session, "used item requirement cheat.");
+
     return true;
 }
 
@@ -2099,55 +2069,14 @@ bool ChatHandler::HandleGuildGainXPCommand(const char *args, WorldSession *m_ses
 
 bool ChatHandler::HandleCreateArenaTeamCommands(const char * args, WorldSession * m_session)
 {
-    uint32 arena_team_type;
-    char name[1000];
-    uint32 real_type;
-    Player* plr = getSelectedChar(m_session, true);
-    if(plr == NULL)
-        return true;
-
-    if(sscanf(args, "%u %s", &arena_team_type, name) != 2)
-    {
-        SystemMessage(m_session, "Invalid syntax.");
-        return true;
-    }
-
-    switch(arena_team_type)
-    {
-    case 2: real_type = 0; break;
-    case 3: real_type = 1; break;
-    case 5: real_type = 2; break;
-    default:
-        SystemMessage(m_session, "Invalid arena team type specified.");
-        return true;
-    }
-
-    if(plr->m_playerInfo->arenaTeam[real_type] != NULL)
-    {
-        SystemMessage(m_session, "Already in an arena team of that type.");
-        return true;
-    }
-
-    ArenaTeam * t = new ArenaTeam(real_type,objmgr.GenerateArenaTeamId());
-    t->m_emblemStyle=22;
-    t->m_emblemColour=4292133532UL;
-    t->m_borderColour=4294931722UL;
-    t->m_borderStyle=1;
-    t->m_backgroundColour=4284906803UL;
-    t->m_leader=plr->GetLowGUID();
-    t->m_name = std::string(name);
-    t->AddMember(plr->m_playerInfo);
-    objmgr.AddArenaTeam(t);
-    SystemMessage(m_session, "created arena team.");
     return true;
 }
 
 bool ChatHandler::HandleWhisperBlockCommand(const char * args, WorldSession * m_session)
 {
-    if(m_session->GetPlayer()->bGMTagOn)
+    if(m_session->GetPlayer()->hasGMTag())
         return false;
 
-    m_session->GetPlayer()->bGMTagOn = true;
     return true;
 }
 

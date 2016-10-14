@@ -112,35 +112,31 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
     if(_player->isCasting())
         _player->InterruptCurrentSpell();
 
-    if(_player->InGroup() && !_player->m_bg)
+    if(Group * party = _player->GetGroup())
     {
-        Group * party = _player->GetGroup();
-        if(party)
+        if(party->GetMethod() == PARTY_LOOT_MASTER)
         {
-            if(party->GetMethod() == PARTY_LOOT_MASTER)
+            WorldPacket data(SMSG_LOOT_MASTER_LIST, 324);
+            uint32 real_count = 0;
+            SubGroup *s;
+            GroupMembersSet::iterator itr;
+            party->Lock();
+            data << (uint8)party->MemberCount();
+            for(uint32 i = 0; i < party->GetSubGroupCount(); i++)
             {
-                WorldPacket data(SMSG_LOOT_MASTER_LIST, 324);
-                uint32 real_count = 0;
-                SubGroup *s;
-                GroupMembersSet::iterator itr;
-                party->Lock();
-                data << (uint8)party->MemberCount();
-                for(uint32 i = 0; i < party->GetSubGroupCount(); i++)
+                s = party->GetSubGroup(i);
+                for(itr = s->GetGroupMembersBegin(); itr != s->GetGroupMembersEnd(); itr++)
                 {
-                    s = party->GetSubGroup(i);
-                    for(itr = s->GetGroupMembersBegin(); itr != s->GetGroupMembersEnd(); itr++)
+                    if((*itr)->m_loggedInPlayer && _player->GetZoneId() == (*itr)->m_loggedInPlayer->GetZoneId())
                     {
-                        if((*itr)->m_loggedInPlayer && _player->GetZoneId() == (*itr)->m_loggedInPlayer->GetZoneId())
-                        {
-                            data << (*itr)->m_loggedInPlayer->GetGUID();
-                            ++real_count;
-                        }
+                        data << (*itr)->m_loggedInPlayer->GetGUID();
+                        ++real_count;
                     }
                 }
-                party->Unlock();
-                data.put<uint32>(0, real_count);
-                party->SendPacketToAll(&data);
             }
+            party->Unlock();
+            data.put<uint32>(0, real_count);
+            party->SendPacketToAll(&data);
         }
     }
 
@@ -280,7 +276,7 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
     bool cname;
     uint32 i;
 
-    if( ((uint32)UNIXTIME - m_lastWhoTime) < 10 && !GetPlayer()->bGMTagOn )
+    if( ((uint32)UNIXTIME - m_lastWhoTime) < 10 && !GetPlayer()->hasGMTag() )
         return;
 
     m_lastWhoTime = (uint32)UNIXTIME;
@@ -1665,13 +1661,6 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
 
     // Search quest log, find any exploration quests
     sQuestMgr.OnPlayerExploreArea(GetPlayer(),id);
-
-    // if in BG handle is triggers
-    if( _player->m_bg )
-    {
-        _player->m_bg->HookOnAreaTrigger(_player, id);
-        return;
-    }
 
     // Hook for Scripted Areatriggers
     _player->GetMapInstance()->HookOnAreaTrigger(_player, id);

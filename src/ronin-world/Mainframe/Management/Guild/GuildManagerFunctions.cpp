@@ -1008,51 +1008,9 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
         return;
 
     //All arena organizers should be allowed to create arena charter's
-    if( !crt->ArenaOrganizersFlags() )
+    if( crt->ArenaOrganizersFlags() )
     {
-        uint32 arena_type = ArenaIndex - 1;
-        if(arena_type > 2)
-            return;
 
-        if(m_session->GetPlayer()->m_playerInfo->arenaTeam[arena_type])
-        {
-            m_session->SendNotification("You are already in an arena team.");
-            return;
-        }
-
-        if(m_session->GetPlayer()->m_playerInfo->charterId[ArenaIndex] != 0)
-        {
-            m_session->SendNotification("You already have an arena charter of this type.");
-            return;
-        }
-
-        if(!sWorld.VerifyName(name.c_str(), name.length()))
-        {
-            m_session->SendNotification("That name is invalid or contains invalid characters.");
-            return;
-        }
-
-        ArenaTeam * t = objmgr.GetArenaTeamByName(name, arena_type);
-        if(t != NULL)
-        {
-            sChatHandler.SystemMessage(m_session,"That name is already in use.");
-            return;
-        }
-
-        if(guildmgr.GetCharterByName(name, (CharterTypes)ArenaIndex))
-        {
-            sChatHandler.SystemMessage(m_session, "That name is already in use.");
-            return;
-        }
-
-        static uint32 item_ids[] = {ARENA_TEAM_CHARTER_2v2, ARENA_TEAM_CHARTER_3v3, ARENA_TEAM_CHARTER_5v5};
-        static uint32 costs[] = {ARENA_TEAM_CHARTER_2v2_COST,ARENA_TEAM_CHARTER_3v3_COST,ARENA_TEAM_CHARTER_5v5_COST};
-
-        if(m_session->GetPlayer()->GetUInt32Value(PLAYER_FIELD_COINAGE) < costs[arena_type])
-        {
-            sChatHandler.SystemMessage(m_session, "You don't have enough money!");
-            return;         // error message needed here
-        }
     }
     else
     {

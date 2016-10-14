@@ -268,33 +268,23 @@ bool ChatHandler::HandleDismountCommand(const char* args, WorldSession *m_sessio
 bool ChatHandler::HandleFullDismountCommand(const char * args, WorldSession *m_session)
 {
     Player* p_target = getSelectedChar(m_session, false);
-    if(!p_target)
+    if(p_target == NULL || !p_target->IsInWorld())
     {
         SystemMessage(m_session, "Select a player or yourself first.");
-        return false;
+        return true;
     }
 
-   if(!p_target->IsInWorld())
-       return false;
-
     WorldSession* sess = p_target->GetSession();
-
     if(!sess || !sess->GetSocket())
     {
        RedSystemMessage(m_session, "Not able to locate player %s.", sess->GetPlayer()->GetName());
-       return false;
+       return true;
     }
 
-    p_target->SetTaxiPath(NULL);
-    p_target->UnSetTaxiPos();
-
-    p_target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID , 0);
-    p_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
-    p_target->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
-    p_target->Dismount();
-
-    if( p_target->m_taxiPaths.size() )
-        p_target->m_taxiPaths.clear();
+    TaxiPath *path = p_target->GetTaxiPath();
+    if(path == NULL)
+        return false;
+    p_target->JumpToEndTaxiNode(p_target->GetTaxiPath());
     return true;
 }
 

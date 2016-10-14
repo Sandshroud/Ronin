@@ -17,74 +17,97 @@ uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
     return type;
 }
 
-/// Fill the target map with the targets
-/// the targets are specified with numbers and handled accordingly
-void Spell::FillTargetMap(uint32 i)
+void Spell::FillTargetMap()
 {
-    // Get our info from A regardless of nullity
-    uint32 TargetType = GetTargetType(m_spellInfo->EffectImplicitTargetA[i], i);
-
-    //never get info from B if it is 0 :P
-    if(m_spellInfo->EffectImplicitTargetB[i] != 0)
-        TargetType |= GetTargetType(m_spellInfo->EffectImplicitTargetB[i], i);
-    if(TargetType & SPELL_TARGET_NOT_IMPLEMENTED)
-        return;
-    if(TargetType & SPELL_TARGET_NO_OBJECT)  //summon spells that appear infront of caster
+    uint32 targetTypes[3] = {SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED};
+    // Set destination position for target types when we have target pos flags on current target
+    for(uint32 i = 0; i < 3; i++)
     {
-        HandleTargetNoObject();
-        return;
+        if(m_spellInfo->Effect[i] == 0)
+            continue;
+
+        // Fill from A regardless
+        targetTypes[i] = GetTargetType(m_spellInfo->EffectImplicitTargetA[i], i);
+
+        //never get info from B if it is 0 :P
+        if(m_spellInfo->EffectImplicitTargetB[i] != 0)
+            targetTypes[i] |= GetTargetType(m_spellInfo->EffectImplicitTargetB[i], i);
+
+        if(targetTypes[i] & SPELL_TARGET_AREA_CURTARGET)
+        {
+            //this just forces dest as the targets location :P
+            if(WorldObject* target = m_caster->GetInRangeObject(m_targets.m_unitTarget))
+            {
+                m_targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
+                m_targets.m_dest = target->GetPosition();
+                break;
+            }
+        }
     }
 
-    bool inWorld = m_caster->IsInWorld(); //always add this guy :P
-    if(inWorld && !(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
-        if(Unit* target = m_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
-            AddTarget(i, TargetType, target);
+    // Fill out our different targets for spell effects
+    for(uint8 i = 0; i < 3; i++)
+    {
+        if(targetTypes[i] & SPELL_TARGET_NOT_IMPLEMENTED)
+            continue;
 
-    // We can always push self to our target map
-    if(TargetType & SPELL_TARGET_OBJECT_SELF)
-        AddTarget(i, TargetType, m_caster);
-
-    if(inWorld)
-    {   // These require that we're in world with people around us
-        if(TargetType & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF))  //targetted aoe
-            AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-        if (m_caster->IsUnit() && (TargetType & SPELL_TARGET_OBJECT_CURTOTEMS))
+        if(targetTypes[i] & SPELL_TARGET_NO_OBJECT)  //summon spells that appear infront of caster
         {
-            std::vector<Creature*> m_totemList;
-            castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
-            for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
-                AddTarget(i, TargetType, *itr);
+            HandleTargetNoObject();
+            continue;
         }
 
-        //targets party, not raid
-        if((TargetType & SPELL_TARGET_AREA_PARTY) && !(TargetType & SPELL_TARGET_AREA_RAID))
-        {
-            if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
-                AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
-            else AddPartyTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
+        bool inWorld = m_caster->IsInWorld(); //always add this guy :P
+        if(inWorld && !(targetTypes[i] & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF | SPELL_TARGET_AREA_CURTARGET | SPELL_TARGET_AREA_CONE | SPELL_TARGET_OBJECT_SELF | SPELL_TARGET_OBJECT_PETOWNER)))
+            if(Unit* target = m_caster->GetInRangeObject<Unit>(m_targets.m_unitTarget))
+                AddTarget(i, targetTypes[i], target);
+
+        // We can always push self to our target map
+        if(targetTypes[i] & SPELL_TARGET_OBJECT_SELF)
+            AddTarget(i, targetTypes[i], m_caster);
+
+        if(inWorld)
+        {   // These require that we're in world with people around us
+            if(targetTypes[i] & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF))  //targetted aoe
+                AddAOETargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
+            if (m_caster->IsUnit() && (targetTypes[i] & SPELL_TARGET_OBJECT_CURTOTEMS))
+            {
+                std::vector<Creature*> m_totemList;
+                castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
+                for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
+                    AddTarget(i, targetTypes[i], *itr);
+            }
+
+            //targets party, not raid
+            if((targetTypes[i] & SPELL_TARGET_AREA_PARTY) && !(targetTypes[i] & SPELL_TARGET_AREA_RAID))
+            {
+                if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
+                    AddAOETargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets); //npcs
+                else AddPartyTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
+            }
+
+            if(targetTypes[i] & SPELL_TARGET_AREA_RAID)
+            {
+                if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
+                    AddAOETargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets); //npcs
+                else AddRaidTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets, (targetTypes[i] & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
+            }
+
+            if(targetTypes[i] & SPELL_TARGET_AREA_CHAIN)
+                AddChainTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
+
+            //target cone
+            if(targetTypes[i] & SPELL_TARGET_AREA_CONE)
+                AddConeTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
+
+            if(targetTypes[i] & SPELL_TARGET_OBJECT_SCRIPTED)
+                AddScriptedOrSpellFocusTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
         }
 
-        if(TargetType & SPELL_TARGET_AREA_RAID)
-        {
-            if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
-                AddAOETargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets); //npcs
-            else AddRaidTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets, (TargetType & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
-        }
-
-        if(TargetType & SPELL_TARGET_AREA_CHAIN)
-            AddChainTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-
-        //target cone
-        if(TargetType & SPELL_TARGET_AREA_CONE)
-            AddConeTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
-
-        if(TargetType & SPELL_TARGET_OBJECT_SCRIPTED)
-            AddScriptedOrSpellFocusTargets(i, TargetType, GetRadius(i), m_spellInfo->MaxTargets);
+        // Allow auto self target, especially when map is empty
+        if(m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == m_caster->GetGUID()))
+            AddTarget(i, SPELL_TARGET_NONE, m_caster);
     }
-
-    // Allow auto self target, especially when map is empty
-    if(m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == m_caster->GetGUID()))
-        AddTarget(i, SPELL_TARGET_NONE, m_caster);
 }
 
 void Spell::HandleTargetNoObject()

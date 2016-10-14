@@ -98,7 +98,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             uint32 flags = 0;
             PlayerInfo *info = itr->second;
             WoWGuid guildGuid(MAKE_NEW_GUID(info->GuildId, 0, HIGHGUID_TYPE_GUILD));
-            uint8 hairStyle = ((info->charAppearance>>16)&0xFF), hairColor = ((info->charAppearance>>24)&0xFF), facialHair = (info->charAppearance2&0xFF), face = ((info->charAppearance>>8)&0xFF), skin = (info->charAppearance&0xFF);
+            uint8 hairStyle = ((info->charAppearance>>16)&0xFF), hairColor = ((info->charAppearance>>24)&0xFF), facialHair = (info->charAppearance2&0xFF), face = ((info->charAppearance>>8)&0xFF), skin = (info->charAppearance&0xFF), gender = info->charAppearance3&0xFF;
 
             uint32 customizationFlag = 0;
             if (false) customizationFlag = 0x01;
@@ -116,6 +116,8 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
                 player_flags |= 0x800;
             /*if(fields[13].GetUInt32() != 0)
                 player_flags |= 0x2000;*/
+            if(info->lastLevel > m_maxLevel)
+                player_flags |= 0x01000000;
             /*if(fields[14].GetUInt32() != 0)
             player_flags |= 0x4000;
             uint64 banned = fields[13].GetUInt64();
@@ -183,7 +185,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             byteBuff << uint32(customizationFlag);          // Character customization flags
             byteBuff << uint8(facialHair);                  // Facial hair
             byteBuff.WriteByteSeq(info->charGuid[7]);
-            byteBuff << uint8(info->charGender);            // Gender
+            byteBuff << uint8(gender);                      // Gender
             byteBuff.append(info->charName.c_str(), info->charName.length()); // Name
             byteBuff << uint8(face);                        // Face
             byteBuff.WriteByteSeq(info->charGuid[0]);
@@ -281,7 +283,6 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     uint8 race, class_;
 
     recv_data >> name >> race >> class_;
-    recv_data.rpos(0);
 
     WorldPacket data(SMSG_CHARACTER_CREATE, 1);
     if(m_charData.size() >= 10)
@@ -345,41 +346,38 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     }
     // loading characters
 
+    uint8 gender,skin,face,hairStyle,hairColor,facialHair,outfitId;
+
+    PlayerInfo *pn = objmgr.CreatePlayer();
+    pn->charName = name.c_str();
+    // correct capitalization
+    CapitalizeString(pn->charName);
+    pn->charRace = race;
+    pn->charClass = class_;
+    pn->charAppearance3 = recv_data.read<uint8>();
+    pn->charAppearance = recv_data.read<uint32>();
+    pn->charAppearance2 = recv_data.read<uint8>();
+    outfitId = recv_data.read<uint8>();
+
     //checking number of chars is useless since client will not allow to create more than 10 chars
     //as the 'create' button will not appear (unless we want to decrease maximum number of characters)
-    Player* pNewChar = objmgr.CreatePlayer();
-    pNewChar->SetSession(this);
-    if(!pNewChar->Create( recv_data ))
+    Player* pNewChar = new Player(pn, this);
+    if(!pNewChar->Initialize())
     {
-        // failed.
-        pNewChar->ok_to_remove = true;
+        WorldPacket data(SMSG_CHARACTER_CREATE, 1);
+        data << uint8(CHAR_CREATE_ERROR);
+        SendPacket(&data);
+
         pNewChar->Destruct();
-        pNewChar = NULL;
         return;
     }
 
-    pNewChar->UnSetBanned();
-    pNewChar->addSpell(22027);    // Remove Insignia
-
-    PlayerInfo *pn = new PlayerInfo(pNewChar->GetGUID());
-    pn->charName = pNewChar->GetName();
-    pn->charRace = pNewChar->getRace();
-    pn->charClass = pNewChar->getClass();
-    pn->charGender = pNewChar->getGender();
-    pn->charTeam = pNewChar->GetTeam();
-    pn->charAppearance = pNewChar->GetUInt32Value(PLAYER_BYTES);
-    pn->charAppearance2 = pNewChar->GetUInt32Value(PLAYER_BYTES_2);
-
-    // Set player info so data gets cached
-    pNewChar->m_playerInfo = pn;
-    pNewChar->SaveToDB(true);
+    pNewChar->CreateInDatabase();
 
     // Store new player info
     objmgr.AddPlayerInfo(pn);
 
-    pNewChar->ok_to_remove = true;
     pNewChar->Destruct();
-    pNewChar = NULL;
 
     uint8 newIndex = m_charData.size()+1; // Add new character data
     m_charData.insert(std::make_pair(newIndex, pn));
@@ -418,9 +416,9 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
         if(gMember != NULL && gMember->pRank->iId == 0)
             return CHAR_DELETE_FAILED_GUILD_LEADER;
 
-        for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
+        /*for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
             if( inf->arenaTeam[i] != NULL && inf->arenaTeam[i]->m_leader == guid )
-                return CHAR_DELETE_FAILED_ARENA_CAPTAIN;
+                return CHAR_DELETE_FAILED_ARENA_CAPTAIN;*/
 
         guildmgr.RemoveMember(NULL, inf);
         for(uint8 i = 0; i < NUM_CHARTER_TYPES; i++)
@@ -446,9 +444,9 @@ uint8 WorldSession::DeleteCharacter(WoWGuid guid)
             }
         }
         charDataLock.Release();
-        for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
+        /*for(uint8 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
             if( ArenaTeam *arTeam = inf->arenaTeam[i] )
-                arTeam->RemoveMember(inf);
+                arTeam->RemoveMember(inf);*/
 
         sWorld.LogPlayer(this, "deleted character %s (GUID: %u)", inf->charName.c_str(), guid.getLow());
         Player::DeleteFromDB(guid);
@@ -565,6 +563,8 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     //Better validate this Guid before we create an invalid _player.
     else if(pInfo == NULL)
         response = CHAR_LOGIN_NO_CHARACTER;
+    else if(pInfo->lastLevel > m_maxLevel)
+        response = CHAR_LOGIN_DISABLED;
     else if(objmgr.GetPlayer(guid) != NULL)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
     else if (uint8 vError = sWorldMgr.ValidateMapId(pInfo->lastMapID))
@@ -583,26 +583,25 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
         return;
     }
 
-    PlayerLoginProc(guid);
+    PlayerLoginProc(pInfo);
 }
 
-void WorldSession::PlayerLoginProc(WoWGuid guid)
+void WorldSession::PlayerLoginProc(PlayerInfo *info)
 {
     //We have a valid Guid so let's create the player and login
-    Player* plr = new Player(guid);
-    plr->Init();
-    plr->SetSession(this);
-    m_bIsWLevelSet = false;
+    m_loggingInPlayer = new Player(info, this);
+    m_loggingInPlayer->Initialize();
 
-    sLog.Debug("WorldSession", "Async loading player %u", guid.getLow());
-    m_loggingInPlayer = plr;
-    plr->LoadFromDB();
+    sLog.Debug("WorldSession", "Async loading player %u", info->charGuid.getLow());
+    m_loggingInPlayer->LoadFromDB();
 }
 
 void WorldSession::FullLogin(Player* plr)
 {
     sLog.Debug("WorldSession", "Fully loading player %u", plr->GetLowGUID());
     SetPlayer(plr);
+    m_loggingInPlayer = NULL;
+
     m_MoverWoWGuid = plr->GetGUID();
 
     /* world preload */
@@ -636,23 +635,10 @@ void WorldSession::FullLogin(Player* plr)
     // Enable certain GM abilities on login.
     if(HasGMPermissions())
     {
-        plr->bGMTagOn = true;
         if(CanUseCommand('z'))
         {
             plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);
-            plr->triggerpass_cheat = true; // Enable for admins automatically.
         } else plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);
-    }
-
-    for(uint32 z = 0; z < NUM_ARENA_TEAM_TYPES; ++z)
-    {
-        if(plr->m_playerInfo->arenaTeam[z] != NULL)
-        {
-            plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6), plr->m_playerInfo->arenaTeam[z]->m_id);
-            if(plr->m_playerInfo->arenaTeam[z]->m_leader == plr->GetGUID())
-                plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6) + 1, 0);
-            else plr->SetUInt32Value(PLAYER_FIELD_ARENA_TEAM_INFO_1_1 + (z*6) + 1, 1);
-        }
     }
 
     data.Initialize(SMSG_LEARNED_DANCE_MOVES, 8);
@@ -737,8 +723,6 @@ void WorldSession::FullLogin(Player* plr)
     sTracker.CheckPlayerForTracker(plr, true);
 
     objmgr.AddPlayer(plr);
-
-    m_loggingInPlayer = NULL;
 }
 
 bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_session)

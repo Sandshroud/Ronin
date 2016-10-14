@@ -194,14 +194,12 @@ bool ChatHandler::HandleItemRemoveCommand(const char* args, WorldSession *m_sess
         return false;
 
     std::stringstream sstext;
-    int slot = pCreature->GetSlotByItemId(itemguid);
-    if(slot != -1)
+    if(pCreature->GetSlotByItemId(itemguid) != 0xFFFFFFFF)
     {
         std::stringstream ss;
         ss << "DELETE FROM vendors WHERE entry = '" << pCreature->GetEntry() << "' AND vendormask = '" << pCreature->GetVendorMask() << "' AND item = " << itemguid << " LIMIT 1;";
         WorldDatabase.Execute( ss.str().c_str() );
 
-        pCreature->RemoveVendorItem(itemguid);
         if(ItemPrototype* tmpItem = sItemMgr.LookupEntry(itemguid))
             sstext << "Item '" << itemguid << "' '" << tmpItem->Name.c_str() << "' Deleted from list" << '\0';
         else sstext << "Item '" << itemguid << "' Deleted from list" << '\0';
@@ -548,7 +546,7 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
     }
 
     plr->m_selectedGo = GObj->GetGUID();
-    GreenSystemMessage(m_session, "Selected GameObject [ %s ] which is %.3f meters away from you.", GameObjectNameStorage.LookupEntry(GObj->GetEntry())->Name, cDist);
+    GreenSystemMessage(m_session, "Selected GameObject [%u][%s] which is %.3f meters away from you.", GObj->GetEntry(), GameObjectNameStorage.LookupEntry(GObj->GetEntry())->Name, cDist);
     return true;
 }
 
@@ -941,16 +939,12 @@ bool ChatHandler::HandleVendorClearCommand(const char* args, WorldSession *m_ses
 
     bool first = true;
     QueryBuffer* qb = new QueryBuffer();
-    std::map<uint32, CreatureItem>::iterator itr, itr2, begin = pCreature->GetSellItemBegin(), end = pCreature->GetSellItemEnd();
+    std::vector<AvailableCreatureItem>::iterator itr, itr2, begin = pCreature->GetSellItemBegin(), end = pCreature->GetSellItemEnd();
     for(itr = begin; itr != end;)
     {
         itr2 = itr++;
-        if(itr2->second.vendormask < 0 || pCreature->GetVendorMask() < 0 || itr2->second.vendormask == pCreature->GetVendorMask())
-        {
-            first = false;
-            qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->GetVendorMask(), itr2->second.itemid);
-            pCreature->RemoveSellItem(itr2);
-        }
+        first = false;
+        qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->GetVendorMask(), itr2->proto->ItemId);
     }
 
     if(!first)
@@ -1073,7 +1067,6 @@ bool ChatHandler::HandleItemSetRemoveCommand(const char* args, WorldSession *m_s
 
         first = false;
         qb->AddQuery("DELETE FROM vendors WHERE entry = '%u' AND vendormask = '%i' AND item = '%u';", pCreature->GetEntry(), pCreature->GetVendorMask(), (*itr)->ItemId);
-        pCreature->RemoveVendorItem((*itr)->ItemId);
     }
 
     if(!first)

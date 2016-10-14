@@ -66,7 +66,8 @@ struct SpellTarget
     uint32 destinationTime;
 };
 
-typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetMap;
+typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetStorage;
+typedef std::vector<std::pair<WoWGuid, uint8>> SpellMissesStorage;
 
 // Spell instance
 class BaseSpell
@@ -90,13 +91,14 @@ public:
     bool IsNeedSendToClient();
     void SendSpellStart();
     void SendSpellGo();
+    void SendSpellMisses();
     void SendProjectileUpdate();
 
     void SendCastResult(uint8 result);
     void SendInterrupted(uint8 result);
     void SendChannelStart(int32 duration);
     void SendChannelUpdate(uint32 time);
-    static void SendSpellMisses(WorldObject* caster, std::vector<std::pair<WoWGuid, uint8>> *dataPool, uint32 spellid);
+
     static void SendHealSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid);
     static void SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* target, uint32 dmg, uint32 powertype, uint32 spellid);
     void SendResurrectRequest(Player* target);
@@ -145,7 +147,7 @@ public:
 protected:
     SpellTarget *GetSpellTarget(WoWGuid guid)
     {
-        SpellTargetMap::iterator itr;
+        SpellTargetStorage::iterator itr;
         if((itr = m_fullTargetMap.find(guid)) == m_fullTargetMap.end())
             return NULL;
         return itr->second;
@@ -174,9 +176,7 @@ protected:
     bool m_isCasting;
 
 protected: // Spell targetting
-    SpellTargetMap m_fullTargetMap, m_effectTargetMaps[3];
-
-    uint32 m_hitTargetCount, m_missTargetCount;
-
+    SpellTargetStorage m_fullTargetMap, m_effectTargetMaps[3];
+    SpellMissesStorage m_spellMisses;
     SpellCastTargets m_targets;
 };

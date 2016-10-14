@@ -10,7 +10,7 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
 
     WoWGuid guid;
     recv_data >> guid;
-    if(guid.empty() || _player->bGMTagOn || _player->isDead())
+    if(guid.empty() || _player->isDead())
     {
         _player->EventAttackStop();
         return;

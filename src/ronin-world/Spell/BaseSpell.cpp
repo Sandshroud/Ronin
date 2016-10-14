@@ -92,7 +92,6 @@ BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, Wo
     m_radius[1][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
     m_triggeredSpell = m_projectileWait = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
-    m_hitTargetCount = m_missTargetCount = 0;
     m_triggeredByAura = NULL;
     m_missilePitch = 0.f;
     m_missileTravelTime = m_MSTimeToAddToTravel = 0;
@@ -184,14 +183,14 @@ void BaseSpell::Destruct()
 
 void BaseSpell::writeSpellGoTargets( WorldPacket * data )
 {
-    SpellTargetMap::iterator itr;
+    SpellTargetStorage::iterator itr;
     uint32 counter;
 
     // Make sure we don't hit over 100 targets.
     // It's fine internally, but sending it to the client will REALLY cause it to freak.
 
-    *data << uint8(std::min<uint32>(100, m_hitTargetCount));
-    if( m_hitTargetCount > 0 )
+    *data << uint8(std::min<uint32>(100, m_fullTargetMap.size()));
+    if(!m_fullTargetMap.empty())
     {
         counter = 0;
         for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
@@ -204,8 +203,9 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
         }
     }
 
-    *data << uint8(std::min<uint32>(100, m_missTargetCount));
-    if( m_missTargetCount > 0 )
+    size_t pos = data->wpos();
+    *data << uint8(std::min<uint32>(100, m_spellMisses.size()));
+    if( !m_spellMisses.empty() )
     {
         counter = 0;
         for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
@@ -219,6 +219,7 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
                 ++counter;
             }
         }
+        data->put<uint8>(pos, counter);
     }
 }
 
@@ -330,6 +331,21 @@ void BaseSpell::SendSpellGo()
     writeSpellCastFlagData(&data, cast_flags);
 
     m_caster->SendMessageToSet( &data, m_caster->IsPlayer() );
+}
+
+void BaseSpell::SendSpellMisses()
+{
+    if( m_spellMisses.empty() )
+        return;
+
+    WorldPacket data(SMSG_SPELLLOGMISS, 29);
+    data << m_spellInfo->Id;
+    data << m_caster->GetGUID();
+    data << m_castNumber;
+    data << uint32(m_spellMisses.size());
+    for(std::vector<std::pair<WoWGuid, uint8>>::iterator itr = m_spellMisses.begin(); itr != m_spellMisses.end(); itr++)
+        data << (*itr).first << (*itr).second;
+    m_caster->SendMessageToSet(&data, true);
 }
 
 bool BaseSpell::IsNeedSendToClient()
@@ -446,21 +462,6 @@ void BaseSpell::SendChannelUpdate(uint32 time)
     data << m_caster->GetGUID().asPacked();
     data << time;
     m_caster->SendMessageToSet(&data, true);
-}
-
-void BaseSpell::SendSpellMisses(WorldObject* caster, std::vector<std::pair<WoWGuid, uint8>> *dataPool, uint32 spellid)
-{
-    if( caster == NULL || dataPool->empty() )
-        return;
-
-    WorldPacket data(SMSG_SPELLLOGMISS, 29);
-    data << uint32(spellid);
-    data << caster->GetGUID();
-    data << uint8(0);
-    data << uint32(dataPool->size());
-    for(std::vector<std::pair<WoWGuid, uint8>>::iterator itr = dataPool->begin(); itr != dataPool->end(); itr++)
-        data << (*itr).first << (*itr).second;
-    caster->SendMessageToSet(&data, true);
 }
 
 void BaseSpell::SendHealSpellOnPlayer( WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid)

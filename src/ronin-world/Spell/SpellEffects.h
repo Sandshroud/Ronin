@@ -94,7 +94,6 @@ protected: // Effect Handlers
     void SpellEffectResetTalents(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectHealMechanical(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
-    void SpellEffectSummonObjectWild(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectScriptEffect(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectSanctuary(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectAddComboPoints(uint32 i, WorldObject *target, int32 amount, bool rawAmt);

@@ -132,7 +132,7 @@ void Channel::AttemptJoin(Player* plr, const char * password)
     plr->JoinedChannel(this);
     m_members.insert(std::make_pair(plr, flags));
 
-    if(m_announce && !plr->bGMTagOn)
+    if(m_announce && !plr->hasGMTag())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_JOINED);
         data << plr->GetGUID();
@@ -184,7 +184,7 @@ void Channel::Part(Player* plr, bool silent, bool keepData)
         }
     }
 
-    if(m_announce && !plr->bGMTagOn)
+    if(m_announce && !plr->hasGMTag())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_LEFT);
         data << plr->GetGUID();

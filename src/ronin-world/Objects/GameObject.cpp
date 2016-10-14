@@ -27,7 +27,6 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_spawn = NULL;
     m_deleted = false;
     m_created = false;
-    m_battleground = NULL;
     initiated = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
@@ -69,18 +68,6 @@ void GameObject::Destruct()
         }
     }
 
-    if( m_battleground != NULL )
-    {
-        if( m_battleground->GetType() == BATTLEGROUND_ARATHI_BASIN )
-        {
-            if( bannerslot >= 0 && castPtr<ArathiBasin>(m_battleground)->m_controlPoints[bannerslot] == castPtr<GameObject>(this) )
-                castPtr<ArathiBasin>(m_battleground)->m_controlPoints[bannerslot] = NULL;
-
-            if( bannerauraslot >= 0 && castPtr<ArathiBasin>(m_battleground)->m_controlPointAuras[bannerauraslot] == castPtr<GameObject>(this) )
-                castPtr<ArathiBasin>(m_battleground)->m_controlPointAuras[bannerauraslot] = NULL;
-        }
-        m_battleground = NULL;
-    }
     WorldObject::Destruct();
 }
 
@@ -805,10 +792,10 @@ void GameObject::Use(Player *p)
     case GAMEOBJECT_TYPE_FLAGSTAND:
         {
             // battleground/warsong gulch flag
-            if(p->m_bg)
+            /*if(p->m_bg)
             {
-                /*if( p->m_stealth )
-                    p->RemoveAura( p->m_stealth );*/
+                if( p->m_stealth )
+                    p->RemoveAura( p->m_stealth );
 
                 if( p->m_MountSpellId )
                     p->RemoveAura( p->m_MountSpellId );
@@ -816,17 +803,15 @@ void GameObject::Use(Player *p)
                 if(!p->m_bgFlagIneligible)
                     p->m_bg->HookFlagStand(p, this);
                 TRIGGER_INSTANCE_EVENT( p->GetMapInstance(), OnPlayerFlagStand )( p, this );
-            }
-            else
-                sLog.outError("Gameobject Type FlagStand activated while the player is not in a battleground, entry %u", goinfo->ID);
+            } else sLog.outError("Gameobject Type FlagStand activated while the player is not in a battleground, entry %u", goinfo->ID);*/
         }break;
     case GAMEOBJECT_TYPE_FLAGDROP:
         {
             // Dropped flag
-            if(p->m_bg)
+            /*if(p->m_bg)
             {
-                /*if( p->m_stealth )
-                    p->RemoveAura( p->m_stealth );*/
+                if( p->m_stealth )
+                    p->RemoveAura( p->m_stealth );
 
                 if( p->m_MountSpellId )
                     p->RemoveAura( p->m_MountSpellId );
@@ -835,7 +820,7 @@ void GameObject::Use(Player *p)
                 TRIGGER_INSTANCE_EVENT( p->GetMapInstance(), OnPlayerFlagDrop )( p, this );
             }
             else
-                sLog.outError("Gameobject Type Flag Drop activated while the player is not in a battleground, entry %u", goinfo->ID);
+                sLog.outError("Gameobject Type Flag Drop activated while the player is not in a battleground, entry %u", goinfo->ID);*/
         }break;
     case GAMEOBJECT_TYPE_QUESTGIVER:
         {

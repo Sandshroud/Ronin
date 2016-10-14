@@ -40,7 +40,27 @@ void MapCell::AddObject(WorldObject* obj)
 
     MapCellObjectStorage *objectStorage;
     Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
-    if(obj->GetPhaseMask() & 0x8000)
+    if(uint32 conditionId = obj->getConditionID())
+    {
+        if((iter = m_conditionStorage.find(conditionId)) == m_conditionStorage.end())
+        {
+            objectStorage = new MapCellObjectStorage(conditionId);
+            m_conditionStorage.insert(std::make_pair(conditionId, objectStorage));
+        } else objectStorage = iter->second;
+
+        objectStorage->AddObject(obj);
+    }
+    else if(uint32 eventId = obj->getEventID())
+    {
+        if((iter = m_eventStorage.find(eventId)) == m_eventStorage.end())
+        {
+            objectStorage = new MapCellObjectStorage(eventId);
+            m_eventStorage.insert(std::make_pair(eventId, objectStorage));
+        } else objectStorage = iter->second;
+
+        objectStorage->AddObject(obj);
+    }
+    else if(obj->GetPhaseMask() & 0x8000)
         m_objectSet.push_back(obj);
     else
     {
@@ -57,17 +77,6 @@ void MapCell::AddObject(WorldObject* obj)
 
             objectStorage->AddObject(obj);
         }
-    }
-
-    if(uint32 eventId = obj->getEventID())
-    {
-        if((iter = m_eventStorage.find(eventId)) == m_eventStorage.end())
-        {
-            objectStorage = new MapCellObjectStorage(eventId);
-            m_eventStorage.insert(std::make_pair(eventId, objectStorage));
-        } else objectStorage = iter->second;
-
-        objectStorage->AddObject(obj);
     }
 }
 
@@ -89,7 +98,17 @@ void MapCell::RemoveObject(WorldObject* obj)
     }
 
     Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
-    if(obj->GetPhaseMask() & 0x8000)
+    if(uint32 conditionId = obj->getConditionID())
+    {
+        if((iter = m_conditionStorage.find(conditionId)) != m_conditionStorage.end())
+            iter->second->RemoveObject(obj);
+    }
+    else if(uint32 eventId = obj->getEventID())
+    {
+        if((iter = m_eventStorage.find(eventId)) != m_eventStorage.end())
+            iter->second->RemoveObject(obj);
+    }
+    else if(obj->GetPhaseMask() & 0x8000)
     {
         if((itr = std::find(m_objectSet.begin(), m_objectSet.end(), obj)) != m_objectSet.end())
             m_objectSet.erase(itr);
@@ -106,9 +125,6 @@ void MapCell::RemoveObject(WorldObject* obj)
         }
     }
 
-    if(uint32 eventId = obj->getEventID())
-        if((iter = m_eventStorage.find(eventId)) != m_eventStorage.end())
-            iter->second->RemoveObject(obj);
 }
 
 bool MapCell::HasPlayers(uint16 phaseMask)
@@ -123,7 +139,7 @@ void MapCellObjectStorage::RemoveObject(WorldObject *obj)
         m_objectSet.erase(itr);
 }
 
-MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &eventAccess, bool &handledAllPhases)
+MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &conditionAccess, std::vector<uint32> &eventAccess, bool &handledAllPhases)
 {
     // Check the full phase mask to see what's in it
     if(handledAllPhases == false && !m_objectSet.empty())
@@ -133,6 +149,15 @@ MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector
     }
 
     Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
+    // Check active conditions and map conditions to see what we have here
+    while(!m_conditionStorage.empty() && !conditionAccess.empty())
+    {
+        uint32 eventId = *conditionAccess.begin();
+        conditionAccess.erase(conditionAccess.begin());
+        if((iter = m_conditionStorage.find(eventId)) != m_conditionStorage.end())
+            return iter->second->GetObjectSet();
+    }
+
     // Check active events or event access to see what we have here
     while(!m_eventStorage.empty() && !eventAccess.empty())
     {

@@ -120,7 +120,6 @@ void WorldSession::HandleActivateTaxiOpcode( WorldPacket & recv_data )
     // 0x001000 seems to make a mount visible
     // 0x002000 seems to make you sit on the mount, and the mount move with you
 
-    _player->m_taxiModelId = modelid;
     GetPlayer()->TaxiStart(taxipath, modelid);
     //sLog.outString("TAXI: Starting taxi trip. Next update in %d msec.", first_node_time);
 }
@@ -228,7 +227,8 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
     // 0x002000 seems to make you sit on the mount, and the mount move with you
     // 0x000004 locks you so you can't move, no msg_move updates are sent to the server
     // 0x000008 seems to enable detailed collision checking
-    _player->m_taxiModelId = modelid;
+
+    _player->m_taxiData = new Player::TaxiData();
 
     // build the rest of the path list
     for(uint32 i = 2; i < nodecount; i++)
@@ -237,7 +237,7 @@ void WorldSession::HandleMultipleActivateTaxiOpcode(WorldPacket & recvPacket)
         if(!np) return;
 
         // add to the list.. :)
-        _player->m_taxiPaths.push_back(np);
+        _player->m_taxiData->paths.push_back(np);
     }
 
     // start the first trip :)

@@ -27,16 +27,17 @@ typedef struct
 
 typedef struct
 {
-    uint32  id;//spawn ID
-    uint32  entry;
+    uint32 id;//spawn ID
+    uint32 entry;
     float  x, y, z;
     float  rX, rY, rZ, rAngle;
-    uint32  state;
-    uint32  flags;
-    uint32  faction;
-    float   scale;
+    uint32 state;
+    uint32 flags;
+    uint32 faction;
+    float  scale;
     uint16 phaseMask;
-    uint32  eventId;
+    uint32 eventId;
+    uint32 conditionId;
 } GOSpawn;
 
 typedef std::vector<CreatureSpawn*> CreatureSpawnList;

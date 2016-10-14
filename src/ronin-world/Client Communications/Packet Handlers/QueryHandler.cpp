@@ -19,7 +19,7 @@ void WorldSession::HandleNameQueryOpcode( WorldPacket & recv_data )
 
     WorldPacket data;
     // We query our own name on player create so check to send MOTD
-    if(!_player->m_hasSentMoTD)
+    if(guid == _player->GetGUID() && !_player->m_hasSentMoTD)
     {
         data.Initialize(SMSG_MOTD, 10);
         if(sWorld.BuildMoTDPacket(this, &data))
@@ -38,7 +38,7 @@ void WorldSession::HandleNameQueryOpcode( WorldPacket & recv_data )
     data << pn->charName;
     data << uint8(0);
     data << uint8(pn->charRace);
-    data << uint8(pn->charGender);
+    data << uint8(pn->charAppearance3&0xFF);
     data << uint8(pn->charClass);
     data << uint8(0);
     SendPacket( &data );

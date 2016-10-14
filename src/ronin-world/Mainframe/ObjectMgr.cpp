@@ -13,7 +13,6 @@ ObjectMgr::ObjectMgr()
     m_mailid = 0;
     m_hiPlayerGuid = 0;
     m_hiCorpseGuid = 0;
-    m_hiArenaTeamId = 0;
     m_equipmentSetGuid = 0;
 }
 
@@ -34,7 +33,8 @@ ObjectMgr::~ObjectMgr()
 
     sLog.Notice("ObjectMgr", "Deleting Vendors...");
     for( VendorMap::iterator i = mVendors.begin( ); i != mVendors.end( ); ++ i )
-        delete i->second;
+        i->second.clear();
+    mVendors.clear();
 
     sLog.Notice("ObjectMgr", "Deleting Spell Override...");
     for(OverrideIdMap::iterator i = mOverrideIdMap.begin(); i != mOverrideIdMap.end(); i++)
@@ -61,10 +61,6 @@ ObjectMgr::~ObjectMgr()
         itr->second->m_Group = NULL;
         delete itr->second;
     }
-
-    sLog.Notice("ObjectMgr", "Deleting Arena Teams...");
-    for(std::map<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
-        delete itr->second;
 
     sLog.Notice("ObjectMgr", "Deleting Achievement Cache...");
     for(AchievementCriteriaMap::iterator itr = m_achievementCriteriaMap.begin(); itr != m_achievementCriteriaMap.end(); itr++)
@@ -170,7 +166,7 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 
 PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
 {
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,gender,bytes,bytes2,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
     if(result == NULL)
         return NULL;
 
@@ -179,17 +175,18 @@ PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
     pn->charName = fields[1].GetString();
     pn->charRace = fields[2].GetUInt8();
     pn->charClass = fields[3].GetUInt8();
-    pn->charGender = fields[4].GetUInt8();
+    pn->charTeam = fields[4].GetUInt8();
     pn->charAppearance = fields[5].GetUInt32();
     pn->charAppearance2 = fields[6].GetUInt32();
-    pn->lastLevel = fields[7].GetUInt32();
-    pn->lastZone = fields[8].GetUInt32();
-    pn->lastInstanceID = fields[9].GetUInt32();
-    pn->lastMapID = fields[10].GetUInt32();
+    pn->charAppearance3 = fields[7].GetUInt32();
+    pn->lastLevel = fields[8].GetUInt32();
+    pn->lastMapID = fields[9].GetUInt32();
+    pn->lastInstanceID = fields[10].GetUInt32();
     pn->lastPositionX = fields[11].GetFloat();
     pn->lastPositionY = fields[12].GetFloat();
     pn->lastPositionZ = fields[13].GetFloat();
     pn->lastOrientation = fields[14].GetFloat();
+    pn->lastZone = fields[15].GetUInt32();
     delete result;
 
     if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
@@ -256,7 +253,7 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 
 void ObjectMgr::LoadPlayersInfo()
 {
-    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,gender,bytes,bytes2,level,zoneId,instance_id,mapId,positionX,positionY,positionZ,orientation FROM character_data"))
+    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId FROM character_data"))
     {
         uint32 period = (result->GetRowCount() / 20) + 1, c = 0;
 
@@ -267,19 +264,18 @@ void ObjectMgr::LoadPlayersInfo()
             pn->charName = fields[1].GetString();
             pn->charRace = fields[2].GetUInt8();
             pn->charClass = fields[3].GetUInt8();
-            pn->charGender = fields[4].GetUInt8();
+            pn->charTeam = fields[4].GetUInt8();
             pn->charAppearance = fields[5].GetUInt32();
             pn->charAppearance2 = fields[6].GetUInt32();
-            pn->lastLevel = fields[7].GetUInt32();
-            pn->lastZone = fields[8].GetUInt32();
-            pn->lastInstanceID = fields[9].GetUInt32();
-            pn->lastMapID = fields[10].GetUInt32();
+            pn->charAppearance3 = fields[7].GetUInt32();
+            pn->lastLevel = fields[8].GetUInt32();
+            pn->lastMapID = fields[9].GetUInt32();
+            pn->lastInstanceID = fields[10].GetUInt32();
             pn->lastPositionX = fields[11].GetFloat();
             pn->lastPositionY = fields[12].GetFloat();
             pn->lastPositionZ = fields[13].GetFloat();
             pn->lastOrientation = fields[14].GetFloat();
-            if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
-                pn->charTeam = race->TeamId;
+            pn->lastZone = fields[15].GetUInt32();
 
             if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
             {
@@ -678,8 +674,6 @@ PlayerCreateInfo* ObjectMgr::GetPlayerCreateInfo(uint8 race, uint8 class_) const
 
 void ObjectMgr::LoadVendors()
 {
-    std::map<uint32, std::map<uint32, CreatureItem>*>::const_iterator itr;
-    std::map<uint32, CreatureItem> *items;
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_vendor "))
     {
         if( result->GetFieldCount() < 7 )
@@ -695,27 +689,27 @@ void ObjectMgr::LoadVendors()
         {
             Field* fields = result->Fetch();
             uint32 entry = fields[0].GetUInt32();
-            if((itr = mVendors.find(entry)) == mVendors.end())
-                mVendors[entry] = (items = new std::map<uint32, CreatureItem>);
-            else items = itr->second;
+            ItemPrototype *proto = sItemMgr.LookupEntry(fields[1].GetUInt32());
+            if(proto == NULL || proto->SellPrice > proto->BuyPrice)
+                continue;
 
-            CreatureItem itm;
-            itm.itemid              = fields[1].GetUInt32();
-            itm.max_amount          = fields[2].GetUInt32();
-            itm.incrtime            = fields[3].GetUInt32();
-            uint32 extendedCost     = fields[4].GetUInt32();
-            itm.vendormask          = fields[5].GetUInt32();
-            itm.IsDependent         = fields[6].GetBool();
-            if( (itm.extended_cost = dbcItemExtendedCost.LookupEntry(extendedCost)) == NULL && extendedCost > 0)
+            uint32 extendedCost = fields[4].GetUInt32();
+            ItemExtendedCostEntry *extendCostEntry = NULL;
+            if(extendedCost > 0 && (extendCostEntry = dbcItemExtendedCost.LookupEntry(extendedCost)) == NULL)
             {
-                sLog.Warning("ObjectMgr","Item %u at vendor %u has extended cost %u which is invalid. Skipping.", itm.itemid, entry, extendedCost);
+                sLog.Warning("ObjectMgr","Item %u at vendor %u has extended cost %u which is invalid. Skipping.", proto->ItemId, entry, extendedCost);
                 continue;
             }
 
-            uint32 slot = 1;
-            if(items->size())
-                slot = items->rbegin()->first+1;
-            items->insert(std::make_pair(slot, itm) );
+            std::vector<VendorItem> &vendorItems = mVendors[entry];
+            VendorItem itm;
+            itm.itemid              = fields[1].GetUInt32();
+            itm.max_amount          = fields[2].GetUInt32();
+            itm.incrtime            = fields[3].GetUInt32();
+            itm.vendormask          = fields[5].GetUInt32();
+            itm.IsDependent         = fields[6].GetBool();
+            itm.extendedCost        = extendedCost;
+            vendorItems.push_back(itm);
         }while( result->NextRow() );
         delete result;
     }
@@ -724,7 +718,11 @@ void ObjectMgr::LoadVendors()
 
 void ObjectMgr::ReloadVendors()
 {
+    // Clean out vectors then clean out our map
+    for( VendorMap::iterator i = mVendors.begin( ); i != mVendors.end( ); ++ i )
+        i->second.clear();
     mVendors.clear();
+
     LoadVendors();
 }
 
@@ -878,18 +876,25 @@ void ObjectMgr::LoadTrainers()
     }
 }
 
-std::map<uint32, CreatureItem>* ObjectMgr::GetVendorList(uint32 entry)
+void ObjectMgr::FillVendorList(uint32 entry, uint32 vendorMask, std::vector<AvailableCreatureItem> &toFill)
 {
-    if(mVendors.find(entry) != mVendors.end())
-        return mVendors.at(entry);
-    return NULL;
-}
+    if(mVendors.find(entry) == mVendors.end())
+        return;
 
-std::map<uint32, CreatureItem>* ObjectMgr::AllocateVendorList(uint32 entry)
-{
-    if(mVendors.find(entry) != mVendors.end())
-        return mVendors.at(entry);
-    return (mVendors[entry] = new std::map<uint32, CreatureItem>);
+    toFill.clear();
+    std::vector<VendorItem> itemList = mVendors.at(entry);
+    toFill.resize(itemList.size());
+
+    for(uint16 i = 0; i < itemList.size(); i++)
+    {
+        AvailableCreatureItem &vendorItem = toFill[i];
+        vendorItem.proto = sItemMgr.LookupEntry(itemList[i].itemid);
+        vendorItem.availableAmount = vendorItem.max_amount = itemList[i].max_amount;
+        vendorItem.incrtime = itemList[i].incrtime;
+        vendorItem.extended_cost = dbcItemExtendedCost.LookupEntry(itemList[i].extendedCost);
+        vendorItem.IsDependent = itemList[i].IsDependent;
+        vendorItem.refreshTime = 0;
+    }
 }
 
 Item* ObjectMgr::CreateItem(uint32 entry,Player* owner, uint32 count)
@@ -1033,15 +1038,13 @@ void ObjectMgr::CorpseCollectorUnload(bool saveOnly)
     _corpseslock.Release();
 }
 
-Player* ObjectMgr::CreatePlayer()
+PlayerInfo* ObjectMgr::CreatePlayer()
 {
     m_playerguidlock.Acquire();
     uint32 guid = ++m_hiPlayerGuid;
     m_playerguidlock.Release();
 
-    Player* p = new Player(guid);
-    p->Init();
-    return p;
+    return new PlayerInfo(guid);
 }
 
 void ObjectMgr::AddPlayer(Player* p)//add it to global storage
@@ -1166,128 +1169,6 @@ void ObjectMgr::LoadGroups()
     }
 
     sLog.Notice("ObjectMgr", "%u groups loaded.", m_groups.size());
-}
-
-void ObjectMgr::LoadArenaTeams()
-{
-    QueryResult * result = CharacterDatabase.Query("SELECT * FROM arenateams");
-    if( result != NULL )
-    {
-        do
-        {
-            ArenaTeam * team = new ArenaTeam(result->Fetch());
-            AddArenaTeam(team);
-            if(team->m_id > m_hiArenaTeamId)
-                m_hiArenaTeamId=team->m_id;
-
-        } while(result->NextRow());
-        delete result;
-    }
-
-    /* update the ranking */
-    UpdateArenaTeamRankings();
-}
-
-ArenaTeam * ObjectMgr::GetArenaTeamById(uint32 id)
-{
-    std::map<uint32, ArenaTeam*>::iterator itr;
-    m_arenaTeamLock.Acquire();
-    itr = m_arenaTeams.find(id);
-    m_arenaTeamLock.Release();
-    return (itr == m_arenaTeams.end()) ? NULL : itr->second;
-}
-
-ArenaTeam * ObjectMgr::GetArenaTeamByName(std::string & name, uint32 Type)
-{
-    m_arenaTeamLock.Acquire();
-    for(std::map<uint32, ArenaTeam*>::iterator itr = m_arenaTeams.begin(); itr != m_arenaTeams.end(); itr++)
-    {
-        if(!strnicmp(itr->second->m_name.c_str(), name.c_str(), name.size()))
-        {
-            m_arenaTeamLock.Release();
-            return itr->second;
-        }
-    }
-    m_arenaTeamLock.Release();
-    return NULL;
-}
-
-void ObjectMgr::RemoveArenaTeam(ArenaTeam * team)
-{
-    m_arenaTeamLock.Acquire();
-    m_arenaTeams.erase(team->m_id);
-    m_arenaTeamMap[team->m_type].erase(team->m_id);
-    m_arenaTeamLock.Release();
-}
-
-void ObjectMgr::AddArenaTeam(ArenaTeam * team)
-{
-    m_arenaTeamLock.Acquire();
-    m_arenaTeams[team->m_id] = team;
-    m_arenaTeamMap[team->m_type].insert(std::make_pair(team->m_id,team));
-    m_arenaTeamLock.Release();
-}
-
-class ArenaSorter
-{
-public:
-    bool operator()(ArenaTeam* const & a,ArenaTeam* const & b)
-    {
-        return (a->m_stat_rating > b->m_stat_rating);
-    }
-        bool operator()(ArenaTeam*& a, ArenaTeam*& b)
-        {
-                return (a->m_stat_rating > b->m_stat_rating);
-        }
-};
-
-void ObjectMgr::UpdateArenaTeamRankings()
-{
-    m_arenaTeamLock.Acquire();
-    for(uint32 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
-    {
-        std::vector<ArenaTeam*> ranking;
-
-        for(std::map<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
-            ranking.push_back(itr->second);
-
-        std::sort(ranking.begin(), ranking.end(), ArenaSorter());
-        uint32 rank = 1;
-        for(std::vector<ArenaTeam*>::iterator itr = ranking.begin(); itr != ranking.end(); itr++)
-        {
-            if((*itr)->m_stat_ranking != rank)
-            {
-                (*itr)->m_stat_ranking = rank;
-                (*itr)->SaveToDB();
-            }
-            ++rank;
-        }
-    }
-    m_arenaTeamLock.Release();
-}
-
-void ObjectMgr::UpdateArenaTeamWeekly()
-{   // reset weekly matches count for all teams and all members
-    m_arenaTeamLock.Acquire();
-    for(uint32 i = 0; i < NUM_ARENA_TEAM_TYPES; i++)
-    {
-        for(std::map<uint32,ArenaTeam*>::iterator itr = m_arenaTeamMap[i].begin(); itr != m_arenaTeamMap[i].end(); itr++)
-        {
-            ArenaTeam *team = itr->second;
-            if(team)
-            {
-                team->m_stat_gamesplayedweek = 0;
-                team->m_stat_gameswonweek = 0;
-                for(uint32 j = 0; j < team->m_memberCount; ++j)
-                {
-                    team->m_members[j].Played_ThisWeek = 0;
-                    team->m_members[j].Won_ThisWeek = 0;
-                }
-                team->SaveToDB();
-            }
-        }
-    }
-    m_arenaTeamLock.Release();
 }
 
 void ObjectMgr::ResetDailies()

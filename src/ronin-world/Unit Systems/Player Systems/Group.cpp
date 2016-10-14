@@ -117,12 +117,7 @@ bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */)
 {
     m_groupLock.Acquire();
     Player* pPlayer = info->m_loggedInPlayer;
-
-    if(m_isqueued)
-    {
-        m_isqueued=false;
-        BattlegroundManager.RemoveGroupFromQueues(this);
-    }
+    m_isqueued = false;
 
     if(!IsFull())
     {
@@ -346,7 +341,6 @@ void Group::Disband()
         WorldPacket data;
         sChatHandler.FillSystemMessageData(&data, "A change was made to your group. Removing the arena queue.");
         SendPacketToAll(&data);
-        BattlegroundManager.RemoveGroupFromQueues(this);
     }
 
     for(uint8 i = 0; i < m_SubGroupCount; i++)
@@ -432,14 +426,7 @@ void Group::RemovePlayer(PlayerInfo * info)
     WorldPacket data(50);
     Player* pPlayer = info->m_loggedInPlayer;
 
-    if( pPlayer != NULL && (pPlayer->m_bg != NULL && !pPlayer->m_bg->HasEnded()))
-        sWorldMgr.PlayerLeftGroup( this, pPlayer );
-
-    if(m_isqueued)
-    {
-        m_isqueued=false;
-        BattlegroundManager.RemoveGroupFromQueues(this);
-    }
+    m_isqueued=false;
 
     m_groupLock.Acquire();
     SubGroup *sg=NULL;
@@ -529,7 +516,6 @@ void Group::ExpandToRaid()
         WorldPacket data;
         sChatHandler.FillSystemMessageData(&data, "A change was made to your group. Removing the arena queue.");
         SendPacketToAll(&data);
-        BattlegroundManager.RemoveGroupFromQueues(this);
     }
     // Very simple ;)
 

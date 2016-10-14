@@ -4,10 +4,8 @@
 
 #pragma once
 
-struct BGScore;
 class Channel;
 class Creature;
-class Battleground;
 class TaxiPath;
 class GameObject;
 class Transporter;
@@ -224,16 +222,18 @@ struct PlayerInfo
     PlayerInfo(WoWGuid _guid);
     ~PlayerInfo();
 
+    Mutex dataLock;
     WoWGuid charGuid;
     std::string charName;
     uint8 charRace;
     uint8 charClass;
-    uint8 charGender;
-    uint32 charTeam;
+    uint8 charTeam;
     uint32 charAppearance;
     uint32 charAppearance2;
+    uint32 charAppearance3;
 
     // Cached information
+    uint32 lastLevel;
     uint32 lastMapID;
     uint32 lastInstanceID;
     float lastPositionX;
@@ -241,7 +241,6 @@ struct PlayerInfo
     float lastPositionZ;
     float lastOrientation;
     uint32 lastZone;
-    uint32 lastLevel;
     time_t lastOnline;
 
     // Misc data
@@ -254,7 +253,6 @@ struct PlayerInfo
     uint32 GuildId;
     uint32 GuildRank;
     Player* m_loggedInPlayer;
-    ArenaTeam * arenaTeam[NUM_ARENA_TEAM_TYPES];
     uint32 charterId[NUM_CHARTER_TYPES];
 };
 
@@ -537,52 +535,25 @@ enum PlayerLoadOrder : uint8
 
 enum PlayerLoadFields
 {
-    PLAYERLOAD_FIELD_LOW_GUID = 0,
-    PLAYERLOAD_FIELD_NAME,
-    PLAYERLOAD_FIELD_RACE,
-    PLAYERLOAD_FIELD_CLASS,
-    PLAYERLOAD_FIELD_GENDER,
-    PLAYERLOAD_FIELD_LEVEL,
-    PLAYERLOAD_FIELD_EXPERIENCE,
-    PLAYERLOAD_FIELD_SELECTED_TITLE,
-    PLAYERLOAD_FIELD_GOLD,
-    PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS,
-    PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX,
-    PLAYERLOAD_FIELD_CURRENTHP,
-    PLAYERLOAD_FIELD_CURRENTPOWER1,
-    PLAYERLOAD_FIELD_CURRENTPOWER2,
-    PLAYERLOAD_FIELD_CURRENTPOWER3,
-    PLAYERLOAD_FIELD_CURRENTPOWER4,
-    PLAYERLOAD_FIELD_CURRENTPOWER5,
-    PLAYERLOAD_FIELD_CURRENT_PVPRANK,
-    PLAYERLOAD_FIELD_PLAYERBYTES,
-    PLAYERLOAD_FIELD_PLAYERBYTES2,
-    PLAYERLOAD_FIELD_PLAYERBYTES3,
+    PLAYERLOAD_FIELD_LOAD_DATA = 0,
+    PLAYERLOAD_FIELD_LOAD_DATA_1,
     PLAYERLOAD_FIELD_PLAYER_BYTES,
     PLAYERLOAD_FIELD_PLAYER_BYTES2,
-    PLAYERLOAD_FIELD_MAPID,
-    PLAYERLOAD_FIELD_POSITION_X,
-    PLAYERLOAD_FIELD_POSITION_Y,
-    PLAYERLOAD_FIELD_POSITION_Z,
-    PLAYERLOAD_FIELD_POSITION_O,
-    PLAYERLOAD_FIELD_INSTANCE_ID,
-    PLAYERLOAD_FIELD_ZONEID,
-    PLAYERLOAD_FIELD_ONLINESTATUS,
+    PLAYERLOAD_FIELD_XP,
+    PLAYERLOAD_FIELD_GOLD,
+    PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS,
+    PLAYERLOAD_FIELD_SELECTED_TITLE,
+    PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX,
+    PLAYERLOAD_FIELD_TALENT_ACTIVE_SPEC,
+    PLAYERLOAD_FIELD_TALENT_SPEC_COUNT,
+    PLAYERLOAD_FIELD_TALENT_RESET_COUNTER,
+    PLAYERLOAD_FIELD_TALENT_BONUS_POINTS,
+    PLAYERLOAD_FIELD_TALENT_SPECSTACK,
     PLAYERLOAD_FIELD_BINDMAPID,
     PLAYERLOAD_FIELD_BINDPOSITION_X,
     PLAYERLOAD_FIELD_BINDPOSITION_Y,
     PLAYERLOAD_FIELD_BINDPOSITION_Z,
     PLAYERLOAD_FIELD_BINDZONEID,
-    PLAYERLOAD_FIELD_ISRESTING,
-    PLAYERLOAD_FIELD_RESTSTATE,
-    PLAYERLOAD_FIELD_RESTTIME,
-    PLAYERLOAD_FIELD_DEATHSTATE,
-    PLAYERLOAD_FIELD_TOTALSTABLESLOTS,
-    PLAYERLOAD_FIELD_ENTRYPOINT_MAP,
-    PLAYERLOAD_FIELD_ENTRYPOINT_X,
-    PLAYERLOAD_FIELD_ENTRYPOINT_Y,
-    PLAYERLOAD_FIELD_ENTRYPOINT_Z,
-    PLAYERLOAD_FIELD_ENTRYPOINT_O,
     PLAYERLOAD_FIELD_TAXI_PATH,
     PLAYERLOAD_FIELD_TAXI_MOVETIME,
     PLAYERLOAD_FIELD_TAXI_TRAVELTIME,
@@ -591,17 +562,22 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_X,
     PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Y,
     PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Z,
-    PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME,
+    PLAYERLOAD_FIELD_ENTRYPOINT_MAP,
+    PLAYERLOAD_FIELD_ENTRYPOINT_X,
+    PLAYERLOAD_FIELD_ENTRYPOINT_Y,
+    PLAYERLOAD_FIELD_ENTRYPOINT_Z,
+    PLAYERLOAD_FIELD_ENTRYPOINT_O,
     PLAYERLOAD_FIELD_INSTANCE_DIFFICULTY,
     PLAYERLOAD_FIELD_RAID_DIFFICULTY,
-    //PLAYERLOAD_FIELD_ACHIEVEMENTPOINTS,
-    PLAYERLOAD_FIELD_ACTIVE_SPEC,
-    PLAYERLOAD_FIELD_SPEC_COUNT,
-    PLAYERLOAD_FIELD_TALENT_RESET_COUNTER,
-    PLAYERLOAD_FIELD_BONUS_TALENT_POINTS,
-    PLAYERLOAD_FIELD_ACTIVE_TALENT_SPECSTACK,
+    PLAYERLOAD_FIELD_ISRESTING,
+    PLAYERLOAD_FIELD_RESTSTATE,
+    PLAYERLOAD_FIELD_RESTTIME,
+    PLAYERLOAD_FIELD_DEATHSTATE,
+    PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME,
+    PLAYERLOAD_FIELD_LAST_SAVE_TIME,
     PLAYERLOAD_FIELD_NEEDS_POSITION_RESET,
     PLAYERLOAD_FIELD_NEEDS_TALENT_RESET
+    //PLAYERLOAD_FIELD_ACHIEVEMENTPOINTS,
 };
 
 //====================================================================
@@ -630,9 +606,11 @@ class SERVER_DECL Player : public Unit
     friend class SkillIterator;
 
 public:
-    Player ( uint64 guid, uint32 fieldCount = PLAYER_END );
-    ~Player ( );
-    virtual void Init();
+    Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount = PLAYER_END);
+    ~Player();
+
+    bool Initialize();
+    virtual void Init() {};
     virtual void Destruct();
 
     virtual void RemoveFromWorld();
@@ -642,51 +620,58 @@ public:
 
     void Update( uint32 msTime, uint32 diff );
 
-    void ProcessImmediateItemUpdate(Item *item);
-    void ProcessPendingItemUpdates();
-    std::set<Item*> m_pendingUpdates;
-    void ItemFieldUpdated(Item *item);
-    void ItemDestructed(Item *item);
+    // GM functionality
+    bool hasGMTag() { return HasFlag(PLAYER_FLAGS, PLAYER_FLAG_GM|PLAYER_FLAG_DEVELOPER); }
+    bool hasCooldownCheat() { return false; }
 
-    void OnFieldUpdated(uint16 index);
+public: /// Interface Interaction Functions
+    RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
+    RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
+    RONIN_INLINE TalentInterface *GetTalentInterface() { return &m_talentInterface; }
 
-    void UpdatePlayerRatings();
-    void UpdatePlayerDamageDoneMods();
 
-    float GetPowerMod() { return 1.f; }
-    float GetHealthMod() { return 1.f; }
-    int32 GetBonusMana();
-    int32 GetBonusHealth();
-    int32 GetBonusStat(uint8 type);
-    int32 GetBaseAttackTime(uint8 weaponType);
-    int32 GetBaseMinDamage(uint8 weaponType);
-    int32 GetBaseMaxDamage(uint8 weaponType);
-    int32 GetBonusAttackPower();
-    int32 GetBonusRangedAttackPower();
-    int32 GetBonusResistance(uint8 school);
-    virtual float GetDodgeChance() { return GetFloatValue(PLAYER_DODGE_PERCENTAGE); }
-    virtual float GetHitChance() { return GetFloatValue(PLAYER_FIELD_UI_HIT_MODIFIER); }
+public: /// Player field based functions
+    // Stat calculations/Field recalcs
+    RONIN_INLINE virtual float GetDodgeChance() { return GetFloatValue(PLAYER_DODGE_PERCENTAGE); }
+    RONIN_INLINE virtual float GetHitChance() { return GetFloatValue(PLAYER_FIELD_UI_HIT_MODIFIER); }
 
-    void UpdateCombatRating(uint8 combatRating, float value);
-    float GetRatioForCombatRating(uint8 combatRating);
-    int32 CalculatePlayerCombatRating(uint8 combatRating);
+    // PvP rank
+    RONIN_INLINE uint8 GetPVPRank() { return (uint8)((GetUInt32Value(PLAYER_BYTES_3) >> 24) & 0xFF); }
+    RONIN_INLINE void SetPVPRank(int newrank) { SetUInt32Value(PLAYER_BYTES_3, ((GetUInt32Value(PLAYER_BYTES_3) & 0x00FFFFFF) | (uint8(newrank) << 24))); }
 
-private:
-    bool m_forceStatUpdate;
+    // Quest slots
+    RONIN_INLINE uint32 GetQuestSlotId(uint16 slot) const { return GetUInt32Value(PLAYER_QUEST_LOG + slot * 5); }
+    RONIN_INLINE void SetQuestSlotId(uint16 slot, uint32 value) { SetUInt32Value(PLAYER_QUEST_LOG + slot * 5, value); }
 
-public:
-    virtual void setLevel(uint32 level);
+    // Guard hostility flags
+    RONIN_INLINE void SetGuardHostileFlag() { SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
+    RONIN_INLINE void RemoveGuardHostileFlag() { RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
 
-    /************************************************************************/
-    /* Player loading and savings                                           */
-    /* Serialize character to db                                            */
-    /************************************************************************/
-    void SaveToDB(bool bNewCharacter);
+    // Guild data
+    RONIN_INLINE bool IsInGuild() { return (GetUInt32Value(PLAYER_GUILDID) > 0); }
+    RONIN_INLINE uint32 GetGuildId() { return GetUInt32Value(PLAYER_GUILDID); }
+    RONIN_INLINE uint32 GetGuildRank() { return GetUInt32Value(PLAYER_GUILDRANK); }
+    RONIN_INLINE uint32 GetGuildLevel() { return GetUInt32Value(PLAYER_GUILDLEVEL); }
+    RONIN_INLINE void SetGuildRank(uint32 guildRank) { SetUInt32Value(PLAYER_GUILDRANK, guildRank); }
+    RONIN_INLINE void SetGuildLevel(uint32 guildLevel) { SetUInt32Value(PLAYER_GUILDLEVEL, guildLevel); }
+
+    // Currency gold
+    RONIN_INLINE void AddCoins( int32 coins ) { ModUnsigned32Value(PLAYER_FIELD_COINAGE , coins); }
+    RONIN_INLINE void TakeCoins( int32 coins ) { ModUnsigned32Value(PLAYER_FIELD_COINAGE, -coins); }
+
+    // Title function
+    RONIN_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }
+
+public: /// Player loading and savings
+    void CreateInDatabase();
+
+    void SaveToDB(bool bNewCharacter = false);
     static void DeleteFromDB(WoWGuid guid);
 
     bool LoadFromDB();
     void LoadFromDBProc(QueryResultVector & results);
 
+private:
     void _LoadPlayerAuras(QueryResult * result);
     void _SavePlayerAuras(QueryBuffer * buf);
 
@@ -723,6 +708,44 @@ public:
     void _LoadTimeStampData(QueryResult * result);
     void _SaveTimeStampData(QueryBuffer * buf);
 
+public: /// Stat Calculation
+    void ProcessImmediateItemUpdate(Item *item);
+    void ProcessPendingItemUpdates();
+    void ItemFieldUpdated(Item *item);
+    void ItemDestructed(Item *item);
+
+    void OnFieldUpdated(uint16 index);
+
+    void UpdatePlayerRatings();
+    void UpdatePlayerDamageDoneMods();
+
+protected:
+    float GetPowerMod() { return 1.f; }
+    float GetHealthMod() { return 1.f; }
+    int32 GetBonusMana();
+    int32 GetBonusHealth();
+    int32 GetBonusStat(uint8 type);
+    int32 GetBaseAttackTime(uint8 weaponType);
+    int32 GetBaseMinDamage(uint8 weaponType);
+    int32 GetBaseMaxDamage(uint8 weaponType);
+    int32 GetBonusAttackPower();
+    int32 GetBonusRangedAttackPower();
+    int32 GetBonusResistance(uint8 school);
+
+    void UpdateCombatRating(uint8 combatRating, float value);
+    float GetRatioForCombatRating(uint8 combatRating);
+    int32 CalculatePlayerCombatRating(uint8 combatRating);
+
+public: /// Interface functions
+
+
+private:
+
+public: /// Player field based functions
+    virtual void setLevel(uint32 level);
+
+    void ClearSession() { m_session = NULL; }
+
     /************************************************************************/
     /* Talent System                                                        */
     /************************************************************************/
@@ -732,8 +755,6 @@ public:
 
     uint32 CalcTalentResetCost(uint32 resetnum);
     void SendTalentResetConfirm();
-
-    TalentInterface m_talentInterface;
 
     // Instance system
     void ResetAllInstanceLinks();
@@ -771,9 +792,6 @@ public:
     RONIN_INLINE uint8 GetBGTeam() { return m_bgTeam; }
     RONIN_INLINE void SetBGTeam(uint8 t) { m_bgTeam = t; }
 
-    LfgMatch * m_lfgMatch;
-    uint32 m_lfgInviterGuid;
-
     static bool IsValidGender(uint8 Gender) { return Gender <= 1; }
     static bool IsValidClass(uint8 Class) { return ((1 << (Class - 1)) & CLASSMASK_ALL_PLAYABLE) != 0; }
     static bool IsValidRace(uint8 Race) { return ((1 << (Race - 1)) & RACEMASK_ALL_PLAYABLE) != 0; }
@@ -791,13 +809,6 @@ protected:
     uint8 GetFreeSkillPosition();
     void _UpdateSkillFields();
 
-    SkillMap m_skills;
-    SkillReferenceMap m_skillsByIndex;
-
-    // COOLDOWNS
-    PlayerCooldownMap m_cooldownMap[NUM_COOLDOWN_TYPES];
-    time_t m_globalCooldown;
-
 public:
     void Cooldown_OnCancel(SpellEntry *pSpell);
     void Cooldown_AddStart(SpellEntry * pSpell);
@@ -812,12 +823,14 @@ protected:
 
 public:
 
-    bool ok_to_remove;
-
-    bool Create ( WorldPacket &data );
+    static float NoseHeight(uint8 race, uint8 gender)
+    {
+        static float noseHeight[RACE_COUNT*2] = { 1.72f, 1.78f, 1.82f, 1.98f, 1.27f, 1.4f, 1.84f, 2.13f, 1.61f, 1.8f, 2.48f, 2.01f, 1.06f, 1.04f, 2.02f, 1.93f, 1.06f, 1.04f, 1.83f, 1.93f, 2.09f, 2.36f, 1.72f, 1.78f };
+        uint8 _race = std::min<uint8>(race, RACE_COUNT);
+        return noseHeight[_race * 2 + (gender ? 0 : 1)];
+    }
 
     void BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag);
-    std::string m_afk_reason;
     void SetAFKReason(std::string reason) { m_afk_reason = reason; };
     RONIN_INLINE const char* GetName() { return m_name.c_str(); }
     RONIN_INLINE std::string* GetNameString() { return &m_name; }
@@ -828,16 +841,13 @@ public:
 
     int32 GetBonusesFromItems(uint32 statType);
 
-    ItemBonusModMap itemBonusMap;
-    ItemBonusModByType itemBonusMapByType;
-
     /************************************************************************/
     /* Taxi                                                                 */
     /************************************************************************/
     UpdateMask* GetTaximask() { return &m_taxiMask; }
 
-    RONIN_INLINE TaxiPath* GetTaxiPath() { return m_CurrentTaxiPath; }
-    RONIN_INLINE bool GetTaxiState() { return m_CurrentTaxiPath != NULL; }
+    RONIN_INLINE TaxiPath* GetTaxiPath() { return m_taxiData ? m_taxiData->CurrentPath : NULL; }
+    RONIN_INLINE bool GetTaxiState() { return m_taxiData && m_taxiData->CurrentPath; }
     void TaxiStart(TaxiPath* path, uint32 modelid, uint32 startOverride = 0);
     void JumpToEndTaxiNode(TaxiPath * path);
     void EventDismount(uint32 money, float x, float y, float z);
@@ -848,19 +858,6 @@ public:
     RONIN_INLINE bool HasTaxiNode(uint32 node) { return m_taxiMask.GetBit(node); }
     RONIN_INLINE void AddTaxiMask(uint32 index) { m_taxiMask.SetBit(index); }
     RONIN_INLINE void RemoveTaxiMask(uint32 index) { m_taxiMask.UnsetBit(index); }
-    RONIN_INLINE void SetTaxiPath(TaxiPath *path) { m_CurrentTaxiPath = path; }
-    RONIN_INLINE void SetTaxiPos() {taxiX = m_position.x; taxiY = m_position.y; taxiZ = m_position.z;}
-    RONIN_INLINE void UnSetTaxiPos() {taxiX = 0; taxiY = 0; taxiZ = 0; }
-
-    // Taxi mask data
-    UpdateMask m_taxiMask;
-
-    // Taxi related variables
-    TaxiPath* m_CurrentTaxiPath;
-    std::vector<TaxiPath*> m_taxiPaths;
-    uint32 m_taxiModelId, m_taxiMapChangeNode, m_taxiDisplayId;
-    uint32 m_lastTaxiTimeUpdate, m_taxiUpdateTimer, m_taxiTravelTime, m_taxiMoveTime, m_taxiArrivalTime;
-    float taxiX, taxiY, taxiZ;
 
     /************************************************************************/
     /* Quests                                                               */
@@ -869,21 +866,18 @@ public:
     {
         for(int i = 0; i < QUEST_LOG_COUNT; i++)
         {
-            if(m_questlog[i] != 0)
+            if(m_questLog[i] != 0)
                 return true;
         }
         return false;
     }
 
-    bool HasQuest(uint32 qid)
-    {
-        return GetQuestLogForEntry(qid) != NULL;
-    }
+    bool HasQuest(uint32 qid) { return GetQuestLogForEntry(qid) != NULL; }
 
     int32               GetOpenQuestSlot();
     uint32              GetQuestStatusForQuest(uint32 questid, uint8 type = 1, bool skiplevelcheck = false);
     QuestLogEntry*      GetQuestLogForEntry(uint32 quest);
-    RONIN_INLINE  QuestLogEntry*GetQuestLogInSlot(uint32 slot){ return m_questlog[slot]; }
+    RONIN_INLINE  QuestLogEntry*GetQuestLogInSlot(uint32 slot){ return m_questLog[slot]; }
     RONIN_INLINE  uint32 GetQuestSharer(){ return m_questSharer; }
 
     RONIN_INLINE void SetQuestSharer(uint32 guid){ m_questSharer = guid; }
@@ -904,17 +898,6 @@ public:
     void                RemoveQuestsFromLine(uint32 skill_line);
     void                ResetDailyQuests();
     uint16              FindQuestSlot(uint32 questid);
-    uint32 GetQuestSlotQuestId(uint16 slot) const { return GetUInt32Value(PLAYER_QUEST_LOG + slot * 5 + (uint32)NULL); }
-
-    //Quest related variables
-    QuestLogEntry *m_questlog[QUEST_LOG_COUNT];
-    std::set<uint32>    m_QuestGOInProgress;
-    uint32              m_questSharer;
-    std::set<uint32>    quest_spells;
-    std::set<uint32>    quest_mobs;
-
-    Mutex DailyMutex;
-    std::map<uint32, time_t> m_completedQuests, m_completedDailyQuests;
 
     void EventPortToGM(uint32 guid);
 
@@ -939,38 +922,7 @@ public:
     SpellEntry* FindLowerRankSpell(SpellEntry* sp, int32 rankdiff);
     SpellEntry *FindHighestRankSpellBySkilline(SkillLineAbilityEntry *sk, SpellEntry* sp);
 
-    uint32 forget;
-
-    // PLEASE DO NOT INLINE!
-    void AddOnStrikeSpell(SpellEntry* sp, uint32 delay)
-    {
-        m_onStrikeSpells.insert( std::map< SpellEntry*, std::pair<uint32, uint32> >::value_type( sp, std::make_pair( delay, 0 ) ) );
-    }
-    void RemoveOnStrikeSpell(SpellEntry *sp)
-    {
-        m_onStrikeSpells.erase(sp);
-    }
-    void AddOnStrikeSpellDamage(uint32 spellid, uint32 mindmg, uint32 maxdmg)
-    {
-        OnHitSpell sp;
-        sp.spellid = spellid;
-        sp.mindmg = mindmg;
-        sp.maxdmg = maxdmg;
-        m_onStrikeSpellDmg[spellid] = sp;
-    }
-    void RemoveOnStrikeSpellDamage(uint32 spellid)
-    {
-        m_onStrikeSpellDmg.erase(spellid);
-    }
-
     bool HasSpellWithEffect(uint8 spellEff) { return !m_spellsByEffect[spellEff].empty(); }
-
-    //Spells variables
-    StrikeSpellMap      m_onStrikeSpells;
-    StrikeSpellDmgMap   m_onStrikeSpellDmg;
-    SpellSet            mSpells;
-    SpellSet            mShapeShiftSpells;
-    Loki::AssocVector<uint8, std::set<uint32>> m_spellsByEffect;
 
     void AddShapeShiftSpell(uint32 id);
     void RemoveShapeShiftSpell(uint32 id);
@@ -981,8 +933,6 @@ public:
     static Standing GetReputationRankFromStanding(int32 Standing_);
     void Reputation_OnTalk(FactionEntry *faction) { m_factionInterface.Reputation_OnTalk(faction); }
 
-    bool titanGrip;
-
     /************************************************************************/
     /* Factions                                                             */
     /************************************************************************/
@@ -991,14 +941,6 @@ public:
     /************************************************************************/
     /* PVP                                                                  */
     /************************************************************************/
-    RONIN_INLINE uint8 GetPVPRank()
-    {
-        return (uint8)((GetUInt32Value(PLAYER_BYTES_3) >> 24) & 0xFF);
-    }
-    RONIN_INLINE void SetPVPRank(int newrank)
-    {
-        SetUInt32Value(PLAYER_BYTES_3, ((GetUInt32Value(PLAYER_BYTES_3) & 0x00FFFFFF) | (uint8(newrank) << 24)));
-    }
     uint32 GetMaxPersonalRating(bool Ignore2v2);
 
 
@@ -1012,7 +954,7 @@ public:
     void SetInviter(WoWGuid pInviter) { m_GroupInviter = pInviter; }
     RONIN_INLINE WoWGuid      GetInviter() { return m_GroupInviter; }
     RONIN_INLINE bool         InGroup() { return (m_playerInfo->m_Group != NULL && m_GroupInviter.empty()); }
-    bool                            IsGroupLeader()
+    bool IsGroupLeader()
     {
         if(m_playerInfo->m_Group != NULL)
         {
@@ -1021,6 +963,7 @@ public:
         }
         return false;
     }
+
     bool IsGroupMember(Player* plyr);
     RONIN_INLINE int      HasBeenInvited() { return !m_GroupInviter.empty(); }
     RONIN_INLINE Group*   GetGroup() { return m_playerInfo != NULL ? m_playerInfo->m_Group : NULL; }
@@ -1028,11 +971,8 @@ public:
     RONIN_INLINE int8     GetSubGroup() { return m_playerInfo->subGroup; }
     RONIN_INLINE bool     IsBanned()
     {
-        if(m_banned)
-        {
-            if(m_banned < 100 || (uint32)UNIXTIME < m_banned)
-                return true;
-        }
+        if(m_banned && (m_banned < 100 || (uint32)UNIXTIME < m_banned))
+            return true;
         return false;
     }
 
@@ -1042,22 +982,10 @@ public:
     RONIN_INLINE void UnSetBanned() { m_banned = 0; }
     RONIN_INLINE std::string GetBanReason() {return m_banreason;}
 
-    void SetGuardHostileFlag(bool val) { if(val) SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); else RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
-
-    uint32 m_hasInRangeGuards;
-
     /************************************************************************/
     /* Guilds                                                               */
     /************************************************************************/
-    RONIN_INLINE bool IsInGuild() { return (GetUInt32Value(PLAYER_GUILDID) > 0); }
-    RONIN_INLINE uint32 GetGuildId() { return GetUInt32Value(PLAYER_GUILDID); }
-    RONIN_INLINE uint32 GetGuildRank() { return GetUInt32Value(PLAYER_GUILDRANK); }
-    RONIN_INLINE uint32 GetGuildLevel() { return GetUInt32Value(PLAYER_GUILDLEVEL); }
-
     void SetGuildId(uint32 guildId);
-    RONIN_INLINE void SetGuildRank(uint32 guildRank) { SetUInt32Value(PLAYER_GUILDRANK, guildRank); }
-    RONIN_INLINE void SetGuildLevel(uint32 guildLevel) { SetUInt32Value(PLAYER_GUILDLEVEL, guildLevel); }
-
     uint32 GetGuildInvitersGuid() { return m_invitersGuid; }
     void SetGuildInvitersGuid( uint32 guid ) { m_invitersGuid = guid; }
     void UnSetGuildInvitersGuid() { m_invitersGuid = 0; }
@@ -1073,8 +1001,6 @@ public:
     RONIN_INLINE uint8        GetDuelStatus() { return m_duelStatus; }
     void                SetDuelState(uint8 state) { m_duelState = state; }
     RONIN_INLINE uint8        GetDuelState() { return m_duelState; }
-    // duel variables
-    Player*             DuelingWith;
 
     /************************************************************************/
     /* Trade                                                                */
@@ -1105,18 +1031,9 @@ public:
     /************************************************************************/
     RONIN_INLINE void ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
 
-    // Pointer returns for player systems
-    RONIN_INLINE PlayerInventory* GetInventory() { return &m_inventory; }
-    RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
 
 private:
     void _ApplyItemMods( Item* item, uint8 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
-
-    // item interface variables
-    PlayerInventory m_inventory;
-
-    //
-    PlayerCurrency m_currency;
 
 public:
     /************************************************************************/
@@ -1125,10 +1042,6 @@ public:
     RONIN_INLINE const WoWGuid& GetLootGUID() const { return m_lootGuid; }
     RONIN_INLINE void SetLootGUID(const WoWGuid &guid) { m_lootGuid = guid; }
     void SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type);
-    // loot variables
-    WoWGuid m_lootGuid;
-    WoWGuid m_currentLoot;
-    bool m_insigniaTaken;
     bool CanNeedItem(ItemPrototype* proto);
 
     /************************************************************************/
@@ -1136,22 +1049,18 @@ public:
     /************************************************************************/
 
     RONIN_INLINE WorldSession* GetSession() const { return m_session; }
-    void SetSession(WorldSession *s) { m_session = s; }
-    void SetBindPoint(float x, float y, float z, uint32 m, uint32 v) { m_bind_pos_x = x; m_bind_pos_y = y; m_bind_pos_z = z; m_bind_mapid = m; m_bind_zoneid = v;}
-
-    float GetSpellTimeMod(uint32 id);
-    int GetSpellDamageMod(uint32 id);
-    int32 GetSpellManaMod(uint32 id);
+    void SetBindPoint(float x, float y, float z, uint32 m, uint32 v) { m_bindData.posX = x; m_bindData.posY = y; m_bindData.posZ = z; m_bindData.mapId = m; m_bindData.zoneId = v;}
 
     // Talents
     // These functions build a specific type of A9 packet
     uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
     virtual void DestroyForPlayer( Player* target, bool anim = false);
 
-    std::deque<std::pair<uint8, Aura*>> m_loadAuras;
-
-    std::set<uint32> OnMeleeAuras;
     void LoadNamesFromDB(uint32 guid);
+
+    void ClearVendorIndex() { m_vendorIndexSlots.clear(); }
+    void AddVendorIndex(uint32 slot, uint32 index) { m_vendorIndexSlots.insert(std::make_pair(slot, index)); }
+    uint32 GetVendorIndex(uint32 slot) { if(m_vendorIndexSlots.find(slot) == m_vendorIndexSlots.end()) return 0xFFFFFFFF; return m_vendorIndexSlots.at(slot); }
 
     /************************************************************************/
     /* Death system                                                         */
@@ -1196,24 +1105,16 @@ public:
     void SetPlayerStatus(uint8 pStatus) { m_status = pStatus; }
     void CheckPlayerStatus(uint8 pStatus) { if(m_status == pStatus) m_status = NONE; }
     RONIN_INLINE uint8 GetPlayerStatus() { return m_status; }
-    const float& GetBindPositionX( ) const { return m_bind_pos_x; }
-    const float& GetBindPositionY( ) const { return m_bind_pos_y; }
-    const float& GetBindPositionZ( ) const { return m_bind_pos_z; }
-    const uint32& GetBindMapId( ) const { return m_bind_mapid; }
-    const uint32& GetBindZoneId( ) const { return m_bind_zoneid; }
+
+    RONIN_INLINE float GetBindPositionX() const { return m_bindData.posX; }
+    RONIN_INLINE float GetBindPositionY() const { return m_bindData.posY; }
+    RONIN_INLINE float GetBindPositionZ() const { return m_bindData.posZ; }
+    RONIN_INLINE uint32 GetBindMapId() const { return m_bindData.mapId; }
+    RONIN_INLINE uint32 GetBindZoneId() const { return m_bindData.zoneId; }
 
     void SetShapeShift(uint8 ss);
     uint32 GetSpellForShapeshiftForm(uint8 ss, bool spellchecks = false);
-
-    //Showing Units WayPoints
-    AIInterface* waypointunit;
-
-    bool ForceSaved;
-    uint32 m_nextSave;
     void SendCinematic(uint32 cinematicid) { GetSession()->OutPacket(SMSG_TRIGGER_CINEMATIC, 4, &cinematicid); };
-
-    //Base stats calculations
-    //void CalcBaseStats();
 
     // Rest
     void HandleRestedCalculations(bool rest_on);
@@ -1221,22 +1122,9 @@ public:
     void AddCalculatedRestXP(uint32 seconds);
     void ApplyPlayerRestState(bool apply);
     void UpdateRestState();
-    float z_axisposition;
-    int32 m_safeFall;
-    bool safefall;
-    // Gossip
-    GossipMenu* CurrentGossipMenu;
-    void CleanupGossipMenu();
-    void Gossip_Complete();
-    int m_lifetapbonus;
-    uint32 m_lastShotTime;
 
     void SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen);
     void StopMirrorTimer(MirrorTimerType Type);
-
-    // Beast
-    bool m_BeastMaster;
-    uint32 m_lastWarnCounter;
 
     // Visible objects
     bool CanSee(WorldObject* obj);
@@ -1270,46 +1158,12 @@ public:
     // Misc
     void SetDrunk(uint16 value, uint32 itemId = 0);
     void EventHandleSobering();
-    float m_meleeattackspeedmod;
-    float m_rangedattackspeedmod;
 
     void SendInitialLogonPackets();
     void Reset_Spells();
     void Reset_ToLevel1();
     void RetroactiveCompleteQuests();
 
-    uint32 GetBGQueueSlotByBGType(uint32 type);
-    uint32 HasBGQueueSlotOfType(uint32 type);
-
-    // Battlegrounds xD
-    CBattleground* m_bg;
-    CBattleground* m_pendingBattleground[2];
-    uint32 m_bgSlot;
-    bool m_bgRatedQueue;
-    uint32 m_bgEntryPointMap;
-    float m_bgEntryPointX;
-    float m_bgEntryPointY;
-    float m_bgEntryPointZ;
-    float m_bgEntryPointO;
-    int32 m_bgEntryPointInstance;
-    bool m_bgHasFlag;
-    bool m_bgIsQueued[3];
-    uint32 m_bgQueueType[2];
-    uint32 m_bgQueueInstanceId[2];
-    uint32 m_bgQueueTime[2];
-    uint32 m_bgFlagIneligible;
-
-    bool HasBattlegroundQueueSlot();
-
-    uint32 GetBGQueueSlot();
-
-    void EventRepeatSpell();
-    int32 CanShootRangedWeapon(uint32 spellid, Unit* target, bool autoshot);
-    uint32 m_AutoShotDuration;
-    uint32 m_AutoShotAttackTimer;
-    bool m_onAutoShot;
-    uint64 m_AutoShotTarget;
-    SpellEntry *m_AutoShotSpell;
     void UpdateNearbyGameObjects();
     void UpdateNearbyQuestGivers();
     void EventMassSummonReset() { m_massSummonEnabled = false; }
@@ -1317,23 +1171,13 @@ public:
     uint8 GetLastSwingError() { return m_lastSwingError; }
     void SetLastSwingError(uint8 error) { m_lastSwingError = error; }
 
-    bool m_massSummonEnabled;
-
     RONIN_INLINE float CalcRating(uint32 index) { return CalcPercentForRating(index, GetUInt32Value(index)); };
     float CalcPercentForRating(uint32 index, uint32 rating);
-    void RecalcAllRatings();
 
-    std::map<uint8, uint32> m_regenTimerCounters;
-
-    float m_powerFraction[6];
     void RegeneratePower(bool isinterrupted);
     void RegenerateHealth(bool inCombat);
 
-    void BattlegroundKick() { if(m_bg) m_bg->RemovePlayer(this, false); };
     void ForceLogout() { GetSession()->LogoutPlayer(); };
-
-    uint32 SoulStone;
-    uint32 SoulStoneReceiver;
     void removeSoulStone();
 
     RONIN_INLINE uint32 GetSoulStoneReceiver(){return SoulStoneReceiver;}
@@ -1341,46 +1185,19 @@ public:
     RONIN_INLINE uint32 GetSoulStone(){return SoulStone;}
     RONIN_INLINE void SetSoulStone(uint32 StoneID){SoulStone = StoneID;}
 
-    bool bReincarnation;
-    uint8 m_lastSwingError;
-
-    int32 rageFromDamageDealt;
-    // GameObject commands
-    WoWGuid m_selectedGo;
-
     uint32 GetTotalItemLevel();
     uint32 GetAverageItemLevel(bool skipmissing = false);
 
-    uint32 m_ShapeShifted;
-    uint32 m_MountSpellId;
-
     RONIN_INLINE bool IsMounted() {return (m_MountSpellId!=0 ? true : false); }
 
-    bool bGMTagOn;
-    bool stack_cheat;
-    bool DisableDevTag;
-    bool vendorpass_cheat;
-    bool triggerpass_cheat;
-    bool ignoreitemreq_cheat;
-    uint8 gmSightType;
-    uint32 gmSightEventID;
-    uint32 gmSightPhaseMask;
-
-    bool bHasBindDialogOpen;
-    uint32 TrackingSpell;
     void _Warn(const char *message);
     void _Kick();
     void _Disconnect();
     void Kick(uint32 delay = 0);
     void SoftDisconnect();
-    uint32 m_KickDelay;
-    Unit* m_CurrentCharm;
-    Transporter* m_CurrentTransporter;
-    bool IgnoreSpellFocusRequirements;
 
     GameObject* GetSummonedObject () {return m_SummonedObject;};
     void SetSummonedObject (GameObject* t_SummonedObject) {m_SummonedObject = t_SummonedObject;};
-    uint32 roll;
 
     void ClearCooldownsOnLine(uint32 skill_line, uint32 called_from);
     void ClearCooldownsOnLines(std::set<uint32> skill_lines, uint32 called_from);
@@ -1399,45 +1216,14 @@ public:
     void AddArmorProficiency(uint32 flag) { m_armorProficiency |= flag; };
     void AddWeaponProficiency(uint32 flag) { m_weaponProficiency |= flag; };
 
-    bool CooldownCheat;
-    bool CastTimeCheat;
-    bool PowerCheat;
-
-    bool m_hasSentMoTD;
-    int32 m_lastAreaUpdateMap;
-    uint32 m_oldZone, m_oldArea;
-
-    std::string Lfgcomment;
-    uint16 LfgDungeonId[3];
-    uint8 LfgType[3];
-    uint16 LfmDungeonId;
-    uint8 LfmType;
-    uint32 roleflags;
-    bool m_Autojoin;
-    bool m_AutoAddMem;
     void StopMirrorTimer(uint32 Type);
-    BGScore m_bgScore;
 
     void EventTeleport(uint32 mapid, float x, float y, float z, float o = 0.f);
     void BroadcastMessage(const char* Format, ...);
 
-    LockedQueue<WorldPacket*> delayedPackets;
-    std::set<Player*  > gmTargets;
-
     RONIN_INLINE void setMyCorpse(Corpse* corpse) { myCorpse = corpse; }
     RONIN_INLINE Corpse* getMyCorpse() { return myCorpse; }
 
-    uint32 m_resurrectHealth, m_resurrectMana;
-    uint32 resurrector;
-    LocationVector m_resurrectLoction;
-    uint32 blinktimer;
-    bool blinked;
-
-    // DBC stuff
-    CharRaceEntry * myRace;
-    CharClassEntry * myClass;
-
-    Unit* linkTarget;
     void _Relocate(uint32 mapid,const LocationVector & v, bool force_new_world, uint32 instance_id);
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, float Z, float O);
     bool SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec);
@@ -1451,25 +1237,11 @@ public:
         SafeTeleport(MapID, InstanceID, vec);
     }
 
-    /*****************
-      PVP Stuff
-    ******************/
-    uint32 m_pvpTimer;
-
-    RONIN_INLINE void AddCoins( int32 coins ){
-        ModUnsigned32Value( PLAYER_FIELD_COINAGE , coins );
-    }
-    RONIN_INLINE void TakeCoins( int32 coins ){
-        ModUnsigned32Value(PLAYER_FIELD_COINAGE, -coins);
-    }
-
     //! Do this on /pvp off
     RONIN_INLINE void ResetPvPTimer();
     //! Stop the timer for pvp off
     RONIN_INLINE void StopPvPTimer() { RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER); m_pvpTimer = 0; }
 
-    //! Called at login to add the honorless buff, etc.
-    void LoginPvPSetup();
     //! Update our pvp area (called when zone changes)
     void UpdatePvPArea();
     //! PvP Toggle (called on /pvp)
@@ -1477,9 +1249,6 @@ public:
 
     RONIN_INLINE uint32 LastHonorResetTime() const { return m_lastHonorResetTime; }
     RONIN_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }
-    uint32 OnlineTime;
-    uint32 load_health, load_power[POWER_FIELDS_MAX];
-    std::vector<SpellEntry *> castSpellAtLogin;
 
     /////
     void OnPreSetInWorld();
@@ -1491,25 +1260,8 @@ public:
     void CompleteLoading();
     void SendObjectUpdate(WoWGuid guid);
 
-    uint32 m_TeleportState;
-    std::set<Unit* > visiblityChangableSet;
-    bool m_beingPushed;
     bool CanSignCharter(Charter * charter, Player* requester);
-    uint32 m_FlyingAura;
-    std::stringstream LoadAuras;
-    bool m_XPoff;
-    uint32 iInstanceType;
-    uint32 iRaidType;
-    uint32 AnnihilationProcChance;
     RONIN_INLINE void SetName(std::string& name) { m_name = name; }
-    // spell to (delay, last time)
-    Channel* watchedchannel;
-
-    uint32 m_speedChangeCounter;
-
-    // HACKKKKK
-    uint32 m_cheatDeathRank;
-
     void SendAreaTriggerMessage(const char * message, ...);
 
     // Trade Target
@@ -1530,10 +1282,6 @@ public:
         return m_tradeData->tradeItems[slot];
     }
 
-    // Water level related stuff (they are public because they need to be accessed fast)
-    // Nose level of the character (needed for proper breathing)
-    float m_noseLevel;
-
     /* Mind Control */
     void Possess(Unit* pTarget);
     void UnPossess();
@@ -1545,16 +1293,9 @@ public:
         if(hp) SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH) );
     }
 
-    LocationVector m_last_group_position;
-    int32 m_rap_mod_pct;
     void SummonRequest(WorldObject* Requestor, uint32 ZoneID, uint32 MapID, uint32 InstanceID, const LocationVector & Position);
 
-    Creature* m_tempSummon;
-    bool m_deathVision;
-
-    void RemoveFromBattlegroundQueue(uint32 queueSlot, bool forced = false);
     void FullHPMP();
-    uint32 m_arenateaminviteguid;
 
     /************************************************************************/
     /* Spell Packet wrapper Please keep this separated                      */
@@ -1569,43 +1310,178 @@ public:
     /* End of SpellPacket wrapper                                           */
     /************************************************************************/
 
-    Mailbox* m_mailBox;
-    bool m_setwaterwalk;
-    uint64 m_areaSpiritHealer_guid;
-    bool m_finishingmovesdodge;
-
     void SendPacket(WorldPacket* data);
     void SendDelayedPacket(WorldPacket * data);
     void CopyAndSendDelayedPacket(WorldPacket * data);
 
     uint32 GetLastLoginTime() { return  m_timeLogoff; };
 
-    //Current value of Feral Attack Power from items
-    int32 m_feralAP;
-    uint32 JudgementSpell;
-
 protected:
-    uint32 m_timeLogoff;
-    LocationVector m_summonPos;
-    int32 m_summonInstanceId;
-    uint32 m_summonMapId;
-    WorldObject* m_summoner;
+    void _EventExploration();
 
-    /* Update system components */
+    void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);
+
+    /************************************************************************/
+    /* SOCIAL                                                               */
+    /************************************************************************/
+private:
+
+    void Social_SendFriendList(uint32 flag);
+
+    void Social_AddFriend(std::string name, std::string note);
+    void Social_RemoveFriend(WoWGuid guid);
+
+    void Social_AddIgnore(std::string name);
+    void Social_RemoveIgnore(WoWGuid guid);
+
+    void Social_SetNote(WoWGuid guid, std::string name);
+
+public:
+    bool Social_IsIgnoring(WoWGuid guid);
+    bool Social_IsIgnoring(PlayerInfo * info) { return Social_IsIgnoring(info->charGuid); }
+
+    /************************************************************************/
+    /* end social                                                           */
+    /************************************************************************/
+    PlayerInfo *getPlayerInfo() const { return m_playerInfo; }
+    PlayerCreateInfo *getPlayerCreateInfo() const { return m_createInfo; }
+
+    RONIN_INLINE bool HasKnownTitleByEntry(uint32 entry) { CharTitleEntry *titleEntry = dbcCharTitle.LookupEntry(entry); return (titleEntry && HasKnownTitleByIndex(titleEntry->bit_index)); }
+
+    void SetKnownTitle( int32 title, bool set );
+
+    uint8 GetChatTag() const;
+    uint8 GetGuildMemberFlags();
+    void AddArenaPoints( uint32 arenapoints );
+
+    // loooooot
+    void GenerateLoot(Corpse* pCorpse);
+    uint32 GenerateShapeshiftModelId(uint32 form);
+    void StartQuest(uint32 id);
+    //Calculate honor for random bgs
+    uint32 GenerateRBGReward(uint32 level, uint32 count = 1) { uint32 honor = uint32(ceil(float(count * level * 1.55f))); return honor; }
+    static DrunkenState GetDrunkenstateByValue(uint16 value);
+    void EventDrunkenVomit();
+
+    uint32 GetMountSpell() { return m_MountSpellId; }
+    void SetMountSpell(uint32 spellId) { m_MountSpellId = spellId; }
+
+public:
+    Mutex accessLock;
+    bool ok_to_remove;
+
+    // Player Name, 21 characters max
+    std::string m_name;
+
+    // Stat update
+    bool m_forceStatUpdate;
+
+    // Player data
+    PlayerInfo *m_playerInfo;
+    PlayerCreateInfo *m_createInfo;
+
+    // Character DBC data
+    CharRaceEntry *myRace;
+    CharClassEntry *myClass;
+
+    // Player loading data
+    std::vector<std::pair<uint8, float>> m_loadData;
+
+    // Object Update system components
     Mutex _bufferS;
     bool bProcessPending;
     uint32 m_updateDataCount, m_OutOfRangeIdCount;
     ByteBuffer m_updateDataBuff, m_OutOfRangeIds, m_itemUpdateData;
-    /* End update system */
+    LockedQueue<WorldPacket*> delayedPackets;
 
-    void _EventExploration();
+    // Player::Update data
+    // Used in player exploration functions
+    int32 m_lastAreaUpdateMap;
+    uint32 m_oldZone, m_oldArea;
 
-    // Water level related stuff
-    void SetNoseLevel();
 
-    /************************************************************************/
-    /* Trade                                                                */
-    /************************************************************************/
+    // Player spell storage
+    SpellSet m_spells, m_shapeShiftSpells;
+
+    // Player Skills
+    SkillMap m_skills;
+    // Skills by index, used for PLAYER_FIELD_SKILL_DATA
+    SkillReferenceMap m_skillsByIndex;
+
+    // Load data
+    std::deque<std::pair<uint8, Aura*>> m_loadAuras;
+
+    // Battleground data
+    struct BattlegroundData
+    {
+        bool randomBG;
+    } *m_bgData;
+
+    // DK rune data
+    struct RuneData
+    {
+        // Runes
+        uint8 m_runemask;
+        uint8 m_runes[6];
+        uint32 m_runeCD[6];
+    } *m_runeData;
+
+    // Player cooldown storage
+    PlayerCooldownMap m_cooldownMap[NUM_COOLDOWN_TYPES];
+    time_t m_globalCooldown; // Global cooldown
+
+    // Stores player items
+    PlayerInventory m_inventory;
+    // Stores player currency
+    PlayerCurrency m_currency;
+    // Pending item updates pushed from interfaces
+    std::set<Item*> m_pendingUpdates;
+    // Item bonus storage
+    ItemBonusModMap itemBonusMap;
+    // Mapped by type
+    ItemBonusModByType itemBonusMapByType;
+    // Stores player talent data, action bars and glyphs
+    TalentInterface m_talentInterface;
+
+    // Power regeneration data
+    std::vector<float> m_regenPowerFraction;
+    std::vector<uint32> m_regenTimerCounters;
+
+    // Player social interface
+    Mutex m_socialLock; // Use social lock for chat multithread
+    // Afk reason sent from client
+    std::string m_afk_reason;
+    // first is friend guid, second is note
+    std::map<WoWGuid, std::string> m_friends, m_ignores, m_mutes;
+
+    // Taxi mask data
+    UpdateMask m_taxiMask;
+    // Taxi related variables
+    struct TaxiData
+    {
+        void StartPath(uint32 currTime, TaxiPath *path, uint32 modelId, uint32 startOverride, uint32 pathLength)
+        {
+            CurrentPath = path;
+            ModelId = modelId;
+            LastUpdateTime = currTime;
+            UpdateTimer = 0;
+            TravelTime = startOverride;
+            MoveTime = pathLength;
+            ArrivalTime = pathLength;
+        }
+
+        TaxiPath* CurrentPath; // Current taxi path pointer
+        uint32 ModelId; // Our path modelId, different models for horde and alliance
+        uint32 LastUpdateTime; // Last update timer to cut down on excess time removed
+        uint32 UpdateTimer; // our update timer used in player::update to update in blocks
+        uint32 TravelTime; // current travel time updated via player::update
+        uint32 MoveTime; // time it takes to move to target sent in packet
+        uint32 ArrivalTime; // our calculated arrival time, not sent to client but used server side in lue of movetime
+        float posX, posY, posZ; // Target position
+        std::vector<TaxiPath*> paths; // Pending taxi paths
+    } *m_taxiData;
+
+    // Player trade related variables
     struct PlayerTradeData
     {
         // Trade data
@@ -1616,23 +1492,131 @@ protected:
         PlayerTradeStatus tradeStep;
     } *m_tradeData;
 
+    // Player Game Master data
+    struct PlayerGMData
+    {
+        uint8 gmSightType;
+        uint32 gmSightEventID;
+        uint32 gmSightPhaseMask;
+    } *m_gmData;
+
+    // Player bind positioning data
+    struct BindData
+    {
+        // bind
+        uint32 mapId, zoneId;
+        float posX, posY, posZ;
+    } m_bindData;
+
+    uint8 m_lastSwingError;
+
+    //Quest related variables
+    std::vector<QuestLogEntry*> m_questLog;
+    std::set<uint32> m_QuestGOInProgress;
+    uint32 m_questSharer;
+    std::set<uint32> quest_spells;
+    std::set<uint32> quest_mobs;
+
+    std::map<uint32, time_t> m_completedQuests, m_completedDailyQuests;
+    uint32 forget;
+    //Spells variables
+    Loki::AssocVector<uint8, std::set<uint32>> m_spellsByEffect;
+    uint32 m_hasInRangeGuards;
+    Player* DuelingWith;
+    // loot variables
+    WoWGuid m_lootGuid;
+    WoWGuid m_currentLoot;
+    bool m_insigniaTaken;
+
+    std::set<uint32> OnMeleeAuras;
+    std::map<uint32, uint32> m_vendorIndexSlots;
+    //Showing Units WayPoints
+    AIInterface* waypointunit;
+
+    bool ForceSaved;
+    uint32 m_nextSave;
+    float z_axisposition;
+    int32 m_safeFall;
+    bool safefall;
+    // Gossip
+    int m_lifetapbonus;
+    uint32 m_lastShotTime;
+
+    // Beast
+    bool m_BeastMaster;
+
+    uint32 m_lastWarnCounter;
+    bool m_massSummonEnabled;
+    uint32 SoulStone;
+    uint32 SoulStoneReceiver;
+    bool bReincarnation;
+
+    // GameObject commands
+    WoWGuid m_selectedGo;
+    uint32 m_ShapeShifted;
+    uint32 m_MountSpellId;
+
+    bool bHasBindDialogOpen;
+    uint32 TrackingSpell;
+    uint32 m_KickDelay;
+    Unit* m_CurrentCharm;
+    Transporter* m_CurrentTransporter;
+    bool IgnoreSpellFocusRequirements;
+    uint32 roll;
+    bool CooldownCheat;
+    bool CastTimeCheat;
+    bool PowerCheat;
+
+    uint32 m_resurrectHealth, m_resurrectMana;
+    uint32 resurrector;
+    LocationVector m_resurrectLoction;
+    uint32 blinktimer;
+    bool blinked;
+
+    Unit* linkTarget;
+    /*****************
+      PVP Stuff
+    ******************/
+    uint32 m_pvpTimer;
+    uint32 OnlineTime;
+    uint32 m_TeleportState;
+    bool m_beingPushed;
+    uint32 m_FlyingAura;
+    bool m_XPoff;
+    uint32 iInstanceType;
+    uint32 iRaidType;
+    // spell to (delay, last time)
+    Channel* watchedchannel;
+
+    LocationVector m_last_group_position;
+    int32 m_rap_mod_pct;
+    Creature* m_tempSummon;
+    bool m_deathVision;
+    uint32 m_arenateaminviteguid;
+    //Current value of Feral Attack Power from items
+    int32 m_feralAP;
+    Mailbox* m_mailBox;
+    bool m_setwaterwalk;
+    uint64 m_areaSpiritHealer_guid;
+    bool m_finishingmovesdodge;
+    uint32 m_timeLogoff;
+    LocationVector m_summonPos;
+    int32 m_summonInstanceId;
+    uint32 m_summonMapId;
+    WorldObject* m_summoner;
+
+    /************************************************************************/
+    /* Trade                                                                */
+    /************************************************************************/
+
     /************************************************************************/
     /* Player Class systems, info and misc things                           */
     /************************************************************************/
-    PlayerCreateInfo *info;
-    std::string m_name; // max 21 character name
 
     // Character Ban
     uint32      m_banned;
     std::string m_banreason;
     uint32      m_invitersGuid; // It is guild inviters guid, 0 when its not used
-
-    // bind
-    float m_bind_pos_x;
-    float m_bind_pos_y;
-    float m_bind_pos_z;
-    uint32 m_bind_mapid;
-    uint32 m_bind_zoneid;
 
     //Duel
     uint32 m_duelCountdownTimer;
@@ -1673,79 +1657,17 @@ protected:
 
     uint8 m_bgTeam;
 
-    uint32 m_mountCheckTimer;
-    void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);
-
-public:
     std::map<uint32, uint32> m_forcedReactions;
 
     bool m_passOnLoot;
     bool m_changingMaps;
 
-    /************************************************************************/
-    /* SOCIAL                                                               */
-    /************************************************************************/
-private:
-    /* we may have multiple threads on this(chat) - burlex */
-    Mutex m_socialLock;
-    std::map<WoWGuid, std::string> m_friends, m_ignores, m_mutes;
-
-    void Social_SendFriendList(uint32 flag);
-
-    void Social_AddFriend(std::string name, std::string note);
-    void Social_RemoveFriend(WoWGuid guid);
-
-    void Social_AddIgnore(std::string name);
-    void Social_RemoveIgnore(WoWGuid guid);
-
-    void Social_SetNote(WoWGuid guid, std::string name);
-
-public:
-    bool Social_IsIgnoring(WoWGuid guid);
-    bool Social_IsIgnoring(PlayerInfo * info) { return Social_IsIgnoring(info->charGuid); }
-
-    /************************************************************************/
-    /* end social                                                           */
-    /************************************************************************/
-
-    PlayerInfo * m_playerInfo;
-    PlayerInfo * getPlayerInfo() const {return m_playerInfo;}
-    PlayerCreateInfo *getPlayerCreateInfo() const {return info; }
+    bool PreventRes;
 
     // mage invisibility
     bool m_mageInvisibility;
-
-    RONIN_INLINE bool HasKnownTitleByEntry(uint32 entry) { CharTitleEntry *titleEntry = dbcCharTitle.LookupEntry(entry); return (titleEntry && HasKnownTitleByIndex(titleEntry->bit_index)); }
-    RONIN_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }
-    void SetKnownTitle( int32 title, bool set );
-
-    uint8 GetChatTag() const;
-    uint8 GetGuildMemberFlags();
-    void AddArenaPoints( uint32 arenapoints );
-    bool PreventRes;
-
-    // loooooot
-    void GenerateLoot(Corpse* pCorpse);
-    uint32 GenerateShapeshiftModelId(uint32 form);
-    PlayerCreateInfo * GetInfo() const { return info;};
-    float MobXPGainRate;
-    bool NoReagentCost;
-    void StartQuest(uint32 id);
-    bool fromrandombg;
-    bool randombgwinner;
-    //Calculate honor for random bgs
-    uint32 GenerateRBGReward(uint32 level, uint32 count = 1) { uint32 honor = uint32(ceil(float(count * level * 1.55f))); return honor; }
     uint16 m_drunk;
     uint32 m_drunkTimer;
-    static DrunkenState GetDrunkenstateByValue(uint16 value);
-    void EventDrunkenVomit();
-
-private:
-    struct RuneData
-    {
-        // Runes
-        uint8 m_runemask;
-        uint8 m_runes[6];
-        uint32 m_runeCD[6];
-    } *m_runeData;
+    bool m_hasSentMoTD;
+    float MobXPGainRate;
 };

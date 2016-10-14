@@ -268,6 +268,8 @@ private:
     void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
     void _InitializeInstance(MapEntry *mapEntry, Map *map);
 
+    void ProcessPreSpawnLoadTables();
+
     Mutex mapLoadLock;
     std::map<uint32, MapEntry*> m_loadedMaps;
 

@@ -594,8 +594,6 @@ bool AuraInterface::OverrideSimilarAuras(WorldObject *caster, Aura *aur)
 {
     std::set<uint8> m_aurasToRemove;
     uint32 maxStack = aur->GetSpellProto()->maxstack;
-    if( maxStack && m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->stack_cheat )
-        maxStack = 0xFF;
 
     SpellEntry *info = aur->GetSpellProto();
     if(uint8 index = info->buffIndex)

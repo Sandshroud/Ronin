@@ -12,13 +12,14 @@ class CreatureTemplate;
 #define MAX_PET_SPELL 4
 #define VENDOR_ITEMS_UPDATE_TIME 3600000
 
-struct CreatureItem
+struct AvailableCreatureItem
 {
-    uint32 itemid;
-    uint32 max_amount;
-    uint32 incrtime;
-    uint32 vendormask;
+    AvailableCreatureItem() : proto(NULL), availableAmount(0), max_amount(0), incrtime(0), extended_cost(NULL), refreshTime(0), IsDependent(false) {}
+
+    ItemPrototype *proto;
+    uint32 availableAmount, max_amount, incrtime;
     ItemExtendedCostEntry *extended_cost;
+    time_t refreshTime;
     bool IsDependent;
 };
 
@@ -247,7 +248,7 @@ public:
     int32 GetBonusRangedAttackPower() { return 0; };
     int32 GetBonusResistance(uint8 school) { return _creatureData->resistances[school]; }
 
-    void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL);
+    void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL, bool reload = false);
 
     bool CanAddToWorld();
     void OnPushToWorld();
@@ -286,72 +287,22 @@ public:
     RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
 
     // Arena organizers
-    RONIN_INLINE bool ArenaOrganizersFlags() const { return HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
+    RONIN_INLINE bool ArenaOrganizersFlags() const { return !HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TABARDCHANGER ); }
 
     // Creature inventory
-    RONIN_INLINE uint32 GetItemIdBySlot(uint32 slot) { return m_SellItems->at(slot).itemid; }
-    RONIN_INLINE bool HasItems() { return ((m_SellItems != NULL) ? true : false); }
+    RONIN_INLINE bool HasItems() { return !m_vendorItems.empty(); }
     RONIN_INLINE int32 GetVendorMask() { return (m_spawn ? m_spawn->vendormask : 0x01); }
 
-    int32 GetSlotByItemId(uint32 itemid)
-    {
-        uint32 slot = 0;
-        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
-            if(GetVendorMask() > 0 && itr->second.vendormask > 0)
-            {
-                if(GetVendorMask() != itr->second.vendormask)
-                {
-                    ++slot;
-                    continue;
-                }
-            }
+    uint32 GetItemIdBySlot(uint16 slot);
+    uint32 GetSlotByItemId(uint32 itemid);
+    int32 GetAvailableAmount(uint16 slot, int32 defaultVal);
 
-            if(itr->second.itemid == itemid)
-                return slot;
-            ++slot;
-        }
-        return -1;
-    }
-
-    RONIN_INLINE CreatureItem *GetSellItemBySlot(uint32 slot) { return &m_SellItems->at(slot); }
-    RONIN_INLINE CreatureItem *GetSellItemByItemId(uint32 itemid, uint32 &slot)
-    {
-        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
-            if(itr->second.itemid == itemid)
-            {
-                slot = itr->first;
-                return &itr->second;
-            }
-        }
-        slot = 0;
-        return NULL;
-    }
-
-    RONIN_INLINE int32 GetAvailableAmount(uint32 slot, int32 defaultVal)
-    {
-        if(m_limitedItems.find(slot) == m_limitedItems.end())
-            return defaultVal;
-        return m_limitedItems.at(slot).second;
-    }
+    AvailableCreatureItem *GetSellItemBySlot(uint16 slot);
 
     void SendInventoryList(Player *plr);
-    RONIN_INLINE std::map<uint32, CreatureItem>::iterator GetSellItemBegin() { return m_SellItems->begin(); }
-    RONIN_INLINE std::map<uint32, CreatureItem>::iterator GetSellItemEnd()   { return m_SellItems->end(); }
-    RONIN_INLINE void RemoveSellItem(std::map<uint32, CreatureItem>::iterator itr) { m_SellItems->erase(itr); }
-    RONIN_INLINE size_t GetSellItemCount() { return m_SellItems->size(); }
-    void RemoveVendorItem(uint32 itemid)
-    {
-        for(std::map<uint32, CreatureItem>::iterator itr = m_SellItems->begin(); itr != m_SellItems->end(); itr++)
-        {
-            if(itr->second.itemid == itemid)
-            {
-                m_SellItems->erase(itr);
-                return;
-            }
-        }
-    }
+    RONIN_INLINE std::vector<AvailableCreatureItem>::iterator GetSellItemBegin() { return m_vendorItems.begin(); }
+    RONIN_INLINE std::vector<AvailableCreatureItem>::iterator GetSellItemEnd()   { return m_vendorItems.end(); }
+    RONIN_INLINE size_t GetSellItemCount() { return m_vendorItems.size(); }
 
     void AddVendorItem(uint32 itemid, uint32 vendormask, uint32 ec = 0);
     int32 ModAvItemAmount(uint32 slot, uint32 value);
@@ -526,8 +477,7 @@ public:
     uint32 m_despawnTimer;
 
     /// Vendor data
-    std::map<uint32, CreatureItem> *m_SellItems;
-    std::map<uint32, std::pair<time_t, uint32> > m_limitedItems;
+    std::vector<AvailableCreatureItem> m_vendorItems;
 
     /// Trainer data
     TrainerData *m_trainerData;

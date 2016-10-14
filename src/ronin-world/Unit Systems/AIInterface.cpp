@@ -211,7 +211,9 @@ void AIInterface::_HandleCombatAI()
             m_Creature->EventAttackStop();
         }
 
-        if(tooFarFromSpawn || FindTarget() == false)
+        if(tooFarFromSpawn == false && unitTarget == NULL && FindTarget() == true)
+            unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
+        else
         {
             m_AIState = AI_STATE_IDLE;
             if(!m_path->hasDestination())

@@ -1743,10 +1743,6 @@ void Aura::SpellAuraMounted(bool apply)
 
     if(apply)
     {
-        pPlayer->m_bgFlagIneligible++;
-
-        if(pPlayer->m_bg)
-            pPlayer->m_bg->HookOnMount(pPlayer);
         TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerMount )( pPlayer );
 
         pPlayer->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_MOUNT, GetSpellId());
@@ -1784,7 +1780,6 @@ void Aura::SpellAuraMounted(bool apply)
         if(mod->fixed_amount)
             pPlayer->RemoveAura(mod->fixed_amount);
 
-        pPlayer->m_bgFlagIneligible--;
         pPlayer->m_MountSpellId = 0;
         pPlayer->m_FlyingAura = 0;
         pPlayer->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
@@ -2434,18 +2429,12 @@ void Aura::SpellAuraModMobKillXPGain( bool apply )
 
 void Aura::SpellAuraIncreaseRageFromDamageDealtPCT(bool apply)
 {
-    if(!m_target->IsPlayer())
-        return;
 
-    castPtr<Player>( m_target )->rageFromDamageDealt += (apply) ? mod->m_amount : -mod->m_amount;
 }
 
 void Aura::SpellAuraNoReagentCost(bool apply)
 {
-    if(!m_target->IsPlayer())
-        return;
 
-    castPtr<Player>( m_target )->NoReagentCost = apply;
 }
 
 void Aura::SpellAuraReduceCritMeleeAttackDmg(bool apply)
@@ -2871,8 +2860,6 @@ void Aura::AddStackSize(uint8 mod)
         return;
 
     uint16 maxStack = (m_spellProto->maxstack&0xFFFF);
-    if( maxStack && m_target->IsPlayer() && castPtr<Player>(m_target)->stack_cheat )
-        maxStack = 0xFF;
     if(maxStack && m_stackSizeorProcCharges == maxStack)
         return;
 

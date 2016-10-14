@@ -736,7 +736,7 @@ void WorldSession::HandleQuestPOI(WorldPacket& recvPacket)
         uint16 questSlot = _player->FindQuestSlot(questId);
 
         if (questSlot != 50)
-            questOk =_player->GetQuestSlotQuestId(questSlot) == questId;
+            questOk =_player->GetQuestSlotId(questSlot) == questId;
 
         if (questOk)
         {

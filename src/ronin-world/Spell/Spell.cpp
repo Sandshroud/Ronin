@@ -33,7 +33,7 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, WoWGuid it
 
     m_usesMana = false;
 
-    cancastresult = SPELL_CANCAST_OK;
+    m_canCastResult = SPELL_CANCAST_OK;
     damage = 0;
     m_Delayed = false;
     m_ForceConsumption = false;
@@ -148,7 +148,7 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
                 _AddTarget(castPtr<Unit>(wObj), i);
         } else _AddTarget(wObj, i);
 
-        if(m_spellInfo->MaxTargets && m_hitTargetCount >= m_spellInfo->MaxTargets)
+        if(m_spellInfo->MaxTargets && m_effectTargetMaps[i].size() >= m_spellInfo->MaxTargets)
             break;
     }
 }
@@ -261,7 +261,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
             }
             else _AddTarget(wObj, i);
 
-            if( m_spellInfo->MaxTargets && m_hitTargetCount >= m_spellInfo->MaxTargets )
+            if( m_spellInfo->MaxTargets && m_effectTargetMaps[i].size() >= m_spellInfo->MaxTargets )
                 break;
         }
     }
@@ -597,13 +597,11 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     BaseSpell::_Prepare();
 
     if( m_triggeredSpell )
-        cancastresult = SPELL_CANCAST_OK;
-    else cancastresult = CanCast(false);
-    ccr = cancastresult;
-
-    if( cancastresult != SPELL_CANCAST_OK )
+        m_canCastResult = SPELL_CANCAST_OK;
+    else ccr = m_canCastResult = CanCast(false);
+    if( m_canCastResult != SPELL_CANCAST_OK )
     {
-        SendCastResult( cancastresult );
+        SendCastResult( m_canCastResult );
 
         if( m_triggeredByAura )
             SendChannelUpdate( 0 );
@@ -716,13 +714,13 @@ void Spell::cancel()
 
 void Spell::AddCooldown()
 {
-    if( m_caster->IsPlayer() && !castPtr<Player>(m_caster)->CooldownCheat)
+    if( m_caster->IsPlayer() && !castPtr<Player>(m_caster)->hasCooldownCheat())
         castPtr<Player>(m_caster)->Cooldown_Add( m_spellInfo, NULL );
 }
 
 void Spell::AddStartCooldown()
 {
-    if( m_caster->IsPlayer() && !castPtr<Player>(m_caster)->CastTimeCheat)
+    if( m_caster->IsPlayer() && !castPtr<Player>(m_caster)->hasCooldownCheat())
         castPtr<Player>(m_caster)->Cooldown_AddStart( m_spellInfo );
 }
 
@@ -740,274 +738,130 @@ void Spell::cast(bool check)
 
     // Set the base ms time to now
     m_MSTimeToAddToTravel = getMSTime();
-
-    cancastresult = check ? CanCast(true) : SPELL_CANCAST_OK;
-
-    if(cancastresult == SPELL_CANCAST_OK)
-    {
-        if (m_caster->IsPlayer() && !m_triggeredSpell && m_caster->IsInWorld() && GUID_HIPART(m_targets.m_unitTarget) == HIGHGUID_TYPE_UNIT)
-            sQuestMgr.OnPlayerCast(castPtr<Player>(m_caster), m_spellInfo->Id, m_targets.m_unitTarget);
-
-        // trigger on next attack
-        if( m_spellInfo->isNextMeleeAttack1() )
-        {
-            if(!m_triggeredSpell)
-            {
-                // check power
-                if(!HasPower())
-                {
-                    SendInterrupted(SPELL_FAILED_NO_POWER);
-                    SendCastResult(SPELL_FAILED_NO_POWER);
-                    finish();
-                    return;
-                }
-            }
-            else if(!TakePower()) // this is the actual spell cast
-            {
-                SendInterrupted(SPELL_FAILED_NO_POWER);
-                SendCastResult(SPELL_FAILED_NO_POWER);
-                finish();
-                return;
-            }
-        }
-        else if(!m_triggeredSpell)
-        {
-            if(!TakePower())
-            {
-                SendInterrupted(SPELL_FAILED_NO_POWER);
-                SendCastResult(SPELL_FAILED_NO_POWER);
-                finish();
-                return;
-            }
-        }
-
-        for(uint32 i = 0; i < 3; i++)
-        {
-            uint32 TargetType = 0;
-
-            // Fill from A regardless
-            TargetType |= GetTargetType(m_spellInfo->EffectImplicitTargetA[i], i);
-
-            //never get info from B if it is 0 :P
-            if(m_spellInfo->EffectImplicitTargetB[i] != 0)
-                TargetType |= GetTargetType(m_spellInfo->EffectImplicitTargetB[i], i);
-
-            if(TargetType & SPELL_TARGET_AREA_CURTARGET)
-            {
-                //this just forces dest as the targets location :P
-                if(WorldObject* target = m_caster->GetInRangeObject(m_targets.m_unitTarget))
-                {
-                    m_targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
-                    m_targets.m_dest = target->GetPosition();
-                    break;
-                }
-            }
-        }
-
-        SendCastResult(cancastresult);
-        if(cancastresult != SPELL_CANCAST_OK)
-        {
-            finish();
-            return;
-        }
-
-        m_isCasting = true;
-
-        if(!m_triggeredSpell)
-            AddCooldown();
-
-        if( m_caster->IsPlayer() )
-        {
-            // Arathi Basin opening spell, remove stealth, invisibility, etc.
-            // hacky but haven't found a better way that works
-            // Note: Same stuff but for picking flags is over AddAura
-            if (castPtr<Player>(m_caster)->m_bg)
-            {
-                // SOTA Gameobject spells
-                if(castPtr<Player>(m_caster)->m_bg->GetType() == BATTLEGROUND_STRAND_OF_THE_ANCIENTS)
-                {
-                    StrandOfTheAncients* sota = (StrandOfTheAncients*)castPtr<Player>(m_caster)->m_bg;
-                    // Transporter platforms
-                    if(m_spellInfo->Id == 54640)
-                        sota->OnPlatformTeleport(castPtr<Player>(m_caster));
-                }
-
-                // warsong gulch & eye of the storm flag pickup check
-                // also includes check for trying to cast stealth/etc while you have the flag
-                switch(m_spellInfo->Id)
-                {
-                case 21651: // Arathi Basin opening spell, remove stealth, invisibility, etc.
-                case 23333: // if we're picking up the flag remove the buffs
-                case 23335:
-                case 34976:
-                    /*castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasWithModType(SPELL_AURA_MOD_STEALTH);
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasWithModType(SPELL_AURA_MOD_INVISIBILITY);*/
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_SHIELD, false);
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_DIVINE_PROTECTION, false);
-                    castPtr<Player>(m_caster)->m_AuraInterface.RemoveAllAurasByNameHash(SPELL_HASH_BLESSING_OF_PROTECTION, false);
-                    break;
-                    // cases for stealth - etc
-                    // we can cast the spell, but we drop the flag (if we have it)
-                case 1784:      // Stealth rank 1
-                case 1785:      // Stealth rank 2
-                case 1786:      // Stealth rank 3
-                case 1787:      // Stealth rank 4
-                case 5215:      // Prowl rank 1
-                case 6783:      // Prowl rank 2
-                case 9913:      // Prowl rank 3
-                case 498:       // Divine protection
-                case 5573:      // Unknown spell
-                case 642:       // Divine shield
-                case 1020:      // Unknown spell
-                case 1022:      // Hand of Protection rank 1 (ex blessing of protection)
-                case 5599:      // Hand of Protection rank 2 (ex blessing of protection)
-                case 10278:     // Hand of Protection rank 3 (ex blessing of protection)
-                case 1856:      // Vanish rank 1
-                case 1857:      // Vanish rank 2
-                case 26889:     // Vanish rank 3
-                case 45438:     // Ice block
-                case 20580:     // Unknown spell
-                case 58984:     // Shadowmeld
-                case 17624:     // Petrification-> http://www.wowhead.com/?spell=17624
-                case 66:        // Invisibility
-                    {
-                        if(castPtr<Player>(m_caster)->m_bg->GetType() == BATTLEGROUND_WARSONG_GULCH)
-                        {
-                            if(castPtr<Player>(m_caster)->GetTeam() == 0)
-                                castPtr<Player>(m_caster)->RemoveAura(23333);    // ally player drop horde flag if they have it
-                            else castPtr<Player>(m_caster)->RemoveAura(23335);    // horde player drop ally flag if they have it
-                        }
-                        if(castPtr<Player>(m_caster)->m_bg->GetType() == BATTLEGROUND_EYE_OF_THE_STORM)
-                            castPtr<Player>(m_caster)->RemoveAura(34976);    // drop the flag
-                    }break;
-                }
-            }
-        }
-
-        bool isNextMeleeAttack1 = m_spellInfo->isNextMeleeAttack1();
-        if(!isNextMeleeAttack1 || m_triggeredSpell)  //on next attack
-        {
-            SendSpellGo();
-
-            //******************** SHOOT SPELLS ***********************
-            if(m_spellInfo->isSpellRangedSpell() && (m_caster->IsPlayer()) && m_caster->IsInWorld())
-            {
-                /// Part of this function contains a hack fix
-                /// hack fix for shoot spells, should be some other resource for it
-                //p_caster->SendSpellCoolDown(m_spellInfo->Id, m_spellInfo->RecoveryTime ? m_spellInfo->RecoveryTime : 2300);
-                WorldPacket data(SMSG_SPELL_COOLDOWN, 14);
-                data << castPtr<Player>(m_caster)->GetGUID();
-                data << uint8(0);
-                data << m_spellInfo->Id;
-                data << uint32(m_spellInfo->RecoveryTime ? m_spellInfo->RecoveryTime : 2300);
-                castPtr<Player>(m_caster)->GetSession()->SendPacket(&data);
-            }
-            else if( m_spellInfo->IsSpellChannelSpell() && !m_triggeredSpell && m_spellInfo->Id != 50589 ) // Note: [Warlock] Immolation Aura somehow has these flags, but it's not channeled
-            {
-                /*
-                Channeled spells are handled a little differently. The five second rule starts when the spell's channeling starts; i.e. when you pay the mana for it.
-                The rule continues for at least five seconds, and longer if the spell is channeled for more than five seconds. For example,
-                Mind Flay channels for 3 seconds and interrupts your regeneration for 5 seconds, while Tranquility channels for 10 seconds
-                and interrupts your regeneration for the full 10 seconds.
-                */
-                m_spellState = SPELL_STATE_CASTING;
-                SendChannelStart(GetDuration());
-                if( m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetSelection() )
-                {
-                    //Use channel interrupt flags here
-                    if(m_targets.m_targetMask == TARGET_FLAG_DEST_LOCATION || m_targets.m_targetMask == TARGET_FLAG_SOURCE_LOCATION)
-                        castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSelection());
-                    else if(castPtr<Player>(m_caster)->GetSelection() == m_caster->GetGUID())
-                    {
-                        if(m_targets.m_unitTarget)
-                            castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(m_targets.m_unitTarget);
-                        else castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSelection());
-                    }
-                    else
-                    {
-                        if(castPtr<Player>(m_caster)->GetSelection())
-                            castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(castPtr<Player>(m_caster)->GetSelection());
-                        else if(m_targets.m_unitTarget)
-                            castPtr<Player>(m_caster)->SetChannelSpellTargetGUID(m_targets.m_unitTarget);
-                        else
-                        {
-                            m_isCasting = false;
-                            cancel();
-                            return;
-                        }
-                    }
-                }
-            }
-
-            //if(!m_projectileWait)
-            {
-                for(uint8 i = 0; i < 3; i++)
-                    if(m_spellInfo->Effect[i])
-                        FillTargetMap(i);
-
-                std::vector<std::pair<WoWGuid, uint8>> m_spellMisses;
-                for(SpellTargetMap::iterator itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end(); itr++)
-                {
-                    if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
-                    {
-                        uint8 hitResult = itr->second->HitResult;
-                        if(hitResult != SPELL_DID_HIT_SUCCESS)
-                        {
-                            m_spellMisses.push_back(std::make_pair(itr->first, hitResult));
-                            continue;
-                        }
-
-                        for(uint8 i = 0; i < 3; i++)
-                        {
-                            if((itr->second->EffectMask & uint8(1<<i)) == 0)
-                                continue;
-                            HandleEffects(i, target);
-                        }
-
-                        if(!target->IsUnit())
-                            continue;
-                        Unit *unitTarget = castPtr<Unit>(target);
-                        if(m_spellInfo->TargetAuraState)
-                            unitTarget->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (m_spellInfo->TargetAuraState - 1) );
-                        HandleDelayedEffects(unitTarget, itr->second);
-                    }
-                }
-
-                SendSpellMisses(m_caster, &m_spellMisses, m_spellInfo->Id);
-            }// else CalcDestLocationHit();
-
-            // we're much better to remove this here, because otherwise spells that change powers etc,
-            // don't get applied.
-            if( m_caster->IsUnit() )
-                castPtr<Unit>(m_caster)->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
-
-            m_isCasting = false;
-
-            if(m_spellState != SPELL_STATE_CASTING)
-                finish();
-        }
-        else //this shit has nothing to do with instant, this only means it will be on NEXT melee hit
-        {
-            // we're much better to remove this here, because otherwise spells that change powers etc,
-            // don't get applied.
-            if(m_caster->IsUnit() && !m_triggeredSpell && !m_triggeredByAura)
-                castPtr<Unit>(m_caster)->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
-
-            m_isCasting = false;
-            SendCastResult(cancastresult);
-            /*if(m_caster->IsPlayer())
-                castPtr<Player>(m_caster)->SetOnMeleeSpell(m_spellInfo->Id, m_castNumber);*/
-            finish();
-            return;
-        }
-    }
-    else
+    if(check && (m_canCastResult = CanCast(true)) != SPELL_CANCAST_OK)
     {
         // cancast failed
-        SendCastResult(cancastresult);
-        SendInterrupted(cancastresult);
+        SendCastResult(m_canCastResult);
+        SendInterrupted(m_canCastResult);
         finish();
+        return;
     }
+
+    bool isNextMeleeAttack1 = m_spellInfo->isNextMeleeAttack1();
+    if (m_caster->IsPlayer() && !m_triggeredSpell && m_caster->IsInWorld() && GUID_HIPART(m_targets.m_unitTarget) == HIGHGUID_TYPE_UNIT)
+        sQuestMgr.OnPlayerCast(castPtr<Player>(m_caster), m_spellInfo->Id, m_targets.m_unitTarget);
+
+    // trigger on next attack spells only check power
+    if( isNextMeleeAttack1 && m_triggeredSpell == false )
+    {
+        // check power
+        if(!HasPower())
+        {
+            SendInterrupted(SPELL_FAILED_NO_POWER);
+            SendCastResult(SPELL_FAILED_NO_POWER);
+            finish();
+            return;
+        }
+
+        // Trigger our spell cooldown here, and not at trigger
+        AddCooldown();
+
+        // we're much better to remove this here, because otherwise spells that change powers etc,
+        // don't get applied.
+        if(m_caster->IsUnit() && !m_triggeredByAura)
+            castPtr<Unit>(m_caster)->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
+
+        m_isCasting = false;
+        SendCastResult(m_canCastResult);
+        finish();
+        return;
+    }
+
+    // Only take power if we're not a triggered spell, or we're a triggered next melee attack
+    if(isNextMeleeAttack1 || m_triggeredSpell == false)
+    {
+        if(!TakePower())
+        {
+            SendInterrupted(SPELL_FAILED_NO_POWER);
+            SendCastResult(SPELL_FAILED_NO_POWER);
+            finish();
+            return;
+        }
+    }
+
+    FillTargetMap();
+
+    m_isCasting = true;
+
+    if(m_triggeredSpell == false)
+        AddCooldown();
+
+    SendSpellGo();
+
+    if( m_spellInfo->IsSpellChannelSpell() && !m_triggeredSpell )
+    {
+        Unit *unitCaster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : NULL;
+        if(unitCaster == NULL)
+        {
+            finish();
+            return;
+        }
+
+        m_spellState = SPELL_STATE_CASTING;
+        SendChannelStart(GetDuration());
+        // Set our channel spell to this
+        unitCaster->SetChannelSpellId(m_spellInfo->Id);
+        // If we have a single spell target and it's not us, set our channel focus to that
+        if(m_fullTargetMap.size() == 1 && m_spellInfo->isChannelTrackTarget())
+            unitCaster->SetChannelSpellTargetGUID(m_fullTargetMap.begin()->first);
+        unitCaster->SetCurrentSpell(this);
+        return;
+    }
+    else if(m_projectileWait)
+    {
+        finish();
+        return;
+    }
+
+    std::set<WoWGuid> unitTargets;
+    for(uint8 i = 0; i < 3; i++)
+    {
+        if(m_effectTargetMaps[i].empty())
+            continue;
+
+        for(SpellTargetStorage::iterator itr = m_effectTargetMaps[i].begin(); itr != m_effectTargetMaps[i].end(); itr++)
+        {
+            if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
+            {
+                HandleEffects(i, target);
+                if(!target->IsUnit() || unitTargets.find(itr->first) != unitTargets.end())
+                    continue;
+                unitTargets.insert(itr->first);
+            }
+        }
+    }
+
+    for(auto itr = unitTargets.begin(); itr != unitTargets.end(); itr++)
+    {
+        SpellTargetStorage::iterator tgtItr;
+        ASSERT((tgtItr = m_fullTargetMap.find(*itr)) != m_fullTargetMap.end());
+        if(Unit *target = m_caster->GetInRangeObject<Unit>(*itr))
+        {
+            HandleDelayedEffects(target, tgtItr->second);
+            if(m_spellInfo->TargetAuraState)
+                target->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (m_spellInfo->TargetAuraState - 1) );
+        }
+    }
+
+    SendSpellMisses();
+
+    // we're much better to remove this here, because otherwise spells that change powers etc,
+    // don't get applied.
+    if( m_caster->IsUnit() )
+        castPtr<Unit>(m_caster)->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
+
+    m_isCasting = false;
+    finish();
 }
 
 void Spell::AddTime(uint32 type)
@@ -1148,10 +1002,10 @@ void Spell::finish()
 
     if(m_caster->IsPlayer())
     {
-        if(castPtr<Player>(m_caster)->CooldownCheat && m_spellInfo)
+        if(castPtr<Player>(m_caster)->hasCooldownCheat() && m_spellInfo)
             castPtr<Player>(m_caster)->ClearCooldownForSpell(m_spellInfo->Id);
 
-        if( m_ForceConsumption || ( cancastresult == SPELL_CANCAST_OK ) )
+        if( m_ForceConsumption || ( m_canCastResult == SPELL_CANCAST_OK ) )
             RemoveItems();
     }
 
@@ -1299,7 +1153,7 @@ uint8 Spell::CanCast(bool tolerate)
                 return SPELL_FAILED_ALREADY_AT_FULL_HEALTH;
 
             // GM flagged players should be immune to other players' casts, but not their own.
-            if(target->IsPlayer() && (m_caster->GetTypeId() == TYPEID_ITEM ? (castPtr<Item>(m_caster)->GetOwner() != target) : (m_caster != target)) && castPtr<Player>(target)->bGMTagOn)
+            if(target->IsPlayer() && (m_caster->GetTypeId() == TYPEID_ITEM ? (castPtr<Item>(m_caster)->GetOwner() != target) : (m_caster != target)) && castPtr<Player>(target)->hasGMTag())
                 return SPELL_FAILED_BM_OR_INVISGOD;
 
             //you can't mind control someone already mind controlled
@@ -1395,22 +1249,15 @@ uint8 Spell::CanCast(bool tolerate)
                     return SPELL_FAILED_ONLY_OUTDOORS;
             }
         }
-        //are we in an arena and the spell cooldown is longer then 15mins?
-        if ( p_caster->m_bg && ( p_caster->m_bg->GetType() >= BATTLEGROUND_ARENA_2V2 && p_caster->m_bg->GetType() <= BATTLEGROUND_ARENA_5V5 ) )
+
+        if(m_spellInfo->isSpellNotAvailableInArena() || m_spellInfo->reqInBattleground())
         {
-            if( m_spellInfo->isSpellNotAvailableInArena() )
+            MapInstance *instance = p_caster->GetMapInstance();
+            if(instance->GetdbcMap()->IsBattleArena() && m_spellInfo->isSpellNotAvailableInArena())
                 return SPELL_FAILED_NOT_IN_ARENA;
-
-            if( !p_caster->m_bg->HasStarted() )
-            {
-                // cannot cast spells in an arena if it hasn't started (blinking through gates, lalala)
-                if( m_spellInfo->NameHash == SPELL_HASH_BLINK )
-                    return SPELL_FAILED_SPELL_UNAVAILABLE;
-            }
+            else if(m_spellInfo->reqInBattleground() && !instance->GetdbcMap()->IsBattleGround())
+                return SPELL_FAILED_ONLY_BATTLEGROUNDS;
         }
-
-        if(p_caster->m_bg == NULL && m_spellInfo->reqInBattleground())
-            return SPELL_FAILED_ONLY_BATTLEGROUNDS;
 
         // Requires ShapeShift (stealth only atm, need more work)
         if( m_spellInfo->RequiredShapeShift )
@@ -1462,7 +1309,11 @@ uint8 Spell::CanCast(bool tolerate)
         // check for duel areas
         if( m_spellInfo->Id == 7266 )
         {
-            if(p_caster->GetMapInstance()->CanUseCollision(p_caster))
+            MapInstance *instance = p_caster->GetMapInstance();
+            if(instance->GetdbcMap()->IsBattleGround() || instance->GetdbcMap()->IsBattleArena())
+                return SPELL_FAILED_NO_DUELING;
+
+            if(instance->CanUseCollision(p_caster))
             {
                 if(sVMapInterface.IsIncity(p_caster->GetMapId(), p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ()))
                     return SPELL_FAILED_NO_DUELING;
@@ -1476,9 +1327,6 @@ uint8 Spell::CanCast(bool tolerate)
                 if(at != NULL && at->AreaFlags & AREA_CITY_AREA)
                     return SPELL_FAILED_NO_DUELING;
             }
-
-            if( p_caster->m_bg )
-                return SPELL_FAILED_NO_DUELING;
         }
 
         // check if spell is allowed while player is on a taxi
@@ -1505,23 +1353,11 @@ uint8 Spell::CanCast(bool tolerate)
         {
             if( m_spellInfo->Effect[i] == SPELL_EFFECT_OPEN_LOCK && m_spellInfo->EffectMiscValue[i] == LOCKTYPE_SLOW_OPEN )
             {
-                if( p_caster->m_MountSpellId )
-                    p_caster->RemoveAura( p_caster->m_MountSpellId );
+                if( p_caster->GetMountSpell() )
+                    p_caster->RemoveAura( p_caster->GetMountSpell() );
 
                 //p_caster->RemoveStealth();
                 break;
-            }
-        }
-
-        // check if spell is allowed while we have a battleground flag
-        if(p_caster->m_bgHasFlag)
-        {
-            if( (m_spellInfo->NameHash == SPELL_HASH_DIVINE_SHIELD || m_spellInfo->NameHash == SPELL_HASH_ICE_BLOCK) )
-            {
-                if(p_caster->m_bg && p_caster->m_bg->GetType() == BATTLEGROUND_WARSONG_GULCH)
-                    castPtr<WarsongGulch>(p_caster->m_bg)->DropFlag( p_caster );
-                else if(p_caster->m_bg && p_caster->m_bg->GetType() == BATTLEGROUND_EYE_OF_THE_STORM)
-                    castPtr<EyeOfTheStorm>(p_caster->m_bg)->DropFlag( p_caster );
             }
         }
 
@@ -2086,7 +1922,7 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
 
     SpellTarget *tgt = NULL;
     // look for the target in the list already
-    SpellTargetMap::iterator itr = m_fullTargetMap.find(target->GetGUID());
+    SpellTargetStorage::iterator itr = m_fullTargetMap.find(target->GetGUID());
     if(itr != m_fullTargetMap.end())
         tgt = itr->second;
     else
@@ -2109,9 +1945,8 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
         tgt->HitResult = target->IsUnit() ? _DidHit(castPtr<Unit>(target), &tgt->resistMod, &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
 
         // add counter
-        if( tgt->HitResult == SPELL_DID_HIT_SUCCESS )
-            ++m_hitTargetCount;
-        else ++m_missTargetCount;
+        if( tgt->HitResult != SPELL_DID_HIT_SUCCESS )
+            m_spellMisses.push_back(std::make_pair(tgt->Guid, tgt->HitResult));
 
         // Add us to the full target map
         m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));

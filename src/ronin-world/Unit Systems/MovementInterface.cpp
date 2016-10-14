@@ -42,6 +42,8 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
 
     m_collisionHeight = 0.f;
     m_isKnockBacked = false;
+    m_isFalling = false;
+    m_fallPointZ = 0.f;
 
     ClearTransportData();
     m_extra.clear();
@@ -427,6 +429,23 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
         m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, m_waterHeight, m_waterType);
         m_lastWaterUpdatePos.ChangeCoords(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z);
     }
+
+    if(m_Unit->IsPlayer() && !castPtr<Player>(m_Unit)->hasGMTag())
+    {
+        if(m_isFalling == false && (moveCode == MOVEMENT_CODE_JUMP || (m_isFalling = (hasFlag(MOVEMENTFLAG_TOGGLE_FALLING) || hasFlag(MOVEMENTFLAG_TOGGLE_FALLING_FAR)))))
+            m_fallPointZ = m_clientLocation.z;
+        else if(m_isFalling && (!(hasFlag(MOVEMENTFLAG_TOGGLE_FALLING) || hasFlag(MOVEMENTFLAG_TOGGLE_FALLING_FAR)) || moveCode == MOVEMENT_CODE_FALL_LAND))
+        {
+            if(moveCode == MOVEMENT_CODE_JUMP)
+                return false;
+
+            float diff = 0.f;
+            if((diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)
+                m_Unit->DealDamage(m_Unit, float2int32(diff * 0.017f * ((float)m_Unit->GetMaxHealth())), 0, 0, 0);
+            m_isFalling = false;
+            m_fallPointZ = 0.f;
+        }
+    } else m_fallPointZ = 0.f, m_isFalling = false;
 
     switch(moveCode)
     {

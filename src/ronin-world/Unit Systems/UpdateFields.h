@@ -61,8 +61,10 @@ enum EUnitFields
     UNIT_FIELD_BYTES_0                               = OBJECT_END + 0x0011, // Size: 1, Type: BYTES, Flags: PUBLIC
     UNIT_FIELD_HEALTH                                = OBJECT_END + 0x0012, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_POWERS                                = OBJECT_END + 0x0013, // Size: 5, Type: INT, Flags: PUBLIC
+    UNIT_FIELD_POWERS_1, UNIT_FIELD_POWERS_2, UNIT_FIELD_POWERS_3, UNIT_FIELD_POWERS_4,
     UNIT_FIELD_MAXHEALTH                             = OBJECT_END + 0x0018, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_MAXPOWERS                             = OBJECT_END + 0x0019, // Size: 5, Type: INT, Flags: PUBLIC
+    UNIT_FIELD_MAXPOWERS_1, UNIT_FIELD_MAXPOWERS_2, UNIT_FIELD_MAXPOWERS_3, UNIT_FIELD_MAXPOWERS_4,
     UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER             = OBJECT_END + 0x001E, // Size: 5, Type: FLOAT, Flags: PRIVATE, OWNER, UNUSED2
     UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER = OBJECT_END + 0x0023, // Size: 5, Type: FLOAT, Flags: PRIVATE, OWNER, UNUSED2
     UNIT_FIELD_LEVEL                                 = OBJECT_END + 0x0028, // Size: 1, Type: INT, Flags: PUBLIC

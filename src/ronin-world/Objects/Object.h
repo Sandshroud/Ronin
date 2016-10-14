@@ -316,6 +316,7 @@ public:
     bool hasInactiveFlag(uint16 flag) { return m_inactiveFlags & flag; }
 
     virtual uint32 getEventID() { return 0; }
+    virtual uint32 getConditionID() { return 0; }
 
     RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
 

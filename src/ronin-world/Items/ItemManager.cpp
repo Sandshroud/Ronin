@@ -204,7 +204,7 @@ void ItemManager::LoadItemOverrides()
     if(QueryResult* result = WorldDatabase.Query("SELECT * FROM item_overrides"))
     {
         uint32 fieldCount = result->GetFieldCount();
-        if(fieldCount != 104)
+        if(fieldCount != 107)
             sLog.outError("Incorrect field count in item override table %u\n", fieldCount);
         else
         {
@@ -372,6 +372,9 @@ void ItemManager::LoadItemOverrides()
                 CHECK_OVERRIDE_VALUE(proto, MapID, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, BagFamily, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, TotemCategory, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ItemSocket[0], GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ItemSocket[1], GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, ItemSocket[2], GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, SocketBonus, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, GemProperties, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, ArmorDamageModifier, GetFloat, field_Count, 0x02);

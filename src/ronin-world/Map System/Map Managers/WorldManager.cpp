@@ -64,6 +64,8 @@ void WorldManager::LoadSpawnData()
         ss[index] << itr->first;
     }
 
+    ProcessPreSpawnLoadTables();
+
     for(uint8 i = 0; i < 2; i++)
     {
         uint32 count = 0;
@@ -90,7 +92,7 @@ void WorldManager::LoadSpawnData()
             delete result;
         }
 
-        if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId FROM gameobject_spawns WHERE map IN(%s)", ss[i].str().c_str()))
+        if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId, conditionId FROM gameobject_spawns WHERE map IN(%s)", ss[i].str().c_str()))
         {
             do
             {
@@ -113,6 +115,7 @@ void WorldManager::LoadSpawnData()
                 gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
                 gspawn->phaseMask = fields[14].GetUInt16();
                 gspawn->eventId = fields[15].GetUInt32();
+                gspawn->conditionId = fields[16].GetUInt32();
                 m_SpawnStorageMap[mapId].GOSpawns.push_back(gspawn);
             }while(result->NextRow());
             delete result;
@@ -196,29 +199,27 @@ uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
 
     //do we need addition raid/heroic checks?
     Group * pGroup = plr->GetGroup();
-    if( !plr->triggerpass_cheat )
+
+    // players without groups cannot enter raid instances (no soloing them:P)
+    if( pGroup == NULL && (map->IsRaid() || (map->mapFlags & 0x100)))
+        return INSTANCE_ABORT_NOT_IN_RAID_GROUP;
+
+    //and has the required level
+    if( plr->getLevel() < 80)
     {
-        // players without groups cannot enter raid instances (no soloing them:P)
-        if( pGroup == NULL && (map->IsRaid() || (map->mapFlags & 0x100)))
-            return INSTANCE_ABORT_NOT_IN_RAID_GROUP;
-
-        //and has the required level
-        if( plr->getLevel() < 80)
+        if(uint32 instanceType = map->IsRaid() ? plr->iRaidType : plr->iInstanceType)
         {
-            if(uint32 instanceType = map->IsRaid() ? plr->iRaidType : plr->iInstanceType)
-            {
-                if(map->addon == 3 && plr->getLevel() < 90)
-                    return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-                else if(map->addon == 2 && plr->getLevel() < 80)
-                    return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-                else if(map->addon == 1 && plr->getLevel() < 70)
-                    return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-                else if(map->addon)
-                    return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-            }
-
-            //Instance keys
+            if(map->addon == 3 && plr->getLevel() < 90)
+                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
+            else if(map->addon == 2 && plr->getLevel() < 80)
+                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
+            else if(map->addon == 1 && plr->getLevel() < 70)
+                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
+            else if(map->addon)
+                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
         }
+
+        //Instance keys
     }
 
     // if we are here, it means:
@@ -240,50 +241,14 @@ uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
     return res;
 }
 
-const uint32 GetBGForMapID(uint32 type)
-{
-    switch(type)
-    {
-    case 30:
-        return BATTLEGROUND_ALTERAC_VALLEY;
-    case 489:
-        return BATTLEGROUND_WARSONG_GULCH;
-    case 529:
-        return BATTLEGROUND_ARATHI_BASIN;
-    case 566:
-        return BATTLEGROUND_EYE_OF_THE_STORM;
-    case 607:
-        return BATTLEGROUND_STRAND_OF_THE_ANCIENTS;
-    case 628:
-        return BATTLEGROUND_ISLE_OF_CONQUEST;
-    case 559:
-    case 562:
-    case 572:
-    case 617:
-    case 618:
-        return BATTLEGROUND_ARENA;
-    }
-    return 0;
-};
-
 bool WorldManager::PushToWorldQueue(WorldObject *obj)
 {
     if(MapInstance* mapInstance = GetInstance(obj))
     {
         if(Player* p = obj->IsPlayer() ? castPtr<Player>(obj) : NULL)
         {
-            // battleground checks
-            if( p->m_bg == NULL && mapInstance->m_battleground != NULL )
-            {
-                // player hasn't been registered in the battleground, ok.
-                // that means we re-logged into one. if it's an arena, don't allow it!
-                // also, don't allow them in if the bg is full.
-                if( !mapInstance->m_battleground->CanPlayerJoin(p) && !p->bGMTagOn)
-                    return false;
-            }
-
             // players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
-            if( !p->triggerpass_cheat && p->GetGroup()== NULL && (mapInstance->IsRaid() || mapInstance->GetdbcMap()->IsMultiDifficulty()))
+            if( p->GetGroup()== NULL && (mapInstance->IsRaid() || mapInstance->GetdbcMap()->IsMultiDifficulty()))
                 return false;
 
             p->m_beingPushed = true;
@@ -450,4 +415,32 @@ void WorldManager::_InitializeInstance(MapEntry *mapEntry, Map *map)
 
     // Push map data to instance manager
     sInstanceMgr.AddMapData(mapEntry, map);
+}
+
+void WorldManager::ProcessPreSpawnLoadTables()
+{
+    // These are largely uncessesary, but we'll store them here for the future
+    //////////////////// Creature Spawns //////////////////////
+
+    /////////////////// Gameobject Spawns /////////////////////
+    // Gameobject packed rotation is sometimes stored incorrectly by different teams, here's our orientation override
+    if(QueryResult *checkRes = WorldDatabase.QueryNA("SHOW TABLES LIKE 'gameobject_spawns_orientation'"))
+    {
+        WorldDatabase.Execute("UPDATE gameobject_spawns INNER JOIN gameobject_spawns_orientation ON (gameobject_spawns.id = gameobject_spawns_orientation.id) SET gameobject_spawns.rotationZ = SIN(CAST(gameobject_spawns_orientation.orientation AS float)/2.0), gameobject_spawns.rotationAngle = COS(CAST(gameobject_spawns_orientation.orientation AS float)/2.0);");
+        WorldDatabase.Execute("DROP TABLE `gameobject_spawns_orientation`");
+    }
+
+    // Event data is held seperately, so combine our two tables
+    if(QueryResult *checkRes = WorldDatabase.QueryNA("SHOW TABLES LIKE 'gameobject_event_data'"))
+    {
+        WorldDatabase.Execute("UPDATE gameobject_spawns INNER JOIN gameobject_event_data ON (gameobject_spawns.id = gameobject_event_data.guid) SET gameobject_spawns.eventId = gameobject_event_data.eventEntry;");
+        WorldDatabase.Execute("DROP TABLE `gameobject_event_data`");
+    }
+
+    // Condition data is held as multiple tables by different teams, so we have a list to go through
+    if(QueryResult *checkRes = WorldDatabase.QueryNA("SHOW TABLES LIKE 'gameobject_pool_data'"))
+    {
+        WorldDatabase.Execute("UPDATE gameobject_spawns INNER JOIN gameobject_pool_data ON (gameobject_spawns.id = gameobject_pool_data.guid) SET gameobject_spawns.conditionId = gameobject_pool_data.pool_entry;");
+        WorldDatabase.Execute("DROP TABLE `gameobject_pool_data`");
+    }
 }

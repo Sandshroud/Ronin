@@ -107,7 +107,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         }
     }
 
-    if( !_player->ignoreitemreq_cheat && (itemProto->AllowableClass && !(_player->getClassMask() & itemProto->AllowableClass) || itemProto->AllowableRace && !(_player->getRaceMask() & itemProto->AllowableRace) ))
+    if(itemProto->AllowableClass && !(_player->getClassMask() & itemProto->AllowableClass) || itemProto->AllowableRace && !(_player->getRaceMask() & itemProto->AllowableRace))
     {
         _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_EVER);
         return;
@@ -206,7 +206,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         if((spellInfo->isAutoRepeatSpell()) /*spellInfo->Attributes == 327698*/) // auto shot..
         {
             //sLog.outString( "HandleSpellCast: Auto Shot-type spell cast (id %u, name %s)" , spellInfo->Id , spellInfo->Name );
-            Item* weapon = GetPlayer()->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+            /*Item* weapon = GetPlayer()->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
             if(!weapon)
                 return;
             uint32 spellid;
@@ -246,7 +246,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
                 if(_player->m_AutoShotAttackTimer < 500)
                     _player->m_AutoShotAttackTimer = 500;
                 _player->m_onAutoShot = true;
-            }
+            }*/
 
             return;
         }
@@ -328,8 +328,7 @@ void WorldSession::HandleCancelChannellingOpcode( WorldPacket& recvPacket)
 
 void WorldSession::HandleCancelAutoRepeatSpellOpcode(WorldPacket& recv_data)
 {
-    if(_player)
-        _player->m_onAutoShot = false;
+
 }
 
 void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)

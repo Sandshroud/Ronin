@@ -161,7 +161,7 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
 
                 if( pCreature->GetEntry() == 35364 || pCreature->GetEntry() == 35365 )
                 {
-                    if(plr->getLevel() >= 10 && plr->getLevel() < sWorld.GetMaxLevel(plr))
+                    if(plr->getLevel() >= 10 && plr->getLevel() < plr->GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
                     {
                         if(plr->m_XPoff)
                             _AddMenuItem(packet, result, GOSSIP_OPT_TOGGLE_XPGAIN, GOSSIP_ICON_GOSSIP_NORMAL, "I wish to start gaining experience again.", false, 10000, "Are you certain you wish to start gaining experience?");

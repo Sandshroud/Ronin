@@ -1495,18 +1495,12 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
         }
 
         // Check to see if we have the correct race
-        if( !m_pOwner->ignoreitemreq_cheat && proto->AllowableRace > 0 )
-        {
-            if(!(proto->AllowableRace & m_pOwner->getRaceMask()))
-                return INV_ERR_CANT_EQUIP_EVER;
-        }
+        if(proto->AllowableRace > 0 && !(proto->AllowableRace & m_pOwner->getRaceMask()))
+            return INV_ERR_CANT_EQUIP_EVER;
 
         // Check to see if we have the correct class
-        if( !m_pOwner->ignoreitemreq_cheat && proto->AllowableClass > 0 )
-        {
-            if(!(proto->AllowableClass & m_pOwner->getClassMask()))
-                return INV_ERR_CANT_EQUIP_EVER_2;
-        }
+        if(proto->AllowableClass > 0 && !(proto->AllowableClass & m_pOwner->getClassMask()))
+            return INV_ERR_CANT_EQUIP_EVER_2;
 
         // Check to see if we have the reqs for that reputation
         if(proto->RequiredFaction)
@@ -1517,32 +1511,23 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
         }
 
         // Check to see if we have the correct level.
-        if(!m_pOwner->ignoreitemreq_cheat && proto->RequiredLevel > 0)
-        {
-            if(proto->RequiredLevel > m_pOwner->GetUInt32Value(UNIT_FIELD_LEVEL))
-                return INV_ERR_PURCHASE_LEVEL_TOO_LOW;
-        }
+        if(proto->RequiredLevel > 0 && proto->RequiredLevel > m_pOwner->GetUInt32Value(UNIT_FIELD_LEVEL))
+            return INV_ERR_PURCHASE_LEVEL_TOO_LOW;
 
-        if(!m_pOwner->ignoreitemreq_cheat && proto->Class == ITEM_CLASS_ARMOR)
+        // It's kind of hacky, but only check proficiency when we're inworld
+        if(m_pOwner->IsInWorld())
         {
-            uint32 subClass = proto->SubClass;
-            if(!(m_pOwner->GetArmorProficiency()&(((uint32)(1))<<subClass)))
+            if(proto->Class == ITEM_CLASS_ARMOR && !(m_pOwner->GetArmorProficiency()&(((uint32)(1))<<proto->SubClass)))
                 return INV_ERR_PROFICIENCY_NEEDED;
-
-        }
-        else if(!m_pOwner->ignoreitemreq_cheat && proto->Class == ITEM_CLASS_WEAPON)
-        {
-            if(!(m_pOwner->GetWeaponProficiency()&((uint32(1))<<proto->SubClass)))
+            else if(proto->Class == ITEM_CLASS_WEAPON && !(m_pOwner->GetWeaponProficiency()&((uint32(1))<<proto->SubClass)))
                 return INV_ERR_PROFICIENCY_NEEDED;
         }
 
-        if(!m_pOwner->ignoreitemreq_cheat && proto->RequiredSkill > 0)
-            if ((uint32)proto->RequiredSkillRank > m_pOwner->_GetSkillLineCurrent(proto->RequiredSkill,true))
-                return INV_ERR_CANT_EQUIP_SKILL;
+        if (proto->RequiredSkill > 0 && !((uint32)proto->RequiredSkillRank > m_pOwner->_GetSkillLineCurrent(proto->RequiredSkill,true)))
+            return INV_ERR_CANT_EQUIP_SKILL;
 
-        if(!m_pOwner->ignoreitemreq_cheat && proto->RequiredSpell)
-            if (!m_pOwner->HasSpell(proto->RequiredSpell))
-                return INV_ERR_PROFICIENCY_NEEDED;
+        if (proto->RequiredSpell && !m_pOwner->HasSpell(proto->RequiredSpell))
+            return INV_ERR_PROFICIENCY_NEEDED;
 
                 // You are dead !
         if(m_pOwner->getDeathState() != ALIVE)
@@ -1570,7 +1555,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
         {
             if(proto->Class == ITEM_CLASS_WEAPON && proto->SubClass == ITEM_SUBCLASS_WEAPON_POLEARM)
                 return 0;
-            if(type == INVTYPE_WEAPON || type == INVTYPE_WEAPONMAINHAND || (type == INVTYPE_2HWEAPON && (!GetInventoryItem(EQUIPMENT_SLOT_OFFHAND) || skip_2h_check || m_pOwner->titanGrip || m_pOwner->ignoreitemreq_cheat)))
+            if(type == INVTYPE_WEAPON || type == INVTYPE_WEAPONMAINHAND || (type == INVTYPE_2HWEAPON && (!GetInventoryItem(EQUIPMENT_SLOT_OFFHAND) || skip_2h_check || m_pOwner->HasSpellWithEffect(SPELL_EFFECT_TITAN_GRIP))))
                 return 0;
             return INV_ERR_WRONG_SLOT;
         }break;
@@ -1578,8 +1563,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
         {
             if(proto->Class == ITEM_CLASS_WEAPON && proto->SubClass == ITEM_SUBCLASS_WEAPON_POLEARM)
                 return INV_ERR_WRONG_SLOT;
-            if( (m_pOwner->titanGrip || m_pOwner->ignoreitemreq_cheat)
-                && (type == INVTYPE_2HWEAPON || type == INVTYPE_WEAPON || type == INVTYPE_WEAPONOFFHAND || type == INVTYPE_SHIELD))
+            if( m_pOwner->HasSpellWithEffect(SPELL_EFFECT_TITAN_GRIP) && (type == INVTYPE_2HWEAPON || type == INVTYPE_WEAPON || type == INVTYPE_WEAPONOFFHAND || type == INVTYPE_SHIELD))
                 return 0;   // Titan's Grip
 
             if(type == INVTYPE_WEAPON || type == INVTYPE_WEAPONOFFHAND)

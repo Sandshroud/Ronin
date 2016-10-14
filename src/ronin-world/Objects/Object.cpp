@@ -1081,10 +1081,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     if(IsUnit() && castPtr<Unit>(this)->isAlive() )
     {
         if( castPtr<Unit>(this) != pVictim && pVictim->IsPlayer() && IsPlayer() && castPtr<Player>(this)->m_hasInRangeGuards )
-        {
-            castPtr<Player>(this)->SetGuardHostileFlag(true);
-            //castPtr<Player>(this)->CreateResetGuardHostileFlagEvent();
-        }
+            castPtr<Player>(this)->SetGuardHostileFlag();
 
         if(plr != NULL && pVictim->IsCreature())
             castPtr<Creature>(pVictim)->Tag(plr);
@@ -1108,16 +1105,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         pVictim->SetPower(POWER_TYPE_RAGE, rage);
         pVictim->SendPowerUpdate();
-    }
-
-    //* BATTLEGROUND DAMAGE COUNTER *//
-    if( pVictim != castPtr<Unit>(this) && plr != NULL )
-    {
-        if(plr->m_bg != NULL)
-        {
-            plr->m_bgScore.DamageDone += damage;
-            plr->m_bg->UpdatePvPData();
-        }
     }
 
     uint32 health = pVictim->GetUInt32Value(UNIT_FIELD_HEALTH );
@@ -1166,20 +1153,12 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             return 0;
         }
 
-        //warlock - seed of corruption
-        if( IsUnit() )
-        {
-            if( IsPlayer() && pVictim->IsUnit() && !pVictim->IsPlayer() && m_mapInstance->m_battleground && m_mapInstance->m_battleground->GetType() == BATTLEGROUND_ALTERAC_VALLEY )
-                castPtr<AlteracValley>(m_mapInstance->m_battleground)->HookOnUnitKill( castPtr<Player>(this), pVictim );
-        }
-
         /* victim died! */
         Unit* pKiller = pVictim->m_killer.empty() ? NULL : GetInRangeObject<Unit>(pVictim->m_killer);
         if( pVictim->IsPlayer() )
         {
             // let's see if we have shadow of death
-            if( !pVictim->m_AuraInterface.FindPositiveAuraByNameHash(SPELL_HASH_SHADOW_OF_DEATH) && castPtr<Player>( pVictim)->HasSpell( 49157 )  &&
-                !(castPtr<Player>(pVictim)->m_bg && castPtr<Player>(pVictim)->m_bg->IsArena())) //check for shadow of death
+            if( !pVictim->m_AuraInterface.FindPositiveAuraByNameHash(SPELL_HASH_SHADOW_OF_DEATH) && castPtr<Player>( pVictim)->HasSpell( 49157 )) //check for shadow of death
             {
                 SpellEntry* sorInfo = dbcSpell.LookupEntry(54223);
                 if( sorInfo != NULL && castPtr<Player>(pVictim)->Cooldown_CanCast( sorInfo ))
@@ -1273,22 +1252,18 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         if(pVictim->IsPlayer())
         {
-            uint32 self_res_spell = 0;
             Player* plrVictim = castPtr<Player>(pVictim);
-            if(!(plrVictim->m_bg && plrVictim->m_bg->IsArena())) // Can't self res in Arena
-            {
-                self_res_spell = plrVictim->SoulStone;
-                plrVictim->SoulStone = plrVictim->SoulStoneReceiver = 0;
+            uint32 self_res_spell = plrVictim->SoulStone;
+            plrVictim->SoulStone = plrVictim->SoulStoneReceiver = 0;
 
-                if( !self_res_spell && plrVictim->bReincarnation )
+            if( !self_res_spell && plrVictim->bReincarnation )
+            {
+                SpellEntry* m_reincarnSpellInfo = dbcSpell.LookupEntry( 20608 );
+                if( plrVictim->Cooldown_CanCast( m_reincarnSpellInfo ) )
                 {
-                    SpellEntry* m_reincarnSpellInfo = dbcSpell.LookupEntry( 20608 );
-                    if( plrVictim->Cooldown_CanCast( m_reincarnSpellInfo ) )
-                    {
-                        uint32 ankh_count = plrVictim->GetInventory()->GetItemCount( 17030 );
-                        if( ankh_count || castPtr<Player>(plrVictim)->HasDummyAura(SPELL_HASH_GLYPH_OF_RENEWED_LIFE ))
-                            self_res_spell = 21169;
-                    }
+                    uint32 ankh_count = plrVictim->GetInventory()->GetItemCount( 17030 );
+                    if( ankh_count || castPtr<Player>(plrVictim)->HasDummyAura(SPELL_HASH_GLYPH_OF_RENEWED_LIFE ))
+                        self_res_spell = 21169;
                 }
             }
 
@@ -1327,12 +1302,10 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
             bool honorOrXPGain = false;
 
-            if( plr->m_bg != NULL )
-                plr->m_bg->HookOnPlayerKill( plr, pVictim );
             TRIGGER_INSTANCE_EVENT( plr->GetMapInstance(), OnPlayerKillPlayer )( plr, pVictim );
 
             if( pVictim->IsPlayer() )
-                HonorHandler::OnPlayerKilled( plr, castPtr<Player>( pVictim ) );
+            {}
             else if(pVictim->IsCreature() && !pVictim->IsSummon() && !isCritter)
             {
                 // add rep for on kill
@@ -1367,16 +1340,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         uint64 victimGuid = pVictim->GetGUID();
         pVictim->SetFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_DEAD );
 
-        // player loot for battlegrounds
-        if( pVictim->IsPlayer() )
-        {
-            if( castPtr<Player>(pVictim)->m_bg != NULL && castPtr<Player>(pVictim)->m_bg->SupportsPlayerLoot() )
-            {
-                pVictim->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
-                castPtr<Player>(pVictim)->m_insigniaTaken = false;
-            }
-        }
-        else if(castPtr<Creature>(pVictim)->m_taggingPlayer != 0 )    // only execute loot code if we were tagged
+        if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->m_taggingPlayer != 0 )    // only execute loot code if we were tagged
         {
             // fill loot vector
             castPtr<Creature>(pVictim)->GenerateLoot();
@@ -1812,7 +1776,7 @@ bool WorldObject::IsInLineOfSight(WorldObject* pObj)
 {
     if(!IsInWorld() || !GetMapInstance()->CanUseCollision(this) || !GetMapInstance()->CanUseCollision(pObj))
         return true;
-    float Onoselevel = IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f, Tnoselevel = pObj->IsPlayer() ? castPtr<Player>(pObj)->m_noseLevel : 2.f;
+    float Onoselevel = IsPlayer() ? Player::NoseHeight(castPtr<Player>(this)->getRace(), castPtr<Player>(this)->getGender()) : 2.f, Tnoselevel = pObj->IsPlayer() ? Player::NoseHeight(castPtr<Player>(pObj)->getRace(), castPtr<Player>(pObj)->getGender()) : 2.f;
     return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + Onoselevel, pObj->GetPositionX(), pObj->GetPositionY(), pObj->GetPositionZ() + Tnoselevel) );
 }
 
@@ -1820,27 +1784,27 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
 {
     if(!IsInWorld() || !GetMapInstance()->CanUseCollision(this))
         return true;
-    return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + (IsPlayer() ? castPtr<Player>(this)->m_noseLevel : 2.f), x, y, z) );
+    return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + (IsPlayer() ? Player::NoseHeight(castPtr<Player>(this)->getRace(), castPtr<Player>(this)->getGender()) : 2.f), x, y, z) );
 }
 
 bool WorldObject::IsObjectBlocked(WorldObject *pObj)
 {
-    Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->bGMTagOn) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->bGMTagOn) ? castPtr<Player>(pObj) : NULL);
+    Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->hasGMTag()) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->hasGMTag()) ? castPtr<Player>(pObj) : NULL);
     WorldObject *wObj = gmPlr == NULL ? NULL : (gmPlr == this ? pObj : this);
 
     if(gmPlr && wObj && !wObj->IsActivated())
     {
         if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_EVENTS))
         {
-            if(gmPlr->gmSightType != 1)
+            if(gmPlr->m_gmData->gmSightType != 1)
                 return true;
-            else if(wObj->getEventID() != gmPlr->gmSightEventID)
+            else if(wObj->getEventID() != gmPlr->m_gmData->gmSightEventID)
                 return true;
         }
 
         if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_DESPAWNED))
         {
-            if(gmPlr->gmSightType != 3)
+            if(gmPlr->m_gmData->gmSightType != 3)
                 return true;
         }
 
@@ -1869,11 +1833,11 @@ bool WorldObject::PhasedCanInteract(WorldObject* pObj)
         return true;
     if(GetPhaseMask() & pObj->GetPhaseMask())
         return true;
-    if(Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->gmSightType == 2) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->gmSightType == 2) ? castPtr<Player>(pObj) : NULL))
+    if(Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->m_gmData->gmSightType == 2) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->m_gmData->gmSightType == 2) ? castPtr<Player>(pObj) : NULL))
     {
-        if(this == gmPlr && gmPlr->gmSightPhaseMask & pObj->GetPhaseMask())
+        if(this == gmPlr && gmPlr->m_gmData->gmSightPhaseMask & pObj->GetPhaseMask())
             return true;
-        else if(pObj == gmPlr && gmPlr->gmSightPhaseMask & GetPhaseMask())
+        else if(pObj == gmPlr && gmPlr->m_gmData->gmSightPhaseMask & GetPhaseMask())
             return true;
     }
     return false;

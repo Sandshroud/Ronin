@@ -33,7 +33,7 @@ public:
     bool HasPlayers(uint16 phaseMask = 0xFFFF);
 
     // Iterating through different phases of sets
-    MapCell::CellObjectSet *GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &eventAccess, bool &handledAllPhases);
+    MapCell::CellObjectSet *GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &conditionAccess, std::vector<uint32> &eventAccess, bool &handledAllPhases);
 
     //State Related
     void SetActivity(bool state);
@@ -69,7 +69,7 @@ private:
     Map *_mapData;
 
     MapCell::CellObjectSet m_objectSet, m_playerSet;
-    Loki::AssocVector<uint8, MapCellObjectStorage*> m_phaseStorage, m_eventStorage;
+    Loki::AssocVector<uint8, MapCellObjectStorage*> m_phaseStorage, m_eventStorage, m_conditionStorage;
 };
 
 class MapCellObjectStorage

@@ -16,7 +16,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
 
     m_spawn = NULL;
     m_quests = NULL;
-    m_SellItems = NULL;
     m_trainerData = NULL;
     auctionHouse = NULL;
     m_shieldProto = NULL;
@@ -108,7 +107,7 @@ void Creature::Reactivate()
         m_deathState = ALIVE;
 
         // Reload from proto and respawn at spawn loc
-        Load(m_mapId, m_spawnLocation.x, m_spawnLocation.y, m_spawnLocation.z, m_spawnLocation.o, m_mapInstance->iInstanceMode, m_spawn);
+        Load(m_mapId, m_spawnLocation.x, m_spawnLocation.y, m_spawnLocation.z, m_spawnLocation.o, m_mapInstance->iInstanceMode, m_spawn, true);
 
         // Update position on map for inrange calls
         m_mapInstance->ChangeObjectLocation(this);
@@ -731,93 +730,105 @@ void Creature::RegeneratePower(bool isinterrupted)
     SetPower(POWER_TYPE_MANA, cur);
 }
 
+uint32 Creature::GetItemIdBySlot(uint16 slot)
+{
+    if(slot >= m_vendorItems.size())
+        return 0xFFFFFFFF;
+    return m_vendorItems[slot].proto->ItemId;
+}
+
+uint32 Creature::GetSlotByItemId(uint32 itemid)
+{
+    for(uint32 i = 0; i < m_vendorItems.size(); i++)
+        if(m_vendorItems[i].proto->ItemId == itemid)
+            return i;
+    return 0xFFFFFFFF;
+}
+
+int32 Creature::GetAvailableAmount(uint16 slot, int32 defaultVal)
+{
+    if(slot >= m_vendorItems.size())
+        return defaultVal;
+    return m_vendorItems[slot].availableAmount;
+}
+
+AvailableCreatureItem *Creature::GetSellItemBySlot(uint16 slot)
+{
+    if(slot >= m_vendorItems.size())
+        return NULL;
+    return &m_vendorItems[slot];
+}
+
 void Creature::SendInventoryList(Player *plr)
 {
+    plr->ClearVendorIndex();
     uint32 counter = 0;
     ByteBuffer dataBuff;
     std::vector<bool> bitFlags;
     WorldPacket data(SMSG_LIST_INVENTORY, 10);
     if(HasItems())
     {
-        for(std::map<uint32, CreatureItem>::iterator itr = GetSellItemBegin(); itr != GetSellItemEnd(); itr++)
+        uint32 slot = 0;
+        for(std::vector<AvailableCreatureItem>::iterator itr = m_vendorItems.begin(); itr != m_vendorItems.end(); itr++, slot++)
         {
-            if(counter >= 255)
+            AvailableCreatureItem *item = &(*itr);
+
+            // Update code for available items
+            int32 availableAmount = -1;
+            if(int32 maxAmount = item->max_amount)
             {
-                sLog.Error("VendorListing", "Creature %u contains too many items, Displaying (150/%u) items.", GetEntry(), uint32(GetSellItemCount()));
-                break;
+                if(item->refreshTime && UNIXTIME > item->refreshTime)
+                {
+                    uint32 diff = uint32(item->refreshTime-UNIXTIME);
+                    if(diff >= item->incrtime)
+                    {
+                        uint32 val = item->proto->BuyCount*float2int32(floor(diff/item->incrtime));
+                        if(item->availableAmount+val >= item->max_amount)
+                        {
+                            item->availableAmount = item->max_amount;
+                            item->refreshTime = 0;
+                        }
+                        else
+                        {
+                            item->availableAmount += val;
+                            item->refreshTime += (diff-(val * item->incrtime));
+                        }
+                    }
+                }
+                availableAmount = item->availableAmount;
             }
 
-            if(ItemPrototype *curItem = sItemMgr.LookupEntry(itr->second.itemid))
+            if(item->IsDependent)
             {
-                if(!(itr->second.vendormask & GetVendorMask()))
+                if(item->proto->AllowableClass && !(plr->getClassMask() & item->proto->AllowableClass))
+                    continue;
+                if(item->proto->AllowableRace && !(plr->getRaceMask() & item->proto->AllowableRace))
                     continue;
 
-                // Update code for available items
-                int32 availableAmount = -1;
-                if(int32 maxAmount = itr->second.max_amount)
-                {
-                    availableAmount = maxAmount;
-                    if(m_limitedItems.find(itr->first) != m_limitedItems.end())
-                    {
-                        // Set available amount to the listed amount in mem
-                        availableAmount = m_limitedItems.at(itr->first).second;
-
-                        // Update item count based on incrementation time
-                        if((UNIXTIME-m_limitedItems.at(itr->first).first) >= itr->second.incrtime)
-                        {
-                            uint32 diff = uint32((UNIXTIME - m_limitedItems.at(itr->first).first) / itr->second.incrtime);
-                            m_limitedItems.at(itr->first).second += curItem->BuyCount*diff;
-                            // For now we just update our available amount and check against our max amount
-                            if((availableAmount = m_limitedItems.at(itr->first).second) >= maxAmount)
-                                availableAmount = maxAmount; // If we're over, just set us to our max amount
-                            m_limitedItems.at(itr->first).first = UNIXTIME;
-                        }
-
-                        // Check to see if we've reached max value, if so then erase
-                        if(availableAmount == maxAmount)
-                            m_limitedItems.erase(itr->first);
-                    }
-                }
-
-                if(plr->ignoreitemreq_cheat == false)
-                {
-                    if(itr->second.IsDependent)
-                    {
-                        if(curItem->AllowableClass && !(plr->getClassMask() & curItem->AllowableClass))
-                            continue;
-                        if(curItem->AllowableRace && !(plr->getRaceMask() & curItem->AllowableRace))
-                            continue;
-
-                        if(curItem->Class == ITEM_CLASS_ARMOR && curItem->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && curItem->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
-                            if(!(plr->GetArmorProficiency() & (uint32(1) << curItem->SubClass)))
-                                continue; // Do not show relics to classes that can't use them.
-                    }
-
-                    if(itr->second.extended_cost)
-                    {
-                        if(itr->second.extended_cost->flags & 0x01)
-                        {
-                            // Calculate if we've reached the correct guild rank to view these items
-                            continue; // TODO
-                        }
-                    } else if(curItem->SellPrice > curItem->BuyPrice)
-                        continue;
-                }
-
-                dataBuff << (++counter);
-                dataBuff << curItem->Durability;
-                if(itr->second.extended_cost)
-                {
-                    dataBuff << uint32(itr->second.extended_cost->Id);
-                    bitFlags.push_back(false);
-                } else bitFlags.push_back(true);
-                bitFlags.push_back(true);
-
-                dataBuff << curItem->ItemId << uint32(1);
-                dataBuff << uint32(sItemMgr.CalculateBuyPrice(curItem->ItemId, 1, plr, this, itr->second.extended_cost));
-                dataBuff << uint32(curItem->DisplayInfoID) << availableAmount;
-                dataBuff << uint32(curItem->BuyCount);
+                if(item->proto->Class == ITEM_CLASS_ARMOR && item->proto->SubClass >= ITEM_SUBCLASS_ARMOR_LIBRAM && item->proto->SubClass <= ITEM_SUBCLASS_ARMOR_SIGIL)
+                    if(!(plr->GetArmorProficiency() & (uint32(1) << item->proto->SubClass)))
+                        continue; // Do not show relics to classes that can't use them.
             }
+
+            // If we can't buy this, then we can't buy anything above it either
+            if(item->extended_cost && item->extended_cost->flags & 0x01)
+                break; // Calculate if we've reached the correct guild rank to view these items
+
+            dataBuff << (++counter);
+            dataBuff << item->proto->Durability;
+            ItemExtendedCostEntry *extended = NULL;
+            if(extended = item->extended_cost)
+            {
+                dataBuff << uint32(extended->Id);
+                bitFlags.push_back(false);
+            } else bitFlags.push_back(true);
+            bitFlags.push_back(true);
+
+            dataBuff << item->proto->ItemId << uint32(1);
+            dataBuff << uint32(sItemMgr.CalculateBuyPrice(item->proto->ItemId, 1, plr, this, extended));
+            dataBuff << uint32(item->proto->DisplayInfoID) << availableAmount;
+            dataBuff << uint32(item->proto->BuyCount);
+            plr->AddVendorIndex(counter, slot);
         }
     }
 
@@ -845,34 +856,22 @@ void Creature::SendInventoryList(Player *plr)
 
 void Creature::AddVendorItem(uint32 itemid, uint32 vendormask, uint32 ec)
 {
-    CreatureItem ci;
-    memset(&ci, 0, sizeof(CreatureItem));
-    ci.itemid = itemid;
-    ci.IsDependent = true;
-    ci.vendormask = vendormask;
-    ci.extended_cost = ec ? dbcItemExtendedCost.LookupEntry(ec) : NULL;
+    uint16 slot = m_vendorItems.size();
+    if(slot == 0xFFFF)
+        return;
 
-    if(m_SellItems == NULL)
-        m_SellItems = objmgr.AllocateVendorList(GetEntry());
-
-    uint32 slot = 1;
-    if(m_SellItems->size())
-        slot = m_SellItems->rbegin()->first+1;
-    m_SellItems->insert(std::make_pair(slot, ci));
 }
 
 int32 Creature::ModAvItemAmount(uint32 slot, uint32 value)
 {
-    std::map<uint32, CreatureItem>::iterator itr;
-    if((itr = m_SellItems->find(slot)) == m_SellItems->end())
+    if(slot >= m_vendorItems.size())
         return 0;
 
-    if(m_limitedItems.find(slot) == m_limitedItems.end())
-        m_limitedItems.insert(std::make_pair(slot, std::make_pair(UNIXTIME, (itr->second.max_amount>=value ? itr->second.max_amount-value : 0))));
-    else if(m_limitedItems.at(slot).second <= value)
-        m_limitedItems.at(slot).second = 0;
-    else m_limitedItems.at(slot).second -= value;
-    return m_limitedItems.at(slot).second;
+    AvailableCreatureItem &item = m_vendorItems[slot];
+    if(value >= item.availableAmount)
+        item.availableAmount = 0;
+    else item.availableAmount -= value;
+    return item.availableAmount;
 }
 
 bool Creature::isBoss()
@@ -894,7 +893,7 @@ void Creature::FormationLinkUp(uint32 SqlId)
         haslinkupevent = false;
 }
 
-void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn)
+void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn, bool reload)
 {
     // Set our spawn pointer
     m_spawn = spawn;
@@ -969,19 +968,19 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Reset dynamic flags
     SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
 
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR ) )
-        m_SellItems = objmgr.GetVendorList(GetEntry());
+    if (!reload && HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_VENDOR))
+        objmgr.FillVendorList(GetEntry(), GetVendorMask(), m_vendorItems);
 
-    if(HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER|UNIT_NPC_FLAG_TRAINER_PROF))
+    if(!reload && HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TRAINER|UNIT_NPC_FLAG_TRAINER_PROF))
         m_trainerData = objmgr.GetTrainerData(GetEntry());
 
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR ) )
+    if (!reload && HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_TAXIVENDOR))
         sTaxiMgr.GetNearestTaxiNodes(mapId, x, y, z, m_taxiNode);
 
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER ) )
+    if (!reload && HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER))
         _LoadQuests();
 
-    if ( HasFlag( UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER ) )
+    if (!reload && HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER))
         auctionHouse = sAuctionMgr.GetAuctionHouse(GetEntry());
 
     // load formation data

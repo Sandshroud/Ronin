@@ -111,7 +111,9 @@ enum Races
     RACE_GOBLIN = 9,
     RACE_BLOODELF = 10,
     RACE_DRAENEI = 11,
-    RACE_WORGEN = 22
+    RACE_WORGEN = 22,
+    RACE_MAX = 23,
+    RACE_COUNT = 12
 };
 
 enum RaceMasks
@@ -855,6 +857,8 @@ public:
 
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    uint16 GetFieldPctLg(EUnitFields field, EUnitFields maxField);
+    int32 GetPowerPct(EUnitFields field, EUnitFields maxField);
     void SetPowerType(uint8 type);
     int32 GetPowerPct(uint8 power);
     void LosePower(uint8 powerType, int32 value);

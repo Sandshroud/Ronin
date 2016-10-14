@@ -252,7 +252,6 @@ protected:
     bool HandleKickCommand(const char* args, WorldSession *m_session);
     bool HandleTaxiCheatCommand(const char* args, WorldSession *m_session);
     bool HandleModifyTPsCommand(const char* args, WorldSession *m_session);
-    bool HandleToggleDevCommand(const char* args, WorldSession *m_session);
     bool HandleGMSightTypeCommand(const char* args, WorldSession *m_session);
 
     // Debug Commands
@@ -314,6 +313,7 @@ protected:
     bool HandleAddSHCommand(const char* args, WorldSession *m_session);
     bool HandleExploreCheatCommand(const char* args, WorldSession *m_session);
     bool HandleAddSkillCommand(const char* args, WorldSession *m_session);
+    bool HandleItemInfoCommand(const char* args, WorldSession *m_session);
     bool HandleAddInvItemCommand(const char* args, WorldSession *m_session);
     bool HandleResetReputationCommand(const char* args, WorldSession *m_session);
     bool HandleLearnSkillCommand(const char* args, WorldSession *m_session);
@@ -412,12 +412,6 @@ protected:
     bool HandleItemSetRemoveCommand(const char* args, WorldSession* m_session);
 
     // honor
-    bool HandleAddHonorCommand(const char* args, WorldSession* m_session);
-    bool HandleAddKillCommand(const char* args, WorldSession* m_session);
-    bool HandleGlobalHonorDailyMaintenanceCommand(const char* args, WorldSession* m_session);
-    bool HandleNextDayCommand(const char* args, WorldSession* m_session);
-    bool HandlePVPCreditCommand(const char* args, WorldSession* m_session);
-
     bool HandleAddTitleCommand(const char* args, WorldSession* m_session);
     bool HandleRemoveTitleCommand(const char* args, WorldSession* m_session);
     bool HandleGetKnownTitlesCommand(const char* args, WorldSession* m_session);

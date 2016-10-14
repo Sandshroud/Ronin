@@ -93,8 +93,6 @@ void Unit::Init()
 
 void Unit::Destruct()
 {
-    m_AuraInterface.Destruct();
-
     if (IsInWorld())
         RemoveFromWorld();
 
@@ -107,6 +105,8 @@ void Unit::Destruct()
     for ( itr = m_onAuraRemoveSpells.begin() ; itr != m_onAuraRemoveSpells.end() ; itr++)
         delete itr->second;
     m_onAuraRemoveSpells.clear();
+
+    m_AuraInterface.Destruct();
 
     WorldObject::Destruct();
 }
@@ -764,7 +764,8 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
 
     TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
-    if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
+    if(IsPlayer())
+        TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
 }
 
 void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
@@ -2088,56 +2089,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------split damage-----------------------------------------------
 
 //--------------------------spells triggering-----------------------------------------------
-    if(realdamage > 0 && ability == 0)
-    {
-        if( IsPlayer() && castPtr<Player>(this)->m_onStrikeSpells.size() )
-        {
-            SpellCastTargets targets;
-            targets.m_unitTarget = pVictim->GetGUID();
-            targets.m_targetMask = 0x2;
-
-            // Loop on hit spells, and strike with those.
-            for( std::map< SpellEntry*, std::pair< uint32, uint32 > >::iterator itr = castPtr<Player>(this)->m_onStrikeSpells.begin();
-                itr != castPtr<Player>(this)->m_onStrikeSpells.end(); itr++ )
-            {
-                if( itr->second.first )
-                {
-                    // We have a *periodic* delayed spell.
-                    uint32 t = getMSTime();
-                    if( t > itr->second.second )  // Time expired
-                    {
-                        // Set new time
-                        itr->second.second = t + itr->second.first;
-                    }
-
-                }
-
-                // Cast.
-                if(Spell *cspell = new Spell(this, itr->first))
-                    cspell->prepare(&targets, true);
-            }
-        }
-
-        if( IsPlayer() && castPtr<Player>(this)->m_onStrikeSpellDmg.size() )
-        {
-            std::map< uint32, OnHitSpell >::iterator it2 = castPtr<Player>(this)->m_onStrikeSpellDmg.begin();
-            std::map< uint32, OnHitSpell >::iterator itr;
-            uint32 min_dmg, max_dmg, range, dmg;
-            for(; it2 != castPtr<Player>(this)->m_onStrikeSpellDmg.end(); )
-            {
-                itr = it2;
-                ++it2;
-
-                min_dmg = itr->second.mindmg;
-                max_dmg = itr->second.maxdmg;
-                range = min_dmg - max_dmg;
-                dmg = min_dmg;
-                if(range) range += RandomUInt(range);
-
-                SpellNonMeleeDamageLog(pVictim, itr->second.spellid, dmg, 0.f, true);
-            }
-        }
-    }
 
 //==========================================================================================
 //==============================Data Sending================================================
@@ -2219,7 +2170,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         else s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME ) / 1000.0f;
 
         float val = ( 7.5f * dmg.full_damage / c + f * s ) / 2.0f;;
-        val *= ( 1 + ( castPtr<Player>(this)->rageFromDamageDealt / 100.0f ) );
+        val *= ( 1 + ( 100.f / 100.0f ) );
         val *= 10;
 
         ModPower(POWER_TYPE_RAGE, val);
@@ -2362,7 +2313,6 @@ void Unit::_UpdateSpells( uint32 time )
 
 void Unit::CastSpell( Spell* pSpell )
 {
-
     m_currentSpell = pSpell;
     pLastSpell = pSpell->GetSpellProto();
 }
@@ -3336,6 +3286,22 @@ void Unit::RemovePvPFlag()
     RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
 
+uint16 Unit::GetFieldPctLg(EUnitFields field, EUnitFields maxField)
+{
+    uint32 val = GetPower(field), maxVal = GetMaxPower(maxField);
+    if(maxVal == 0)
+        return 0;
+    return uint16(ceil(float(val)*10000.f/float(maxVal)));
+}
+
+int32 Unit::GetPowerPct(EUnitFields field, EUnitFields maxField)
+{
+    uint32 power = GetPower(field), maxPower = GetMaxPower(maxField);
+    if(maxPower == 0)
+        return 0;
+    return int32(ceil(float(power)*100.f/float(maxPower)));
+}
+
 void Unit::SetPowerType(uint8 type)
 {
     SetByte(UNIT_FIELD_BYTES_0, 3, type);
@@ -3350,10 +3316,7 @@ int32 Unit::GetPowerPct(uint8 type)
     EUnitFields field = GetPowerFieldForType(type), maxField = EUnitFields(field+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS));
     if(field == UNIT_END || maxField == UNIT_END)
         return 0;
-
-    uint32 power = GetPower(field), maxPower = GetMaxPower(maxField);
-    if(maxPower <= 0) maxPower = 1;
-    return int32(ceil(float(power)*100.f/float(maxPower)));
+    return GetPowerPct(field, maxField);
 }
 
 void Unit::LosePower(uint8 type, int32 decayValue)
@@ -3540,7 +3503,7 @@ void Unit::ResetFaction()
 {
     uint32 faction = 35;
     if(IsPlayer())
-        faction = castPtr<Player>(this)->GetInfo()->factiontemplate;
+        faction = castPtr<Player>(this)->m_createInfo->factiontemplate;
     else if(IsCreature()) faction = castPtr<Creature>(this)->GetCreatureData()->faction;
 
     SetFaction(faction);

@@ -461,7 +461,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if((Slot == EQUIPMENT_SLOT_MAINHAND || Slot == EQUIPMENT_SLOT_OFFHAND) && !(_player->titanGrip || _player->ignoreitemreq_cheat))
+    if((Slot == EQUIPMENT_SLOT_MAINHAND || Slot == EQUIPMENT_SLOT_OFFHAND) && !_player->HasSpellWithEffect(SPELL_EFFECT_TITAN_GRIP))
     {
         Item* mainhandweapon = _player->GetInventory()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, EQUIPMENT_SLOT_MAINHAND);
         if(mainhandweapon != NULL && mainhandweapon->GetProto()->InventoryType == INVTYPE_2HWEAPON)
@@ -784,16 +784,19 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
     sLog.Debug( "WORLD"," Received CMSG_BUY_ITEM" );
 
     WoWGuid vendorGuid, bagGuid;
-    uint32 itemid, slot, slot2, count;
+    uint32 itemid, slot, count;
     uint8 type, batslot, error = 0;
     recv_data >> vendorGuid >> type >> itemid >> slot >> count >> bagGuid >> batslot;
 
+    uint32 index = _player->GetVendorIndex(slot);
+    if(index == 0xFFFFFFFF)
+        return;
     Creature* unit = _player->GetInRangeObject<Creature>(vendorGuid);
     if (unit == NULL || !unit->HasItems())
         return;
 
-    CreatureItem *item = unit->GetSellItemByItemId(itemid, slot2);
-    if(item == NULL)// || slot2 != slot)
+    AvailableCreatureItem *availItem = unit->GetSellItemBySlot(index);
+    if(availItem == NULL || availItem->proto->ItemId != itemid)
     {
         // vendor does not sell this item. bitch about cheaters?
         _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_NOT_OWNER);
@@ -801,7 +804,7 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
     }
 
     int32 availableAmount = -1;
-    if (item->max_amount > 0 && (availableAmount = unit->GetAvailableAmount(slot, item->max_amount)) < count)
+    if (availItem->max_amount > 0 && (availableAmount = unit->GetAvailableAmount(slot, availItem->max_amount)) < count)
     {
         _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_VENDOR_SOLD_OUT);
         return;
@@ -820,13 +823,13 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
         return;
     }
 
-    if((error = _player->GetInventory()->CanReceiveItem(it, count, item->extended_cost)))
+    if((error = _player->GetInventory()->CanReceiveItem(it, count, availItem->extended_cost)))
     {
         _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, error);
         return;
     }
 
-    if((error = _player->GetInventory()->CanAffordItem(it, count, unit, item->extended_cost)))
+    if((error = _player->GetInventory()->CanAffordItem(it, count, unit, availItem->extended_cost)))
     {
         SendBuyFailed(vendorGuid, itemid, error);
         return;
@@ -846,7 +849,7 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
 
     if(add == NULL)
     {
-        Item* itm = objmgr.CreateItem(item->itemid, _player, count);
+        Item* itm = objmgr.CreateItem(availItem->proto->ItemId, _player, count);
         if(itm == NULL)
         {
             _player->GetInventory()->BuildInventoryChangeError(NULL, NULL, INV_ERR_NOT_OWNER);
@@ -869,14 +872,14 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
         add->m_isDirty = true;
     }
 
-    if(int32(item->max_amount) > 0)
+    if(int32(availItem->max_amount) > 0)
         availableAmount = unit->ModAvItemAmount(slot, count);
 
     WorldPacket data(SMSG_BUY_ITEM, 20);
     data << vendorGuid << uint32(slot) << availableAmount << uint32(count);
     SendPacket( &data );
 
-    _player->GetInventory()->BuyItem(it,count,unit, item->extended_cost);
+    _player->GetInventory()->BuyItem(it,count,unit, availItem->extended_cost);
 
     _player->SaveToDB(false);
 }
@@ -1021,7 +1024,7 @@ void WorldSession::HandleReadItemOpcode(WorldPacket &recvPacket)
     }
 }
 
-RONIN_INLINE uint32 RepairItemCost(Player* pPlayer, Item* pItem)
+uint32 RepairItemCost(Player* pPlayer, Item* pItem)
 {
     DurabilityCostsEntry * dcosts = dbcDurabilityCosts.LookupEntry(pItem->GetProto()->ItemLevel);
     if(!dcosts)
@@ -1037,12 +1040,12 @@ RONIN_INLINE uint32 RepairItemCost(Player* pPlayer, Item* pItem)
         return 1;
     }
 
-    uint32 dmodifier = dcosts->modifier[pItem->GetProto()->Class == ITEM_CLASS_WEAPON ? pItem->GetProto()->SubClass : pItem->GetProto()->SubClass + 21];
+    uint32 dmodifier = dcosts->modifier[pItem->GetProto()->Class == ITEM_CLASS_WEAPON ? pItem->GetProto()->SubClass : (pItem->GetProto()->SubClass + 21)];
     uint32 cost = double2int32((pItem->GetDurabilityMax() - pItem->GetDurability()) * dmodifier * double(dquality->quality_modifier));
     return cost;
 }
 
-RONIN_INLINE void RepairItem(Player* pPlayer, Item* pItem, bool guild = false)
+void RepairItem(Player* pPlayer, Item* pItem, bool guild = false)
 {
     int32 cost = RepairItemCost(pPlayer, pItem);
     if( cost < 0 )
@@ -1135,57 +1138,53 @@ void WorldSession::HandleRepairItemOpcode(WorldPacket &recvPacket)
             _player->GuildBankCost = 0; // Reset our guild cost.
         }*/
     }
-    else
+    else if(Item* item = _player->GetInventory()->GetItemByGUID(itemguid))
     {
-        Item* item = _player->GetInventory()->GetItemByGUID(itemguid);
-        if(item)
-        {
-            SlotResult *searchres=_player->GetInventory()->LastSearchResult();//this never gets null since we get a pointer to the inteface internal var
-            uint32 dDurability = item->GetDurabilityMax() - item->GetDurability();
+        SlotResult *searchres=_player->GetInventory()->LastSearchResult();//this never gets null since we get a pointer to the inteface internal var
+        uint32 dDurability = item->GetDurabilityMax() - item->GetDurability();
 
-            if (dDurability)
+        if (dDurability)
+        {
+            // the amount of durability that is needed to be added is the amount of money to be payed
+            if (dDurability <= _player->GetUInt32Value(PLAYER_FIELD_COINAGE))
             {
-                // the amount of durability that is needed to be added is the amount of money to be payed
-                if (dDurability <= _player->GetUInt32Value(PLAYER_FIELD_COINAGE))
+                int32 cDurability = item->GetDurability();
+                /*if(guildmoney) // Just grab the money.
+                {
+                    uint32 amountavailable = _player->GetGuild()->GetBankBalance();
+                    uint32 amountallowed = _player->GetGuildMember()->CalculateAvailableAmount();
+                    uint32 available = (amountallowed == 0xFFFFFFFF ? amountavailable : amountallowed); // If we have an unlimited amount, take the max.
+                    _player->GetGuild()->WithdrawMoney(this, available);
+                }*/
+
+                _player->ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)dDurability );
+                item->SetDurabilityToMax();
+                item->m_isDirty = true;
+
+                //only apply item mods if they are on char equiped
+                if(cDurability <= 0 && searchres->ContainerSlot==INVALID_BACKPACK_SLOT && searchres->Slot<INVENTORY_SLOT_BAG_END)
+                    _player->ApplyItemMods(item, searchres->Slot, true);
+            }
+            else
+            {
+                /*if(guildmoney)
                 {
                     int32 cDurability = item->GetDurability();
-                    /*if(guildmoney) // Just grab the money.
+                    uint32 amountavailable = _player->GetGuild()->GetBankBalance();
+                    uint32 amountallowed = _player->GetGuildMember()->CalculateAvailableAmount();
+                    uint32 available = (amountallowed == 0xFFFFFFFF ? amountavailable : amountallowed); // If we have an unlimited amount, take the max.
+                    if(cDurability < int64(_player->GetUInt32Value(PLAYER_FIELD_COINAGE) + available))
                     {
-                        uint32 amountavailable = _player->GetGuild()->GetBankBalance();
-                        uint32 amountallowed = _player->GetGuildMember()->CalculateAvailableAmount();
-                        uint32 available = (amountallowed == 0xFFFFFFFF ? amountavailable : amountallowed); // If we have an unlimited amount, take the max.
                         _player->GetGuild()->WithdrawMoney(this, available);
-                    }*/
+                        _player->ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)dDurability );
+                        item->SetDurabilityToMax();
+                        item->m_isDirty = true;
 
-                    _player->ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)dDurability );
-                    item->SetDurabilityToMax();
-                    item->m_isDirty = true;
-
-                    //only apply item mods if they are on char equiped
-                    if(cDurability <= 0 && searchres->ContainerSlot==INVALID_BACKPACK_SLOT && searchres->Slot<INVENTORY_SLOT_BAG_END)
-                        _player->ApplyItemMods(item, searchres->Slot, true);
-                }
-                else
-                {
-                    /*if(guildmoney)
-                    {
-                        int32 cDurability = item->GetDurability();
-                        uint32 amountavailable = _player->GetGuild()->GetBankBalance();
-                        uint32 amountallowed = _player->GetGuildMember()->CalculateAvailableAmount();
-                        uint32 available = (amountallowed == 0xFFFFFFFF ? amountavailable : amountallowed); // If we have an unlimited amount, take the max.
-                        if(cDurability < int64(_player->GetUInt32Value(PLAYER_FIELD_COINAGE) + available))
-                        {
-                            _player->GetGuild()->WithdrawMoney(this, available);
-                            _player->ModUnsigned32Value( PLAYER_FIELD_COINAGE , -(int32)dDurability );
-                            item->SetDurabilityToMax();
-                            item->m_isDirty = true;
-
-                            //only apply item mods if they are on char equiped
-                            if(cDurability <= 0 && searchres->ContainerSlot == INVALID_BACKPACK_SLOT && searchres->Slot < INVENTORY_SLOT_BAG_END)
-                                _player->ApplyItemMods(item, searchres->Slot, true);
-                        }
-                    }*/
-                }
+                        //only apply item mods if they are on char equiped
+                        if(cDurability <= 0 && searchres->ContainerSlot == INVALID_BACKPACK_SLOT && searchres->Slot < INVENTORY_SLOT_BAG_END)
+                            _player->ApplyItemMods(item, searchres->Slot, true);
+                    }
+                }*/
             }
         }
     }

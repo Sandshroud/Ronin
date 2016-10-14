@@ -72,17 +72,17 @@ bool World::run()
     return false;
 }
 
-uint32 World::GetMaxLevel(Player* plr)
+uint32 World::GetMaxLevel(WorldSession *session)
 {
     if(LevelCap_Custom_All && LevelCap_Custom_All != MAXIMUM_CEXPANSION_LEVEL)
         return LevelCap_Custom_All;
 
     uint32 level = MAXIMUM_ATTAINABLE_LEVEL;
-    if( plr->GetSession()->HasFlag(ACCOUNT_FLAG_XPACK_03) )
+    if( session->HasFlag(ACCOUNT_FLAG_XPACK_03) )
         level = MAXIMUM_CEXPANSION_LEVEL;
-    else if( plr->GetSession()->HasFlag(ACCOUNT_FLAG_XPACK_02) )
+    else if( session->HasFlag(ACCOUNT_FLAG_XPACK_02) )
         level = 80;
-    else if( plr->GetSession()->HasFlag(ACCOUNT_FLAG_XPACK_01) )
+    else if( session->HasFlag(ACCOUNT_FLAG_XPACK_01) )
         level = 70;
     else level = 60;// Classic World of Warcraft
     return level;
@@ -219,9 +219,6 @@ void World::Destruct()
 
     sLog.Notice("ChatHandler", "~ChatHandler()");
     delete ChatHandler::getSingletonPtr();
-
-    sLog.Notice("CBattlegroundManager", "~CBattlegroundManager()");
-    delete CBattlegroundManager::getSingletonPtr();
 
     sLog.Notice("AuctionMgr", "~AuctionMgr()");
     delete AuctionMgr::getSingletonPtr();
@@ -488,7 +485,6 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, LoadGroups);
     MAKE_TASK(Tracker,   LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadExtraItemStuff);
-    MAKE_TASK(ObjectMgr, LoadArenaTeams);
     MAKE_TASK(GossipManager, LoadGossipData);
     MAKE_TASK(WorldManager, LoadSpawnData);
 
@@ -540,10 +536,6 @@ bool World::SetInitialWorldSettings()
 
     sLog.Notice("World", "Loading Channel config...");
     Channel::LoadConfSettings();
-
-    sLog.Notice("World", "Starting BattlegroundManager...");
-    new CBattlegroundManager;
-    BattlegroundManager.Init();
 
     if(GuildsLoading)
     {
@@ -1035,16 +1027,16 @@ void World::UpdateQueuedSessions(uint32 diff)
         {
             std::map<WorldSession*, std::pair<WoWGuid, uint32> >::iterator sessItr = m_worldPushQueue.find((*itr).second);
             ASSERT("FUCK" && sessItr != m_worldPushQueue.end());
+            PlayerInfo *info = objmgr.GetPlayerInfo(sessItr->second.first);
             WorldSession *sess = sessItr->first;
-            WoWGuid guid = sessItr->second.first;
             m_worldPushQueue.erase(sessItr);
-            if((*itr).first)
+            if(info == NULL || (*itr).first)
             {
                 sess->Disconnect();
                 continue;
             }
 
-            sess->PlayerLoginProc(guid);
+            sess->PlayerLoginProc(info);
         }
         m_worldPushLock.Release();
     }

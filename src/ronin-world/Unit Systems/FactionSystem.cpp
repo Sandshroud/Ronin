@@ -234,16 +234,16 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
     if(!player_objB && objB->IsCreature() && castPtr<Creature>(objB)->GetCreatureType() == UT_CRITTER && player_objA)
         return FI_STATUS_HOSTILE;
     // Disable GM attacking.
-    if(player_objA && player_objB && player_objA->bGMTagOn)
+    if(player_objA && player_objB && player_objA->hasGMTag())
         return FI_STATUS_NONE;
     // Don't allow players to attack GMs
-    if(player_objA && player_objB && player_objB->bGMTagOn)
+    if(player_objA && player_objB && player_objB->hasGMTag())
         return FI_STATUS_NONE;
     // Disable GMs attacking creatures.
-    if(player_objA && !player_objB && player_objA->bGMTagOn)
+    if(player_objA && !player_objB && player_objA->hasGMTag())
         return FI_STATUS_NONE;
     // Creatures cannot attack a GM with tag on.
-    if(!player_objA && player_objB && player_objB->bGMTagOn)
+    if(!player_objA && player_objB && player_objB->hasGMTag())
         return FI_STATUS_NONE;
 
     FactionInteractionStatus status = (((player_objA || objA->IsUnit()) && (player_objB || objB->IsUnit())) ? GetTeamBasedStatus(player_objA ? player_objA : castPtr<Unit>(objA), player_objB ? player_objB : castPtr<Unit>(objB)) : FI_STATUS_NEUTRAL);
@@ -300,14 +300,6 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
             return FI_STATUS_HOSTILE;       // can hurt each other in FFA pvp
         }
 
-        //Handle BG's
-        if( player_objA->m_bg != NULL)
-        {
-            //Handle Arenas
-            if( player_objA->GetTeam() != player_objB->GetTeam() )
-                return FI_STATUS_HOSTILE;
-        }
-
         // same faction can't kill each other.
         if(player_objA->GetFaction() == player_objB->GetFaction())
             return FI_STATUS_FRIENDLY;
@@ -338,7 +330,7 @@ bool FactionSystem::IsInteractionLocked(WorldObject *obj)
             return true;
         else if(uObj->IsPlayer())
         {
-            if(castPtr<Player>(uObj)->bGMTagOn)
+            if(castPtr<Player>(uObj)->hasGMTag())
                 return true;
         }
         else //if(obj->IsCreature()) // No need to double check

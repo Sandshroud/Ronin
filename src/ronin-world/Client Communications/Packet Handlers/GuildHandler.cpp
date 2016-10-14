@@ -533,13 +533,10 @@ void WorldSession::HandleCharterQuery(WorldPacket & recv_data)
     data << uint32(0);                                      // 8
     data << uint16(0);                                      // 9 2 bytes field
 
-    uint32 maxlevel = sWorld.GetMaxLevel(_player);
-    if(maxlevel < 80)
-        maxlevel = 80;
+    uint32 maxlevel = std::max<uint32>(80, _player->GetUInt32Value(PLAYER_FIELD_MAX_LEVEL));
     if( c->CharterType == CHARTER_TYPE_GUILD )
         data << uint32(1) << uint32(maxlevel);              // 10 minlevel
-    else
-        data << uint32(80) << uint32(maxlevel);             // 10
+    else data << uint32(80) << uint32(maxlevel);            // 10
 
     data << uint32(0);                                      // 12
     data << uint32(0);                                      // 13 count of next std::strings?
@@ -651,7 +648,7 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
         if( gc->GetLeader() != _player->GetLowGUID() )
             return;
 
-        if(!_player->bGMTagOn)
+        if(!_player->hasGMTag())
         {
             if(gc->SignatureCount < 9)
             {
@@ -672,73 +669,7 @@ void WorldSession::HandleCharterTurnInCharter(WorldPacket & recv_data)
     }
     else
     {
-        /* Arena charter - TODO: Replace with correct messages */
-        ArenaTeam * team;
-        uint32 type;
-        uint32 icon, iconcolor, bordercolor, border, background;
-        recv_data >> iconcolor >>icon >> bordercolor >> border >> background;
 
-        switch(pCharter->CharterType)
-        {
-        case CHARTER_TYPE_ARENA_2V2:
-            type = ARENA_TEAM_TYPE_2V2;
-            break;
-
-        case CHARTER_TYPE_ARENA_3V3:
-            type = ARENA_TEAM_TYPE_3V3;
-            break;
-
-        case CHARTER_TYPE_ARENA_5V5:
-            type = ARENA_TEAM_TYPE_5V5;
-            break;
-
-        default:
-            SendNotification("Internal Error");
-            return;
-        }
-
-        if( pCharter->GetLeader() != _player->GetLowGUID() )
-            return;
-
-        if(_player->m_playerInfo->arenaTeam[pCharter->CharterType-1] != NULL)
-        {
-            sChatHandler.SystemMessage(this, "You are already in an arena team.");
-            return;
-        }
-
-        if(pCharter->SignatureCount < pCharter->GetNumberOfSlotsByType())
-        {
-            SendTurnInPetitionResult( this, ERR_PETITION_NOT_ENOUGH_SIGNATURES );
-            return;
-        }
-
-        team = new ArenaTeam(type, objmgr.GenerateArenaTeamId());
-        team->m_name = pCharter->GuildName;
-        team->m_emblemColour = iconcolor;
-        team->m_emblemStyle = icon;
-        team->m_borderColour = bordercolor;
-        team->m_borderStyle = border;
-        team->m_backgroundColour = background;
-        team->m_leader=_player->GetLowGUID();
-        team->m_stat_rating=1500;
-
-        objmgr.AddArenaTeam(team);
-        objmgr.UpdateArenaTeamRankings();
-        team->AddMember(_player->m_playerInfo);
-
-
-        /* Add the members */
-        for(uint8 i = 0; i < pCharter->SignatureCount; i++)
-        {
-            if(PlayerInfo *info = objmgr.GetPlayerInfo(pCharter->Signatures[i]))
-            {
-                team->AddMember(info);
-            }
-        }
-
-        _player->GetInventory()->SafeFullRemoveItemByGuid(charterGuid);
-        _player->m_playerInfo->charterId[pCharter->CharterType] = NULL;
-        pCharter->Destroy();
     }
 
     SendTurnInPetitionResult( this, ERR_PETITION_OK );

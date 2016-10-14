@@ -148,7 +148,6 @@ void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, i
     m_summon->setLevel(owner->getLevel());
     m_summon->setRace(0);
     m_summon->setClass(1);
-    m_summon->setGender(2);
     m_summon->SetPowerType(1);
     m_summon->SetBoundingRadius(1.0f);
     m_summon->SetCombatReach(1.0f);
@@ -204,6 +203,7 @@ void WildSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, in
 
 void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
+    return;
     if(!m_caster->IsUnit())
         return;
     Unit *u_caster = castPtr<Unit>(m_caster);

@@ -362,9 +362,7 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
     }
 
     mSession = pSession;
-    pSession->LoadTutorials();
-    pSession->LoadAccountData();
-    pSession->LoadCharacterData();
+    pSession->Init();
 
     sLog.Debug("Auth", "%s from %s:%u [%ums]", AccountName.c_str(), GetIP(), GetPort(), _latency);
 
@@ -509,14 +507,8 @@ void WorldSocket::OnRecvData()
             mOpcode = sOpcodeMgr.ConvertOpcodeForInput(mUnaltered);
         }
 
-        if(mRemaining > 0)
-        {
-            if( GetReadBuffer()->GetSize() < mRemaining )
-            {
-                // We have a fragmented packet. Wait for the complete one before proceeding.
-                return;
-            }
-        }
+        if(mRemaining > 0 && GetReadBuffer()->GetSize() < mRemaining )
+            return; // We have a fragmented packet. Wait for the complete one before proceeding.
 
         WorldPacket *Packet = new WorldPacket(mOpcode, mRemaining);
         if(mRemaining > 0)

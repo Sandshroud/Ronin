@@ -282,7 +282,6 @@ void CommandTableStorage::Init()
         { "list",                   COMMAND_LEVEL_1, &ChatHandler::HandleGMListCommand,         "Shows active GM's",                                    NULL,                   0, 0, 0 },
         { "off",                    COMMAND_LEVEL_T, &ChatHandler::HandleGMOffCommand,          "Sets GM tag off",                                      NULL,                   0, 0, 0 },
         { "on",                     COMMAND_LEVEL_T, &ChatHandler::HandleGMOnCommand,           "Sets GM tag on",                                       NULL,                   0, 0, 0 },
-        { "disabledev",             COMMAND_LEVEL_Z, &ChatHandler::HandleToggleDevCommand,      "Toggles <Dev> Tag",                                    NULL,                   0, 0, 0 },
         { "sight",                  COMMAND_LEVEL_Z, &ChatHandler::HandleGMSightTypeCommand,    "Changes GM sight type",                                NULL,                   0, 0, 0 },
         { "announce",               COMMAND_LEVEL_U, &ChatHandler::HandleGMAnnounceCommand,     "Announce to GM's and Admin's",                         NULL,                   0, 0, 0 },
         { "allowwhispers",          COMMAND_LEVEL_C, &ChatHandler::HandleAllowWhispersCommand,  "Allows whispers from player <s> while in gmon mode.",  NULL,                   0, 0, 0 },
@@ -347,11 +346,6 @@ void CommandTableStorage::Init()
 
     static ChatCommand honorCommandTable[] =
     {
-        { "addpoints",              COMMAND_LEVEL_M, &ChatHandler::HandleAddHonorCommand,                       "Adds x amount of honor points/currency",                   NULL, 0, 0, 0 },
-        { "addkills",               COMMAND_LEVEL_M, &ChatHandler::HandleAddKillCommand,                        "Adds x amount of honor kills",                             NULL, 0, 0, 0 },
-        { "globaldailyupdate",      COMMAND_LEVEL_M, &ChatHandler::HandleGlobalHonorDailyMaintenanceCommand,    "Daily honor field moves",                                  NULL, 0, 0, 0 },
-        { "singledailyupdate",      COMMAND_LEVEL_M, &ChatHandler::HandleNextDayCommand,                        "Daily honor field moves for selected player only",         NULL, 0, 0, 0 },
-        { "pvpcredit",              COMMAND_LEVEL_M, &ChatHandler::HandlePVPCreditCommand,                      "Sends PVP credit packet, with specified rank and points",  NULL, 0, 0, 0 },
         { NULL,                     COMMAND_LEVEL_0, NULL,                                                      "",                                                         NULL, 0, 0, 0 },
     };
     dupe_command_table(honorCommandTable, _honorCommandTable);
@@ -430,6 +424,7 @@ void CommandTableStorage::Init()
         { "worldport",              COMMAND_LEVEL_V, &ChatHandler::HandleWorldPortCommand,                          "",                             NULL, 0, 0, 0 },
         { "save",                   COMMAND_LEVEL_S, &ChatHandler::HandleSaveCommand,                               "Save's your character",            NULL, 0, 0, 0 },
         { "start",                  COMMAND_LEVEL_M, &ChatHandler::HandleStartCommand,                              "Teleport's you to a starting location",                                NULL, 0, 0, 0 },
+        { "iteminfo",               COMMAND_LEVEL_M, &ChatHandler::HandleItemInfoCommand,                           "",                             NULL, 0, 0, 0 },
         { "additem",                COMMAND_LEVEL_M, &ChatHandler::HandleAddInvItemCommand,                         "",                             NULL, 0, 0, 0 },
         { "additemset",             COMMAND_LEVEL_M, &ChatHandler::HandleAddItemSetCommand,                         "Adds item set to inv.",            NULL, 0, 0, 0 },
         { "removeitem",             COMMAND_LEVEL_M, &ChatHandler::HandleRemoveItemCommand,                         "Removes item %u count %u.", NULL, 0, 0, 0 },

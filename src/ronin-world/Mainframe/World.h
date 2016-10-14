@@ -367,7 +367,7 @@ public:
 
     void Destruct();
 
-    uint32 GetMaxLevel(Player* plr);
+    uint32 GetMaxLevel(WorldSession *session);
     uint32 GetMaxLevelStatCalc();
 
     void CharEnumDisplayData(QueryResultVector& results, uint32 AccountId);

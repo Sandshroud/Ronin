@@ -587,15 +587,15 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 {
                     if (cell = GetCell(posX, posY))
                     {
-                        std::vector<uint32> eventAccess;
+                        std::vector<uint32> conditionAccess, eventAccess;
                         sWorld.GetActiveEvents(eventAccess);
-                        if(plObj && plObj->bGMTagOn && plObj->gmSightType == 1)
-                            eventAccess.push_back(plObj->gmSightEventID);
+                        if(plObj && plObj->hasGMTag() && plObj->m_gmData->gmSightType == 1)
+                            eventAccess.push_back(plObj->m_gmData->gmSightEventID);
 
                         bool handledAllPhases = false;
                         MapCell::CellObjectSet *objectSet;
                         uint16 phaseMask = obj->GetPhaseMask(), count = 0;
-                        while(objectSet = cell->GetNextObjectSet(phaseMask, eventAccess, handledAllPhases))
+                        while(objectSet = cell->GetNextObjectSet(phaseMask, conditionAccess, eventAccess, handledAllPhases))
                         {
                             for(MapCell::CellObjectSet::iterator iter = objectSet->begin(); iter != objectSet->end(); iter++)
                             {
@@ -747,15 +747,15 @@ void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* ce
     if( cell == NULL )
         return;
 
-    std::vector<uint32> eventAccess;
+    std::vector<uint32> conditionAccess, eventAccess;
     sWorld.GetActiveEvents(eventAccess);
-    if(plObj && plObj->bGMTagOn && plObj->gmSightType == 1)
-        eventAccess.push_back(plObj->gmSightEventID);
+    if(plObj && plObj->hasGMTag() && plObj->m_gmData->gmSightType == 1)
+        eventAccess.push_back(plObj->m_gmData->gmSightEventID);
 
     bool handledAllPhases = false;
     MapCell::CellObjectSet *objectSet;
     uint16 phaseMask = obj->GetPhaseMask(), count = 0;
-    while(objectSet = cell->GetNextObjectSet(phaseMask, eventAccess, handledAllPhases))
+    while(objectSet = cell->GetNextObjectSet(phaseMask, conditionAccess, eventAccess, handledAllPhases))
     {
         for(MapCell::CellObjectSet::iterator itr = objectSet->begin(); itr != objectSet->end(); itr++)
         {

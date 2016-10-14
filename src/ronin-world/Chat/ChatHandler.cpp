@@ -158,7 +158,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
         }break;
     }
 
-    if(!_player->bGMTagOn && !ValidateText2(message))
+    if(!_player->hasGMTag() && !ValidateText2(message))
         return;
 
     if( lang != -1 && !GetPermissionCount() )
@@ -241,7 +241,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                     if(sWorld.trade_world_chat == 2)
                     {
                         char Message[512];
-                        if( HasGMPermissions() && _player->bGMTagOn )
+                        if( HasGMPermissions() && _player->hasGMTag() )
                         {
                             if( CanUseCommand('z') )
                             {
@@ -288,16 +288,6 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                     }
                     SendPacket(&broadcast);
                     return;
-                }
-
-                // Check that the player isn't a gm with his status on
-                if(!_player->GetSession()->GetPermissionCount() && player->bGMTagOn && player->gmTargets.count(_player) == 0)
-                {
-                    // Build automated reply
-                    std::string Reply = "This Game Master does not currently have an open ticket from you and did not receive your whisper. Please submit a new GM Ticket request if you need to speak to a GM. This is an automatic message.";
-                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_WHISPER, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(), Reply.c_str(), "", 3);
-                    SendPacket(&broadcast);
-                    break;
                 }
 
                 if( player->Social_IsIgnoring( _player->GetLowGUID() ) && !_player->GetSession()->HasGMPermissions() )
@@ -544,6 +534,11 @@ void WorldSession::HandleTextEmoteOpcode( WorldPacket & recv_data )
         else data << unitName;
         GetPlayer()->SendMessageToSet(&data, true);
     }
+}
+
+void WorldSession::HandleSetVisibleRankOpcode(WorldPacket &recvPacket)
+{
+
 }
 
 void WorldSession::HandleReportSpamOpcode(WorldPacket & recvPacket)

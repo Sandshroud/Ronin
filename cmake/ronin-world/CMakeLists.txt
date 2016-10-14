@@ -12,20 +12,7 @@ SET(group_sources ${group_sources} ${ai_sources} )
 FILE(GLOB battleground_sources
 "${prefix}/Battlegrounds/*.h"
 "${prefix}/Battlegrounds/*.cpp")
-source_group("Battlegrounds" FILES ${battleground_sources})
-FILE(GLOB exp0_bg_sources
-"${prefix}/Battlegrounds/Expansion0/*.h"
-"${prefix}/Battlegrounds/Expansion0/*.cpp")
-source_group("Battlegrounds\\Expansion0" FILES ${exp0_bg_sources})
-FILE(GLOB exp1_bg_sources
-"${prefix}/Battlegrounds/Expansion1/*.h"
-"${prefix}/Battlegrounds/Expansion1/*.cpp")
-source_group("Battlegrounds\\Expansion1" FILES ${exp1_bg_sources})
-FILE(GLOB exp2_bg_sources
-"${prefix}/Battlegrounds/Expansion2/*.h"
-"${prefix}/Battlegrounds/Expansion2/*.cpp")
-source_group("Battlegrounds\\Expansion2" FILES ${exp2_bg_sources})
-SET(group_sources ${group_sources} ${battleground_sources} ${exp0_bg_sources} ${exp1_bg_sources} ${exp2_bg_sources})
+SET(group_sources ${group_sources} ${battleground_sources})
 
 FILE(GLOB chat_sources
 "${prefix}/Chat/*.h"

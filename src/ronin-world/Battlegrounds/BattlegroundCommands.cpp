@@ -50,29 +50,16 @@ bool ChatHandler::HandlePlaySoundCommand(const char* args, WorldSession *m_sessi
 
 bool ChatHandler::HandleSetBattlefieldStatusCommand(const char* args, WorldSession *m_session)
 {
-    uint32 type = atoi(args);
-    BattlegroundManager.SendBattlegroundQueueStatus(m_session->GetPlayer(), type);
     return true;
 }
 
 bool ChatHandler::HandleBattlegroundExitCommand(const char* args, WorldSession* m_session)
 {
-    Player* plr = getSelectedChar(m_session, false);
-    if(plr==NULL)
-    {
-        if(m_session->GetPlayer()!= NULL)
-            plr = m_session->GetPlayer();
-    }
-    if(plr==NULL)
-        return true;
 
-    if(plr->m_bg && plr->IsInWorld())
-        plr->m_bg->RemovePlayer(plr, false);
     return true;
 }
 
 bool ChatHandler::HandleBattlegroundForcestartCommand(const char* args, WorldSession* m_session)
 {
-    BattlegroundManager.EventQueueUpdate(true);
     return true;
 }

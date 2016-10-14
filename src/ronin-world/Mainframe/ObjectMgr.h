@@ -27,6 +27,16 @@ struct PlayerCreateInfo
     std::list<CreateInfo_ActionBarStruct> bars;
 };
 
+struct VendorItem
+{
+    uint32 itemid;
+    uint32 max_amount;
+    uint32 incrtime;
+    uint32 vendormask;
+    uint32 extendedCost;
+    bool IsDependent;
+};
+
 struct ItemPage
 {
     uint32 id;
@@ -123,7 +133,7 @@ public:
     typedef std::map<uint32, PlayerInfo*>                        PlayerNameMap;
     typedef std::map<uint16, PlayerCreateInfo*>                  PlayerCreateInfoMap;
     typedef std::map<uint32, SkillLineAbilityEntry*>             SLMap;
-    typedef std::map<uint32, std::map<uint32, CreatureItem>* >   VendorMap;
+    typedef std::map<uint32, std::vector<VendorItem> >           VendorMap;
     typedef std::map<uint32, TrainerData >                       TrainerDataMap;
     typedef std::map<std::pair<uint8, uint8>, TrainerSpellMap>   TrainerSpellStorage;
     typedef std::map<uint32, Transporter* >                      TransportMap;
@@ -155,6 +165,8 @@ public:
 
     Mutex _recallLock;
     RecallSet m_recallLocations;
+
+    void ResetDailies();
 
     Item* CreateItem(uint32 entry,Player* owner, uint32 count = 1);
     Item* LoadItem(uint64 guid);
@@ -229,27 +241,22 @@ public:
     SkillLineAbilityEntry* GetSpellSkill(uint32 id);
 
     //Vendors
-    std::map<uint32, CreatureItem> *GetVendorList(uint32 entry);
-    std::map<uint32, CreatureItem> *AllocateVendorList(uint32 entry);
+    void FillVendorList(uint32 entry, uint32 vendorMask, std::vector<AvailableCreatureItem> &toFill);
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
 
     // Trainers
     TrainerData *GetTrainerData(uint32 entry);
     TrainerSpellMap *GetTrainerSpells(uint8 category, uint8 subcategory);
 
-    uint32 m_hiArenaTeamId;
     uint32 GenerateArenaTeamId()
     {
-        uint32 ret;
-        m_arenaTeamLock.Acquire();
-        ret = ++m_hiArenaTeamId;
-        m_arenaTeamLock.Release();
+        uint32 ret = 0;
         return ret;
     }
 
     Mutex m_petlock;
 
-    Player* CreatePlayer();
+    PlayerInfo* CreatePlayer();
     Mutex m_playerguidlock;
     typedef std::map<uint64, Player*> PlayerStorageMap;
     PlayerStorageMap _players;
@@ -307,19 +314,6 @@ public:
 
     Transporter* GetTransporter(uint32 guid);
     Transporter* GetTransporterByEntry(uint32 entry);
-
-    ArenaTeam * GetArenaTeamByName(std::string & name, uint32 Type);
-    ArenaTeam * GetArenaTeamById(uint32 id);
-    void UpdateArenaTeamRankings();
-    void UpdateArenaTeamWeekly();
-    void ResetDailies();
-    void LoadArenaTeams();
-    std::map<uint32, ArenaTeam*> m_arenaTeamMap[3];
-    std::map<uint32, ArenaTeam*> m_arenaTeamPlayerMap[3];
-    std::map<uint32, ArenaTeam*> m_arenaTeams;
-    void RemoveArenaTeam(ArenaTeam * team);
-    void AddArenaTeam(ArenaTeam * team);
-    Mutex m_arenaTeamLock;
 
     std::map<uint32, uint32> ItemsInSets;
 

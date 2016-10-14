@@ -600,6 +600,9 @@ protected: // Movement information
     float m_collisionHeight;
     bool m_isKnockBacked;
 
+    bool m_isFalling;
+    float m_fallPointZ;
+
     struct
     {
         WoWGuid ex_guid;

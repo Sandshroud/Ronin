@@ -69,12 +69,11 @@ bool ChatHandler::HandleWAnnounceCommand(const char* args, WorldSession *m_sessi
 bool ChatHandler::HandleGMOnCommand(const char* args, WorldSession *m_session)
 {
     Player* gm = m_session->GetPlayer();
-    if(gm->bGMTagOn)
+    if(gm->hasGMTag())
         RedSystemMessage(m_session, "Permission flags are already set. Use .gm off to disable them.");
     else
     {
-        gm->bGMTagOn = true;
-        if(m_session->CanUseCommand('z') && !gm->DisableDevTag)
+        if(m_session->CanUseCommand('z') && !gm->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER))
         {
             gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);           // <GM>
             gm->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);       // <Dev>
@@ -94,11 +93,10 @@ bool ChatHandler::HandleGMOnCommand(const char* args, WorldSession *m_session)
 bool ChatHandler::HandleGMOffCommand(const char* args, WorldSession *m_session)
 {
     Player* gm = m_session->GetPlayer();
-    if(!gm->bGMTagOn)
+    if(!gm->hasGMTag())
         RedSystemMessage(m_session, "Permission flags not set. Use .gm on to enable it.");
     else
     {
-        gm->bGMTagOn = false;
         gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);           // <GM>
         gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);    // <Dev>
         BlueSystemMessage(m_session, "Permission flags removed. Tags will no longer show in chat messages or above your name.");
@@ -107,61 +105,24 @@ bool ChatHandler::HandleGMOffCommand(const char* args, WorldSession *m_session)
     return true;
 }
 
-bool ChatHandler::HandleToggleDevCommand(const char* args, WorldSession *m_session)
-{
-    Player* gm = m_session->GetPlayer();
-    if(gm->DisableDevTag)
-    {
-        if(gm->bGMTagOn)
-        {   // Change the flag to the correct one
-            gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);           // <GM>
-            gm->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);       // <Dev>
-        }
-        else
-        {   // Remove both flags
-            gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);           // <GM>
-            gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);    // <Dev>
-        }
-
-        gm->DisableDevTag = false;
-    }
-    else
-    {
-        if(gm->bGMTagOn)
-        {   // Change the flag to the correct one
-            gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);    // <GM>
-            gm->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);              // <Dev>
-        }
-        else
-        {   // Remove both flags
-            gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);           // <GM>
-            gm->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER);    // <Dev>
-        }
-
-        gm->DisableDevTag = true;
-    }
-    GreenSystemMessage(m_session, "Toggling Permission flags");
-    return true;
-}
-
 bool ChatHandler::HandleGMSightTypeCommand(const char *args, WorldSession *m_session)
 {
     Player* gm = m_session->GetPlayer();
     uint32 sightType = 0; uint32 arg1 = 0;
-    if(sscanf(args, "%u %u", &sightType, &arg1) < 1)
+    if(sscanf(args, "%u %u", &sightType, &arg1) < 1 || gm->m_gmData == NULL)
         return false;
 
-    gm->gmSightEventID = gm->gmSightPhaseMask = 0;
+    gm->m_gmData->gmSightEventID = gm->m_gmData->gmSightPhaseMask = 0;
     static const char *sightNames[] = {"Disabled", "Event", "Phase", "Death"};
     switch(sightType)
     {
-    case 1: gm->gmSightEventID = arg1; break;
-    case 2: gm->gmSightPhaseMask = arg1; break;
+    case 1: gm->m_gmData->gmSightEventID = arg1; break;
+    case 2: gm->m_gmData->gmSightPhaseMask = arg1; break;
     case 3: break; // Death sight
     default: sightType = 0; break;
     }
 
-    gm->gmSightType = sightType;
+    gm->m_gmData->gmSightType = sightType;
     GreenSystemMessage(m_session, "GM sight set to %s", sightNames[sightType]);
     gm->GetMapInstance()->ChangeObjectLocation(gm);
     return true;
@@ -223,6 +184,59 @@ bool ChatHandler::HandleKickCommand(const char* args, WorldSession *m_session)
         RedSystemMessage(m_session, "Player is not online at the moment.");
         return true;
     }
+}
+
+bool ChatHandler::HandleItemInfoCommand(const char *args, WorldSession *m_session)
+{
+    if(strlen(args) < 1)
+        return false;
+
+    uint32 itemid = 0;
+    if(sscanf(args, "%u", &itemid) < 1)
+    {
+        // check for item link
+        uint16 ofs = GetItemIDFromLink(args, &itemid);
+        if(itemid == 0)
+            return false;
+    }
+
+    ItemPrototype *proto = sItemMgr.LookupEntry(itemid);
+    if(proto == NULL)
+        RedSystemMessage(m_session, "Item %d is not a valid item!",itemid);
+    else
+    {
+        SystemMessage(m_session, "Item Info for %s", proto->ConstructItemLink(0, 0, 1).c_str());
+        SystemMessage(m_session, "ID:%u Class:%u SubClass:%u InventoryType:%u Display:%u", proto->ItemId, proto->Class, proto->SubClass, proto->InventoryType, proto->DisplayInfoID);
+        std::string extra;
+        char buff[45];
+        for(uint8 i = 0; i < 10; i++)
+        {
+            if(proto->Stats[i].Value == 0)
+                continue;
+            sprintf(buff, "Stat%u:%u", i, proto->Stats[i].Type);
+            if(extra.length())
+                extra.append(" ");
+            extra.append(buff);
+        }
+        for(uint8 i = 0; i < 3; i++)
+        {
+            if(proto->ItemSocket[i] == 0)
+                continue;
+            sprintf(buff, "Socket%u:%u", i, proto->ItemSocket[i]);
+            if(extra.length())
+                extra.append(" ");
+            extra.append(buff);
+        }
+        if(proto->SocketBonus)
+        {
+            sprintf(buff, "SocketBonus:%u", proto->SocketBonus);
+            if(extra.length())
+                extra.append(" ");
+            extra.append(buff);
+        }
+        SystemMessage(m_session, extra.c_str());
+    }
+    return true;
 }
 
 bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_session)
@@ -641,7 +655,7 @@ bool ChatHandler::HandleGenderChanger(const char* args, WorldSession *m_session)
         gender = (target->getGender()== 1 ? 0 : 1);
     else gender = ( std::min((int)atoi((char*)args),1) > 0 ? 1: 0);
 
-    target->setGender(gender);
+
     SystemMessage(m_session, "Gender changed to %u",gender);
     GreenSystemMessageToPlr(target, "%s has changed your gender.", m_session->GetPlayer()->GetName());
     sWorld.LogGM( m_session, "used modify gender on %s", target->GetName());
