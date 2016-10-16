@@ -435,6 +435,10 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
                 RemoveAchievement(plr, entry->ID);
         }
 
+        // We don't need to send criteria data here because we'll push it on enter world
+        if(onLoad == true)
+            continue;
+
         // Send our packet data
         WorldPacket updateData(SMSG_CRITERIA_UPDATE, 20);
         updateData << uint32(criteria->ID);
@@ -443,7 +447,7 @@ void AchievementMgr::UpdateCriteriaValue(Player *plr, uint32 criteriaType, uint3
         updateData << uint32(0) << RONIN_UTIL::secsToTimeBitFields(UNIXTIME);
         updateData << uint32(UNIXTIME-data->timerData[0]);
         updateData << uint32(UNIXTIME-data->timerData[1]);
-        plr->SendPacket(&updateData);
+        plr->PushPacket(&updateData);
     }
 }
 
@@ -462,7 +466,7 @@ void AchievementMgr::EarnAchievement(Player *plr, uint32 achievementId)
         return;
     achievements->insert(std::make_pair(achievementId, time_t(UNIXTIME)));
     // Increment cached achievement points
-    plr->m_playerInfo->achievementPoints += entry->points;
+    plr->getPlayerInfo()->achievementPoints += entry->points;
     if(!plr->IsInWorld())
         return;
 
@@ -492,7 +496,7 @@ void AchievementMgr::RemoveAchievement(Player *plr, uint32 achievementId)
 
     achievements->erase(achievementId);
     // Remove cached achievement points
-    plr->m_playerInfo->achievementPoints -= entry->points;
+    plr->getPlayerInfo()->achievementPoints -= entry->points;
     if(!plr->IsInWorld())
         return;
     plr->GetSession()->OutPacket(SMSG_ACHIEVEMENT_DELETED, 4, &achievementId);

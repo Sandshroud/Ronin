@@ -247,24 +247,14 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                             {
                                 if(_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEVELOPER))
                                     snprintf( Message, 512, "[DEV][%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_ORANGEY, message.c_str() );
-                                else
-                                    snprintf( Message, 512, "[ADMIN][%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_ORANGEY, message.c_str() );
-                            }
-                            else
-                                snprintf( Message, 512, "[GM][%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_CYAN, message.c_str() );
-                        }
-                        else
-                        { snprintf( Message, 512, "[%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_GREEN, message.c_str() ); }
+                                else snprintf( Message, 512, "[ADMIN][%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_ORANGEY, message.c_str() );
+                            } else snprintf( Message, 512, "[GM][%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_CYAN, message.c_str() );
+                        } else snprintf( Message, 512, "[%s]: %s%s|r", GetPlayer()->GetName(), MSG_COLOR_GREEN, message.c_str() );
 
                         // Send message to world
                         sWorld.SendWorldText( Message );
-                    }
-                    else
-                    {
-                        channelmgr.BroadcastToDBCChannels(chn->pDBC->id, GetPlayer(), message.c_str());
-                    }
-                }
-                else chn->Say(GetPlayer(), message.c_str(), NULL, false);
+                    } else channelmgr.BroadcastToDBCChannels(chn->pDBC->id, GetPlayer(), message.c_str());
+                } else chn->Say(GetPlayer(), message.c_str(), NULL, false);
             }
 
             if(sWorld.bLogChat && message.c_str()[0] != '.')
@@ -272,8 +262,40 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
         } break;
         case CHAT_MSG_WHISPER:
             {
-                Player* player = objmgr.GetPlayer(message.c_str(), false);
-                if(!player)
+                if(Player* target = objmgr.GetPlayer(miscName.c_str(), false))
+                {
+                    if( target->Social_IsIgnoring( _player->GetGUID() ) && !_player->GetSession()->HasGMPermissions() )
+                    {
+                        sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_IGNORED, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  message.c_str(), "", _player->GetChatTag() );
+                        SendPacket(&broadcast);
+                    }
+                    else
+                    {
+                        sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_WHISPER, lang, _player->GetGUID(), target->GetGUID(), _player->GetName(),  message.c_str(), target->GetName(), _player->GetChatTag() );
+                        target->PushPacket(&broadcast);
+                    }
+
+                    //Sent the to Users id as the channel, this should be fine as it's not used for wisper
+                    sChatHandler.FillPlayerMessage(&broadcast, target->GetGUID(), CHAT_MSG_WHISPER_INFORM, LANG_UNIVERSAL, message.c_str());
+                    _player->PushPacket(&broadcast);
+
+                    if(target->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
+                    {
+                        // Has AFK flag, autorespond.
+                        sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_AFK, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  _player->m_afk_reason.c_str(), "", _player->GetChatTag());
+                        SendPacket(&broadcast);
+                    }
+                    else if(target->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DND))
+                    {
+                        // Has AFK flag, autorespond.
+                        sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_DND, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  _player->m_afk_reason.c_str(), "", _player->GetChatTag());
+                        SendPacket(&broadcast);
+                    }
+
+                    if(sWorld.bLogChat)
+                        sWorld.LogChat(this, "[whisper] %s to %s: %s", _player->GetName(), target->GetName(), message.c_str());
+                }
+                else
                 {
                     if( miscName == "Console" ||  miscName == "console" )
                     {
@@ -287,37 +309,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                         broadcast << miscName;
                     }
                     SendPacket(&broadcast);
-                    return;
                 }
-
-                if( player->Social_IsIgnoring( _player->GetLowGUID() ) && !_player->GetSession()->HasGMPermissions() )
-                {
-                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_IGNORED, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  message.c_str(), "", _player->GetChatTag() );
-                    SendPacket(&broadcast);
-                }
-                else
-                {
-                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_WHISPER, lang, _player->GetGUID(), player->GetGUID(), _player->GetName(),  message.c_str(), player->GetName(), _player->GetChatTag() );
-                    player->GetSession()->SendPacket(&broadcast);
-                }
-
-                //Sent the to Users id as the channel, this should be fine as it's not used for wisper
-                sChatHandler.FillMessageData(&broadcast, HasGMPermissions(), CHAT_MSG_WHISPER_INFORM, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  message.c_str(), "", player->GetChatTag());
-                SendPacket(&broadcast);
-
-                if(player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
-                {
-                    // Has AFK flag, autorespond.
-                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_AFK, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  _player->m_afk_reason.c_str(), "", _player->GetChatTag());
-                    SendPacket(&broadcast);
-                }
-                else if(player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DND))
-                {
-                    // Has AFK flag, autorespond.
-                    sChatHandler.FillMessageData(&broadcast, false, CHAT_MSG_DND, LANG_UNIVERSAL, _player->GetGUID(), 0, _player->GetName(),  _player->m_afk_reason.c_str(), "", _player->GetChatTag());
-                    SendPacket(&broadcast);
-                }
-                if(sWorld.bLogChat) sWorld.LogChat(this, "[whisper] %s to %s: %s", _player->GetName(), player->GetName(), message.c_str());
             } break;
     case CHAT_MSG_AFK:
         {

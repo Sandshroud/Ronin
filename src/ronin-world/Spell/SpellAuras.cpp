@@ -2929,10 +2929,7 @@ void Aura::SpellAuraModDamageTakenByMechPCT(bool apply)
 
 void Aura::SpellAuraAllowTamePetType(bool apply)
 {
-    if(m_target->IsPlayer())
-    {
-        castPtr<Player>(m_target)->m_BeastMaster = apply;
-    }
+
 }
 
 void Aura::SpellAuraAddCreatureImmunity(bool apply)

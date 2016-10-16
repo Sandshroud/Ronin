@@ -182,7 +182,7 @@ bool ChatHandler::HandleBanCharacterCommand(const char* args, WorldSession *m_se
         std::string sReason = pReason;
         uint32 uBanTime = BanTime ? BanTime+(uint32)UNIXTIME : 1;
         pPlayer->SetBanned(uBanTime, sReason);
-        pInfo = pPlayer->m_playerInfo;
+        pInfo = pPlayer->getPlayerInfo();
     }
     else
     {
@@ -459,7 +459,7 @@ bool ChatHandler::HandleResetTalentsCommand(const char* args, WorldSession *m_se
 {
     Player* plr = getSelectedChar(m_session);
     if(plr == NULL) return true;
-    plr->m_talentInterface.ResetAllSpecs();
+    plr->GetTalentInterface()->ResetAllSpecs();
     SystemMessage(m_session, "Reset talents of %s.", plr->GetName());
     BlueSystemMessageToPlr(plr, "%s reset all your talents.", m_session->GetPlayer()->GetName());
     sWorld.LogGM(m_session, "reset talents of %s", plr->GetName());

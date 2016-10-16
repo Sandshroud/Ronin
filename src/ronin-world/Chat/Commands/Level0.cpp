@@ -290,18 +290,11 @@ bool ChatHandler::HandleFullDismountCommand(const char * args, WorldSession *m_s
 
 bool ChatHandler::HandleSaveCommand(const char* args, WorldSession *m_session)
 {
-    Player* plr = getSelectedChar(m_session, true);
-
-    uint32 timeLeft = plr->m_nextSave;
-    if(timeLeft > 10000 && timeLeft < 100000 && !plr->ForceSaved)
+    if(Player* plr = getSelectedChar(m_session, true))
     {
         plr->SaveToDB(false);
-        plr->m_nextSave = timeLeft;
-        plr->ForceSaved = true;
         GreenSystemMessage(m_session, "Player saved to DB");
-    }
-    else
-        RedSystemMessage(m_session, "You can only save one extra time every 2 minutes.");
+    } else RedSystemMessage(m_session, "You can only save one extra time every 2 minutes.");
     return true;
 }
 

@@ -22,7 +22,7 @@ void PlayerCurrency::Update()
 
     for(std::map<uint32, CurrencyData>::iterator itr = m_currencies.begin(); itr != m_currencies.end(); itr++)
         itr->second.weekCount = 0;
-    m_player->SendPacket(&WorldPacket(SMSG_WEEKLY_RESET_CURRENCY));
+    m_player->PushPacket(&WorldPacket(SMSG_WEEKLY_RESET_CURRENCY));
 
     lastWeekStart = sWorld.GetWeekStart();
 }
@@ -114,7 +114,7 @@ void PlayerCurrency::SendInitialCurrency()
     data.WriteBits(count, 23);
     bitBuff.Append(&data, true);
     data.append(byteBuff.contents(), byteBuff.size());
-    m_player->SendPacket(&data);
+    m_player->PushPacket(&data, true);
 }
 
 bool PlayerCurrency::HasCurrency(uint32 currency, uint32 amount)
@@ -214,5 +214,5 @@ void PlayerCurrency::_SendCurrencyUpdate(CurrencyTypeEntry *entry, CurrencyData 
     packet << uint32(entry->Id);
     if(entry->WeekCap)
         packet << uint32(floor(data->weekCount/precision));
-    m_player->SendPacket(&packet);
+    m_player->PushPacket(&packet);
 }

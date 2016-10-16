@@ -686,6 +686,19 @@ int ChatHandler::ParseCommands(const char* text, WorldSession *m_session)
     return 1;
 }
 
+void ChatHandler::FillPlayerMessage(WorldPacket *data, WoWGuid from, uint8 type, int32 language, std::string message, uint8 chatTag, const char *header, bool gmMessage)
+{
+    data->Initialize(gmMessage ? SMSG_GM_MESSAGECHAT : SMSG_MESSAGECHAT, 500);
+    *data << uint8(type) << uint32(language);
+    *data << from << uint32(0);
+    if(header)
+        *data << header;
+    else *data << from;
+    *data << uint32(message.length()+1);
+    *data << message;
+    *data << uint8(chatTag);
+}
+
 size_t ChatHandler::FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid, WoWGuid receiverGuid, std::string senderName, std::string message, std::string receiverName, uint8 chatTag)
 {
     size_t pos = 0;

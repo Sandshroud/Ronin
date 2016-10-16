@@ -169,7 +169,7 @@ void TaxiPath::SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 m
     }
 
     if(riding != to)
-        to->CopyAndSendDelayedPacket(&data);
+        to->PushPacket(&data);
     else riding->SendMessageToSet(&data, true);
 }
 

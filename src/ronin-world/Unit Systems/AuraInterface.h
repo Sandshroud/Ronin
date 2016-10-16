@@ -51,7 +51,7 @@ public:
     bool IsDazed();
     bool IsPoisoned();
     void UpdateDuelAuras();
-    void BuildAllAuraUpdates();
+    void SendAuraData();
     bool BuildAuraUpdateAllPacket(WorldPacket* data);
     void SpellStealAuras(Unit* caster, int32 MaxSteals);
     void UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS);

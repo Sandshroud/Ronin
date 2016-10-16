@@ -1703,7 +1703,7 @@ void SpellEffectClass::SpellEffectResetTalents(uint32 i, WorldObject *target, in
     if( !playerTarget )
         return;
 
-    playerTarget->ResetSpec(playerTarget->m_talentInterface.GetActiveSpec());
+    playerTarget->ResetSpec(playerTarget->GetTalentInterface()->GetActiveSpec());
 }
 
 void SpellEffectClass::SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
@@ -1712,9 +1712,9 @@ void SpellEffectClass::SpellEffectUseGlyph(uint32 i, WorldObject *target, int32 
     if( p_caster == NULL )
         return;
 
-    if(uint8 result = p_caster->m_talentInterface.ApplyGlyph(m_targets.m_targetIndex, m_spellInfo->EffectMiscValue[i])) // there was an error
+    if(uint8 result = p_caster->GetTalentInterface()->ApplyGlyph(m_targets.m_targetIndex, m_spellInfo->EffectMiscValue[i])) // there was an error
         SendCastResult(result);
-    else p_caster->m_talentInterface.SendTalentInfo();
+    else p_caster->GetTalentInterface()->SendTalentInfo();
 }
 
 void SpellEffectClass::SpellEffectHealMechanical(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
@@ -1965,9 +1965,9 @@ void SpellEffectClass::SpellEffectPlaceTotemsOnBar(uint32 i, WorldObject *target
     uint32 button_count = m_spellInfo->EffectMiscValueB[i];
     for (uint32 slot = button; slot < button+button_count; slot++)
     {
-        if(p_caster->m_talentInterface.GetActionButton(slot).GetType() != ACTION_BUTTON_SPELL)
+        if(p_caster->GetTalentInterface()->GetActionButton(slot).GetType() != ACTION_BUTTON_SPELL)
              continue;
-        uint32 spell = p_caster->m_talentInterface.GetActionButton(slot).GetAction();
+        uint32 spell = p_caster->GetTalentInterface()->GetActionButton(slot).GetAction();
         if(spell == 0)
             continue;
         SpellEntry* sp = dbcSpell.LookupEntry(spell);

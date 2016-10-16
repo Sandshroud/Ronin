@@ -112,7 +112,7 @@ void GuildMgr::Packet_GuildInviteDecline(WorldSession* m_session)
     const char* PlrName = plr->GetName();
     WorldPacket data(SMSG_GUILD_DECLINE, strlen(PlrName));
     data << PlrName << uint8(0);
-    inviter->SendPacket(&data);
+    inviter->PushPacket(&data);
 }
 
 void GuildMgr::Packet_HandleGuildInvite(WorldSession* m_session, std::string inviteeName)
@@ -605,11 +605,8 @@ void GuildMgr::Packet_SendGuildQuery(WorldSession* m_session, uint32 GuildId,  W
     else if(GuildMemberMapStorage* MemberListStorage = GetGuildMemberMapStorage(GuildId))
     {
         for(GuildMemberMap::iterator itr = MemberListStorage->MemberMap.begin(); itr != MemberListStorage->MemberMap.end(); ++itr)
-        {
-            WorldPacket* packet2 = new WorldPacket(data);
             if(Player *player = itr->second->pPlayer->m_loggedInPlayer)
-                player->SendPacket(packet2);
-        }
+                player->PushPacket(&data);
     }
 }
 
@@ -1020,7 +1017,7 @@ void GuildMgr::CharterBuy(WorldSession* m_session, uint64 SellerGuid, std::strin
             return;
         }
 
-        if(m_session->GetPlayer()->m_playerInfo->charterId[CHARTER_TYPE_GUILD] != 0)
+        if(m_session->GetPlayer()->getPlayerInfo()->charterId[CHARTER_TYPE_GUILD] != 0)
         {
             m_session->SendNotification("You already have a guild charter.");
             return;

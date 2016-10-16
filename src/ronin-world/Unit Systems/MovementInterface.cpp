@@ -6,7 +6,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 7.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_breathingUpdateTimer(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_breathingUpdateTimer(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit), m_timeSyncCounter(0), m_moveAckCounter(0)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -498,7 +498,7 @@ void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
 
         WorldPacket data(movementSpeedToOpcode[speedType][1], 50);
         WriteFromServer(movementSpeedToOpcode[speedType][1], &data, m_Unit->GetGUID(), speed);
-        castPtr<Player>(m_Unit)->SendPacket(&data);
+        castPtr<Player>(m_Unit)->PushPacket(&data);
     }
     else
     {
@@ -1011,7 +1011,7 @@ void MovementInterface::TeleportToPosition(LocationVector destination)
         data2.WriteByteSeq(m_moverGuid[0]);
         data2.WriteByteSeq(m_moverGuid[6]);
         data2 << float(destination.y);
-        plr->SendPacket(&data2);
+        plr->PushPacket(&data2);
     } else m_Unit->SetPosition(destination);
 
     // Broadcast the packet to everyone except self.
@@ -1030,7 +1030,15 @@ void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, Loca
     WorldPacket data(SMSG_NEW_WORLD, 20);
     data << destination.x << destination.o << destination.y;
     data << mapId << destination.z;
-    castPtr<Player>(m_Unit)->SendPacket( &data );
+    castPtr<Player>(m_Unit)->PushPacket( &data );
+}
+
+bool MovementInterface::CanProcessTimeSyncCounter(uint32 counter)
+{
+    bool res;
+    if(res = (m_sentTimeSync.find(counter) != m_sentTimeSync.end()))
+        m_sentTimeSync.erase(counter);
+    return res;
 }
 
 void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
@@ -1102,10 +1110,28 @@ void MovementInterface::MoveClientPosition(float x, float y, float z, float o)
     UpdatePostRead(MSG_MOVE_HEARTBEAT, MOVEMENT_CODE_HEARTBEAT, NULL);
 }
 
+void MovementInterface::SendTimeSyncReq()
+{
+    if(!m_Unit->IsPlayer())
+        return;
+
+    // Send our time sync request packet
+    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
+    data << uint32(m_timeSyncCounter); // counter
+    castPtr<Player>(m_Unit)->PushPacket(&data, true);
+    m_sentTimeSync.insert(m_timeSyncCounter);
+    m_timeSyncCounter = std::max<uint32>(0x0000000F, RandomUInt());
+}
+
 void MovementInterface::OnPreSetInWorld()
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
         RecalculateMoveSpeed(MovementSpeedTypes(i));
+
+    if(!m_Unit->IsPlayer())
+        return;
+    setServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY);
+    setRooted(true);
 }
 
 void MovementInterface::OnPrePushToWorld()
@@ -1121,14 +1147,35 @@ void MovementInterface::OnPrePushToWorld()
 void MovementInterface::OnPushToWorld()
 {
     UnlockTransportData();
+    SendTimeSyncReq();
 
-    if(m_Unit->IsPlayer())
-    {
-        // Send our time sync request packet
-        WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
-        data << uint32(0); // counter
-        castPtr<Player>(m_Unit)->SendPacket(&data);
-    }
+    if(!m_Unit->IsPlayer())
+        return;
+
+    WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER);
+    data.WriteGuidBitString(8, m_moverGuid, 5, 7, 3, 6, 0, 4, 1, 2);
+    data.WriteSeqByteString(8, m_moverGuid, 6, 2, 3, 0, 5, 7, 1, 4);
+    castPtr<Player>(m_Unit)->PushPacket( &data );
+}
+
+void MovementInterface::OnRemoveFromWorld()
+{
+    m_timeSyncCounter = 0;
+    m_moveAckCounter = 0;
+
+    removeServerFlag(MOVEMENTFLAG_MASK_A_ON_RFW);
+    removeServerFlag(MOVEMENTFLAG_MASK_B_ON_RFW);
+    removeServerFlag(MOVEMENTFLAG_MASK_C_ON_RFW);
+    removeServerFlag(MOVEMENTFLAG_MASK_D_ON_RFW);
+    removeServerFlag(MOVEMENTFLAG_MASK_E_ON_RFW);
+    removeServerFlag(MOVEMENTFLAG_MASK_F_ON_RFW);
+    ClearOptionalMovementData();
+}
+
+void MovementInterface::OnFirstTimeSync()
+{
+    removeServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY);
+    setRooted(false);
 }
 
 void MovementInterface::OnDeath()
@@ -1204,7 +1251,7 @@ void MovementInterface::setRooted(bool root)
 
     WorldPacket data(root ? SMSG_MOVE_ROOT : SMSG_MOVE_UNROOT, 200);
     WriteFromServer(data.GetOpcode(), &data);
-    castPtr<Player>(m_Unit)->SendPacket(&data);
+    castPtr<Player>(m_Unit)->PushPacket(&data, true);
 }
 
 bool MovementInterface::isInAir()
@@ -1229,7 +1276,7 @@ void MovementInterface::setCanFly(bool canFly)
     m_pendingEnable[MOVEMENT_STATUS_CANFLY] = canFly;
     WorldPacket data(canFly ? SMSG_MOVE_SET_CAN_FLY : SMSG_MOVE_UNSET_CAN_FLY, 200);
     WriteFromServer(data.GetOpcode(), &data);
-    castPtr<Player>(m_Unit)->SendPacket(&data);
+    castPtr<Player>(m_Unit)->PushPacket(&data);
 }
 
 bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
@@ -1464,12 +1511,17 @@ void MovementInterface::ClearOptionalMovementData()
     // Reset client position to server location
     m_clientLocation = *m_serverLocation;
 
-    m_clientTransGuid.Clean();
     memset(m_movementFlags, 0, 6);
-    m_clientTransLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
-    m_jumpTime = m_transportTime = m_transportTime2 = m_vehicleId = 0;
-    m_transportSeatId = 0;
+    m_jumpTime = m_vehicleId = 0;
     pitching = splineElevation = 0.f;
     m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
     m_extra.clear();
+
+    if(!m_isTransportLocked)
+    {
+        m_clientTransGuid.Clean();
+        m_clientTransLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+        m_transportTime = m_transportTime2 = 0;
+        m_transportSeatId = 0;
+    }
 }

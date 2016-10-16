@@ -589,8 +589,8 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                     {
                         std::vector<uint32> conditionAccess, eventAccess;
                         sWorld.GetActiveEvents(eventAccess);
-                        if(plObj && plObj->hasGMTag() && plObj->m_gmData->gmSightType == 1)
-                            eventAccess.push_back(plObj->m_gmData->gmSightEventID);
+                        if(plObj && plObj->hasGMTag() && plObj->getGMSight() == 1)
+                            eventAccess.push_back(plObj->getGMEventSight());
 
                         bool handledAllPhases = false;
                         MapCell::CellObjectSet *objectSet;
@@ -749,8 +749,8 @@ void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* ce
 
     std::vector<uint32> conditionAccess, eventAccess;
     sWorld.GetActiveEvents(eventAccess);
-    if(plObj && plObj->hasGMTag() && plObj->m_gmData->gmSightType == 1)
-        eventAccess.push_back(plObj->m_gmData->gmSightEventID);
+    if(plObj && plObj->hasGMTag() && plObj->getGMSight() == 1)
+        eventAccess.push_back(plObj->getGMEventSight());
 
     bool handledAllPhases = false;
     MapCell::CellObjectSet *objectSet;

@@ -59,6 +59,7 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
     {
         q->AddQuery("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", itr->second->charGuid.getLow());
         q->AddQuery("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", itr->second->charGuid.getLow());
+        q->AddQuery("SELECT name, race, class, team, appearance, appearance2, appearance3, level, mapId, instanceId, positionX, positionY, positionZ, orientation, zoneId, lastSaveTime FROM character_data WHERE guid = '%u' AND lastSaveTime != '%ull'", itr->second->charGuid.getLow(), itr->second->lastOnline);
     }
     CharacterDatabase.QueueAsyncQuery(q);
 }
@@ -95,6 +96,9 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             for(uint8 i = 0; i < 19; i++)
                 items[i].clear();
 
+            if(results[count*3 + 2].result && !objmgr.GetPlayer(itr->second->charGuid))
+                objmgr.UpdatePlayerData(itr->second->charGuid, results[count*3 + 2].result);
+
             uint32 flags = 0;
             PlayerInfo *info = itr->second;
             WoWGuid guildGuid(MAKE_NEW_GUID(info->GuildId, 0, HIGHGUID_TYPE_GUILD));
@@ -125,7 +129,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             player_flags |= 0x1000000;*/
 
             uint32 petFamily = 0, petLevel = 0, petDisplay = 0;
-            if(QueryResult *res = results[count*2].result)
+            if(QueryResult *res = results[count*3].result)
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
@@ -135,7 +139,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
                 petLevel = res->Fetch()[1].GetUInt32();
             }
 
-            if(QueryResult *res = results[count*2 + 1].result)
+            if(QueryResult *res = results[count*3 + 1].result)
             {
                 do
                 {

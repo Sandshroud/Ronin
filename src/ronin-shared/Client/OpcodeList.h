@@ -1114,8 +1114,8 @@ enum Opcodes
     SMSG_SET_FACTION_STANDING,                                  // 4.3.4:0x0126
     SMSG_SET_FACTION_VISIBLE,                                   // 4.3.4:0x2525
     SMSG_SET_FLAT_SPELL_MODIFIER,                               // 4.3.4:0x2834
-    SMSG_SET_FORCED_REACTIONS,                                  // 4.3.4:0x4615
     SMSG_SET_PCT_SPELL_MODIFIER,                                // 4.3.4:0x0224
+    SMSG_SET_FORCED_REACTIONS,                                  // 4.3.4:0x4615
     SMSG_SET_PHASE_SHIFT,                                       // 4.3.4:0x70A0
     SMSG_SET_PLAYER_DECLINED_NAMES_RESULT,                      // 4.3.4:0x2B25
     SMSG_SET_PLAY_HOVER_ANIM,                                   // 4.3.4:0x30A6

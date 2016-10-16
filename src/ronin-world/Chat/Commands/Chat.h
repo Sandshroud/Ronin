@@ -195,6 +195,7 @@ public:
     ChatHandler();
     ~ChatHandler();
 
+    void FillPlayerMessage(WorldPacket *data, WoWGuid from, uint8 type, int32 language, std::string message, uint8 chatTag = 0, const char *header = NULL, bool gmMessage = false);
     size_t FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid = 0, WoWGuid receiverGuid = 0, std::string senderName = "", std::string message = "", std::string receiverName = "", uint8 chatTag = 0);
     static void FillSystemMessageData(WorldPacket *data, const char* message );
 

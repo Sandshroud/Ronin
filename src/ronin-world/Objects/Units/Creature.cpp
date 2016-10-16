@@ -263,7 +263,7 @@ void Creature::Tag(Player* plr)
         return;
 
     m_taggingPlayer = plr->GetLowGUID();
-    m_taggingGroup = plr->m_playerInfo->m_Group ? plr->m_playerInfo->m_Group->GetID() : 0;
+    m_taggingGroup = plr->getPlayerInfo()->m_Group ? plr->getPlayerInfo()->m_Group->GetID() : 0;
 
     /* set loot method */
     if( Group *grp = plr->GetGroup() )
@@ -850,7 +850,7 @@ void Creature::SendInventoryList(Player *plr)
     data.WriteByteSeq(m_objGuid[2]);
     data.WriteByteSeq(m_objGuid[3]);
     data.WriteByteSeq(m_objGuid[7]);
-    plr->SendPacket( &data );
+    plr->PushPacket( &data );
     sLog.Debug( "WORLD"," Sent SMSG_LIST_INVENTORY" );
 }
 
@@ -1051,5 +1051,5 @@ void Creature::SendTaxiList(Player *plr)
             } else data << uint32(0);
         }
     } else data << uint32(1) << GetGUID() << uint64(0);
-    plr->SendPacket( &data );
+    plr->PushPacket( &data );
 }

@@ -109,20 +109,21 @@ bool ChatHandler::HandleGMSightTypeCommand(const char *args, WorldSession *m_ses
 {
     Player* gm = m_session->GetPlayer();
     uint32 sightType = 0; uint32 arg1 = 0;
-    if(sscanf(args, "%u %u", &sightType, &arg1) < 1 || gm->m_gmData == NULL)
+    if(sscanf(args, "%u %u", &sightType, &arg1) < 1 || !gm->isGM())
         return false;
 
-    gm->m_gmData->gmSightEventID = gm->m_gmData->gmSightPhaseMask = 0;
+    gm->setGMEventSight(0);
+    gm->setGMPhaseSight(0);
     static const char *sightNames[] = {"Disabled", "Event", "Phase", "Death"};
     switch(sightType)
     {
-    case 1: gm->m_gmData->gmSightEventID = arg1; break;
-    case 2: gm->m_gmData->gmSightPhaseMask = arg1; break;
+    case 1: gm->setGMEventSight(arg1); break;
+    case 2: gm->setGMPhaseSight(arg1); break;
     case 3: break; // Death sight
     default: sightType = 0; break;
     }
 
-    gm->m_gmData->gmSightType = sightType;
+    gm->setGMSight(sightType);
     GreenSystemMessage(m_session, "GM sight set to %s", sightNames[sightType]);
     gm->GetMapInstance()->ChangeObjectLocation(gm);
     return true;
@@ -448,7 +449,7 @@ bool ChatHandler::HandleTaxiCheatCommand(const char* args, WorldSession *m_sessi
 
     UpdateMask mask(8*114);
     if(flag) mask = *sTaxiMgr.GetAllTaxiMasks();
-    chr->m_taxiMask = mask;
+    chr->SetTaxiMask(mask);
     return true;
 }
 
@@ -766,7 +767,7 @@ bool ChatHandler::HandleModifyTPsCommand(const char* args, WorldSession *m_sessi
         return true;
     }
 
-    Pl->m_talentInterface.ModTalentPoints(TP1);
+    Pl->GetTalentInterface()->ModTalentPoints(TP1);
     sWorld.LogGM(m_session, "Modified %s talents to %u", Pl->GetName(), TP1);
     return true;
 }

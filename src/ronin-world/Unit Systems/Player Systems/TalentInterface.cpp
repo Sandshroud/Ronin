@@ -129,7 +129,7 @@ void TalentInterface::SendTalentInfo()
 {
     WorldPacket data(SMSG_TALENTS_INFO, 400);
     BuildPlayerTalentInfo(&data);
-    m_Player->SendPacket(&data);
+    m_Player->PushPacket(&data, true);
 }
 
 void TalentInterface::BuildPlayerTalentInfo(WorldPacket *packet)
@@ -240,7 +240,7 @@ void TalentInterface::ApplySpec(uint8 spec)
 
     WorldPacket data(SMSG_ACTION_BUTTONS, 1);
     data << uint8(2);
-    m_Player->SendPacket(&data);
+    m_Player->PushPacket(&data, true);
 
     for(TalentStorageMap::iterator itr = m_specs[m_activeSpec].m_talents.begin(); itr != m_specs[m_activeSpec].m_talents.end(); itr++)
     {
@@ -619,7 +619,7 @@ void TalentInterface::SendInitialActions()
 {
     WorldPacket data(SMSG_ACTION_BUTTONS, PLAYER_ACTION_BUTTON_COUNT*4 + 1);
     BuildPlayerActionInfo(&data);
-    m_Player->SendPacket(&data);
+    m_Player->PushPacket(&data, true);
 }
 
 void TalentInterface::setAction(uint8 button, uint32 action, uint8 type, int8 SpecOverride)

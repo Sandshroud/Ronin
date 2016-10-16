@@ -64,7 +64,7 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
         {
             WorldPacket data(SMSG_SHOW_BANK, 8);
             data << obj->GetGUID();
-            plr->SendPacket(&data);
+            plr->PushPacket(&data);
         }break;
     case GOSSIP_OPT_SPIRITHEALER:
         // Make menu
@@ -84,7 +84,7 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
         {
             WorldPacket data(SMSG_TRAINER_LIST, 5000);
             ctrObj->BuildTrainerData(&data, plr);
-            plr->SendPacket(&data);
+            plr->PushPacket(&data);
         }break;
     }
 }
@@ -152,7 +152,7 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
                         if(pCreature->getLevel() > 10 && plr->getLevel() >= 10)
                         {
                             _AddMenuItem(packet, result, GOSSIP_OPT_TALENT_RESET, GOSSIP_ICON_GOSSIP_NORMAL, "I would like to reset my talents.");
-                            if( plr->getLevel() >= 40 && plr->m_talentInterface.GetSpecCount() < 2)
+                            if( plr->getLevel() >= 40 && plr->GetTalentInterface()->GetSpecCount() < 2)
                                 _AddMenuItem(packet, result, GOSSIP_OPT_NEXT_MENU, GOSSIP_ICON_GOSSIP_NORMAL, "Learn about Dual Talent Specialization.");
                         }
                     } else if(pCreature->IsPetTrainer())

@@ -17,7 +17,11 @@ enum MovementFlagsA : uint8 // First bytes of movement are client set | Actual m
 
     MOVEMENTFLAG_MASK_MOVING            = 0x0F,
     MOVEMENTFLAG_MASK_TURNING           = 0x30,
-    MOVEMENTFLAG_MASK_PITCHING          = 0xC0
+    MOVEMENTFLAG_MASK_PITCHING          = 0xC0,
+
+    // On remove from world, remove all moving data
+    MOVEMENTFLAG_MASK_A_ON_RFW          = 0xFF,
+    MOVEMENTFLAG_MASK_A_ALL = 0xFF
 };
 
 enum MovementFlagsB : uint8
@@ -30,6 +34,10 @@ enum MovementFlagsB : uint8
     MOVEMENTFLAG_PENDING_STOP           = 0x20,
     MOVEMENTFLAG_PENDING_STRAFE_STOP    = 0x40,
     MOVEMENTFLAG_PENDING_FORWARD        = 0x80,
+
+    // On remove from world, remove falling, and pending data
+    MOVEMENTFLAG_MASK_B_ON_RFW          = MOVEMENTFLAG_TOGGLE_FALLING | MOVEMENTFLAG_TOGGLE_FALLING_FAR | MOVEMENTFLAG_PENDING_STOP | MOVEMENTFLAG_PENDING_STRAFE_STOP | MOVEMENTFLAG_PENDING_FORWARD,
+    MOVEMENTFLAG_MASK_B_ALL = 0xFF
 };
 
 enum MovementFlagsC : uint8
@@ -42,6 +50,10 @@ enum MovementFlagsC : uint8
     MOVEMENTFLAG_ASCENDING              = 0x20,
     MOVEMENTFLAG_DESCENDING             = 0x40,
     MOVEMENTFLAG_CAN_FLY                = 0x80,
+
+    // On remove from world, remove pending and swimming based flags
+    MOVEMENTFLAG_MASK_C_ON_RFW          = MOVEMENTFLAG_PENDING_BACKWARD | MOVEMENTFLAG_PENDING_STRAFE_LEFT | MOVEMENTFLAG_PENDING_STRAFE_RIGHT | MOVEMENTFLAG_PENDING_ROOT | MOVEMENTFLAG_SWIMMING | MOVEMENTFLAG_ASCENDING | MOVEMENTFLAG_DESCENDING,
+    MOVEMENTFLAG_MASK_C_ALL = 0xFF
 };
 
 enum MovementFlagsD : uint8
@@ -52,6 +64,10 @@ enum MovementFlagsD : uint8
     MOVEMENTFLAG_FEATHERFALLING         = 0x08,
     MOVEMENTFLAG_HOVER                  = 0x10,
     MOVEMENTFLAG_DISABLE_COLLISION      = 0x20,
+
+    // On remove from world, flying and spline flags
+    MOVEMENTFLAG_MASK_D_ON_RFW          = MOVEMENTFLAG_FLYING | MOVEMENTFLAG_SPLINE_ELEVATION,
+    MOVEMENTFLAG_MASK_D_ALL = 0xFF
 };
 
 enum MovementFlagsE : uint8
@@ -61,13 +77,21 @@ enum MovementFlagsE : uint8
     MOVEMENTFLAG_FULL_SPEED_TURNING     = 0x04,
     MOVEMENTFLAG_FULL_SPEED_PITCHING    = 0x08,
     MOVEMENTFLAG_ALWAYS_ALLOW_PITCHING  = 0x10,
+
+    // On remove from world, remove movement lock data
+    MOVEMENTFLAG_MASK_E_ON_RFW          = MOVEMENTFLAG_NO_STRAFE | MOVEMENTFLAG_NO_JUMPING,
+    MOVEMENTFLAG_MASK_E_ALL = 0xFF
 };
 
 enum MovementFlagsF : uint8
 {
     MOVEMENTFLAG_CAN_SWIM_TO_FLY_TRANSITION = 0x04,
     MOVEMENTFLAG_INTERPOLATED_MOVEMENT      = 0x40,
-    MOVEMENTFLAG_INTERPOLATED_TURNING       = 0x80
+    MOVEMENTFLAG_INTERPOLATED_TURNING       = 0x80,
+
+    // On remove from world, remove no data
+    MOVEMENTFLAG_MASK_F_ON_RFW          = 0x00,
+    MOVEMENTFLAG_MASK_F_ALL = 0xFF
 };
 
 enum MovementCodes : uint16
@@ -265,15 +289,22 @@ public:
     void TeleportToPosition(LocationVector destination);
     void TeleportToPosition(uint32 mapId, uint32 instanceId, LocationVector destination);
 
+    bool CanProcessTimeSyncCounter(uint32 counter);
+
     void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
 
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
     void MoveClientPosition(float x, float y, float z, float o);
 
+    void SendTimeSyncReq();
+
     void OnPreSetInWorld();
     void OnPrePushToWorld();
     void OnPushToWorld();
+    void OnRemoveFromWorld();
+    void OnFirstTimeSync();
+
     void OnDeath();
     void OnRespawn();
     void OnRepop();
@@ -639,6 +670,10 @@ protected: // Speed and Status information
         }
         return true;
     }
+
+protected:
+    uint32 m_timeSyncCounter, m_moveAckCounter;
+    std::set<uint32> m_sentTimeSync, m_sentMoveAck;
 
 private:
     Unit *m_Unit;

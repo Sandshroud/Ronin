@@ -341,7 +341,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
                 data << uint64(s->GetGUID());
                 data << int32(duration);
                 data << uint32(m_spellInfo->Id);
-                castPtr<Player>(u_caster)->SendPacket(&data);
+                castPtr<Player>(u_caster)->PushPacket(&data);
             }
         }
     }
@@ -380,7 +380,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
         data << uint64(s->GetGUID());
         data << int32(duration);
         data << uint32(m_spellInfo->Id);
-        castPtr<Player>(u_caster)->SendPacket(&data);
+        castPtr<Player>(u_caster)->PushPacket(&data);
     }
 }
 
@@ -423,7 +423,7 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
             data << uint64(s->GetGUID());
             data << int32(duration);
             data << uint32(m_spellInfo->Id);
-            castPtr<Player>(u_caster)->SendPacket(&data);
+            castPtr<Player>(u_caster)->PushPacket(&data);
         }
 
         // Lightwell

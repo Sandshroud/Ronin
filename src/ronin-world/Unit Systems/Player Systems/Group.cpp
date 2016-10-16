@@ -166,7 +166,7 @@ void Group::SetLeader(Player* pPlayer, bool silent)
 {
     if( pPlayer != NULL )
     {
-        m_Leader = pPlayer->m_playerInfo;
+        m_Leader = pPlayer->getPlayerInfo();
         m_dirty = true;
         if( !silent )
         {
@@ -229,7 +229,7 @@ void Group::Update()
     {
         pNewLeader = FindFirstPlayer();
         if( pNewLeader != NULL )
-            m_Leader = pNewLeader->m_playerInfo;
+            m_Leader = pNewLeader->getPlayerInfo();
     }
 
     if( m_Looter != NULL && m_Looter->m_loggedInPlayer == NULL )
@@ -237,7 +237,7 @@ void Group::Update()
         if( pNewLeader == NULL )
             pNewLeader = FindFirstPlayer();
         if( pNewLeader != NULL )
-            m_Looter = pNewLeader->m_playerInfo;
+            m_Looter = pNewLeader->getPlayerInfo();
     }
 
     for( i = 0; i < m_SubGroupCount; i++ )
@@ -313,10 +313,7 @@ void Group::Update()
                 data << uint8( m_difficulty );      // 5 Normal/Heroic.
                 data << uint8( m_raiddifficulty );  // 10/25 man.
                 data << uint8(0); // Flex diff
-
-                if( !(*itr1)->m_loggedInPlayer->IsInWorld() )
-                    (*itr1)->m_loggedInPlayer->CopyAndSendDelayedPacket( &data );
-                else (*itr1)->m_loggedInPlayer->GetSession()->SendPacket( &data );
+                (*itr1)->m_loggedInPlayer->PushPacket( &data );
             }
         }
     }
@@ -495,11 +492,9 @@ void Group::RemovePlayer(PlayerInfo * info)
     Player* newPlayer = NULL;
     if(m_Looter == info)
     {
-        newPlayer = FindFirstPlayer();
-        if( newPlayer != NULL )
-            m_Looter = newPlayer->m_playerInfo;
-        else
-            m_Looter = NULL;
+        if( newPlayer = FindFirstPlayer() )
+            m_Looter = newPlayer->getPlayerInfo();
+        else m_Looter = NULL;
     }
 
     if(m_Leader == info)
@@ -534,7 +529,7 @@ void Group::ExpandToRaid()
 void Group::SetLooter(Player* pPlayer, uint8 method, uint16 threshold)
 {
     m_LootMethod = method;
-    m_Looter = pPlayer ? pPlayer->m_playerInfo : NULL;
+    m_Looter = pPlayer ? pPlayer->getPlayerInfo() : NULL;
     m_LootThreshold  = threshold;
     m_dirty = true;
 
@@ -585,7 +580,7 @@ bool Group::HasMember(Player* pPlayer)
     {
         if( m_SubGroups[i] != NULL )
         {
-            if( m_SubGroups[i]->m_GroupMembers.find( pPlayer->m_playerInfo ) != m_SubGroups[i]->m_GroupMembers.end() )
+            if( m_SubGroups[i]->m_GroupMembers.find( pPlayer->getPlayerInfo() ) != m_SubGroups[i]->m_GroupMembers.end() )
             {
                 m_groupLock.Release();
                 return true;

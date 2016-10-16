@@ -184,6 +184,9 @@ uint32 Object::GetModPUInt32Value(const uint16 index, const int32 value)
 
 void Object::SetUpdateField(uint16 index)
 {
+    if(!IsInWorld())
+        return;
+
     m_updateMask.SetBit( index );
     OnFieldUpdated(index);
 }
@@ -843,7 +846,7 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     uint32 myTeam = 0;
     if(IsPlayer())
     {
-        if(bToSelf) castPtr<Player>(this)->GetSession()->SendPacket(data);
+        if(bToSelf) castPtr<Player>(this)->PushPacket(data);
         myTeam = castPtr<Player>(this)->GetTeam();
     }
 
@@ -1080,7 +1083,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
     if(IsUnit() && castPtr<Unit>(this)->isAlive() )
     {
-        if( castPtr<Unit>(this) != pVictim && pVictim->IsPlayer() && IsPlayer() && castPtr<Player>(this)->m_hasInRangeGuards )
+        if( castPtr<Unit>(this) != pVictim && pVictim->IsPlayer() && IsPlayer() )
             castPtr<Player>(this)->SetGuardHostileFlag();
 
         if(plr != NULL && pVictim->IsCreature())
@@ -1248,27 +1251,6 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 if(spl->GetSpellProto()->ChannelInterruptFlags == 48140)
                     spl->cancel();
             }
-        }
-
-        if(pVictim->IsPlayer())
-        {
-            Player* plrVictim = castPtr<Player>(pVictim);
-            uint32 self_res_spell = plrVictim->SoulStone;
-            plrVictim->SoulStone = plrVictim->SoulStoneReceiver = 0;
-
-            if( !self_res_spell && plrVictim->bReincarnation )
-            {
-                SpellEntry* m_reincarnSpellInfo = dbcSpell.LookupEntry( 20608 );
-                if( plrVictim->Cooldown_CanCast( m_reincarnSpellInfo ) )
-                {
-                    uint32 ankh_count = plrVictim->GetInventory()->GetItemCount( 17030 );
-                    if( ankh_count || castPtr<Player>(plrVictim)->HasDummyAura(SPELL_HASH_GLYPH_OF_RENEWED_LIFE ))
-                        self_res_spell = 21169;
-                }
-            }
-
-            pVictim->SetUInt32Value( PLAYER_SELF_RES_SPELL, self_res_spell );
-            pVictim->Dismount();
         }
 
         /* Stop Units from attacking */
@@ -1796,15 +1778,15 @@ bool WorldObject::IsObjectBlocked(WorldObject *pObj)
     {
         if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_EVENTS))
         {
-            if(gmPlr->m_gmData->gmSightType != 1)
+            if(gmPlr->getGMSight() != 1)
                 return true;
-            else if(wObj->getEventID() != gmPlr->m_gmData->gmSightEventID)
+            else if(wObj->getEventID() != gmPlr->getGMEventSight())
                 return true;
         }
 
         if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_DESPAWNED))
         {
-            if(gmPlr->m_gmData->gmSightType != 3)
+            if(gmPlr->getGMSight() != 3)
                 return true;
         }
 
@@ -1833,11 +1815,11 @@ bool WorldObject::PhasedCanInteract(WorldObject* pObj)
         return true;
     if(GetPhaseMask() & pObj->GetPhaseMask())
         return true;
-    if(Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->m_gmData->gmSightType == 2) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->m_gmData->gmSightType == 2) ? castPtr<Player>(pObj) : NULL))
+    if(Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->getGMSight() == 2) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->getGMSight() == 2) ? castPtr<Player>(pObj) : NULL))
     {
-        if(this == gmPlr && gmPlr->m_gmData->gmSightPhaseMask & pObj->GetPhaseMask())
+        if(this == gmPlr && gmPlr->getGMPhaseSight() & pObj->GetPhaseMask())
             return true;
-        else if(pObj == gmPlr && gmPlr->m_gmData->gmSightPhaseMask & GetPhaseMask())
+        else if(pObj == gmPlr && gmPlr->getGMPhaseSight() & GetPhaseMask())
             return true;
     }
     return false;

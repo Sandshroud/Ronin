@@ -141,12 +141,6 @@ void WarnSystem::AddWarn_Internal(std::string Warner, Player * Warned, const cha
     if( Warner.empty() || !Warned || !Warned->GetSession() )
         return;
 
-    uint32 now = (uint32)getMSTime();
-    if( now - Warned->m_lastWarnCounter <= 5000 )
-        return;
-
-    Warned->m_lastWarnCounter = now;
-
     std::string WarnedChar = Warned->GetName();
     std::string WarnedAcct = Warned->GetSession()->GetAccountName();
     std::string WarnedIP = Warned->GetSession()->GetSocket()->GetIP();

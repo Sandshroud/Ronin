@@ -51,7 +51,7 @@ void Item::SetItemInWorld(bool res)
         return;
 
     // Update our item owned criteria when adding items to world
-    AchieveMgr.UpdateCriteriaValue(m_owner, ACHIEVEMENT_CRITERIA_TYPE_OWN_ITEM, m_owner->GetInventory()->GetItemCount(GetEntry()), GetEntry());
+    AchieveMgr.UpdateCriteriaValue(m_owner, ACHIEVEMENT_CRITERIA_TYPE_OWN_ITEM, m_owner->GetInventory()->GetItemCount(GetEntry()), GetEntry(), 0, !m_owner->IsInWorld());
 }
 
 void Item::LoadFromDB(Field* fields)
@@ -97,32 +97,32 @@ void Item::LoadFromDB(Field* fields)
         {
             SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
             SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( m_owner->m_playerInfo->charterId[CHARTER_TYPE_GUILD] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, m_owner->m_playerInfo->charterId[CHARTER_TYPE_GUILD] );
+            if( uint32 charterId = m_owner->getPlayerInfo()->charterId[CHARTER_TYPE_GUILD] )
+                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, charterId );
         }
 
         if( m_uint32Values[OBJECT_FIELD_ENTRY] == ARENA_TEAM_CHARTER_2v2 )
         {
             SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
             SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( m_owner->m_playerInfo->charterId[CHARTER_TYPE_ARENA_2V2] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, m_owner->m_playerInfo->charterId[CHARTER_TYPE_ARENA_2V2] );
+            if( uint32 charterId = m_owner->getPlayerInfo()->charterId[CHARTER_TYPE_ARENA_2V2] )
+                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, charterId );
         }
 
         if( m_uint32Values[OBJECT_FIELD_ENTRY] == ARENA_TEAM_CHARTER_3v3 )
         {
             SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
             SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( m_owner->m_playerInfo->charterId[CHARTER_TYPE_ARENA_3V3] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, m_owner->m_playerInfo->charterId[CHARTER_TYPE_ARENA_3V3] );
+            if( uint32 charterId = m_owner->getPlayerInfo()->charterId[CHARTER_TYPE_ARENA_3V3] )
+                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, charterId );
         }
 
         if( m_uint32Values[OBJECT_FIELD_ENTRY] == ARENA_TEAM_CHARTER_5v5 )
         {
             SetUInt32Value( ITEM_FIELD_STACK_COUNT, 1 );
             SetUInt32Value( ITEM_FIELD_PROPERTY_SEED, 57813883 );
-            if( m_owner->m_playerInfo->charterId[CHARTER_TYPE_ARENA_5V5] )
-                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, m_owner->m_playerInfo->charterId[CHARTER_TYPE_ARENA_5V5] );
+            if( uint32 charterId = m_owner->getPlayerInfo()->charterId[CHARTER_TYPE_ARENA_5V5] )
+                SetUInt32Value( ITEM_FIELD_ENCHANTMENT_DATA, charterId );
         }
     }
 }
@@ -403,7 +403,7 @@ void Item::SendEnchantTimeUpdate( uint32 Slot, uint32 Duration )
     data << Slot;
     data << Duration;
     data << m_owner->GetGUID();
-    m_owner->CopyAndSendDelayedPacket(&data);
+    m_owner->PushPacket(&data);
 }
 
 void Item::RemoveAllEnchantments( bool OnlyTemporary )

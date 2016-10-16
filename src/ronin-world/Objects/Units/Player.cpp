@@ -52,33 +52,23 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     resurrector                     = 0;
     SpellCrtiticalStrikeRatingBonus = 0;
     SpellHasteRatingBonus           = 0;
-    m_lifetapbonus                  = 0;
-    SoulStone                       = 0;
-    SoulStoneReceiver               = 0;
     bReincarnation                  = false;
     TrackingSpell                   = 0;
     m_status                        = 0;
     m_ShapeShifted                  = 0;
     m_curSelection                  = 0;
     m_lootGuid                      = 0;
-    m_hasInRangeGuards              = 0;
-    m_lastShotTime                  = 0;
-    ForceSaved                      = false;
-    m_nextSave                      = 120000;
     m_currentSpell                  = NULL;
     m_resurrectHealth               = 0;
     m_resurrectMana                 = 0;
     m_GroupInviter                  = 0;
-    m_lastWarnCounter               = 0;
     OnlineTime                      = 0;
     m_invitersGuid                  = 0;
-    forget                          = 0;
     m_invitersGuid                  = 0;
     DuelingWith                     = NULL;
     m_duelCountdownTimer            = 0;
     m_duelStatus                    = 0;
     m_duelState                     = DUEL_STATE_FINISHED;
-    waypointunit                    = NULL;
     m_lootGuid                      = 0;
     m_banned                        = 0;
     //Bind possition
@@ -130,14 +120,10 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     raidgrouponlysent               = false;
     m_setwaterwalk                  = false;
     m_areaSpiritHealer_guid         = 0;
-    m_safeFall                      = 0;
-    safefall                        = false;
     m_KickDelay                     = 0;
     m_passOnLoot                    = false;
     m_changingMaps                  = true;
     m_mageInvisibility              = false;
-    m_insigniaTaken                 = true;
-    m_BeastMaster                   = false;
 
     watchedchannel                  = NULL;
     PreventRes                      = false;
@@ -145,12 +131,10 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_drunk                         = 0;
     m_hasSentMoTD = false;
 
-    m_QuestGOInProgress.clear();
     m_completedQuests.clear();
     m_completedDailyQuests.clear();
     quest_spells.clear();
     quest_mobs.clear();
-    OnMeleeAuras.clear();
     m_channels.clear();
     m_channelsbyDBCID.clear();
     m_visibleObjects.clear();
@@ -234,7 +218,11 @@ bool Player::Initialize()
 
     AchieveMgr.AllocatePlayerData(GetGUID());
 
+    // Add event handler for exploration tick
     m_eventHandler.AddStaticEvent(this, &Player::_EventExploration, 1500);
+
+    // Add event handler for saving to database
+    m_eventHandler.AddStaticEvent(this, &Player::SaveToDB, false, 120000);
 
     // Construct storage pointers
     if(m_session->HasGMPermissions())
@@ -301,15 +289,6 @@ void Player::Destruct()
 
     m_playerInfo->m_loggedInPlayer=NULL;
 
-    if( !delayedPackets.empty() )
-    {
-        while( delayedPackets.size() )
-        {
-            WorldPacket * pck = delayedPackets.next();
-            delete pck;
-        }
-    }
-
     //  SetSession(NULL);
     if(myCorpse)
         myCorpse = NULL;
@@ -317,11 +296,9 @@ void Player::Destruct()
     if(linkTarget)
         linkTarget = NULL;
 
-    m_QuestGOInProgress.clear();
     m_completedQuests.clear();
     quest_spells.clear();
     quest_mobs.clear();
-    OnMeleeAuras.clear();
 
     while(!m_loadAuras.empty())
     {
@@ -339,11 +316,6 @@ void Player::Destruct()
 void Player::Update(uint32 msTime, uint32 diff)
 {
     Unit::Update( msTime, diff );
-
-    // Autosave
-    if(m_nextSave > diff)
-        m_nextSave -= diff;
-    else SaveToDB();
 
     if(m_pvpTimer)
     {
@@ -387,6 +359,21 @@ void Player::Update(uint32 msTime, uint32 diff)
     }
 
     ProcessPendingItemUpdates();
+}
+
+void Player::PushPacket(WorldPacket *data, bool direct)
+{
+    if(m_session == NULL)
+        return;
+
+    /*if(!(m_packetQueue.empty() && IsInWorld()) && direct == false)
+    {
+        m_packetQueue.add(new WorldPacket(*data));
+        // First packet push us into process set
+        if(IsInWorld() && m_packetQueue.size() == 1)
+            m_mapInstance->PushToProcessed(this);
+    }
+    else */m_session->SendPacket(data);
 }
 
 void Player::ProcessImmediateItemUpdate(Item *item)
@@ -923,10 +910,9 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     if(GM_Ticket* ticket = sTicketMgr.GetGMTicketByPlayer(GetGUID()))
         sTicketMgr.SaveGMTicket(ticket, buf);
 
-    ForceSaved = false;
-    m_nextSave = 120000;
-    if(buf)
-        CharacterDatabase.AddQueryBuffer(buf);
+    if(buf == NULL)
+        return;
+    CharacterDatabase.AddQueryBuffer(buf);
 }
 
 void Player::DeleteFromDB(WoWGuid guid)
@@ -1101,17 +1087,13 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
     _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result);
     m_factionInterface.LoadFactionData(results[PLAYER_LO_REPUTATIONS].result);
+    _LoadSpells(results[PLAYER_LO_SPELLS].result);
     _LoadSkills(results[PLAYER_LO_SKILLS].result);
     _LoadSocial(results[PLAYER_LO_SOCIAL].result);
-    _LoadSpells(results[PLAYER_LO_SPELLS].result);
     m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
     _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
     _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
     m_inventory.mLoadItemsFromDatabase(results[PLAYER_LO_ITEMS].result, results[PLAYER_LO_ITEM_ENCHANTS].result);
-
-    if(m_session->CanUseCommand('c'))
-        _AddLanguages(true);
-    else _AddLanguages(sWorld.cross_faction_world);
 
     OnlineTime = UNIXTIME;
     if( fields[PLAYERLOAD_FIELD_NEEDS_POSITION_RESET].GetBool() )
@@ -1130,9 +1112,9 @@ void Player::LoadFromDBProc(QueryResultVector & results)
                 myCorpse = CreateCorpse();
         if(myCorpse)
         {
-            WorldPacket* data = new WorldPacket(MSG_CORPSE_QUERY, 21);
-            BuildCorpseInfo(data, myCorpse);
-            SendDelayedPacket(data);
+            WorldPacket data(MSG_CORPSE_QUERY, 21);
+            BuildCorpseInfo(&data, myCorpse);
+            PushPacket(&data);
         }
     }
 
@@ -1571,20 +1553,24 @@ void Player::_SaveSocial(QueryBuffer * buf)
 
 void Player::_LoadSpells(QueryResult *result)
 {
-    if(result == NULL)
-        return;
-
-    do
+    if(result)
     {
-        if(SpellEntry *sp = dbcSpell.LookupEntry(result->Fetch()[1].GetUInt32()))
+        do
         {
-            if(guildmgr.IsGuildPerk(sp))
-                continue;
-            m_spells.insert(sp->Id);
-        }
-    }while(result->NextRow());
+            if(SpellEntry *sp = dbcSpell.LookupEntry(result->Fetch()[1].GetUInt32()))
+            {
+                if(guildmgr.IsGuildPerk(sp))
+                    continue;
+                m_spells.insert(sp->Id);
+            }
+        }while(result->NextRow());
+    }
 
     guildmgr.AddGuildPerks(this);
+
+    if(m_session->CanUseCommand('c'))
+        _AddLanguages(true);
+    else _AddLanguages(sWorld.cross_faction_world);
 }
 
 void Player::_SaveSpells(QueryBuffer * buf)
@@ -1827,7 +1813,7 @@ void Player::setLevel(uint32 level)
             {
                 WorldPacket data(SMSG_ALL_ACHIEVEMENT_DATA, 20);
                 AchieveMgr.BuildAchievementData(GetGUID(), &data);
-                SendPacket(&data);
+                PushPacket(&data);
             }
         }
 
@@ -1856,7 +1842,7 @@ void Player::SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 Curre
     data << Regen;
     data << (uint8)0;
     data << (uint32)0;
-    SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::StopMirrorTimer(MirrorTimerType Type)
@@ -1864,7 +1850,7 @@ void Player::StopMirrorTimer(MirrorTimerType Type)
     m_movementInterface.StopMirrorTimer(Type);
     WorldPacket data(SMSG_STOP_MIRROR_TIMER, 4);
     data << uint32(Type);
-    SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::EventDismount(uint32 money, float x, float y, float z)
@@ -1986,7 +1972,7 @@ void Player::_EventExploration()
     TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
 
     // bur: we dont want to explore new areas when on taxi
-    if(!GetTaxiState() && !GetTransportGuid())
+    if(!GetTaxiState() && !GetTransportGuid() && m_session)
     {
         uint32 offset = at->explorationFlag / 32;
         if(offset < 156)
@@ -2002,7 +1988,7 @@ void Player::_EventExploration()
                 uint32 explore_xp = at->level * 10 * sWorld.getRate(RATE_XP);
                 WorldPacket data(SMSG_EXPLORATION_EXPERIENCE, 8);
                 data << at->AreaId << explore_xp;
-                m_session->SendPacket(&data);
+                PushPacket(&data);
                 GiveXP(explore_xp, 0, false, false);
             }
         }
@@ -2193,7 +2179,7 @@ SpellEntry* Player::FindHighestRankSpellBySkilline(SkillLineAbilityEntry *sk, Sp
     return spell;
 }
 
-void Player::addSpell(uint32 spell_id)
+void Player::addSpell(uint32 spell_id, uint32 forget)
 {
     SpellSet::iterator iter = m_spells.find(spell_id);
     if(iter != m_spells.end())
@@ -2250,13 +2236,13 @@ void Player::addSpell(uint32 spell_id)
     {
         WorldPacket data(SMSG_SUPERCEDED_SPELL, 8);
         data << sp2->Id << spell_id;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
     }
     else
     {
         WorldPacket data(SMSG_LEARNED_SPELL, 6);
         data << spell_id << uint16(0);
-        m_session->SendPacket(&data);
+        PushPacket(&data);
     }
 
     if(spell->isPassiveSpell())
@@ -2498,71 +2484,15 @@ void Player::OnPrePushToWorld()
 {
     Unit::OnPrePushToWorld();
     SendInitialLogonPackets();
-}
 
-void Player::OnPushToWorld()
-{
-    uint8 teleState = m_TeleportState;
-    m_TeleportState = 0;
-
-    // Worldport acknowledgement
-    if(teleState == 2)
-        OnWorldPortAck();
-    else if(teleState = 1)
-        CompleteLoading();
-
-    // Send our server tick timer
-    WorldPacket data(SMSG_TIME_SYNC_REQ);
-    data << uint32(0);
-    GetSession()->SendPacket(&data);
-
-    // Cast our login effect spell
-    CastSpell(this, 836, true);
-
-    // Set our client active mover
-    data.Initialize(SMSG_MOVE_SET_ACTIVE_MOVER);
-    data.WriteGuidBitString(8, m_objGuid, 5, 7, 3, 6, 0, 4, 1, 2);
-    data.WriteSeqByteString(8, m_objGuid, 6, 2, 3, 0, 5, 7, 1, 4);
-    GetSession()->SendPacket( &data );
-
-    m_beingPushed = false;
-    sWorld.mInWorldPlayerCount++;
-
-    Unit::OnPushToWorld();
-
-    // Item stats
+    // Add all our items to world before we're pushed to fill in on nearby data
     m_inventory.AddToWorld();
 
-    // Update stats
+    // Update our stats now that we have auras and items loaded
     UpdateFieldValues();
 
-    // Update area data
-    _EventExploration();
-
-    // Send our auras
-    data.Initialize(SMSG_AURA_UPDATE_ALL);
-    data << GetGUID().asPacked();
-    m_AuraInterface.BuildAuraUpdateAllPacket(&data);
-    SendPacket(&data);
-
-    // send world states
-    if( m_mapInstance != NULL )
-        m_mapInstance->GetStateManager().SendWorldStates(this);
-
-    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnZoneChange )(this, m_zoneId, 0);
-    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerEnter )(this);
-
-
-    if(GetTaxiState()) // Create HAS to be sent before this!
-        TaxiStart(GetTaxiPath(), m_taxiData->ModelId, m_taxiData->TravelTime);
-
-    /* send weather */
-    sWeatherMgr.SendWeather(castPtr<Player>(this));
-
-    m_changingMaps = false;
-
     // Finish loading of our load data(health and power fields)
-    if(teleState == 1)
+    if(m_TeleportState == 1)
     {
         if(m_deathState != DEAD && !m_loadData.empty())
         {
@@ -2581,9 +2511,52 @@ void Player::OnPushToWorld()
             while(!m_loadData.empty())
                 m_loadData.erase(m_loadData.begin());
     }
+}
 
-    // Process create packet
-    PopPendingUpdates();
+void Player::OnPushToWorld()
+{
+    uint8 teleState = m_TeleportState;
+    m_TeleportState = 0;
+
+    // Worldport acknowledgement
+    if(teleState == 2)
+        OnWorldPortAck();
+    else if(teleState = 1)
+        CompleteLoading();
+
+    // Send our server tick timer
+    m_movementInterface.SendTimeSyncReq();
+
+    // Cast our login effect spell
+    CastSpell(this, 836, true);
+
+    m_beingPushed = false;
+    sWorld.mInWorldPlayerCount++;
+
+    Unit::OnPushToWorld();
+
+    // Update area data
+    _EventExploration();
+
+    // Send our auras
+    m_AuraInterface.SendAuraData();
+
+    // send world states
+    m_mapInstance->GetStateManager().SendWorldStates(this);
+
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnZoneChange )(this, m_zoneId, 0);
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerEnter )(this);
+
+    /* send weather */
+    sWeatherMgr.SendWeather(castPtr<Player>(this));
+
+    m_changingMaps = false;
+
+    if(GetTaxiState())
+    {
+        PopPendingUpdates(); // Create HAS to be sent before this!
+        TaxiStart(GetTaxiPath(), m_taxiData->ModelId, m_taxiData->TravelTime);
+    } else m_mapInstance->PushToProcessed(this);
 }
 
 void Player::OnWorldLogin()
@@ -2606,7 +2579,7 @@ void Player::SendObjectUpdate(WoWGuid guid)
 
     data.put<uint32>(2, count);
     // send uncompressed because it's specified
-    m_session->SendPacket(&data);
+    PushPacket(&data, true);
 }
 
 void Player::RemoveFromWorld()
@@ -2803,18 +2776,18 @@ Corpse* Player::RepopRequestedPlayer()
     Corpse* ret = corpse ? CreateCorpse() : NULL;
     BuildPlayerRepop();
 
-    if( corpse )
+    if( corpse && m_session )
     {
         /* Send Spirit Healer Location */
         WorldPacket data( SMSG_DEATH_RELEASE_LOC, 16 );
         data << m_mapId;
         data.appendvector(m_position, false);
-        m_session->SendPacket( &data );
+        PushPacket( &data );
 
         /* Corpse reclaim delay */
         data.Initialize( SMSG_CORPSE_RECLAIM_DELAY, 4 );
         data << uint32(ReclaimCount*15 * 1000);
-        m_session->SendPacket( &data );
+        PushPacket( &data );
     }
 
     if( myCorpse != NULL )
@@ -2869,8 +2842,11 @@ void Player::KillPlayer()
 
     EventDeath();
 
-    m_session->OutPacket(SMSG_CANCEL_COMBAT);
-    m_session->OutPacket(SMSG_CANCEL_AUTO_REPEAT);
+    if(m_session)
+    {
+        m_session->OutPacket(SMSG_CANCEL_COMBAT);
+        m_session->OutPacket(SMSG_CANCEL_AUTO_REPEAT);
+    }
 
     m_movementInterface.OnDeath();
 
@@ -2927,7 +2903,7 @@ Corpse* Player::CreateCorpse()
     }
 
     // are we going to bones straight away?
-    if(m_insigniaTaken)
+    if(false)
     {
         pCorpse->SetUInt32Value(CORPSE_FIELD_FLAGS, 5);
         pCorpse->SetUInt64Value(CORPSE_FIELD_OWNER, 0); // remove corpse owner association
@@ -3452,27 +3428,20 @@ void Player::OnAddInRangeObject(WorldObject* pObj)
     if (GetTaxiState() && pObj->IsPlayer())
         m_taxiData->CurrentPath->SendMoveForTime(this, castPtr<Player>( pObj ), m_taxiData->TravelTime, m_taxiData->MoveTime);
 
-    if( pObj->IsCreature() && pObj->GetFactionTemplate() && pObj->GetFactionTemplate()->FactionFlags & 0x1000 )
-        m_hasInRangeGuards++;
-
     Unit::OnAddInRangeObject(pObj);
 
     //unit based objects, send aura data
-    if (pObj->IsUnit() && GetSession())
+    if (pObj->IsUnit())
     {
-        WorldPacket* data = new WorldPacket(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
-        *data << pObj->GetGUID().asPacked();
-        if(castPtr<Unit>(pObj)->m_AuraInterface.BuildAuraUpdateAllPacket(data))
-            SendPacket(data);
-        else delete data;
+        WorldPacket data(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
+        data << pObj->GetGUID().asPacked();
+        if(castPtr<Unit>(pObj)->m_AuraInterface.BuildAuraUpdateAllPacket(&data))
+            PushPacket(&data);
     }
 }
 
 void Player::OnRemoveInRangeObject(WorldObject* pObj)
 {
-    if( pObj->IsCreature() && pObj->GetFactionTemplate() && pObj->GetFactionTemplate()->FactionFlags & 0x1000 )
-        m_hasInRangeGuards--;
-
     if(m_tempSummon == pObj)
     {
         m_tempSummon->RemoveFromWorld();
@@ -3984,7 +3953,7 @@ void Player::SendProficiency(bool armorProficiency)
     if(armorProficiency)
         data << uint8(ITEM_CLASS_ARMOR) << GetArmorProficiency();
     else data << uint8(ITEM_CLASS_WEAPON) << GetWeaponProficiency();
-    SendPacket(&data);
+    PushPacket(&data, !IsInWorld());
 }
 
 // Initial packets, these don't need to be sent when switching between maps
@@ -3993,7 +3962,7 @@ void Player::SendInitialLogonPackets()
     WorldPacket data(SMSG_BINDPOINTUPDATE, 32);
     data << m_bindData.posX << m_bindData.posY << m_bindData.posZ;
     data << m_bindData.mapId << m_bindData.zoneId;
-    SendPacket( &data );
+    PushPacket( &data, true );
 
     SendProficiency(true);
     SendProficiency(false);
@@ -4038,7 +4007,7 @@ void Player::SendInitialLogonPackets()
     // Login speed
     data.Initialize(SMSG_LOGIN_SETTIMESPEED);
     data << uint32(RONIN_UTIL::secsToTimeBitFields(UNIXTIME));
-    data << float(0.01666667f) << uint32(0);
+    data << float(0.01666667f) << uint32(getMSTime());
     GetSession()->SendPacket( &data );
 
     m_currency.SendInitialCurrency();
@@ -4118,7 +4087,7 @@ void Player::UpdateNearbyQuestGivers()
                 {
                     WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
                     data << Gobj->GetGUID() << status;
-                    SendPacket( &data );
+                    PushPacket( &data );
                 }
             }
         }
@@ -4135,7 +4104,7 @@ void Player::UpdateNearbyQuestGivers()
                 {
                     WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
                     data << cObj->GetGUID() << status;
-                    SendPacket( &data );
+                    PushPacket( &data );
                 }
             }
         }
@@ -4683,7 +4652,7 @@ void Player::PushOutOfRange(WoWGuid guid)
     if(m_mapInstance && !bProcessPending)
     {
         bProcessPending = true;
-        m_mapInstance->PushToProcessed(castPtr<Player>(this));
+        m_mapInstance->PushToProcessed(this);
     }
     _bufferS.Release();
 }
@@ -4708,7 +4677,7 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
     if(m_mapInstance && !bProcessPending)
     {
         bProcessPending = true;
-        m_mapInstance->PushToProcessed(castPtr<Player>(this));
+        m_mapInstance->PushToProcessed(this);
     }
 
     _bufferS.Release();
@@ -4741,7 +4710,7 @@ void Player::PopPendingUpdates()
         }
 
         // Send our packet
-        m_session->SendPacket(&data);
+        PushPacket(&data, true);
     }
 
     bProcessPending = false;
@@ -4749,10 +4718,10 @@ void Player::PopPendingUpdates()
 
     // send any delayed packets
     WorldPacket * pck;
-    while(delayedPackets.size())
+    while(!m_packetQueue.empty())
     {
-        pck = delayedPackets.next();
-        m_session->SendPacket(pck);
+        pck = m_packetQueue.next();
+        PushPacket(pck, true);
         delete pck;
     }
 }
@@ -5022,10 +4991,10 @@ void Player::SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourSt
     }
 
     if(ourStatus || m_tradeData == NULL)
-        SendPacket(&data);
+        PushPacket(&data);
     else if(Player *plr = objmgr.GetPlayer(m_tradeData->targetGuid))
         if(plr->GetInstanceID() == GetInstanceID())
-            plr->SendPacket(&data);
+            plr->PushPacket(&data);
 }
 
 void Player::RequestDuel(Player* pTarget)
@@ -5170,8 +5139,8 @@ void Player::EndDuel(uint8 WinCondition)
 
     data.Initialize(SMSG_DUEL_COMPLETE, 1);
     data << uint8( 1 );
-    SendPacket(&data);
-    DuelingWith->SendPacket(&data);
+    PushPacket(&data);
+    DuelingWith->PushPacket(&data);
 
     //Clear Duel Related Stuff
     if( GameObject* arbiter = m_mapInstance ? GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
@@ -5228,7 +5197,7 @@ void Player::BroadcastMessage(const char* Format, ...)
 
     WorldPacket data;
     sChatHandler.FillSystemMessageData(&data, Message);
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 }
 
 float Player::CalcPercentForRating( uint32 index, uint32 rating )
@@ -5291,7 +5260,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
         {
             WorldPacket data;
             sChatHandler.FillSystemMessageData(&data, "You must have The Burning Crusade Expansion to access this content.");
-            m_session->SendPacket(&data);
+            PushPacket(&data);
             return false;
         }
 
@@ -5300,7 +5269,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
         {
             WorldPacket data;
             sChatHandler.FillSystemMessageData(&data, "You must have the Wrath of the Lich King Expansion to access this content.");
-            m_session->SendPacket(&data);
+            PushPacket(&data);
             return false;
         }
 
@@ -5309,7 +5278,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
         {
             WorldPacket data;
             sChatHandler.FillSystemMessageData(&data, "You must have the Cataclysm Expansion to access this content.");
-            m_session->SendPacket(&data);
+            PushPacket(&data);
             return false;
         }
         // Dismount
@@ -5967,47 +5936,7 @@ void Player::SendAreaTriggerMessage(const char * message, ...)
 
     WorldPacket data(SMSG_AREA_TRIGGER_MESSAGE, 6 + strlen(msg));
     data << (uint32)0 << msg << (uint8)0x00;
-    m_session->SendPacket(&data);
-}
-
-void Player::removeSoulStone()
-{
-    if(!SoulStone)
-        return;
-    uint32 sSoulStone = 0;
-    switch(SoulStone)
-    {
-    case 3026:
-        {
-            sSoulStone = 20707;
-        }break;
-    case 20758:
-        {
-            sSoulStone = 20762;
-        }break;
-    case 20759:
-        {
-            sSoulStone = 20763;
-        }break;
-    case 20760:
-        {
-            sSoulStone = 20764;
-        }break;
-    case 20761:
-        {
-            sSoulStone = 20765;
-        }break;
-    case 27240:
-        {
-            sSoulStone = 27239;
-        }break;
-    case 47882:
-        {
-            sSoulStone = 47883;
-        }break;
-    }
-    RemoveAura(sSoulStone);
-    SoulStone = SoulStoneReceiver = 0; //just incase
+    PushPacket(&data);
 }
 
 void Player::SoftDisconnect()
@@ -6037,7 +5966,7 @@ void Player::Possess(Unit* pTarget)
     /* send "switch mover" packet */
     WorldPacket data1(SMSG_CLIENT_CONTROL_UPDATE, 10);      /* burlex: this should be renamed SMSG_SWITCH_ACTIVE_MOVER :P */
     data1 << pTarget->GetGUID() << uint8(1);
-    m_session->SendPacket(&data1);
+    PushPacket(&data1);
 
     return;
     /*std::list<uint32> avail_spells;
@@ -6081,7 +6010,7 @@ void Player::Possess(Unit* pTarget)
         data << uint32(sp->CategoryRecoveryTime);
     }
 
-    m_session->SendPacket(&data);*/
+    PushPacket(&data);*/
 }
 
 void Player::UnPossess()
@@ -6104,11 +6033,11 @@ void Player::UnPossess()
     /* send "switch mover" packet */
     WorldPacket data(SMSG_CLIENT_CONTROL_UPDATE, 10);
     data << GetGUID() << uint8(1);
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 
     data.Initialize(SMSG_PET_SPELLS);
     data << uint64(0);
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::SummonRequest(WorldObject* Requestor, uint32 ZoneID, uint32 MapID, uint32 InstanceID, const LocationVector & Position)
@@ -6120,7 +6049,7 @@ void Player::SummonRequest(WorldObject* Requestor, uint32 ZoneID, uint32 MapID, 
 
     WorldPacket data(SMSG_SUMMON_REQUEST, 16);
     data << Requestor->GetGUID() << ZoneID << uint32(120000);       // 2 minutes
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::_AddSkillLine(uint16 SkillLine, uint16 Curr_sk, uint16 Max_sk)
@@ -6380,17 +6309,18 @@ void Player::_AddLanguages(bool All)
             if(skillEntry == NULL)
                 continue;
 
-            uint8 skillPos = GetFreeSkillPosition();
-            PlayerSkill &skill = m_skillsByIndex[skillPos];
-            skill.MaximumValue = skill.CurrentValue = 300;
-            skill.Skill = skillEntry; skill.SkillPos = skillPos;
-            m_skills.insert( std::make_pair(skills[i], skill) );
             if((spell_id = ::GetSpellForLanguageSkill(skills[i])))
                 addSpell(spell_id);
+            else
+            {
+                uint8 skillPos = GetFreeSkillPosition();
+                PlayerSkill &skill = m_skillsByIndex[skillPos];
+                skill.MaximumValue = skill.CurrentValue = 300;
+                skill.Skill = skillEntry; skill.SkillPos = skillPos;
+                m_skills.insert( std::make_pair(skills[i], skill) );
+            }
         }
     }
-
-    _UpdateSkillFields();
 }
 
 float Player::GetSkillUpChance(uint32 id)
@@ -6637,23 +6567,6 @@ PlayerInfo::~PlayerInfo()
         m_Group->RemovePlayer(this);
 }
 
-void Player::SendPacket(WorldPacket * data)
-{
-    if(GetSession())
-        GetSession()->SendPacket(data);
-}
-
-void Player::SendDelayedPacket(WorldPacket * data)
-{
-    delayedPackets.add(data);
-}
-
-void Player::CopyAndSendDelayedPacket(WorldPacket * data)
-{
-    WorldPacket * data2 = new WorldPacket(*data);
-    delayedPackets.add(data2);
-}
-
 void Player::AddShapeShiftSpell(uint32 id)
 {
     SpellEntry * sp = dbcSpell.LookupEntry( id );
@@ -6867,21 +6780,21 @@ void Player::Social_AddFriend(std::string name, std::string note)
     if( info == NULL ) // lookup the player
     {
         data << uint8(FRIEND_NOT_FOUND);
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
     if( info == m_playerInfo ) // are we ourselves?
     {
         data << uint8(FRIEND_SELF) << info->charGuid;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
     if( info->charTeam != m_playerInfo->charTeam ) // team check
     {
         data << uint8(FRIEND_ENEMY) << info->charGuid;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
@@ -6890,7 +6803,7 @@ void Player::Social_AddFriend(std::string name, std::string note)
     if((itr = m_friends.find(info->charGuid)) != m_friends.end())
     {
         data << uint8(FRIEND_ALREADY) << info->charGuid;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         m_socialLock.Release();
         return;
     }
@@ -6909,7 +6822,7 @@ void Player::Social_AddFriend(std::string name, std::string note)
 
     m_friends.insert( std::make_pair(info->charGuid, note) );
     m_socialLock.Release();
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 
     // dump into the db
     CharacterDatabase.Execute("INSERT INTO social_friends VALUES(%u, %u, '%s')", GetLowGUID(), info->charGuid.getLow(), CharacterDatabase.EscapeString(std::string(note)).c_str());
@@ -6921,7 +6834,7 @@ void Player::Social_RemoveFriend(WoWGuid guid)
     if( guid == GetGUID() ) // are we ourselves?
     {
         data << uint8(FRIEND_SELF) << guid;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
@@ -6932,7 +6845,7 @@ void Player::Social_RemoveFriend(WoWGuid guid)
     m_socialLock.Release();
 
     data << uint8(FRIEND_REMOVED) << guid;
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 
     // remove from the db
     CharacterDatabase.Execute("DELETE FROM social_friends WHERE character_guid = %u AND friend_guid = %u", GetLowGUID(), guid.getLow());
@@ -6963,7 +6876,7 @@ void Player::Social_AddIgnore(std::string name)
     if( info == NULL )
     {
         data << uint8(FRIEND_IGNORE_NOT_FOUND);
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
@@ -6971,7 +6884,7 @@ void Player::Social_AddIgnore(std::string name)
     if( info == m_playerInfo )
     {
         data << uint8(FRIEND_IGNORE_SELF) << info->charGuid;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
@@ -6980,7 +6893,7 @@ void Player::Social_AddIgnore(std::string name)
     if((itr = m_ignores.find(info->charGuid)) != m_ignores.end())
     {
         data << uint8(FRIEND_IGNORE_ALREADY) << info->charGuid;
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         m_socialLock.Release();
         return;
     }
@@ -6989,7 +6902,7 @@ void Player::Social_AddIgnore(std::string name)
     m_ignores.insert(std::make_pair(info->charGuid, "IGNORE"));
 
     m_socialLock.Release();
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 
     // dump into db
     CharacterDatabase.Execute("INSERT INTO social_ignores VALUES(%u, %u)", GetLowGUID(), info->charGuid.getLow());
@@ -7003,7 +6916,7 @@ void Player::Social_RemoveIgnore(WoWGuid guid)
     if( guid == GetGUID() )
     {
         data << uint8(FRIEND_IGNORE_SELF) << GetGUID();
-        m_session->SendPacket(&data);
+        PushPacket(&data);
         return;
     }
 
@@ -7017,7 +6930,7 @@ void Player::Social_RemoveIgnore(WoWGuid guid)
 
     m_socialLock.Release();
 
-    m_session->SendPacket(&data);
+    PushPacket(&data);
 
     // remove from the db
     CharacterDatabase.Execute("DELETE FROM social_ignores WHERE character_guid = %u AND ignore_guid = %u", GetLowGUID(), guid.getLow());
@@ -7077,7 +6990,7 @@ void Player::Social_SendFriendList(uint32 flag)
     }
     data.put<uint32>(4, count);
     m_socialLock.Release();
-    m_session->SendPacket(&data);
+    PushPacket(&data, true);
 }
 
 void Player::GenerateLoot(Corpse* pCorpse)
@@ -7124,7 +7037,7 @@ void Player::SetKnownTitle( int32 title, bool set )
 
     WorldPacket data( SMSG_TITLE_EARNED, 8 );
     data << uint32( entry->bit_index ) << uint32( set ? 1 : 0 );
-    m_session->SendPacket( &data );
+    PushPacket( &data );
 
     if(set && GetUInt32Value(PLAYER_CHOSEN_TITLE) == 0)
         SetUInt32Value(PLAYER_CHOSEN_TITLE, entry->bit_index);

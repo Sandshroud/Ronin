@@ -533,7 +533,7 @@ void GuildMgr::ModifyGuildLevel(GuildInfo *info, int32 mod)
             else plr->addSpell(*itr);
         }
         // Packet should be sent to arrive after the next block update
-        plr->CopyAndSendDelayedPacket(&data);
+        plr->PushPacket(&data);
     }
     MemberMapStorage->MemberMapLock.Release();
     info->m_GuildStatus = GUILD_STATUS_DIRTY;
@@ -710,11 +710,7 @@ void GuildMgr::LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, std::str
     if(arguement4.length())
         data << arguement4;
     if(plr != NULL)
-    {
-        if(plr->IsInWorld())
-            plr->GetSession()->SendPacket(&data);
-        else plr->SendDelayedPacket(new WorldPacket(data));
-    }
+        plr->PushPacket(&data);
     else
     {
         if(GuildMemberMapStorage* MemberMapStorage = GetGuildMemberMapStorage(GuildId))
@@ -722,10 +718,8 @@ void GuildMgr::LogGuildEvent(Player* plr, uint32 GuildId, uint8 iEvent, std::str
             Player* target = NULL;
             MemberMapStorage->MemberMapLock.Acquire();
             for(GuildMemberMap::iterator itr = MemberMapStorage->MemberMap.begin(); itr != MemberMapStorage->MemberMap.end(); itr++)
-            {
-                target = itr->second->pPlayer->m_loggedInPlayer;
-                if(target != NULL) target->SendPacket(new WorldPacket(data));
-            }
+                if( Player *target = itr->second->pPlayer->m_loggedInPlayer)
+                    target->PushPacket(&data);
             MemberMapStorage->MemberMapLock.Release();
         }
     }
@@ -1307,7 +1301,7 @@ void GuildMgr::UpdateGuildXP()
                 // Update packet data
                 data.put<uint64>(16, itr->second->guildXPToday);
                 data.put<uint64>(24, itr->second->guildWeekXP);
-                plr->SendPacket(&data);
+                plr->PushPacket(&data);
             }
         }
         MemberMapStorage->MemberMapLock.Release();
@@ -1776,7 +1770,7 @@ void GuildMgr::GuildChat(WorldSession* m_session, uint32 Language, const char* m
             continue;
 
         if(HasGuildRights(Target, GR_RIGHT_GCHATLISTEN))
-            Target->SendPacket(&data);
+            Target->PushPacket(&data);
     }
     MemberMapStorage->MemberMapLock.Release();
 }
@@ -1814,7 +1808,7 @@ void GuildMgr::OfficerChat(WorldSession* m_session, uint32 Language, const char*
             continue;
 
         if(HasGuildRights(Target, GR_RIGHT_OFFCHATLISTEN))
-            Target->SendPacket(&data);
+            Target->PushPacket(&data);
     }
     MemberMapStorage->MemberMapLock.Release();
 }

@@ -1055,6 +1055,14 @@ void WorldSession::HandleTimeSyncResp( WorldPacket & recv_data )
 {
     uint32 counter, time_;
     recv_data >> counter >> time_;
+    if(!_player->GetMovementInterface()->CanProcessTimeSyncCounter(counter))
+    {
+        _player->SoftDisconnect();
+        return;
+    }
+
+    if(counter == 0)
+        _player->GetMovementInterface()->OnFirstTimeSync();
 
     // This is just a response, no need to do anything... Yet.
 }

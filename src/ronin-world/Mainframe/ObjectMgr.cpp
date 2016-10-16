@@ -84,7 +84,7 @@ Group * ObjectMgr::GetGroupByLeader(Player* pPlayer)
     m_groupLock.AcquireReadLock();
     for(itr = m_groups.begin(); itr != m_groups.end(); itr++)
     {
-        if(itr->second->GetLeader()==pPlayer->m_playerInfo)
+        if(itr->second->GetLeader()==pPlayer->getPlayerInfo())
         {
             ret = itr->second;
             break;
@@ -217,6 +217,43 @@ PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
     m_playersinfo[pn->charGuid] = pn;
     playernamelock.ReleaseWriteLock();
     return pn;
+}
+
+void ObjectMgr::UpdatePlayerData(WoWGuid guid, QueryResult *result)
+{
+    Field *fields = result->Fetch();
+    if(m_playersinfo.find(guid) == m_playersinfo.end())
+        return;
+    playernamelock.AcquireWriteLock();
+    if(PlayerInfo *info = m_playersinfo.at(guid))
+    {
+        std::string chrName = info->charName;
+        info->charName = fields[0].GetString();
+        info->charRace = fields[1].GetUInt8();
+        info->charClass = fields[2].GetUInt8();
+        info->charTeam = fields[3].GetUInt8();
+        info->charAppearance = fields[4].GetUInt32();
+        info->charAppearance2 = fields[5].GetUInt32();
+        info->charAppearance3 = fields[6].GetUInt32();
+        info->lastLevel = fields[7].GetUInt32();
+        info->lastMapID = fields[8].GetUInt32();
+        info->lastInstanceID = fields[9].GetUInt32();
+        info->lastPositionX = fields[10].GetFloat();
+        info->lastPositionY = fields[11].GetFloat();
+        info->lastPositionZ = fields[12].GetFloat();
+        info->lastOrientation = fields[13].GetFloat();
+        info->lastZone = fields[14].GetUInt32();
+        info->lastOnline = fields[15].GetUInt64();
+        if(strcmp(info->charName.c_str(), chrName.c_str()))
+        {
+            std::string lpn = RONIN_UTIL::TOLOWER_RETURN(chrName);
+            m_playersInfoByName.erase(lpn);
+            lpn = RONIN_UTIL::TOLOWER_RETURN(info->charName);
+            m_playersInfoByName[lpn] = info;
+        }
+    }
+
+    playernamelock.ReleaseWriteLock();
 }
 
 void ObjectMgr::RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname)

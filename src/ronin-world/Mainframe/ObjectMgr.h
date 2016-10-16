@@ -204,6 +204,7 @@ public:
     // player names
     void AddPlayerInfo(PlayerInfo *pn);
     PlayerInfo *LoadPlayerInfo(WoWGuid guid);
+    void UpdatePlayerData(WoWGuid guid, QueryResult *result);
 
     PlayerInfo *GetPlayerInfo(WoWGuid guid );
     PlayerInfo *GetPlayerInfoByName(const char * name);

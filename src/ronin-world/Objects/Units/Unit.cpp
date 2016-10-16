@@ -2716,6 +2716,7 @@ void Unit::OnPreSetInWorld()
 
 void Unit::OnPrePushToWorld()
 {
+    // Notify our movement info that we're being pushed
     m_movementInterface.OnPrePushToWorld();
 }
 
@@ -2724,8 +2725,6 @@ void Unit::OnPushToWorld()
     WorldObject::OnPushToWorld();
 
     m_movementInterface.OnPushToWorld();
-
-    m_AuraInterface.BuildAllAuraUpdates();
 }
 
 void Unit::RemoveFromWorld()
@@ -2744,6 +2743,9 @@ void Unit::RemoveFromWorld()
             }
         }
     }
+
+    // Trigger our movement interface's removal signal
+    m_movementInterface.OnRemoveFromWorld();
 
     // Delete AAura's from our targets (must be done before object is removed from world)
     m_AuraInterface.RemoveAllAurasWithSpEffect(SPELL_EFFECT_APPLY_AREA_AURA);
@@ -3503,7 +3505,7 @@ void Unit::ResetFaction()
 {
     uint32 faction = 35;
     if(IsPlayer())
-        faction = castPtr<Player>(this)->m_createInfo->factiontemplate;
+        faction = castPtr<Player>(this)->getPlayerCreateInfo()->factiontemplate;
     else if(IsCreature()) faction = castPtr<Creature>(this)->GetCreatureData()->faction;
 
     SetFaction(faction);

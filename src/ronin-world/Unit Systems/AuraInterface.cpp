@@ -175,11 +175,60 @@ void AuraInterface::UpdateDuelAuras()
                 RemoveAuraBySlot(x);
 }
 
-void AuraInterface::BuildAllAuraUpdates()
+void AuraInterface::SendAuraData()
 {
-    for( uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
-        if( Aura *aur = m_auras[x] )
-            aur->BuildAuraUpdate();
+    if(!m_Unit->IsPlayer())
+        return;
+
+    Player *plr = castPtr<Player>(m_Unit);
+    WorldPacket data(SMSG_AURA_UPDATE_ALL, 200);
+    data << plr->GetGUID().asPacked();
+
+    bool empty = true;
+    for (uint8 i = 0; i < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(i, false))
+    {
+        Aura *aur = m_auras[i];
+        if(aur == NULL)
+            continue;
+        aur->BuildAuraUpdatePacket(&data);
+        empty = false;
+    }
+
+    if(empty == false)
+        plr->PushPacket(&data, true);
+
+    for(uint8 i = 0; i < 2; i++)
+    {
+        uint32 modCount = 0;
+        data.Initialize(SMSG_SET_FLAT_SPELL_MODIFIER+i, 200);
+        data << modCount;
+        for(Loki::AssocVector<uint16, Loki::AssocVector<uint8, int32>>::iterator itr = m_spellGroupModifiers.begin(); itr != m_spellGroupModifiers.end(); itr++)
+        {
+            uint8 modType = (itr->first >> 8);
+            // Indexing for our mapping
+            if(modType != i)
+                continue;
+
+            modCount++;
+            data << uint8(itr->first & 0x00FF);
+            uint32 modifierCount = 0;
+            size_t sizePos = data.wpos();
+            data << modifierCount;
+            for(Loki::AssocVector<uint8, int32>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
+            {
+                data << itr2->first << itr2->second;
+                modifierCount++;
+            }
+            if(modifierCount)
+                data.put<uint32>(sizePos, modifierCount);
+        }
+
+        if(modCount)
+        {
+            data.put<uint32>(0, modCount);
+            plr->PushPacket(&data, true);
+        }
+    }
 }
 
 bool AuraInterface::BuildAuraUpdateAllPacket(WorldPacket* data)
@@ -1348,7 +1397,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
 
     uint32 count = 0;
     WorldPacket *data = NULL;
-    if(m_Unit->IsPlayer())
+    if(m_Unit->IsPlayer() && m_Unit->IsInWorld())
     {
         data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index2, 20);
         *data << uint32(1) << count << uint8(index1);
@@ -1368,7 +1417,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
     if(data)
     {
         data->put<uint32>(4, count);
-        castPtr<Player>(m_Unit)->SendPacket(data);
+        castPtr<Player>(m_Unit)->PushPacket(data);
         delete data;
     }
 }

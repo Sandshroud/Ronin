@@ -367,7 +367,7 @@ bool IsException(Player* plr, uint32 spellid)
     case 63644:
     case 63645:
         {
-            if(plr->m_talentInterface.GetSpecCount() > 1)
+            if(plr->GetTalentInterface()->GetSpecCount() > 1)
                 return true;
         }break;
     }
