@@ -166,7 +166,7 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 
 PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
 {
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId,lastSaveTime FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
     if(result == NULL)
         return NULL;
 
@@ -187,6 +187,7 @@ PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
     pn->lastPositionZ = fields[13].GetFloat();
     pn->lastOrientation = fields[14].GetFloat();
     pn->lastZone = fields[15].GetUInt32();
+    pn->lastOnline = fields[16].GetUInt64();
     delete result;
 
     if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
@@ -290,7 +291,7 @@ SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
 
 void ObjectMgr::LoadPlayersInfo()
 {
-    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId FROM character_data"))
+    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId,lastSaveTime FROM character_data"))
     {
         uint32 period = (result->GetRowCount() / 20) + 1, c = 0;
 
@@ -313,6 +314,7 @@ void ObjectMgr::LoadPlayersInfo()
             pn->lastPositionZ = fields[13].GetFloat();
             pn->lastOrientation = fields[14].GetFloat();
             pn->lastZone = fields[15].GetUInt32();
+            pn->lastOnline = fields[16].GetUInt64();
 
             if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
             {
