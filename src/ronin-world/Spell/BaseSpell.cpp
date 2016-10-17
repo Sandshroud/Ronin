@@ -90,17 +90,16 @@ BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, Wo
     m_duration = -1;
     m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
     m_radius[1][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
-    m_triggeredSpell = m_projectileWait = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
+    m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
     m_triggeredByAura = NULL;
-    m_missilePitch = 0.f;
-    m_missileTravelTime = m_MSTimeToAddToTravel = 0;
-    m_timer = m_castTime = 0;
+    m_missilePitch = m_missileSpeed = 0.f;
+    m_missileTravelTime = 0;
+    m_timer = m_castTime = m_delayedTimer = 0;
 }
 
 BaseSpell::~BaseSpell()
 {
-
 }
 
 void BaseSpell::_Prepare()
@@ -108,8 +107,8 @@ void BaseSpell::_Prepare()
     m_missilePitch = m_targets.missilepitch;
     m_missileTravelTime = floor(m_targets.traveltime);
 
-    if(m_missileTravelTime || m_spellInfo->speed > 0.0f && !m_spellInfo->IsSpellChannelSpell() || m_spellInfo->Id == 14157)
-        m_projectileWait = true;
+    if((m_missileTravelTime || m_spellInfo->speed > 0.0f) && !m_spellInfo->IsSpellChannelSpell())
+        m_missileSpeed = m_spellInfo->speed/1000.f;
 
     if((m_spellInfo->SpellScalingId || m_spellInfo->CastingTimeIndex) && !(m_triggeredSpell || (m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat)))
     {
@@ -174,6 +173,8 @@ void BaseSpell::Destruct()
         delete tgt;
     }
     m_fullTargetMap.clear();
+    m_delayTargets.clear();
+    m_spellMisses.clear();
 
     m_caster = NULL;
     m_spellInfo = NULL;
@@ -189,8 +190,9 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
     // Make sure we don't hit over 100 targets.
     // It's fine internally, but sending it to the client will REALLY cause it to freak.
 
-    *data << uint8(std::min<uint32>(100, m_fullTargetMap.size()));
-    if(!m_fullTargetMap.empty())
+    size_t pos = data->wpos();
+    *data << uint8(0);
+    if(!m_fullTargetMap.empty() && m_fullTargetMap.size() > m_spellMisses.size())
     {
         counter = 0;
         for( itr = m_fullTargetMap.begin(); itr != m_fullTargetMap.end() && counter < 100; itr++ )
@@ -201,10 +203,11 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
                 ++counter;
             }
         }
+        data->put<uint8>(pos, counter);
     }
 
-    size_t pos = data->wpos();
-    *data << uint8(std::min<uint32>(100, m_spellMisses.size()));
+    pos = data->wpos();
+    *data << uint8(0);
     if( !m_spellMisses.empty() )
     {
         counter = 0;
@@ -333,18 +336,21 @@ void BaseSpell::SendSpellGo()
     m_caster->SendMessageToSet( &data, m_caster->IsPlayer() );
 }
 
-void BaseSpell::SendSpellMisses()
+void BaseSpell::SendSpellMisses(SpellTarget *forced)
 {
-    if( m_spellMisses.empty() )
+    if( m_spellMisses.empty() && forced == NULL )
         return;
 
     WorldPacket data(SMSG_SPELLLOGMISS, 29);
     data << m_spellInfo->Id;
     data << m_caster->GetGUID();
     data << m_castNumber;
-    data << uint32(m_spellMisses.size());
-    for(std::vector<std::pair<WoWGuid, uint8>>::iterator itr = m_spellMisses.begin(); itr != m_spellMisses.end(); itr++)
-        data << (*itr).first << (*itr).second;
+    if(forced == NULL)
+    {
+        data << uint32(m_spellMisses.size());
+        for(std::vector<std::pair<WoWGuid, uint8>>::iterator itr = m_spellMisses.begin(); itr != m_spellMisses.end(); itr++)
+            data << (*itr).first << (*itr).second;
+    } else data << uint32(1) << forced->Guid << forced->HitResult;
     m_caster->SendMessageToSet(&data, true);
 }
 
@@ -356,7 +362,7 @@ bool BaseSpell::IsNeedSendToClient()
         return true;
     if(m_spellInfo->isChanneledSpell() || m_spellInfo->isChanneledSpell2())
         return true;
-    if(m_spellInfo->speed > 0.0f)
+    if(m_missileSpeed > 0.0f)
         return true;
     if(!m_triggeredSpell)
         return true;

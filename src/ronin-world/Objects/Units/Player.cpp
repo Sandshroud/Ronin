@@ -6698,7 +6698,7 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
         itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].find( pSpell->Category );
         if( itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end( ) )
         {
-            if( now <= itr->second.ExpireTime )
+            if( now < itr->second.ExpireTime )
                 return false;
             m_cooldownMap[COOLDOWN_TYPE_CATEGORY].erase( itr );
         }
@@ -6707,7 +6707,7 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
     itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find( pSpell->Id );
     if( itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end( ) )
     {
-        if( now <= itr->second.ExpireTime )
+        if( now < itr->second.ExpireTime )
             return false;
         m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr );
     }

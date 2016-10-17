@@ -583,7 +583,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
 
 uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 {
-    uint8 ccr;
+    uint8 ccr = SPELL_CANCAST_OK;
     if( m_caster->IsPlayer() && (m_spellInfo->Id == 51514 || m_spellInfo->NameHash == SPELL_HASH_ARCANE_SHOT || m_spellInfo->NameHash == SPELL_HASH_MIND_FLAY))
     {
         targets->m_unitTarget = 0;
@@ -594,12 +594,9 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     m_triggeredSpell = triggered;
 
     // Call base spell preparations
-    BaseSpell::_Prepare();
+    _Prepare();
 
-    if( m_triggeredSpell )
-        m_canCastResult = SPELL_CANCAST_OK;
-    else ccr = m_canCastResult = CanCast(false);
-    if( m_canCastResult != SPELL_CANCAST_OK )
+    if( m_triggeredSpell == false && (ccr = (m_canCastResult = CanCast(false))) != SPELL_CANCAST_OK )
     {
         SendCastResult( m_canCastResult );
 
@@ -736,8 +733,7 @@ void Spell::cast(bool check)
 
     sLog.Debug("Spell","Cast %u, Unit: %u", m_spellInfo->Id, m_caster->GetLowGUID());
 
-    // Set the base ms time to now
-    m_MSTimeToAddToTravel = getMSTime();
+    // Check to see if we can cast the spell
     if(check && (m_canCastResult = CanCast(true)) != SPELL_CANCAST_OK)
     {
         // cancast failed
@@ -817,8 +813,10 @@ void Spell::cast(bool check)
         unitCaster->SetCurrentSpell(this);
         return;
     }
-    else if(m_projectileWait)
+    else if(m_missileSpeed > 0.f)
     {
+        if(!m_delayTargets.empty())
+            m_caster->GetMapInstance()->AddProjectile(this);
         finish();
         return;
     }
@@ -833,7 +831,7 @@ void Spell::cast(bool check)
         {
             if(WorldObject *target = m_caster->GetInRangeObject(itr->first))
             {
-                HandleEffects(i, target);
+                HandleEffects(i, itr->second, target);
                 if(!target->IsUnit() || unitTargets.find(itr->first) != unitTargets.end())
                     continue;
                 unitTargets.insert(itr->first);
@@ -958,11 +956,6 @@ void Spell::Update(uint32 difftime)
     }
 }
 
-void Spell::_UpdateChanneledSpell(uint32 difftime)
-{
-
-}
-
 void Spell::updatePosition(float x, float y, float z)
 {
     if(m_spellInfo->isSpellInterruptOnMovement() && ( m_castPositionX != x || m_castPositionY != y || m_castPositionZ != z))
@@ -973,6 +966,62 @@ void Spell::updatePosition(float x, float y, float z)
             return;
         }
     }
+}
+
+void Spell::_UpdateChanneledSpell(uint32 difftime)
+{
+
+}
+
+bool Spell::UpdateDelayedTargetEffects(MapInstance *instance, uint32 difftime)
+{
+    m_delayedTimer += difftime;
+    float distanceTraveled = m_delayedTimer * m_missileSpeed;
+    // Distance is squared, so square our travel distance
+    distanceTraveled *= distanceTraveled;
+
+    // Check our delayed target map
+    SpellDelayTargets targets(m_delayTargets);
+    for(SpellDelayTargets::iterator itr = targets.begin(); itr != targets.end(); itr++)
+    {
+        WoWGuid guid = *itr;
+        WorldObject *target = NULL;
+        SpellTarget *spTarget = GetSpellTarget(guid);
+        if(spTarget != NULL)
+        {
+            if(m_caster == NULL || (target = m_caster->GetInRangeObject<WorldObject>(guid)) == NULL)
+            {
+                if(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT)
+                    target = instance->GetGameObject(guid);
+                else target = instance->GetUnit(guid);
+            }
+
+            if(target != NULL)
+            {
+                if(distanceTraveled < target->GetDistanceSq(m_castPositionX, m_castPositionY, m_castPositionZ))
+                    continue;
+
+                if(spTarget->HitResult == SPELL_DID_HIT_SUCCESS)
+                {
+                    for(uint8 i = 0; i < 3; i++)
+                        HandleEffects(i, spTarget, target);
+                    if(target->IsUnit())
+                    {                    
+                        HandleDelayedEffects(castPtr<Unit>(target), spTarget);
+                        if(m_spellInfo->TargetAuraState)
+                            target->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (m_spellInfo->TargetAuraState - 1) );
+                    }
+                } else SendSpellMisses(spTarget);
+            }
+        }
+
+        m_delayTargets.erase(guid);
+    }
+
+    targets.clear();
+    if(m_delayTargets.empty())
+        return true;
+    return false;
 }
 
 void Spell::finish()
@@ -1009,7 +1058,7 @@ void Spell::finish()
             RemoveItems();
     }
 
-    //if(!m_projectileWait)
+    if(m_delayTargets.empty())
         Destruct();
 }
 
@@ -1927,29 +1976,16 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
         tgt = itr->second;
     else
     {
-        tgt = new SpellTarget();
-        tgt->Guid = target->GetGUID();
-        if(m_spellInfo->speed > 0.0f)
-        {
-            // calculate spell incoming interval
-            float dist = sqrtf(m_caster->GetDistanceSq(target));
-            tgt->destinationTime = uint32(floor(dist / m_spellInfo->speed*1000.0f));
-            if(tgt->destinationTime+m_MSTimeToAddToTravel < 200)
-                tgt->destinationTime = 0;
-            if (m_missileTravelTime == 0 || tgt->destinationTime > m_missileTravelTime)
-                m_missileTravelTime = tgt->destinationTime;
-            tgt->destinationTime += m_MSTimeToAddToTravel;
-        } else tgt->destinationTime = 0;
-
-        tgt->ReflectResult = tgt->accumAmount = 0; tgt->resistMod = 0.f;
+        tgt = new SpellTarget(target->GetGUID());
         tgt->HitResult = target->IsUnit() ? _DidHit(castPtr<Unit>(target), &tgt->resistMod, &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
 
-        // add counter
         if( tgt->HitResult != SPELL_DID_HIT_SUCCESS )
             m_spellMisses.push_back(std::make_pair(tgt->Guid, tgt->HitResult));
 
         // Add us to the full target map
         m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
+        // If we're a delayed spell push us into our delayed vector
+        if(m_missileSpeed > 0.f) m_delayTargets.insert(tgt->Guid);
     }
 
     if(tgt->HitResult != SPELL_DID_HIT_SUCCESS)
@@ -1957,7 +1993,10 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
 
     // Add effect mask
     tgt->EffectMask |= (1<<effIndex);
-
+    // Calculate effect amount
+    tgt->effectAmount[effIndex] = CalculateEffect(effIndex, target);
+    // Call to spell manager to modify the spell amount
+    tgt->moddedAmount[effIndex] = sSpellMgr.ModifyEffectAmount(this, effIndex, m_caster, target, tgt->effectAmount[effIndex]);
     // add to the effect target map
     m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
 }

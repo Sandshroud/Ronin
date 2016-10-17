@@ -67,13 +67,11 @@ int32 SpellEffectClass::CalculateEffect(uint32 i, WorldObject* target)
     return value;
 }
 
-void SpellEffectClass::HandleEffects(uint32 i, WorldObject *target)
+void SpellEffectClass::HandleEffects(uint32 i, SpellTarget *spTarget, WorldObject *target)
 {
     uint32 effect = m_spellInfo->Effect[i];
-    int32 amount = CalculateEffect(i, target);
-    bool moddedAmt = sSpellMgr.ModifyEffectAmount(this, i, m_caster, target, amount);
     if(SpellEffectClass::m_spellEffectMap.find(effect) != SpellEffectClass::m_spellEffectMap.end())
-        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, amount, moddedAmt == false);
+        (*this.*SpellEffectClass::m_spellEffectMap.at(effect))(i, target, spTarget->effectAmount[i], !spTarget->moddedAmount[i]);
     else sLog.Error("Spell", "Unknown effect %u spellid %u", effect, m_spellInfo->Id);
 }
 
@@ -979,10 +977,10 @@ void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, i
         return;
 
     float minDamage = 0.f, damageDiff = 1.f;
-    if(m_caster->IsCreature())
+    if(m_caster->IsCreature() || !(false/* Check to see if damage is based on weapon proto or player stat*/))
     {   // Creatures we don't have weapons so just grab our actual min and max damage
-        minDamage = m_caster->GetUInt32Value(UNIT_FIELD_MINDAMAGE);
-        damageDiff = m_caster->GetUInt32Value(UNIT_FIELD_MAXDAMAGE)-minDamage;
+        minDamage = m_caster->GetFloatValue(UNIT_FIELD_MINDAMAGE);
+        damageDiff = m_caster->GetFloatValue(UNIT_FIELD_MAXDAMAGE)-minDamage;
     }
     else // Players we grab actual weapon damage values
     {

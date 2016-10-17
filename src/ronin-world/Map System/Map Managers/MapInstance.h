@@ -329,6 +329,7 @@ public:
     void _PerformCreatureUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformObjectUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff);
+    void _PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformSessionUpdates();
     void _PerformPendingUpdates();
 
@@ -352,6 +353,8 @@ public:
     void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
     void BeginInstanceExpireCountdown();
     void HookOnAreaTrigger(Player* plr, uint32 id);
+
+    RONIN_INLINE void AddProjectile(Spell *spell) { m_projectileSpells.insert(spell); }
 
 protected:
     //! Collect and send updates to clients
@@ -397,6 +400,7 @@ public:
     StoragePool<Creature> mCreaturePool;
     StoragePool<GameObject> mGameObjectPool;
     StoragePool<DynamicObject> mDynamicObjectPool;
+    std::set<Spell*> m_projectileSpells;
 
     CBattleground* m_battleground;
     std::vector<Corpse* > m_corpses;

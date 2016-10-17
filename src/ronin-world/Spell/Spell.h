@@ -60,8 +60,12 @@ public:
     void cancel();
     // Update spell state based on time difference
     void Update(uint32 difftime);
+    // Checks against the cast position and cancels if we've moved
     void updatePosition(float x, float y, float z);
+    // Updates our channel based data for triggers etc
     void _UpdateChanneledSpell(uint32 difftime);
+    // Updates delayed targets, calls finish() as well
+    bool UpdateDelayedTargetEffects(MapInstance *instance, uint32 diffTime);
     // Casts the spell
     void cast(bool);
     // Finishes the casted spell

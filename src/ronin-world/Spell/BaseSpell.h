@@ -56,18 +56,27 @@ public:
 
 struct SpellTarget
 {
+    SpellTarget(WoWGuid guid) : Guid(guid)
+    {
+        HitResult = EffectMask = ReflectResult = 0;
+        moddedAmount[0] = moddedAmount[1] = moddedAmount[2] = false;
+        accumAmount = effectAmount[0] = effectAmount[1] = effectAmount[2] = 0;
+        resistMod = 0.f;
+    }
+
     WoWGuid Guid;
     uint8 HitResult;
     uint8 EffectMask;
     uint8 ReflectResult;
 
     float resistMod;
-    uint32 accumAmount;
-    uint32 destinationTime;
+    bool moddedAmount[3];
+    int32 accumAmount, effectAmount[3];
 };
 
 typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetStorage;
 typedef std::vector<std::pair<WoWGuid, uint8>> SpellMissesStorage;
+typedef std::set<WoWGuid> SpellDelayTargets;
 
 // Spell instance
 class BaseSpell
@@ -91,7 +100,7 @@ public:
     bool IsNeedSendToClient();
     void SendSpellStart();
     void SendSpellGo();
-    void SendSpellMisses();
+    void SendSpellMisses(SpellTarget *forced = NULL);
     void SendProjectileUpdate();
 
     void SendCastResult(uint8 result);
@@ -163,13 +172,12 @@ protected:
     float  m_radius[2][3];
     bool   b_radSet[3], b_durSet;
     bool   m_AreaAura;
-    bool   m_projectileWait;
 
-    uint32 m_castTime, m_timer;
+    uint32 m_castTime, m_timer, m_delayedTimer;
     uint32 m_spellState;
 
-    float m_missilePitch;
-    uint32 m_missileTravelTime, m_MSTimeToAddToTravel;
+    float m_missilePitch, m_missileSpeed;
+    uint32 m_missileTravelTime;
 
     Aura* m_triggeredByAura;
     bool m_triggeredSpell;
@@ -177,6 +185,7 @@ protected:
 
 protected: // Spell targetting
     SpellTargetStorage m_fullTargetMap, m_effectTargetMaps[3];
+    SpellDelayTargets m_delayTargets;
     SpellMissesStorage m_spellMisses;
     SpellCastTargets m_targets;
 };

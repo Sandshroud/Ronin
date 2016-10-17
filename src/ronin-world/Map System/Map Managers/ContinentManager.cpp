@@ -57,6 +57,10 @@ bool ContinentManager::run()
         m_continent->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+        // Perform all delayed spell updates before object updates
+        m_continent->_PerformDelayedSpellUpdates(mstime, diff);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Perform all player updates in sequence
         m_continent->_PerformPlayerUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))

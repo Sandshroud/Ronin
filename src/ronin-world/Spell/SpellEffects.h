@@ -23,7 +23,7 @@ public:
     int32 CalculateEffect(uint32 effIndex, WorldObject* target);
 
     // Handle the Effects of the Spell
-    void HandleEffects(uint32 i, WorldObject *target);
+    void HandleEffects(uint32 i, SpellTarget *spTarget, WorldObject *target);
     void HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTarget);
     // Add auras after handling effects
     void HandleAddAura(Unit *target);

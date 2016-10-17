@@ -1248,6 +1248,24 @@ void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
     m_poolLock.Release();
 }
 
+void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
+{
+    m_poolLock.Acquire();
+    std::vector<Spell*> cleanupSet;
+    for(std::set<Spell*>::iterator itr = m_projectileSpells.begin(); itr != m_projectileSpells.end(); itr++)
+        if((*itr)->UpdateDelayedTargetEffects(this, uiDiff))
+            cleanupSet.push_back(*itr);
+
+    while(!cleanupSet.empty())
+    {
+        Spell *spell = *cleanupSet.begin();
+        cleanupSet.erase(cleanupSet.begin());
+        m_projectileSpells.erase(spell);
+        delete spell;
+    }
+    m_poolLock.Release();
+}
+
 void MapInstance::_PerformSessionUpdates()
 {
     // Sessions are updated every loop.
