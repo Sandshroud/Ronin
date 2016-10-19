@@ -396,6 +396,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask
 void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* target )
 {
     GameObject *tThis = NULL;
+    Unit *uThis = IsUnit() ? castPtr<Unit>(this) : NULL;
     ByteBuffer livingBuffer, stopFrameBuffer;
     if (IsGameObject() && castPtr<GameObject>(this)->GetType() == GAMEOBJECT_TYPE_TRANSPORT)
         tThis = castPtr<GameObject>(this);
@@ -417,12 +418,15 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
 
     if(flags & UPDATEFLAG_LIVING)
-        castPtr<Unit>(this)->GetMovementInterface()->WriteObjectUpdate(data, &livingBuffer);
+    {
+        if(target == this) uThis->GetMovementInterface()->SetSelfTempData(true);
+        uThis->GetMovementInterface()->WriteObjectUpdate(data, &livingBuffer);
+        if(target == this) uThis->GetMovementInterface()->SetSelfTempData(false);
+    }
 
     // used only with GO's, placeholder
     if (flags & UPDATEFLAG_GO_TRANSPORT_POS)
     {
-        Unit *uThis = castPtr<Unit>(this);
         WoWGuid guid = uThis->GetTransportGuid();
         MovementInterface *mi = uThis->GetMovementInterface();
         data->WriteBit(guid[5]);

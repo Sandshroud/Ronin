@@ -393,12 +393,12 @@ Unit* Aura::GetUnitCaster()
     return NULL;
 }
 
-Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
-    : m_target(target), m_spellProto(proto), m_auraFlags(0), m_auraLevel(MAXIMUM_ATTAINABLE_LEVEL), m_duration(-1), m_expirationTime(0), m_casterGuid(caster->GetGUID()),
+Aura::Aura( SpellEntry* proto, Unit* target, int16 stackSizeOrProcCharges, WoWGuid casterGuid )
+    : m_target(target), m_spellProto(proto), m_auraFlags(0), m_auraLevel(MAXIMUM_ATTAINABLE_LEVEL), m_duration(-1), m_expirationTime(0), m_casterGuid(casterGuid),
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
-    m_stackSizeorProcCharges = (m_spellProto->procCharges ? (-int16(m_spellProto->procCharges&0xFF)) : 1);
+    m_stackSizeorProcCharges = stackSizeOrProcCharges;//(m_spellProto->procCharges ? (-int16(m_spellProto->procCharges&0xFF)) : 1);
     if(!IsPassive())
     {
         m_auraFlags |= AFLAG_EFF_AMOUNT_SEND;
@@ -412,7 +412,7 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
     memset(m_modList, 0, sizeof(Modifier)*3);
     CalculateDuration();
 
-    if( caster->IsUnit() )
+    /*if( caster->IsUnit() )
     {
         m_auraLevel = castPtr<Unit>(caster)->getLevel();
         if(m_stackSizeorProcCharges < 0 && m_spellProto->SpellGroupType)
@@ -422,7 +422,7 @@ Aura::Aura( SpellEntry* proto, WorldObject* caster, Unit* target )
             castPtr<Unit>(caster)->SM_PIValue(SMT_CHARGES, (int32*)&procCharges, m_spellProto->SpellGroupType);
             m_stackSizeorProcCharges = -(procCharges&0xFF);
         }
-    }
+    }*/
 
     m_castedItemId = 0;
     m_triggeredSpellId = 0;
@@ -461,6 +461,11 @@ void Aura::Update(uint32 diff)
 
     if(m_expirationTime <= UNIXTIME)
         Remove();
+}
+
+void Aura::UpdatePreApplication()
+{
+    CalculateDuration();
 }
 
 void Aura::CalculateDuration()
@@ -1023,12 +1028,7 @@ void Aura::SpellAuraModStat(bool apply)
 
 void Aura::SpellAuraModSkill(bool apply)
 {
-    if (m_target->IsPlayer())
-    {
-        if(apply)
-            castPtr<Player>( m_target )->_ModifySkillBonus(mod->m_miscValue[0], mod->m_amount);
-        else castPtr<Player>( m_target )->_ModifySkillBonus(mod->m_miscValue[0], -mod->m_amount);
-    }
+
 }
 
 void Aura::SpellAuraModIncreaseSpeed(bool apply)
@@ -1175,12 +1175,7 @@ void Aura::SpellAuraTrackResources(bool apply)
 
 void Aura::SpellAuraModParrySkill(bool apply)
 {
-    if (m_target->IsPlayer())
-    {
-        if(apply)
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_PARRY, mod->m_amount);
-        else castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_PARRY, -mod->m_amount);
-    }
+
 }
 
 void Aura::SpellAuraModParryPerc(bool apply)
@@ -1190,12 +1185,7 @@ void Aura::SpellAuraModParryPerc(bool apply)
 
 void Aura::SpellAuraModDodgeSkill(bool apply)
 {
-    if (m_target->IsPlayer())
-    {
-        if(apply)
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_DODGE, mod->m_amount);
-        else castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_DODGE, -mod->m_amount);
-    }
+
 }
 
 void Aura::SpellAuraModDodgePerc(bool apply)
@@ -1205,12 +1195,7 @@ void Aura::SpellAuraModDodgePerc(bool apply)
 
 void Aura::SpellAuraModBlockSkill(bool apply)
 {
-    if (m_target->IsPlayer())
-    {
-        if(apply)
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_BLOCK, mod->m_amount);
-        else castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_BLOCK, -mod->m_amount);
-    }
+
 }
 
 void Aura::SpellAuraModBlockPerc(bool apply)
@@ -2366,46 +2351,7 @@ void Aura::SpellAuraModAttackerCritChance(bool apply)
 
 void Aura::SpellAuraIncreaseAllWeaponSkill(bool apply)
 {
-    if (m_target->IsPlayer())
-    {
-        if(apply)
-        {
-//          castPtr<Player>( m_target )->ModSkillBonusType(SKILL_TYPE_WEAPON, mod->m_amount);
-            //since the frikkin above line does not work we have to do it manually
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_SWORDS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_AXES, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_BOWS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_GUNS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_MACES, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_2H_SWORDS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_STAVES, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_2H_MACES, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_2H_AXES, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_DAGGERS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_CROSSBOWS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_SPEARS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_WANDS, mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_POLEARMS, mod->m_amount);
-        }
-        else
-        {
-//          castPtr<Player>( m_target )->ModSkillBonusType(SKILL_TYPE_WEAPON, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_SWORDS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_AXES, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_BOWS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_GUNS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_MACES, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_2H_SWORDS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_STAVES, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_2H_MACES, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_2H_AXES, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_DAGGERS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_CROSSBOWS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_SPEARS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_WANDS, -mod->m_amount);
-            castPtr<Player>( m_target )->_ModifySkillBonus(SKILL_POLEARMS, -mod->m_amount);
-        }
-    }
+
 }
 
 void Aura::SpellAuraIncreaseHitRate( bool apply )

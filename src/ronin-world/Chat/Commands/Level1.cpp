@@ -481,7 +481,7 @@ bool ChatHandler::HandleLearnSkillCommand(const char *args, WorldSession *m_sess
     if(plr->GetTypeId() != TYPEID_PLAYER) return false;
     sWorld.LogGM(m_session, "used add skill of %u %u %u on %s", skill, min, max, plr->GetName());
 
-    plr->_AddSkillLine(skill, min, max);
+    plr->AddSkillLine(skill, 0, max, min);
 
     return true;
 }
@@ -512,12 +512,12 @@ bool ChatHandler::HandleModifySkillCommand(const char *args, WorldSession *m_ses
     if(!plr) return false;
     sWorld.LogGM(m_session, "used modify skill of %u %u on %s", skill, cnt, plr->GetName());
 
-    if(!plr->_HasSkillLine(skill))
+    if(!plr->HasSkillLine(skill))
     {
         SystemMessage(m_session, "Does not have skill line, adding.");
-        plr->_AddSkillLine(skill, 1, 300);
+        plr->AddSkillLine(skill, 0, 300, 1);
     } else {
-        plr->_AdvanceSkillLine(skill,cnt);
+        plr->ModSkillLineAmount(skill, cnt, false);
     }
 
     return true;
@@ -551,15 +551,15 @@ bool ChatHandler::HandleGetSkillLevelCommand(const char *args, WorldSession *m_s
         return false;
     }
 
-    if (!plr->_HasSkillLine(skill))
+    if (!plr->HasSkillLine(skill))
     {
         BlueSystemMessage(m_session, "Player does not have %s skill.", SkillName);
         return false;
     }
 
-    uint32 nobonus = plr->_GetSkillLineCurrent(skill,false);
-    uint32 bonus = plr->_GetSkillLineCurrent(skill,true) - nobonus;
-    uint32 max = plr->_GetSkillLineMax(skill);
+    uint32 nobonus = plr->getSkillLineVal(skill,false);
+    uint32 bonus = plr->getSkillLineVal(skill,true) - nobonus;
+    uint32 max = plr->getSkillLineMax(skill);
 
     BlueSystemMessage(m_session, "Player's %s skill has level: %u maxlevel: %u. (+ %u bonus)", SkillName,max,nobonus, bonus);
     return true;
@@ -579,7 +579,7 @@ bool ChatHandler::HandleGetSkillsInfoCommand(const char *args, WorldSession *m_s
 
     for (uint32 SkillId = 0; SkillId <= SkillNameManager->maxskill; SkillId++)
     {
-        if (plr->_HasSkillLine(SkillId))
+        if (plr->HasSkillLine(SkillId))
         {
             char * SkillName = SkillNameManager->SkillNames[SkillId];
             if (!SkillName)
@@ -588,9 +588,9 @@ bool ChatHandler::HandleGetSkillsInfoCommand(const char *args, WorldSession *m_s
                 continue;
             }
 
-            nobonus = plr->_GetSkillLineCurrent(SkillId,false);
-            bonus = plr->_GetSkillLineCurrent(SkillId,true) - nobonus;
-            max = plr->_GetSkillLineMax(SkillId);
+            nobonus = plr->getSkillLineVal(SkillId,false);
+            bonus = plr->getSkillLineVal(SkillId,true) - nobonus;
+            max = plr->getSkillLineMax(SkillId);
 
             BlueSystemMessage(m_session, "  %s: Value: %u, MaxValue: %u. (+ %d bonus)", SkillName, nobonus,max, bonus);
         }
@@ -613,7 +613,7 @@ bool ChatHandler::HandleRemoveSkillCommand(const char *args, WorldSession *m_ses
     Player* plr = getSelectedChar(m_session, true);
     if(!plr) return true;
     sWorld.LogGM(m_session, "used remove skill of %u on %s", skill, plr->GetName());
-    plr->_RemoveSkillLine(skill);
+    plr->RemoveSkillLine(skill);
     SystemMessageToPlr(plr, "%s removed skill line %d from you. ", m_session->GetPlayer()->GetName(), skill);
     return true;
 }

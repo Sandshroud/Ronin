@@ -1633,7 +1633,7 @@ float Unit::CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechan
 {
     float level = getLevel(), vLevel = pVictim->getLevel(), rawDiff = level-vLevel, advantage = vLevel/level;
     rawDiff = floor(std::max<float>(-10.f, std::min<float>(10.f, rawDiff)));
-    uint32 defense = pVictim->IsPlayer() ? castPtr<Player>(pVictim)->_GetSkillLineCurrent(SKILL_DEFENSE) : vLevel*5;
+    uint32 defense = pVictim->IsPlayer() ? castPtr<Player>(pVictim)->getSkillLineVal(SKILL_DEFENSE) : vLevel*5;
 
     hitchance -= pVictim->GetDodgeChance();
     hitchance += hitModifierPerLevelDiff[10+uint8(rawDiff)];
@@ -2662,18 +2662,17 @@ void Unit::CastSpell(uint64 targetGuid, uint32 SpellID, bool triggered, uint32 f
 
 uint8 Unit::CastSpellAoF(float x,float y,float z,SpellEntry* Sp, bool triggered, uint32 forcedCastTime)
 {
-    if( Sp == NULL )
-        return SPELL_FAILED_ERROR;
-
-    /*creature will not cast spells while moving, just interrupts itself all the time*/
-    if(!IsPlayer() && (IsStunned() || IsPacified() || !isAlive() || m_silenced))
-        return SPELL_FAILED_INTERRUPTED;
-
-    SpellCastTargets targets;
-    targets.m_dest.ChangeCoords(x, y, z);
-    targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
-    Spell* newSpell = new Spell(this, Sp);
-    return newSpell->prepare(&targets, triggered);
+    if(Sp && (!(IsStunned() || IsPacified() || !isAlive() || m_silenced)))
+    {
+        if(Spell* newSpell = new Spell(this, Sp))
+        {
+            SpellCastTargets targets;
+            targets.m_dest.ChangeCoords(x, y, z);
+            targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
+            return newSpell->prepare(&targets, triggered);
+        }
+    }
+    return SPELL_FAILED_ERROR;
 }
 
 void Unit::PlaySpellVisual(uint64 target, uint32 spellVisual)
@@ -3105,7 +3104,7 @@ float Unit::CalculateDazeCastChance(Unit* target)
 {
     float attack_skill = float( getLevel() ) * 5.0f, defense_skill = 1.f;
     if( target->IsPlayer() )
-        defense_skill = float( castPtr<Player>( target )->_GetSkillLineCurrent( SKILL_DEFENSE, false ) );
+        defense_skill = float( castPtr<Player>( target )->getSkillLineVal( SKILL_DEFENSE, false ) );
     else defense_skill = float( target->getLevel() * 5 );
 
     float chance_to_daze = (attack_skill * 20 / std::max<float>(1.f, defense_skill)) //if level is equal then we get a 20% chance to daze

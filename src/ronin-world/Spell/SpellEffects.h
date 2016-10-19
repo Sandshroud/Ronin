@@ -25,8 +25,6 @@ public:
     // Handle the Effects of the Spell
     void HandleEffects(uint32 i, SpellTarget *spTarget, WorldObject *target);
     void HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTarget);
-    // Add auras after handling effects
-    void HandleAddAura(Unit *target);
     // Handles Teleport function
     void HandleTeleport(uint32 id, Unit* Target);
     // Handles healing function
@@ -48,6 +46,9 @@ private:
 
 protected: // Effect Handlers
     void SpellEffectNULL(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
+    // Delayed effect can be left empty
+    RONIN_INLINE void SpellEffectDelayed(uint32 i, WorldObject *target, int32 amount, bool rawAmt) {}
+    // regular spell effect handlers
     void SpellEffectInstantKill(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectDummy(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
@@ -128,9 +129,6 @@ protected: // Effect Handlers
     void SpellEffectOpenLockItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectSelfResurrect(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectDisenchant(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
-    void SpellEffectWeapon(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
-    void SpellEffectLanguage(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
-    void SpellEffectDualWield(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectResurrectNew(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectTranformItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt);

@@ -354,7 +354,15 @@ public:
     void BeginInstanceExpireCountdown();
     void HookOnAreaTrigger(Player* plr, uint32 id);
 
-    RONIN_INLINE void AddProjectile(Spell *spell) { m_projectileSpells.insert(spell); }
+    RONIN_INLINE void AddProjectile(Spell *spell)
+    {
+        m_poolLock.Acquire();
+        uint8 index = projectileSpellIndex[1]++;
+        if(projectileSpellIndex[1] == 2)
+            projectileSpellIndex[1] = 0;
+        m_projectileSpells[index].insert(spell);
+        m_poolLock.Release();
+    }
 
 protected:
     //! Collect and send updates to clients
@@ -400,7 +408,12 @@ public:
     StoragePool<Creature> mCreaturePool;
     StoragePool<GameObject> mGameObjectPool;
     StoragePool<DynamicObject> mDynamicObjectPool;
-    std::set<Spell*> m_projectileSpells;
+
+    // Storage pool setup for projectile spells
+    uint32 projectileSpellUpdateTime[2];
+    uint8 projectileSpellIndex[2];
+    std::set<Spell*> m_projectileSpells[2];
+    // End storage pool setup for projectile spells
 
     CBattleground* m_battleground;
     std::vector<Corpse* > m_corpses;

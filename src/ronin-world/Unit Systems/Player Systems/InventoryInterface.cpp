@@ -204,7 +204,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
     if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
     {
         //ASSERT(m_pItems[slot] == NULL);
-        if(GetInventoryItem(slot) != NULL || (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->_HasSkillLine(118)))
+        if(GetInventoryItem(slot) != NULL || (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->HasSkillLine(118)))
         {
             result = FindFreeInventorySlot(item->GetProto());
 
@@ -1523,7 +1523,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
                 return INV_ERR_PROFICIENCY_NEEDED;
         }
 
-        if (proto->RequiredSkill > 0 && !((uint32)proto->RequiredSkillRank > m_pOwner->_GetSkillLineCurrent(proto->RequiredSkill,true)))
+        if (proto->RequiredSkill > 0 && !((uint32)proto->RequiredSkillRank > m_pOwner->getSkillLineVal(proto->RequiredSkill,true)))
             return INV_ERR_CANT_EQUIP_SKILL;
 
         if (proto->RequiredSpell && !m_pOwner->HasSpell(proto->RequiredSpell))
@@ -1571,9 +1571,9 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
                 if(Item* mainweapon = GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)) //item exists
                 {
                     if(mainweapon->GetProto() && mainweapon->GetProto()->InventoryType != INVTYPE_2HWEAPON)
-                        return m_pOwner->_HasSkillLine(SKILL_DUAL_WIELD) ? 0 : INV_ERR_2HSKILLNOTFOUND;
+                        return m_pOwner->HasSkillLine(SKILL_DUAL_WIELD) ? 0 : INV_ERR_2HSKILLNOTFOUND;
                     return skip_2h_check ? 0 : INV_ERR_2HANDED_EQUIPPED;
-                } else if(m_pOwner->_HasSkillLine(SKILL_DUAL_WIELD))
+                } else if(m_pOwner->HasSkillLine(SKILL_DUAL_WIELD))
                     return 0;
                 return INV_ERR_2HSKILLNOTFOUND;
             }
@@ -2259,67 +2259,11 @@ bool PlayerInventory::SwapItemSlots(int16 srcslot, int16 dstslot)
         m_pOwner->SetUInt64Value( PLAYER_FIELD_INV_SLOT_HEAD + (srcslot*2), 0 );
     }
 
-    if( srcslot < INVENTORY_SLOT_BAG_END )  // source item is equiped
-    {
-        if( m_pItems[srcslot] ) // dstitem goes into here.
-        {
-            // Bags aren't considered "visible".
-            if( srcslot < EQUIPMENT_SLOT_END )
-            {
-                int VisibleBase = PLAYER_VISIBLE_ITEM + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
-                m_pOwner->SetUInt32Value( VisibleBase, m_pItems[srcslot]->GetEntry() );
-                m_pOwner->SetUInt16Value( VisibleBase + 1, 0, m_pItems[srcslot]->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
-                m_pOwner->SetUInt16Value( VisibleBase + 1, 1, m_pItems[srcslot]->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
-            }
+    if( srcslot < INVENTORY_SLOT_BAG_END && m_pItems[srcslot] )  // source item is equiped
+        m_pItems[srcslot]->Bind(ITEM_BIND_ON_EQUIP);
 
-            // handle bind on equip
-            m_pItems[srcslot]->Bind(ITEM_BIND_ON_EQUIP);
-
-            // 2.4.3: Casting a spell is cancelled when you equip
-            if( GetOwner() && GetOwner()->GetCurrentSpell() )
-            {
-                GetOwner()->GetCurrentSpell()->cancel();
-            }
-        }
-        else
-        {
-            // Bags aren't considered "visible".
-            if( srcslot < EQUIPMENT_SLOT_END )
-            {
-                int VisibleBase = PLAYER_VISIBLE_ITEM + (srcslot * PLAYER_VISIBLE_ITEM_LENGTH);
-                m_pOwner->SetUInt32Value( VisibleBase, 0 );
-                m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
-            }
-        }
-    }
-
-    if( dstslot < INVENTORY_SLOT_BAG_END )   // source item is inside inventory
-    {
-        if( m_pItems[dstslot] != NULL ) // srcitem goes into here.
-        {
-            // Bags aren't considered "visible".
-            if( dstslot < EQUIPMENT_SLOT_END )
-            {
-                int VisibleBase = PLAYER_VISIBLE_ITEM + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
-                m_pOwner->SetUInt32Value( VisibleBase, m_pItems[dstslot]->GetEntry() );
-                m_pOwner->SetUInt16Value( VisibleBase + 1, 0, m_pItems[dstslot]->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
-                m_pOwner->SetUInt16Value( VisibleBase + 1, 1, m_pItems[dstslot]->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
-            }
-
-            // handle bind on equip
-            m_pItems[dstslot]->Bind(ITEM_BIND_ON_EQUIP);
-        }
-        else
-        {
-            // bags aren't considered visible
-            if( dstslot < EQUIPMENT_SLOT_END )
-            {
-                int VisibleBase = PLAYER_VISIBLE_ITEM + (dstslot * PLAYER_VISIBLE_ITEM_LENGTH);
-                m_pOwner->SetUInt32Value( VisibleBase, 0 );
-                m_pOwner->SetUInt32Value( VisibleBase + 1, 0 );
-            }
-        }
-    }
+    if( dstslot < INVENTORY_SLOT_BAG_END && m_pItems[dstslot] )   // source item is inside inventory
+        m_pItems[dstslot]->Bind(ITEM_BIND_ON_EQUIP);
 
     //src item is equiped now
     if( srcslot < INVENTORY_SLOT_BAG_END && m_pItems[srcslot] != NULL )

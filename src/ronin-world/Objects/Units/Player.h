@@ -231,8 +231,10 @@ struct PlayerInfo
     uint32 charAppearance;
     uint32 charAppearance2;
     uint32 charAppearance3;
+    uint8 charCustomizeFlags;
 
     // Cached information
+    uint8 lastDeathState;
     uint32 lastLevel;
     uint32 lastMapID;
     uint32 lastInstanceID;
@@ -377,17 +379,6 @@ struct EquipmentSet
 };
 
 #define MAX_PLAYER_SKILLS 128
-
-struct PlayerSkill
-{
-    SkillLineEntry *Skill;
-    uint8 SkillPos;
-    uint16 CurrentValue;
-    uint16 MaximumValue;
-    uint16 BonusValue;
-    uint16 BonusTalent;
-    float GetSkillUpChance();
-};
 
 class ArenaTeam;
 struct PlayerCooldown
@@ -585,8 +576,6 @@ typedef std::map<uint32, uint32>                    SpellOverrideExtraAuraMap;
 typedef std::map<uint32, uint64>                    SoloSpells;
 typedef std::map<SpellEntry*, std::pair<uint32, uint32> >StrikeSpellMap;
 typedef std::map<uint32, OnHitSpell >               StrikeSpellDmgMap;
-typedef std::map<uint32, PlayerSkill>     SkillMap;
-typedef std::map<uint8, PlayerSkill>                SkillReferenceMap;
 typedef std::set<Player* *>                         ReferenceSet;
 typedef std::map<uint32, PlayerCooldown>            PlayerCooldownMap;
 
@@ -608,6 +597,7 @@ public:
     // Reactivate is a function players don't need
     virtual void Reactivate() {}
 
+    void PushIntoWorld();
     void Update( uint32 msTime, uint32 diff );
 
     virtual bool IsInWorld() { return m_mapInstance != NULL && Object::IsInWorld(); }
@@ -778,21 +768,22 @@ public: /// Player field based functions
     /* Skill System                                                         */
     /************************************************************************/
 
-    void _AdvanceSkillLine(uint16 SkillLine, uint16 Count = 1);
-    void _AddSkillLine(uint16 SkillLine, uint16 Current, uint16 Max);
-    uint16 _GetSkillLineMax(uint16 SkillLine);
-    uint16 _GetSkillLineCurrent(uint16 SkillLine, bool IncludeBonus = true);
-    void _RemoveSkillLine(uint16 SkillLine);
+    bool HasSkillLine(uint16 skillLine);
+    void AddSkillLine(uint16 skillLine, uint16 step, uint16 skillMax, uint16 skillCurrent, uint16 skillModifier = 0, uint16 bonusTalent = 0);
+    void RemoveSkillLine(uint16 skillLine);
+
+    void UpdateSkillLine(uint16 skillLine, uint16 step, uint16 skillMax, bool forced = false);
+    void ModSkillLineAmount(uint16 skillLine, int16 amount, bool bonus);
+
+    uint16 getSkillLineMax(uint16 SkillLine);
+    uint16 getSkillLineVal(uint16 SkillLine, bool IncludeBonus = true);
+    uint16 getSkillLineStep(uint16 skillLine);
+
     void _UpdateMaxSkillCounts();
-    void _ModifySkillBonus(uint16 SkillLine, int16 Delta);
-    void _ModifySkillBonusByType(uint16 SkillType, int16 Delta);
-    bool _HasSkillLine(uint16 SkillLine);
     void RemoveSpellsFromLine(uint16 skill_line);
-    void _RemoveAllSkills();
-    void _RemoveLanguages();
+
     void _AddLanguages(bool All);
     void _AdvanceAllSkills(uint16 count, bool skipprof = false, uint16 max = 0);
-    void _ModifySkillMaximum(uint16 SkillLine, uint16 NewMax);
 
     // Get mount capability based on mount skill
     SpellEntry *GetMountCapability(uint32 mountType);
@@ -813,11 +804,6 @@ public:
 protected:
     bool AllowChannelAtLocation(uint32 dbcID, AreaTableEntry *areaTable);
     bool UpdateChatChannel(const char* areaName, AreaTableEntry *areaTable, ChatChannelEntry* entry, Channel* channel);
-
-protected:
-
-    uint8 GetFreeSkillPosition();
-    void _UpdateSkillFields();
 
 public:
     void Cooldown_OnCancel(SpellEntry *pSpell);
@@ -934,7 +920,7 @@ public:
     uint32 FindHigherRankingSpellWithNamehash(uint32 namehash, uint32 minimumrank);
     uint32 FindHighestRankingSpellWithNamehash(uint32 namehash);
     SpellEntry* FindLowerRankSpell(SpellEntry* sp, int32 rankdiff);
-    SpellEntry *FindHighestRankSpellBySkilline(SkillLineAbilityEntry *sk, SpellEntry* sp);
+    SpellEntry *FindHighestRankProfessionSpell(uint32 professionSkillLine);
 
     bool HasSpellWithEffect(uint8 spellEff) { return !m_spellsByEffect[spellEff].empty(); }
 
@@ -1410,12 +1396,11 @@ private:
 
     // Player spell storage
     SpellSet m_spells, m_shapeShiftSpells;
-    Loki::AssocVector<uint8, std::set<uint32>> m_spellsByEffect;
+    Loki::AssocVector<uint8, SpellSet> m_spellsByEffect;
+    Loki::AssocVector<uint16, SpellSet> m_spellsBySkill;
 
-    // Player Skills
-    SkillMap m_skills;
-    // Skills by index, used for PLAYER_FIELD_SKILL_DATA
-    SkillReferenceMap m_skillsByIndex;
+    // Player skill access data
+    Loki::AssocVector<uint16, uint8> m_skillIndexes;
 
     // Load data
     std::deque<std::pair<uint8, Aura*>> m_loadAuras;

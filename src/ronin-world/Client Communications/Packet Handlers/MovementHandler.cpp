@@ -2237,6 +2237,56 @@ void MovementInterface::HandleUnroot(bool read, ByteBuffer &buffer)
     m_incrementMoveCounter = true;
 }
 
+void MovementInterface::HandleGravityDisable(bool read, ByteBuffer &buffer)
+{
+    BUILD_GUID_LIST();
+    DO_BIT(read, buffer, (*guid)[2], true);
+    DO_BIT(read, buffer, (*guid)[7], true);
+    DO_BIT(read, buffer, (*guid)[6], true);
+    DO_BIT(read, buffer, (*guid)[0], true);
+    DO_BIT(read, buffer, (*guid)[5], true);
+    DO_BIT(read, buffer, (*guid)[4], true);
+    DO_BIT(read, buffer, (*guid)[1], true);
+    DO_BIT(read, buffer, (*guid)[3], true);
+    DO_SEQ_BYTE(read, buffer, (*guid)[1]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[0]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[2]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[5]);
+    DO_BYTES(read, buffer, uint32, (read ? m_clientCounter : m_serverCounter));
+    DO_SEQ_BYTE(read, buffer, (*guid)[3]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[4]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[7]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[6]);
+    m_incrementMoveCounter = true;
+}
+
+void MovementInterface::HandleGravityEnable(bool read, ByteBuffer &buffer)
+{
+    /*data.WriteGuidBitString(8, guid, 3, 4, 5, 6, 7, 0, 1, 2);
+    data << guid[0];
+    data << uint32(0);*/
+
+    BUILD_GUID_LIST();
+    DO_BYTES(read, buffer, uint32, (read ? m_clientCounter : m_serverCounter));
+    DO_BIT(read, buffer, (*guid)[0], true);
+    DO_BIT(read, buffer, (*guid)[1], true);
+    DO_BIT(read, buffer, (*guid)[2], true);
+    DO_BIT(read, buffer, (*guid)[3], true);
+    DO_BIT(read, buffer, (*guid)[4], true);
+    DO_BIT(read, buffer, (*guid)[5], true);
+    DO_BIT(read, buffer, (*guid)[6], true);
+    DO_BIT(read, buffer, (*guid)[7], true);
+    DO_SEQ_BYTE(read, buffer, (*guid)[0]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[1]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[2]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[3]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[4]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[5]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[6]);
+    DO_SEQ_BYTE(read, buffer, (*guid)[7]);
+    m_incrementMoveCounter = true;
+}
+
 void MovementInterface::HandleUpdateKnockBack(bool read, ByteBuffer &buffer)
 {
     BUILD_LOCATION_LIST();

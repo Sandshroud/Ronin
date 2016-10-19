@@ -25,16 +25,15 @@ Map::~Map()
     m_spawns.clear();
 }
 
-void Map::Initialize(CellSpawns *mapSpawns, bool continent)
+void Map::_InitializeTerrain(bool continent)
 {
-    //new stuff Load Spawns
-    LoadSpawns(mapSpawns);
+    if(_terrain != NULL)
+        return;
 
     _terrain = new TerrainMgr(sWorld.MapPath, _mapId);
 
     // Initialize the terrain header
     _terrain->LoadTerrainHeader();
-
     if(continent == false)
         return;
 
@@ -42,8 +41,17 @@ void Map::Initialize(CellSpawns *mapSpawns, bool continent)
     _terrain->LoadVMapTerrain();
 
     // Load all the terrain from this map
-    if(sWorld.ServerPreloading >= 1)
+    if(sWorld.ServerPreloading == 0)
         _terrain->LoadAllTerrain();
+}
+
+void Map::Initialize(CellSpawns *mapSpawns, bool continent)
+{
+    //new stuff Load Spawns
+    LoadSpawns(mapSpawns);
+
+    // Initialize our terrain data
+    _InitializeTerrain(continent);
 }
 
 void Map::LoadSpawns(CellSpawns *mapSpawns)

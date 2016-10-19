@@ -1130,7 +1130,25 @@ enum SpellEffects
     SPELL_EFFECT_SET_TALENT_SPECS_COUNT     = 161,
     SPELL_EFFECT_ACTIVATE_TALENT_SPEC       = 162,
     SPELL_EFFECT_REMOVE_TARGET_AURA         = 164,
-    TOTAL_SPELL_EFFECTS                     = 165
+    SPELL_EFFECT_DAMAGE_FROM_MAX_HEALTH_PCT = 165,
+    SPELL_EFFECT_REWARD_CURRENCY            = 166,
+    SPELL_EFFECT_167                        = 167,
+    SPELL_EFFECT_168                        = 168,
+    SPELL_EFFECT_DESTROY_ITEM               = 169,
+    SPELL_EFFECT_170                        = 170,
+    SPELL_EFFECT_171                        = 171,
+    SPELL_EFFECT_MASS_RESSURECTION          = 172,
+    SPELL_EFFECT_BUY_GUILD_BANKSLOT         = 173,
+    SPELL_EFFECT_174                        = 174,
+    SPELL_EFFECT_175                        = 175,
+    SPELL_EFFECT_SANCTUARY_2                = 176,
+    SPELL_EFFECT_177                        = 177,
+    SPELL_EFFECT_178                        = 178,
+    SPELL_EFFECT_179                        = 179,
+    SPELL_EFFECT_180                        = 180,
+    SPELL_EFFECT_181                        = 181,
+    SPELL_EFFECT_182                        = 182,
+    TOTAL_SPELL_EFFECTS                     = 183
 };
 
 enum AreaAuraTargets
@@ -1488,6 +1506,16 @@ enum SpellDidHitResult
     SPELL_DID_HIT_DEFLECT                   = 9,
     SPELL_DID_HIT_ABSORB                    = 10,
     SPELL_DID_HIT_REFLECT                   = 11,
+};
+
+enum AuraApplicationResult : uint8
+{
+    AURA_APPL_SUCCESS   = 0,
+    AURA_APPL_REFRESH   = 1,
+    AURA_APPL_STACKED   = 2,
+    AURA_APPL_RESISTED  = 3,
+    AURA_APPL_REJECTED  = 4,
+    AURA_APPL_NOT_RUN   = 0xFF
 };
 
 bool CanAgroHash(uint32 spellhashname);

@@ -1144,7 +1144,7 @@ bool Group::HasAcceptableDisenchanters(int32 requiredskill)
                 if( (*itr) != NULL && (*itr)->m_loggedInPlayer)
                 {
                     plr = (*itr)->m_loggedInPlayer;
-                    if(plr->_HasSkillLine(333) && (plr->_GetSkillLineCurrent(333, true) > uint32(requiredskill)))
+                    if(plr->HasSkillLine(333) && (plr->getSkillLineVal(333, true) > uint32(requiredskill)))
                         return true;
                 }
             }

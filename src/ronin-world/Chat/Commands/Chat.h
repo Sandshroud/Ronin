@@ -385,6 +385,7 @@ protected:
     bool HandleGOScale(const char* args, WorldSession *m_session);
     bool HandleReviveStringcommand(const char* args, WorldSession* m_session);
     bool HandleMountCommand(const char* args, WorldSession* m_session);
+    bool HandleTestGravityOpcode(const char *args, WorldSession *m_session);
     bool HandleGetPosCommand(const char* args, WorldSession* m_session);
     bool HandleGetTransporterTime(const char* args, WorldSession* m_session);
     bool HandleGOAnimProgress(const char * args, WorldSession * m_session);

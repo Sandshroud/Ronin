@@ -91,7 +91,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 
     if(itemProto->RequiredSkill > 0)
     {
-        if(!_player->_HasSkillLine(itemProto->RequiredSkill))
+        if(!_player->HasSkillLine(itemProto->RequiredSkill))
         {
             _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_RANK);
             return;
@@ -99,7 +99,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 
         if(itemProto->RequiredSkillRank > 0)
         {
-            if(_player->_GetSkillLineCurrent(itemProto->RequiredSkill, false) < (uint32)itemProto->RequiredSkillRank)
+            if(_player->getSkillLineVal(itemProto->RequiredSkill, false) < (uint32)itemProto->RequiredSkillRank)
             {
                 _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_RANK);
                 return;

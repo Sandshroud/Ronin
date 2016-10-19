@@ -42,6 +42,9 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
     mCreaturePool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 8 : 4);
     mGameObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 4 : 2);
     mDynamicObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 : 1);
+
+    projectileSpellUpdateTime[0] = projectileSpellUpdateTime[1] = 0;
+    projectileSpellIndex[0] = projectileSpellIndex[1] = 0;
 }
 
 void MapInstance::Preload()
@@ -1251,18 +1254,25 @@ void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
 {
     m_poolLock.Acquire();
+    projectileSpellUpdateTime[0] += uiDiff;
+    projectileSpellUpdateTime[1] += uiDiff;
+    uint8 index = projectileSpellIndex[0]++;
+    if(projectileSpellIndex[0] == 2)
+        projectileSpellIndex[0] = 0;
+
     std::vector<Spell*> cleanupSet;
-    for(std::set<Spell*>::iterator itr = m_projectileSpells.begin(); itr != m_projectileSpells.end(); itr++)
-        if((*itr)->UpdateDelayedTargetEffects(this, uiDiff))
+    for(std::set<Spell*>::iterator itr = m_projectileSpells[index].begin(); itr != m_projectileSpells[index].end(); itr++)
+        if((*itr)->UpdateDelayedTargetEffects(this, projectileSpellUpdateTime[index]))
             cleanupSet.push_back(*itr);
 
     while(!cleanupSet.empty())
     {
         Spell *spell = *cleanupSet.begin();
         cleanupSet.erase(cleanupSet.begin());
-        m_projectileSpells.erase(spell);
-        delete spell;
+        m_projectileSpells[index].erase(spell);
+        spell->Destruct();
     }
+    projectileSpellUpdateTime[index] = 0;
     m_poolLock.Release();
 }
 

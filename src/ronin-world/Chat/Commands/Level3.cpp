@@ -271,7 +271,7 @@ bool ChatHandler::HandleAddSkillCommand(const char* args, WorldSession *m_sessio
     cur = (uint16)atol(pCurrent);
     max = (uint16)atol(pMax);
 
-    target->_AddSkillLine(skillline,cur,max);
+    target->AddSkillLine(skillline, 0,max,cur);
 
     snprintf(buf,256,"SkillLine: %u CurrentValue %u Max Value %u Added.",(unsigned int)skillline,(unsigned int)cur,(unsigned int)max);
     sWorld.LogGM(m_session, "added skill line %u (%u/%u) to %s", skillline, cur, max, target->GetName());
@@ -418,11 +418,11 @@ bool ChatHandler::HandleIncreaseWeaponSkill(const char *args, WorldSession *m_se
     BlueSystemMessage(m_session, "Modifying skill line %d. Advancing %d times.", skill, cnt);
     sWorld.LogGM(m_session, "increased weapon skill of %s by %u", pr->GetName(), cnt);
 
-    if(!pr->_HasSkillLine(skill))
+    if(!pr->HasSkillLine(skill))
     {
         SystemMessage(m_session, "Does not have skill line, adding.");
-        pr->_AddSkillLine(skill, 1, 300);
-    } else pr->_AdvanceSkillLine(skill,cnt);
+        pr->AddSkillLine(skill, 0, 300, 1);
+    } else pr->ModSkillLineAmount(skill,cnt,false);
     return true;
 }
 
@@ -1229,8 +1229,6 @@ bool ChatHandler::HandleResetSkillsCommand(const char* args, WorldSession * m_se
     SkillLineEntry * se;
     Player* plr = getSelectedChar(m_session, true);
     if(!plr) return true;
-
-    plr->_RemoveAllSkills();
 
     // Load skills from create info.
     PlayerCreateInfo * info = objmgr.GetPlayerCreateInfo(plr->getRace(), plr->getClass());

@@ -126,16 +126,8 @@ void DynamicObject::UpdateTargets(uint32 p_time)
 
             if(GetDistanceSq(target) <= radius)
             {
-                pAura = new Aura(m_spellProto, u_caster, target);
-                for(uint32 i = 0; i < 3; ++i)
-                {
-                    if(m_spellProto->Effect[i] == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                    {
-                        pAura->AddMod(m_spellProto->EffectApplyAuraName[i], m_spellProto->EffectBasePoints[i]+1, m_spellProto->EffectMiscValue[i], m_spellProto->EffectMiscValueB[i], i);
-                    }
-                }
-
-                target->AddAura(pAura);
+                // Trigger raw aura application
+                //target->ApplyAura(m_spellProto, u_caster, target);
 
                 // add to target list
                 targets.insert(target->GetGUID());

@@ -10,7 +10,7 @@ struct Modifier
     uint32 i;
     // Modifier values
     uint32 m_type;          // What does it modify? (str,int,hp)
-    int32 m_amount;         // By how much does it mod? always should be m_baseAmount * stackSize
+    int32 m_amount;         // By how much does it mod? always should be m_baseAmount * stackSize + bonusAmount
     int32 m_baseAmount;     // amount per one stack
     uint32 m_miscValue[2];  // Misc Value
     uint32 m_bonusAmount;   // Calculated bonus amount at application
@@ -74,12 +74,13 @@ private:
 class SERVER_DECL Aura
 {
 public:
-    Aura(SpellEntry *proto, WorldObject* caster, Unit* target);
+    Aura(SpellEntry *proto, Unit* target, int16 stackSizeOrProcCharges, WoWGuid casterGuid);
     Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid);
     ~Aura();
 
     void Remove();
     void Update(uint32 diff);
+    void UpdatePreApplication();
     void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
     void AddMod(uint32 i, uint32 t, int32 a, uint32 b = 0, int32 f = 0, float ff = 0);
 

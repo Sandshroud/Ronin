@@ -239,8 +239,6 @@ public:
     void RemoveCorpse(uint32 corpseguid);
     Corpse* GetCorpse(uint32 corpseguid);
 
-    SkillLineAbilityEntry* GetSpellSkill(uint32 id);
-
     //Vendors
     void FillVendorList(uint32 entry, uint32 vendorMask, std::vector<AvailableCreatureItem> &toFill);
     std::list<ItemPrototype*>* GetListForItemSet(uint32 setid);
@@ -272,7 +270,6 @@ public:
     void LoadPlayerCreateInfo();
     Corpse* LoadCorpse(uint32 guid);
     void LoadCorpses(MapInstance* instance);
-    void LoadSpellSkills();
     void LoadVendors();
     void ReloadVendors();
     void ProcessTitles();

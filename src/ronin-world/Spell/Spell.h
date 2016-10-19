@@ -53,7 +53,7 @@ public:
     //generate possible target list for a spell. Use as last resort since it is not acurate
     bool GenerateTargets(SpellCastTargets *);
     // Fills the target map of the spell effects
-    void FillTargetMap();
+    void FillTargetMap(bool fromDelayed);
     // Prepares the spell thats going to cast to targets
     uint8 prepare(SpellCastTargets *targets, bool triggered);
     // Cancels the current spell

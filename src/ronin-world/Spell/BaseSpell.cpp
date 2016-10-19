@@ -84,7 +84,7 @@ void SpellCastTargets::write( WorldPacket& data )
         data << m_strTarget;
 }
 
-BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : m_caster(caster), m_spellInfo(info), m_castNumber(castNumber), m_itemCaster(itemGuid)
+BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : m_casterGuid(caster->GetGUID()), m_caster(caster), m_spellInfo(info), m_castNumber(castNumber), m_itemCaster(itemGuid)
 {
     m_isCasting = false;
     m_duration = -1;
@@ -94,6 +94,7 @@ BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, Wo
     m_spellState = SPELL_STATE_NULL;
     m_triggeredByAura = NULL;
     m_missilePitch = m_missileSpeed = 0.f;
+    m_isDelayedAOEMissile = false;
     m_missileTravelTime = 0;
     m_timer = m_castTime = m_delayedTimer = 0;
 }
@@ -108,7 +109,11 @@ void BaseSpell::_Prepare()
     m_missileTravelTime = floor(m_targets.traveltime);
 
     if((m_missileTravelTime || m_spellInfo->speed > 0.0f) && !m_spellInfo->IsSpellChannelSpell())
+    {
         m_missileSpeed = m_spellInfo->speed/1000.f;
+        if(m_targets.hasDestination() && (m_targets.m_dest.x != m_caster->GetPositionX() && m_targets.m_dest.y != m_caster->GetPositionY() && m_targets.m_dest.z != m_caster->GetPositionZ()))
+            m_isDelayedAOEMissile = !m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_MISSILE);
+    }
 
     if((m_spellInfo->SpellScalingId || m_spellInfo->CastingTimeIndex) && !(m_triggeredSpell || (m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat)))
     {
@@ -170,6 +175,7 @@ void BaseSpell::Destruct()
     {
         SpellTarget *tgt = m_fullTargetMap.begin()->second;
         m_fullTargetMap.erase(m_fullTargetMap.begin());
+        if(tgt->aura) delete tgt->aura;
         delete tgt;
     }
     m_fullTargetMap.clear();

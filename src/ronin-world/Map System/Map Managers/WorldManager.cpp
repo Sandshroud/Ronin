@@ -125,6 +125,24 @@ void WorldManager::LoadSpawnData()
     }
 }
 
+void WorldManager::LoadMapTileData(TaskList & tl)
+{
+    if(sWorld.ServerPreloading == 0)
+        return;
+
+    sLog.Notice("WorldManager", "Preloading map tile data");
+    for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
+    {
+        if(!itr->second->IsContinent())
+        {
+            if(true == true)
+                continue;
+        }
+
+        tl.AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_LoadTileData, itr->second)));
+    }
+}
+
 uint8 WorldManager::ValidateMapId(uint32 mapId)
 {
     if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
@@ -280,9 +298,12 @@ MapInstance *WorldManager::GetInstance(WorldObject* obj)
 void WorldManager::_CreateMap(MapEntry *mapEntry)
 {
     m_mapLock.Acquire();
-    Map *map = new Map(mapEntry, mapEntry->name);
-    m_maps.insert(std::make_pair(mapEntry->MapID, map));
+    Map *map = NULL;
+    if(m_maps.find(mapEntry->MapID) == m_maps.end())
+        m_maps.insert(std::make_pair(mapEntry->MapID, map = new Map(mapEntry, mapEntry->name)));
+    else map = m_maps.at(mapEntry->MapID);
     m_mapLock.Release();
+
     if(mapEntry->IsContinent())
         _InitializeContinent(mapEntry, map);
     else if(mapEntry->IsBattleGround() || mapEntry->IsBattleArena())
@@ -375,6 +396,22 @@ void WorldManager::DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid)
     m_mapLock.Acquire();
     printf("Could not delete battleground instance!\n");
     m_mapLock.Release();
+}
+
+void WorldManager::_LoadTileData(MapEntry *mapEntry)
+{
+    Map *map = NULL;
+    m_mapLock.Acquire();
+    if(m_maps.find(mapEntry->MapID) == m_maps.end())
+    {
+        map = new Map(mapEntry, mapEntry->name);
+        m_maps.insert(std::make_pair(mapEntry->MapID, map));
+    }
+    m_mapLock.Release();
+    if(map == NULL)
+        return;
+
+    map->PreloadTerrain(mapEntry->IsContinent());
 }
 
 void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)

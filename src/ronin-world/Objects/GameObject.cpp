@@ -442,11 +442,11 @@ void GameObject::UseFishingNode(Player* player)
     }
 
     uint32 minskill = 0, maxskill = 500;
-    if( player->_GetSkillLineCurrent( SKILL_FISHING, false ) < maxskill )
-        player->_AdvanceSkillLine( SKILL_FISHING, float2int32( 1.0f * sWorld.getRate( RATE_SKILLRATE ) ) );
+    if( player->getSkillLineVal( SKILL_FISHING, false ) < maxskill )
+        player->ModSkillLineAmount( SKILL_FISHING, float2int32( 1.0f * sWorld.getRate( RATE_SKILLRATE ) ), false );
 
     // Open loot on success, otherwise FISH_ESCAPED.
-    if( Rand(((player->_GetSkillLineCurrent( SKILL_FISHING, true ) - minskill) * 100) / maxskill) )
+    if( Rand(((player->getSkillLineVal( SKILL_FISHING, true ) - minskill) * 100) / maxskill) )
     {
         lootmgr.FillFishingLoot( GetLoot(), GetZoneId() );
         player->SendLoot( GetGUID(), GetMapId(), LOOTTYPE_FISHING );
@@ -683,7 +683,7 @@ void GameObject::AuraGenSearchTarget()
             continue;
         if(unit->HasAura(spell->Id))
             continue;
-        unit->AddAura(new Aura(spell, unit, unit));
+        //unit->ApplyAura(spell, unit, unit);
     }
 }
 

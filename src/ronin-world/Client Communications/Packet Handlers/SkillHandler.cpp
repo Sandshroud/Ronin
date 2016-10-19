@@ -68,5 +68,5 @@ void WorldSession::HandleUnlearnSkillOpcode(WorldPacket& recv_data)
     _player->RemoveQuestsFromLine(skill_line);
 
     // Finally, remove the skill line.
-    _player->_RemoveSkillLine(skill_line);
+    _player->RemoveSkillLine(skill_line);
 }

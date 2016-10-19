@@ -57,9 +57,10 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
     uint32 count = 0, num = std::min<uint32>(MAXIMUM_CHAR_PER_ENUM, m_charData.size());
     for(auto itr = m_charData.begin(); itr != m_charData.end() && count < num; itr++, count++)
     {
+        q->AddQuery("SELECT banTimeExpiration FROM banned_characters WHERE guid='%u'", itr->second->charGuid.getLow());
         q->AddQuery("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", itr->second->charGuid.getLow());
         q->AddQuery("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", itr->second->charGuid.getLow());
-        q->AddQuery("SELECT name, race, class, team, appearance, appearance2, appearance3, level, mapId, instanceId, positionX, positionY, positionZ, orientation, zoneId, lastSaveTime FROM character_data WHERE guid = '%u' AND lastSaveTime != '%ull'", itr->second->charGuid.getLow(), itr->second->lastOnline);
+        q->AddQuery("SELECT name, race, class, team, appearance, appearance2, appearance3, deathState, level, mapId, instanceId, positionX, positionY, positionZ, orientation, zoneId, lastSaveTime FROM character_data WHERE guid = '%u' AND lastSaveTime != '%ull'", itr->second->charGuid.getLow(), itr->second->lastOnline);
     }
     CharacterDatabase.QueueAsyncQuery(q);
 }
@@ -96,40 +97,49 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             for(uint8 i = 0; i < 19; i++)
                 items[i].clear();
 
-            if(results[count*3 + 2].result && !objmgr.GetPlayer(itr->second->charGuid))
-                objmgr.UpdatePlayerData(itr->second->charGuid, results[count*3 + 2].result);
+            if(results[count*4 + 3].result && !objmgr.GetPlayer(itr->second->charGuid))
+                objmgr.UpdatePlayerData(itr->second->charGuid, results[count*4 + 3].result);
 
             uint32 flags = 0;
             PlayerInfo *info = itr->second;
             WoWGuid guildGuid(MAKE_NEW_GUID(info->GuildId, 0, HIGHGUID_TYPE_GUILD));
             uint8 hairStyle = ((info->charAppearance>>16)&0xFF), hairColor = ((info->charAppearance>>24)&0xFF), facialHair = (info->charAppearance2&0xFF), face = ((info->charAppearance>>8)&0xFF), skin = (info->charAppearance&0xFF), gender = info->charAppearance3&0xFF;
 
-            uint32 customizationFlag = 0;
-            if (false) customizationFlag = 0x01;
-            else if (false) customizationFlag = 0x10000;
-            else if (false) customizationFlag = 0x100000;
+            uint32 player_flags = 0, customizationFlag = 0;
+            if (info->charCustomizeFlags & 0x08)
+                customizationFlag = 0x00100000; // Race change
+            else if (info->charCustomizeFlags & 0x04)
+                customizationFlag = 0x00010000; // Faction change
+            else if (info->charCustomizeFlags & 0x02)
+                customizationFlag = 0x00000001; // Recustomize
+
+            if(info->charCustomizeFlags & 0x01)
+                player_flags |= 0x4000;
 
             if( info->lastLevel > m_highestLevel )
                 m_highestLevel = info->lastLevel;
             if( info->charClass == DEATHKNIGHT )
                 m_hasDeathKnight = true;
-            uint32 player_flags = 0;
             if(flags & PLAYER_FLAG_NOHELM)
                 player_flags |= 0x400;
             if(flags & PLAYER_FLAG_NOCLOAK)
                 player_flags |= 0x800;
-            /*if(fields[13].GetUInt32() != 0)
-                player_flags |= 0x2000;*/
+            if(info->lastDeathState != 0)
+                player_flags |= 0x2000;
             if(info->lastLevel > m_maxLevel)
                 player_flags |= 0x01000000;
-            /*if(fields[14].GetUInt32() != 0)
-            player_flags |= 0x4000;
-            uint64 banned = fields[13].GetUInt64();
-            if(banned && (banned < 10 || banned > UNIXTIME))
-            player_flags |= 0x1000000;*/
+            else if(QueryResult *res = results[count*4 + 3].result)
+            {   // Expire time is infinite when 0
+                uint64 expireTime = res->Fetch()[0].GetUInt64();
+                if(expireTime == 0 || expireTime > UNIXTIME)
+                {
+                    player_flags |= 0x01000000;
+                    m_bannedCharacters.insert(info->charGuid);
+                } else m_bannedCharacters.erase(info->charGuid);
+            } else m_bannedCharacters.erase(info->charGuid);
 
             uint32 petFamily = 0, petLevel = 0, petDisplay = 0;
-            if(QueryResult *res = results[count*3].result)
+            if(QueryResult *res = results[count*4 + 1].result)
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
@@ -139,7 +149,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
                 petLevel = res->Fetch()[1].GetUInt32();
             }
 
-            if(QueryResult *res = results[count*3 + 1].result)
+            if(QueryResult *res = results[count*4 + 2].result)
             {
                 do
                 {
@@ -569,6 +579,8 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
         response = CHAR_LOGIN_NO_CHARACTER;
     else if(pInfo->lastLevel > m_maxLevel)
         response = CHAR_LOGIN_DISABLED;
+    else if((pInfo->charCustomizeFlags & 0x01) || m_bannedCharacters.find(guid) != m_bannedCharacters.end())
+        response = CHAR_LOGIN_TEMPORARY_GM_LOCK;
     else if(objmgr.GetPlayer(guid) != NULL)
         response = CHAR_LOGIN_DUPLICATE_CHARACTER;
     else if (uint8 vError = sWorldMgr.ValidateMapId(pInfo->lastMapID))
@@ -649,9 +661,6 @@ void WorldSession::FullLogin(Player* plr)
     data << uint32(0) << uint32(0);
     SendPacket(&data);
 
-    // Set TIME OF LOGIN
-    CharacterDatabase.Execute("UPDATE character_data SET online = 1 WHERE guid = %u" , plr->GetLowGUID());
-
     bool enter_world = true;
 
     // Find our transporter and add us if we're on one.
@@ -691,7 +700,7 @@ void WorldSession::FullLogin(Player* plr)
 
     sLog.Debug( "WorldSession","Player %s logged in.", plr->GetName());
 
-    if(plr->GetTeam() == 1)
+    if(plr->GetTeam() == TEAM_HORDE)
         sWorld.HordePlayers++;
     else sWorld.AlliancePlayers++;
 

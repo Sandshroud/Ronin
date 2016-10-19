@@ -33,6 +33,22 @@ void SpellManager::ParseSpellDBC()
 
         SetSingleSpellDefaults(sp);
     }
+
+    sLog.Notice("SpellManager", "Parsing %u skill lines...", dbcSkillLine.GetNumRows());
+    SkillLineEntry *skillLine = NULL;
+    for(uint32 x = 0; x < dbcSkillLine.GetNumRows(); x++)
+    {
+        if((skillLine = dbcSkillLine.LookupRow(x)) == NULL)
+            continue;
+
+        m_skillLinesByCategory[skillLine->categoryId].push_back(skillLine);
+        m_skillLinesByName.insert(std::make_pair(skillLine->name, skillLine));
+    }
+
+    for(uint32 i = 0; i < dbcSkillLineSpell.GetNumRows(); i++)
+        if (SkillLineAbilityEntry *skillLineAbility = dbcSkillLineSpell.LookupRow(i))
+            if(SpellEntry *sp = dbcSpell.LookupEntry(skillLineAbility->spell))
+                sp->SpellSkillLine = skillLineAbility->skilline;
 }
 
 void SpellManager::LoadSpellFixes()
@@ -63,6 +79,44 @@ void SpellManager::LoadSpellFixes()
             else if( strstr( ranktext, "Grandmaster"))
                 sp->RankNumber = 6;
             else sp->RankNumber = 0;
+        }
+
+        if(sp->HasEffect(SPELL_EFFECT_LANGUAGE))
+        {
+            char buff[55];
+            // Language has to be parsed, since skills use a colon
+            sscanf_s(sp->Name, "Language %s", buff, 55);
+            // Check our list of language categories to see if we can find one with our language in the name
+            for(std::vector<SkillLineEntry*>::iterator itr = m_skillLinesByCategory[SKILL_TYPE_LANGUAGE].begin(); itr != m_skillLinesByCategory[SKILL_TYPE_LANGUAGE].end(); itr++)
+            {
+                if(RONIN_UTIL::FindXinYString(buff, (*itr)->name))
+                {
+                    sp->SpellSkillLine = (*itr)->id;
+                    break;
+                }
+            }
+        }
+        else if(sp->HasEffect(SPELL_EFFECT_WEAPON))
+        {
+            char buff[55];
+            // Stupid fucking one handed spells are different than their skill names
+            if(sscanf_s(sp->Name, "One-Handed %s", buff, 55) == 0)
+                sprintf(buff, sp->Name); // If we're not one-handed then just use our name
+            // Check our category of weapon skills to see if we can find a name that matches
+            for(std::vector<SkillLineEntry*>::iterator itr = m_skillLinesByCategory[SKILL_TYPE_WEAPON].begin(); itr != m_skillLinesByCategory[SKILL_TYPE_WEAPON].end(); itr++)
+            {
+                if(strcmp(buff, (*itr)->name) == 0)
+                {
+                    sp->SpellSkillLine = (*itr)->id;
+                    break;
+                }
+            }
+        }
+        else if(sp->HasEffect(SPELL_EFFECT_DUAL_WIELD))
+        {
+            std::map<std::string, SkillLineEntry*>::iterator itr;
+            if((itr = m_skillLinesByName.find("Dual Wield")) != m_skillLinesByName.end())
+                sp->SpellSkillLine = itr->second->id;
         }
 
         // Apply spell fixes.
@@ -266,6 +320,16 @@ void SpellManager::PoolSpellData()
             spellInfo->minRange[1] = sRange->minRangeFriend;
             spellInfo->maxRange[0] = sRange->maxRangeHostile;
             spellInfo->maxRange[1] = sRange->maxRangeFriend;
+        }
+
+        //SpellRadiusEntry
+        for(uint8 i = 0; i < 3; i++)
+        {
+            if(SpellRadiusEntry *sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusIndex[i]))
+            {
+                spellInfo->radiusHostile[i] = sRadius->radiusHostile;
+                spellInfo->radiusFriend[i] = sRadius->radiusFriend;
+            }
         }
 
         //SpellReagentsEntry
@@ -612,6 +676,9 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     sp->minRange[1] = 0.0f;
     sp->maxRange[0] = 0.0f;
     sp->maxRange[1] = 0.0f;
+    // SpellRadius
+    for(uint8 i = 0; i < 3; i++)
+        sp->radiusHostile[i] = sp->radiusFriend[i] = 0.f;
     /// Spell Pointers
     sp->Duration[0] = 0;
     sp->Duration[1] = 0;

@@ -133,6 +133,8 @@ enum MovementCodes : uint16
     MOVEMENT_CODE_NORMAL_FALL,
     MOVEMENT_CODE_ROOT,
     MOVEMENT_CODE_UNROOT,
+    MOVEMENT_CODE_GRAVITY_DISABLE,
+    MOVEMENT_CODE_GRAVITY_ENABLE,
     MOVEMENT_CODE_UPDATE_KNOCK_BACK,
     MOVEMENT_CODE_UPDATE_TELEPORT,
     MOVEMENT_CODE_CHANGE_TRANSPORT,
@@ -292,10 +294,12 @@ public:
     bool CanProcessTimeSyncCounter(uint32 counter);
 
     void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
+    void HandlePendingMoveData(bool fromLanding);
 
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
     void MoveClientPosition(float x, float y, float z, float o);
+    void SetSelfTempData(bool enable);
 
     void SendTimeSyncReq();
 
@@ -493,6 +497,8 @@ public:
     void HandleNormalFall(bool read, ByteBuffer &buffer);
     void HandleRoot(bool read, ByteBuffer &buffer);
     void HandleUnroot(bool read, ByteBuffer &buffer);
+    void HandleGravityDisable(bool read, ByteBuffer &buffer);
+    void HandleGravityEnable(bool read, ByteBuffer &buffer);
     void HandleUpdateKnockBack(bool read, ByteBuffer &buffer);
     void HandleUpdateTeleport(bool read, ByteBuffer &buffer);
     void HandleChangeTransport(bool read, ByteBuffer &buffer);
@@ -656,6 +662,7 @@ protected: // Speed and Status information
     uint32 m_speedTimers[MOVE_SPEED_MAX], m_speedCounters[MOVE_SPEED_MAX];
     float m_pendingSpeeds[MOVE_SPEED_MAX];
 
+    uint32 m_pendingDataTimer;
     bool m_pendingEnable[MOVEMENT_STATUS_MAX];
 
     bool UpdatePendingSpeed(MovementSpeedTypes speedType, float sentSpeed)
@@ -674,6 +681,7 @@ protected: // Speed and Status information
 protected:
     uint32 m_timeSyncCounter, m_moveAckCounter;
     std::set<uint32> m_sentTimeSync, m_sentMoveAck;
+    LockedQueue<MovementCodes> m_pendingMoveData;
 
 private:
     Unit *m_Unit;

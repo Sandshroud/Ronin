@@ -383,9 +383,9 @@ uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck)
 
     if(qst->required_tradeskill)
     {
-        if(!plr->_HasSkillLine(qst->required_tradeskill))
+        if(!plr->HasSkillLine(qst->required_tradeskill))
             return QMGR_QUEST_NOT_AVAILABLE;
-        if (qst->required_tradeskill_value && plr->_GetSkillLineCurrent(qst->required_tradeskill) < qst->required_tradeskill_value)
+        if (qst->required_tradeskill_value && plr->getSkillLineVal(qst->required_tradeskill) < qst->required_tradeskill_value)
             return QMGR_QUEST_NOT_AVAILABLE;
     }
 

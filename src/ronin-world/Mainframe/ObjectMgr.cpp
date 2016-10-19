@@ -166,7 +166,7 @@ void ObjectMgr::AddPlayerInfo(PlayerInfo *pn)
 
 PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
 {
-    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId,lastSaveTime FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
+    QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,customizeFlags,deathState,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId,lastSaveTime FROM character_data WHERE guid = '%u' LIMIT 1", guid.getLow());
     if(result == NULL)
         return NULL;
 
@@ -179,15 +179,17 @@ PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
     pn->charAppearance = fields[5].GetUInt32();
     pn->charAppearance2 = fields[6].GetUInt32();
     pn->charAppearance3 = fields[7].GetUInt32();
-    pn->lastLevel = fields[8].GetUInt32();
-    pn->lastMapID = fields[9].GetUInt32();
-    pn->lastInstanceID = fields[10].GetUInt32();
-    pn->lastPositionX = fields[11].GetFloat();
-    pn->lastPositionY = fields[12].GetFloat();
-    pn->lastPositionZ = fields[13].GetFloat();
-    pn->lastOrientation = fields[14].GetFloat();
-    pn->lastZone = fields[15].GetUInt32();
-    pn->lastOnline = fields[16].GetUInt64();
+    pn->charCustomizeFlags = fields[8].GetUInt8();
+    pn->lastDeathState = fields[9].GetUInt8();
+    pn->lastLevel = fields[10].GetUInt32();
+    pn->lastMapID = fields[11].GetUInt32();
+    pn->lastInstanceID = fields[12].GetUInt32();
+    pn->lastPositionX = fields[13].GetFloat();
+    pn->lastPositionY = fields[14].GetFloat();
+    pn->lastPositionZ = fields[15].GetFloat();
+    pn->lastOrientation = fields[16].GetFloat();
+    pn->lastZone = fields[17].GetUInt32();
+    pn->lastOnline = fields[18].GetUInt64();
     delete result;
 
     if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
@@ -236,15 +238,17 @@ void ObjectMgr::UpdatePlayerData(WoWGuid guid, QueryResult *result)
         info->charAppearance = fields[4].GetUInt32();
         info->charAppearance2 = fields[5].GetUInt32();
         info->charAppearance3 = fields[6].GetUInt32();
-        info->lastLevel = fields[7].GetUInt32();
-        info->lastMapID = fields[8].GetUInt32();
-        info->lastInstanceID = fields[9].GetUInt32();
-        info->lastPositionX = fields[10].GetFloat();
-        info->lastPositionY = fields[11].GetFloat();
-        info->lastPositionZ = fields[12].GetFloat();
-        info->lastOrientation = fields[13].GetFloat();
-        info->lastZone = fields[14].GetUInt32();
-        info->lastOnline = fields[15].GetUInt64();
+        info->charCustomizeFlags = fields[7].GetUInt8();
+        info->lastDeathState = fields[8].GetUInt8();
+        info->lastLevel = fields[9].GetUInt32();
+        info->lastMapID = fields[10].GetUInt32();
+        info->lastInstanceID = fields[11].GetUInt32();
+        info->lastPositionX = fields[12].GetFloat();
+        info->lastPositionY = fields[13].GetFloat();
+        info->lastPositionZ = fields[14].GetFloat();
+        info->lastOrientation = fields[15].GetFloat();
+        info->lastZone = fields[16].GetUInt32();
+        info->lastOnline = fields[17].GetUInt64();
         if(strcmp(info->charName.c_str(), chrName.c_str()))
         {
             std::string lpn = RONIN_UTIL::TOLOWER_RETURN(chrName);
@@ -272,26 +276,9 @@ void ObjectMgr::RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const ch
     playernamelock.ReleaseWriteLock();
 }
 
-void ObjectMgr::LoadSpellSkills()
-{
-    for(uint32 i = 0; i < dbcSkillLineSpell.GetNumRows(); i++)
-    {
-        if (SkillLineAbilityEntry *sp = dbcSkillLineSpell.LookupRow(i))
-        {
-            mSpellSkills[sp->spell] = sp;
-        }
-    }
-    sLog.Notice("ObjectMgr", "%u spell skills loaded.", mSpellSkills.size());
-}
-
-SkillLineAbilityEntry* ObjectMgr::GetSpellSkill(uint32 id)
-{
-    return mSpellSkills[id];
-}
-
 void ObjectMgr::LoadPlayersInfo()
 {
-    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId,lastSaveTime FROM character_data"))
+    if(QueryResult *result = CharacterDatabase.Query("SELECT guid,name,race,class,team,appearance,appearance2,appearance3,customizeFlags,deathState,level,mapId,instanceId,positionX,positionY,positionZ,orientation,zoneId,lastSaveTime FROM character_data"))
     {
         uint32 period = (result->GetRowCount() / 20) + 1, c = 0;
 
@@ -306,15 +293,17 @@ void ObjectMgr::LoadPlayersInfo()
             pn->charAppearance = fields[5].GetUInt32();
             pn->charAppearance2 = fields[6].GetUInt32();
             pn->charAppearance3 = fields[7].GetUInt32();
-            pn->lastLevel = fields[8].GetUInt32();
-            pn->lastMapID = fields[9].GetUInt32();
-            pn->lastInstanceID = fields[10].GetUInt32();
-            pn->lastPositionX = fields[11].GetFloat();
-            pn->lastPositionY = fields[12].GetFloat();
-            pn->lastPositionZ = fields[13].GetFloat();
-            pn->lastOrientation = fields[14].GetFloat();
-            pn->lastZone = fields[15].GetUInt32();
-            pn->lastOnline = fields[16].GetUInt64();
+            pn->charCustomizeFlags = fields[8].GetUInt8();
+            pn->lastDeathState = fields[9].GetUInt8();
+            pn->lastLevel = fields[10].GetUInt32();
+            pn->lastMapID = fields[11].GetUInt32();
+            pn->lastInstanceID = fields[12].GetUInt32();
+            pn->lastPositionX = fields[13].GetFloat();
+            pn->lastPositionY = fields[14].GetFloat();
+            pn->lastPositionZ = fields[15].GetFloat();
+            pn->lastOrientation = fields[16].GetFloat();
+            pn->lastZone = fields[17].GetUInt32();
+            pn->lastOnline = fields[18].GetUInt64();
 
             if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
             {

@@ -463,6 +463,7 @@ void CommandTableStorage::Init()
         { "lookup",                 COMMAND_LEVEL_0, NULL,                                                          "",                 lookupCommandTable, 0, 0, 0 },
         { "faction",                COMMAND_LEVEL_0, NULL,                                                          "",                 FactionCommandTable, 0, 0, 0 },
 
+        { "tgravity",               COMMAND_LEVEL_D, &ChatHandler::HandleTestGravityOpcode,                         "",                 NULL, 0, 0, 0 },
         { "getpos",                 COMMAND_LEVEL_D, &ChatHandler::HandleGetPosCommand,                             "",                 NULL, 0, 0, 0 },
         { "clearcooldowns",         COMMAND_LEVEL_M, &ChatHandler::HandleClearCooldownsCommand,                     "Clears all cooldowns for your class.", NULL, 0, 0, 0 },
         { "removeauras",            COMMAND_LEVEL_M, &ChatHandler::HandleRemoveAurasCommand,                        "Removes all auras from target",    NULL, 0, 0, 0 },
@@ -1142,6 +1143,42 @@ bool ChatHandler::CmdSetFloatField(WorldSession *m_session, uint32 field, uint32
     return true;
 }
 
+bool ChatHandler::HandleTestGravityOpcode(const char* args, WorldSession *m_session)
+{
+    static std::vector<uint8> guidString;
+    if(guidString.empty())
+        for(uint8 i = 0; i < 8; i++)
+            guidString.push_back(i);
+
+    int val = atoi(args);
+    char buff[15];
+    std::string bitData;
+    WoWGuid guid = m_session->GetPlayer()->GetGUID();
+    WorldPacket data(SMSG_MOVE_GRAVITY_ENABLE);
+    if(val == 1) data << uint32(0xFF);
+    for(uint8 i = 0; i < 7; i++)
+    {
+        uint8 val = *guidString.begin();
+        guidString.erase(guidString.begin());
+        guidString.push_back(val);
+        data.WriteBit(guid[val]);
+        sprintf(buff, "%u: %u | ", i, val);
+        bitData.append(buff);
+    }
+
+    sprintf(buff, "%u: %u", 7, *guidString.begin());
+    bitData.append(buff);
+    data.WriteBit(guid[*guidString.begin()]);
+    data.FlushBits();
+
+    if(val == 2) data << uint32(0xFF);
+    data.append<uint8>(guid[0]);
+    if(val == 3) data << uint32(0xFF);
+    m_session->SendPacket(&data);
+    SystemMessage(m_session, bitData.c_str());
+    return true;
+}
+
 bool ChatHandler::HandleGetPosCommand(const char* args, WorldSession *m_session)
 {
     Creature* creature = getSelectedCreature(m_session);
@@ -1150,7 +1187,6 @@ bool ChatHandler::HandleGetPosCommand(const char* args, WorldSession *m_session)
     BlueSystemMessage(m_session, "Creature Position: \nX: %f\nY: %f\nZ: %f\n", creature->GetPositionX(), creature->GetPositionY(), creature->GetPositionZ());
     return true;
 }
-
 
 bool ChatHandler::HandleDebugRetroactiveQuestAchievements(const char *args, WorldSession *m_session)
 {

@@ -1403,7 +1403,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
                 }
 
                 // Skill requirement
-                if( ip->RequiredSkill > 0 && ((uint32)ip->RequiredSkillRank > _player->_GetSkillLineCurrent( ip->RequiredSkill, true )) )
+                if( ip->RequiredSkill > 0 && ((uint32)ip->RequiredSkillRank > _player->getSkillLineVal( ip->RequiredSkill, true )) )
                 {
                     itemi->BuildInventoryChangeError( it, TargetItem, INV_ERR_CANT_EQUIP_SKILL );
                     continue;
@@ -1513,5 +1513,13 @@ void WorldSession::HandleItemRefundInfoOpcode( WorldPacket& recv_data )
 
 void WorldSession::HandleItemRefundRequestOpcode( WorldPacket& recv_data )
 {
+
+}
+
+void WorldSession::HandleTransmogrifyItemsOpcode( WorldPacket& recv_data )
+{
+    uint32 count = recv_data.ReadBits(22);
+    if(count >= EQUIPMENT_SLOT_END)
+        return;
 
 }

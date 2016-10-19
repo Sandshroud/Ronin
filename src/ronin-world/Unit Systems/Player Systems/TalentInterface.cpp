@@ -213,8 +213,8 @@ void TalentInterface::ResetSpec(uint8 spec, bool silent)
         // The dual wield skill for shamans can only be added by talents.
         // so when reset, the dual wield skill should be removed too.
         // (see also Spell::SpellEffectDualWield)
-        if( m_Player->getClass() == SHAMAN && m_Player->_HasSkillLine( SKILL_DUAL_WIELD ) )
-            m_Player->_RemoveSkillLine( SKILL_DUAL_WIELD );
+        if( m_Player->getClass() == SHAMAN && m_Player->HasSkillLine( SKILL_DUAL_WIELD ) )
+            m_Player->RemoveSkillLine( SKILL_DUAL_WIELD );
 
         m_currentTalentPoints = std::max<int32>(0, m_availableTalentPoints+m_bonusTalentPoints);
     }

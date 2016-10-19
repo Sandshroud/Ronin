@@ -379,8 +379,6 @@ uint32 World::GetWeekDay()
 
 bool World::SetInitialWorldSettings()
 {
-    CharacterDatabase.WaitExecute("UPDATE character_data SET online = 0 WHERE online = 1");
-
     sLog.Notice("World", "Starting up...");
 
     m_lastTick = UNIXTIME;
@@ -450,13 +448,14 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(CreatureDataManager, LoadFromDB);
     MAKE_TASK(FactionSystem, LoadFactionInteractionData);
     MAKE_TASK(SpellManager, ParseSpellDBC);
+    MAKE_TASK(WorldManager, ParseMapDBC);
 
     tl.wait(); // Load all the storage first
     MAKE_TASK(SpellManager, PoolSpellData);
+    sWorldMgr.LoadMapTileData(tl);
 
     MAKE_TASK(QuestMgr, LoadQuests);
     MAKE_TASK(LootMgr, LoadLoot);
-    MAKE_TASK(WorldManager, ParseMapDBC);
 
     Storage_LoadAdditionalTables();
 
@@ -465,7 +464,6 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
     MAKE_TASK(LfgMgr, LoadRandomDungeonRewards);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
-    MAKE_TASK(ObjectMgr, LoadSpellSkills);
     MAKE_TASK(ObjectMgr, ProcessTitles);
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
     tl.wait();

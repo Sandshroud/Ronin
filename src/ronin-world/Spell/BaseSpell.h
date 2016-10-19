@@ -52,6 +52,8 @@ public:
     LocationVector m_src, m_dest;
     float traveltime, missilespeed, missilepitch;
     std::string m_strTarget;
+
+    bool hasDestination() { return m_dest.x && m_dest.y; }
 };
 
 struct SpellTarget
@@ -62,6 +64,9 @@ struct SpellTarget
         moddedAmount[0] = moddedAmount[1] = moddedAmount[2] = false;
         accumAmount = effectAmount[0] = effectAmount[1] = effectAmount[2] = 0;
         resistMod = 0.f;
+
+        AuraAddResult = AURA_APPL_NOT_RUN;
+        aura = NULL;
     }
 
     WoWGuid Guid;
@@ -72,6 +77,9 @@ struct SpellTarget
     float resistMod;
     bool moddedAmount[3];
     int32 accumAmount, effectAmount[3];
+
+    uint8 AuraAddResult;
+    Aura *aura;
 };
 
 typedef Loki::AssocVector<WoWGuid, SpellTarget*> SpellTargetStorage;
@@ -164,6 +172,8 @@ protected:
 
 protected:
     WorldObject *m_caster;
+    WoWGuid m_casterGuid;
+
     SpellEntry *m_spellInfo;
     WoWGuid m_itemCaster;
     uint8 m_castNumber;
@@ -178,9 +188,11 @@ protected:
 
     float m_missilePitch, m_missileSpeed;
     uint32 m_missileTravelTime;
+    bool m_isDelayedAOEMissile;
 
     Aura* m_triggeredByAura;
     bool m_triggeredSpell;
+
     bool m_isCasting;
 
 protected: // Spell targetting

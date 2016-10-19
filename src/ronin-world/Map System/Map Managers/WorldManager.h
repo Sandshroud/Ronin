@@ -106,6 +106,7 @@ public:
 
     void ParseMapDBC();
     void LoadSpawnData();
+    void LoadMapTileData(TaskList & tl);
 
     uint8 ValidateMapId(uint32 mapId);
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid);
@@ -264,6 +265,7 @@ public:
     }
 
 private:
+    void _LoadTileData(MapEntry *mapEntry);
     void _InitializeContinent(MapEntry *mapEntry, Map *map);
     void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
     void _InitializeInstance(MapEntry *mapEntry, Map *map);

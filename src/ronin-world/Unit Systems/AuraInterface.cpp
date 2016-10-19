@@ -263,17 +263,8 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
                     data << aur->GetSpellId();
                     caster->SendMessageToSet(&data,true);
 
-                    Aura* aura = new Aura(aur->GetSpellProto(), caster, caster);
-                    aura->AddStackSize(aur->getStackSize()-1);
+                    //caster->target->ApplyAura(aur->GetSpellProto(), caster, caster, aur->getStackSize()-1);
 
-                    // copy the mods across
-                    for( uint32 m = 0; m < aur->GetModCount(); ++m )
-                    {
-                        Modifier *mod = aur->GetMod(m);
-                        aura->AddMod(mod->m_type, mod->m_baseAmount, mod->m_miscValue[0], mod->m_miscValue[1], mod->i);
-                    }
-
-                    caster->AddAura(aura);
                     RemoveAuraBySlot(x);
                     if( --spells_to_steal <= 0 )
                         break; //exit loop now
@@ -674,7 +665,7 @@ bool AuraInterface::OverrideSimilarAuras(WorldObject *caster, Aura *aur)
     }
 
     // Now we process our aura list
-    for( uint8 x = 0; x < m_maxNegAuraSlot; (x+1 == m_maxPosAuraSlot ? x = MAX_POSITIVE_AURAS : x++) )
+    for( uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
     {
         Aura *curAura = m_auras[x];
         if(curAura == NULL || aur == curAura || curAura->IsDeleted())
@@ -726,6 +717,18 @@ bool AuraInterface::OverrideSimilarAuras(WorldObject *caster, Aura *aur)
         RemoveAuraBySlot(*itr);
     m_aurasToRemove.clear();
     return true;
+}
+
+bool AuraInterface::UpdateAuraModifier(uint32 spellId, WoWGuid casterGuid, uint8 indexEff, Modifier *mod)
+{
+    return true;
+    if(Aura *aur = FindAura(spellId, casterGuid))
+    {
+        //aur->Refresh();
+        return true;
+    }
+
+    return false;
 }
 
 void AuraInterface::AddAura(Aura* aur, uint8 slot)
@@ -838,11 +841,10 @@ void AuraInterface::RemoveAura(Aura* aur)
 
 void AuraInterface::RemoveAuraBySlot(uint8 Slot)
 {
-    if(m_auras[Slot] != NULL)
-    {
-        m_auras[Slot]->Remove();
-        m_auras[Slot] = NULL;
-    }
+    Aura *targetAur = m_auras[Slot];
+    m_auras[Slot] = NULL;
+    if(targetAur != NULL)
+        targetAur->Remove();
 }
 
 bool AuraInterface::RemoveAuras(uint32 * SpellIds)
@@ -1205,12 +1207,11 @@ uint32 AuraInterface::GetAuraCountWithFamilyNameAndSkillLine(uint32 spellFamily,
     {
         if(Aura *aur = m_auras[x])
         {
-            if (aur->GetSpellProto()->SpellFamilyName == spellFamily)
-            {
-                SkillLineAbilityEntry *sk = objmgr.GetSpellSkill(aur->GetSpellId());
-                if(sk && sk->skilline == SkillLine)
-                    count++;
-            }
+            if (aur->GetSpellProto()->SpellFamilyName != spellFamily)
+                continue;
+            if(aur->GetSpellProto()->SpellSkillLine != SkillLine)
+                continue;
+            count++;
         }
     }
     return count;

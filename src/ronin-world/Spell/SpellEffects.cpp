@@ -107,33 +107,33 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTar
     if(unitTarget->isAlive() && m_spellInfo->HasEffect(SPELL_EFFECT_HEAL, spTarget->EffectMask))
         Heal(unitTarget, spTarget->EffectMask, spTarget->accumAmount);
 
-    // Target alive check then trigger spell/apply aura
-    if(unitTarget->isAlive() && spTarget->resistMod == 0.f)
-        HandleAddAura(unitTarget);
-}
-
-void SpellEffectClass::HandleAddAura(Unit *target)
-{
-    AuraTargetMap::iterator itr;
-    if(target == NULL || (itr = m_tempAuras.find(target->GetGUID())) == m_tempAuras.end())
-        return;
-
-    if( m_spellInfo->MechanicsType == 31 )
-        target->SetFlag(UNIT_FIELD_AURASTATE, AURASTATE_FLAG_ENRAGE);
-
-    Aura *aur = itr->second;
-    m_tempAuras.erase(itr);
-
-    // did our effects kill the target?
-    if( target->isDead() && !m_spellInfo->isDeathPersistentAura())
+    if(spTarget->AuraAddResult != AURA_APPL_NOT_RUN)
     {
-        // free pointer
-        target->RemoveAura(aur);
-        return;
-    }
+        switch(spTarget->AuraAddResult)
+        {
+        case AURA_APPL_SUCCESS:
+            {
+                Aura *Aur = NULL;
+                if((Aur = spTarget->aura) && !(unitTarget->isDead() && !m_spellInfo->isDeathPersistentAura()))
+                {
+                    // Clear out our pointer
+                    spTarget->aura = NULL;
 
-    // Add the aura to our target
-    target->AddAura(aur);
+                    // Trigger application data update
+                    Aur->UpdatePreApplication();
+                    unitTarget->m_AuraInterface.AddAura(Aur);
+                }
+            }break;
+        /*case AURA_APPL_REFRESH:
+            if(!(unitTarget->isDead() && !m_spellInfo->isDeathPersistentAura()))
+                unitTarget->m_AuraInterface.RefreshAura(m_spellInfo, m_casterGuid);
+            break;
+        case AURA_APPL_STACKED:
+            if(!(unitTarget->isDead() && !m_spellInfo->isDeathPersistentAura()))
+                unitTarget->m_AuraInterface.AddAuraStack(m_spellInfo);
+            break;*/
+        }
+    }
 }
 
 void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
@@ -274,20 +274,20 @@ void SpellEffectClass::DetermineSkillUp(Player *target, uint32 skillid,uint32 ta
     if(target->GetSkillUpChance(skillid)<0.01f)
         return;//to preven getting higher skill than max
 
-    int32 diff = abs(int(target->_GetSkillLineCurrent(skillid,false)/5 - targetlevel));
+    int32 diff = abs(int(target->getSkillLineVal(skillid,false)/5 - targetlevel));
     float chance = ( diff <=5  ? 95.0f : diff <=10 ? 66.0f : diff <=15 ? 33.0f : 0.0f );
     if( Rand(int32(chance * sWorld.getRate(RATE_SKILLCHANCE) * (multiplicator?multiplicator:1))))
-        target->_AdvanceSkillLine(skillid, float2int32(1.0f * sWorld.getRate(RATE_SKILLRATE)));
+        target->ModSkillLineAmount(skillid, float2int32(1.0f * sWorld.getRate(RATE_SKILLRATE)), false);
 }
 
 void SpellEffectClass::DetermineSkillUp(Player *target, uint32 skillid)
 {
-    float chance = 0.0f;
+    /*float chance = 0.0f;
     SkillLineAbilityEntry* skill = objmgr.GetSpellSkill(m_spellInfo->Id);
-    if( skill != NULL && target->_HasSkillLine( skill->skilline ) )
+    if( skill != NULL && target->HasSkillLine( skill->skilline ) )
     {
-        uint32 amt = target->_GetSkillLineCurrent( skill->skilline, false );
-        uint32 max = target->_GetSkillLineMax( skill->skilline );
+        uint32 amt = target->getSkillLineVal( skill->skilline, false );
+        uint32 max = target->getSkillLineMax( skill->skilline );
         if( amt >= max )
             return;
         if( amt >= skill->RankMax ) //grey
@@ -301,7 +301,7 @@ void SpellEffectClass::DetermineSkillUp(Player *target, uint32 skillid)
     }
 
     if(Rand(chance*sWorld.getRate(RATE_SKILLCHANCE)))
-        target->_AdvanceSkillLine(skillid, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)));
+        target->ModSkillLineAmount(skillid, float2int32( 1.0f * sWorld.getRate(RATE_SKILLRATE)), false);*/
 }
 
 void SpellEffectClass::InitializeSpellEffectClass()
@@ -323,7 +323,7 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_RESURRECT]                    = &SpellEffectClass::SpellEffectResurrect; // 18
     m_spellEffectMap[SPELL_EFFECT_ADD_EXTRA_ATTACKS]            = &SpellEffectClass::SpellEffectAddExtraAttacks; // 19
     m_spellEffectMap[SPELL_EFFECT_CREATE_ITEM]                  = &SpellEffectClass::SpellEffectCreateItem; // 24
-    m_spellEffectMap[SPELL_EFFECT_WEAPON]                       = &SpellEffectClass::SpellEffectWeapon; // 25
+    m_spellEffectMap[SPELL_EFFECT_WEAPON]                       = &SpellEffectClass::SpellEffectSkill; // 25
     m_spellEffectMap[SPELL_EFFECT_PERSISTENT_AREA_AURA]         = &SpellEffectClass::SpellEffectPersistentAA; // 27
     m_spellEffectMap[SPELL_EFFECT_SUMMON]                       = &SpellEffectClass::SpellEffectSummon; // 28
     m_spellEffectMap[SPELL_EFFECT_LEAP]                         = &SpellEffectClass::SpellEffectLeap; // 29
@@ -332,11 +332,11 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_TRIGGER_MISSILE]              = &SpellEffectClass::SpellEffectTriggerMissile; // 32
     m_spellEffectMap[SPELL_EFFECT_OPEN_LOCK]                    = &SpellEffectClass::SpellEffectOpenLock; // 33
     m_spellEffectMap[SPELL_EFFECT_TRANSFORM_ITEM]               = &SpellEffectClass::SpellEffectTranformItem; // 34
-    m_spellEffectMap[SPELL_EFFECT_APPLY_AREA_AURA]              = &SpellEffectClass::SpellEffectApplyAA; // 35
+    m_spellEffectMap[SPELL_EFFECT_APPLY_AREA_AURA]              = &SpellEffectClass::SpellEffectDelayed; // 35
     m_spellEffectMap[SPELL_EFFECT_LEARN_SPELL]                  = &SpellEffectClass::SpellEffectLearnSpell; // 36
     m_spellEffectMap[SPELL_EFFECT_DISPEL]                       = &SpellEffectClass::SpellEffectDispel; // 38
-    m_spellEffectMap[SPELL_EFFECT_LANGUAGE]                     = &SpellEffectClass::SpellEffectLanguage; // 39
-    m_spellEffectMap[SPELL_EFFECT_DUAL_WIELD]                   = &SpellEffectClass::SpellEffectDualWield; // 40
+    m_spellEffectMap[SPELL_EFFECT_LANGUAGE]                     = &SpellEffectClass::SpellEffectSkill; // 39
+    m_spellEffectMap[SPELL_EFFECT_DUAL_WIELD]                   = &SpellEffectClass::SpellEffectSkill; // 40
     m_spellEffectMap[SPELL_EFFECT_JUMP_TO_TARGET]               = &SpellEffectClass::SpellEffectJump; // 41
     m_spellEffectMap[SPELL_EFFECT_JUMP_TO_DESTIONATION]         = &SpellEffectClass::SpellEffectJump; // 42
     m_spellEffectMap[SPELL_EFFECT_TELEPORT_UNITS_FACE_CASTER]   = &SpellEffectClass::SpellEffectTeleportToCaster; // 43
@@ -357,7 +357,7 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_POWER_BURN]                   = &SpellEffectClass::SpellEffectPowerBurn; // 62
     m_spellEffectMap[SPELL_EFFECT_THREAT]                       = &SpellEffectClass::SpellEffectThreat; // 63
     m_spellEffectMap[SPELL_EFFECT_TRIGGER_SPELL]                = &SpellEffectClass::SpellEffectTriggerSpell; // 64
-    m_spellEffectMap[SPELL_EFFECT_APPLY_RAID_AURA]              = &SpellEffectClass::SpellEffectApplyAA; // 65
+    m_spellEffectMap[SPELL_EFFECT_APPLY_RAID_AURA]              = &SpellEffectClass::SpellEffectDelayed; // 65
     m_spellEffectMap[SPELL_EFFECT_POWER_FUNNEL]                 = &SpellEffectClass::SpellEffectPowerFunnel; // 66
     m_spellEffectMap[SPELL_EFFECT_HEAL_MAX_HEALTH]              = &SpellEffectClass::SpellEffectHealMaxHealth; // 67
     m_spellEffectMap[SPELL_EFFECT_INTERRUPT_CAST]               = &SpellEffectClass::SpellEffectInterruptCast; // 68
@@ -436,7 +436,6 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_ALLOW_PET_RENAME]             = &SpellEffectClass::SpellEffectAllowPetRename;
     m_spellEffectMap[SPELL_EFFECT_SET_TALENT_SPECS_COUNT]       = &SpellEffectClass::SpellEffectSetTalentSpecsCount;
     m_spellEffectMap[SPELL_EFFECT_ACTIVATE_TALENT_SPEC]         = &SpellEffectClass::SpellEffectActivateTalentSpec;
-    m_spellEffectMap[SPELL_EFFECT_REMOVE_TARGET_AURA]           = &SpellEffectClass::SpellEffectRemoveAura;
 }
 
 void SpellEffectClass::SpellEffectNULL(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
@@ -581,46 +580,7 @@ void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, i
 
 void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Apply Aura
 {
-    if(!target->IsUnit())
-        return;
-    Unit *unitTarget = castPtr<Unit>(target);
 
-    //Aura Immune Flag Check
-    if ( unitTarget->IsCreature() )
-    {
-        if(Creature* c = castPtr<Creature>( unitTarget ))
-        {
-            if(c->GetCreatureData()->auraMechanicImmunity)
-            {
-                if(c->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<m_spellInfo->MechanicsType))
-                    return;
-            }
-        }
-    }
-
-    // Aura Mastery + Aura Of Concentration = No Interrupting effects
-    if(m_spellInfo->EffectApplyAuraName[i] == SPELL_AURA_MOD_SILENCE && unitTarget->HasAura(31821) && unitTarget->HasAura(19746))
-        return;
-
-    if( unitTarget->isDead() && !m_spellInfo->isDeathPersistentAura() )
-        return;
-
-    // avoid map corruption.
-    if(unitTarget->GetInstanceID()!=m_caster->GetInstanceID())
-        return;
-
-    //check if we already have stronger aura
-    Aura* pAura = NULL;
-    AuraTargetMap::iterator itr;
-    if((itr = m_tempAuras.find(unitTarget->GetGUID())) == m_tempAuras.end())
-    {
-        if(m_caster->IsGameObject() && m_caster->GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY) && castPtr<GameObject>(m_caster)->m_summoner)
-            pAura = new Aura(m_spellInfo, castPtr<GameObject>(m_caster)->m_summoner, unitTarget);
-        else pAura = new Aura(m_spellInfo, m_caster, unitTarget);
-        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
-    } else pAura = itr->second;
-
-    pAura->AddMod(i, m_spellInfo->EffectApplyAuraName[i], amount);
 }
 
 void SpellEffectClass::SpellEffectPowerDrain(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Power Drain
@@ -726,116 +686,6 @@ void SpellEffectClass::SpellEffectAddExtraAttacks(uint32 i, WorldObject *target,
 void SpellEffectClass::SpellEffectCreateItem(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Create item
 {
 
-}
-
-void SpellEffectClass::SpellEffectWeapon(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
-{
-    if( !target->IsPlayer() )
-        return;
-
-    Player *playerTarget = castPtr<Player>(target);
-    uint32 skill = 0, spell = 0;
-    switch( m_spellInfo->Id )
-    {
-    case 201:   // one-handed swords
-        {
-            skill = SKILL_SWORDS;
-        }break;
-    case 202:   // two-handed swords
-        {
-            skill = SKILL_2H_SWORDS;
-        }break;
-    case 203:   // Unarmed
-        {
-            skill = SKILL_UNARMED;
-        }break;
-    case 199:   // two-handed maces
-        {
-            skill = SKILL_2H_MACES;
-        }break;
-    case 198:   // one-handed maces
-        {
-            skill = SKILL_MACES;
-        }break;
-    case 197:   // two-handed axes
-        {
-            skill = SKILL_2H_AXES;
-        }break;
-    case 196:   // one-handed axes
-        {
-            skill = SKILL_AXES;
-        }break;
-    case 5011: // crossbows
-        {
-            skill = SKILL_CROSSBOWS;
-            spell = SPELL_RANGED_GENERAL;
-        }break;
-    case 227:   // staves
-        {
-            skill = SKILL_STAVES;
-        }break;
-    case 1180:  // daggers
-        {
-            skill = SKILL_DAGGERS;
-        }break;
-    case 200:   // polearms
-        {
-            skill = SKILL_POLEARMS;
-        }break;
-    case 15590: // fist weapons
-        {
-            skill = SKILL_UNARMED;
-        }break;
-    case 264:   // bows
-        {
-            skill = SKILL_BOWS;
-            spell = SPELL_RANGED_GENERAL;
-        }break;
-    case 266: // guns
-        {
-            skill = SKILL_GUNS;
-            spell = SPELL_RANGED_GENERAL;
-        }break;
-    case 2567:  // thrown
-        {
-            skill = SKILL_THROWN;
-            spell = SPELL_RANGED_THROW;
-        }break;
-    case 5009:  // wands
-        {
-            skill = SKILL_WANDS;
-            spell = SPELL_RANGED_GENERAL;
-        }break;
-    case 2382:  //Generic Weapon Spell
-        {
-            skill = SKILL_DODGE;
-            spell = SPELL_ATTACK;
-        }break;
-    case 9125:  //Generic Block Spell
-        {
-            skill = SKILL_BLOCK;
-        }break;
-    default:
-        {
-            skill = 0;
-            sLog.Warning("Spell","Could not determine skill for spell id %d (SPELL_EFFECT_WEAPON)", m_spellInfo->Id);
-        }break;
-    }
-
-    if(skill)
-    {
-        if(spell)
-            playerTarget->addSpell(spell);
-
-        // if we do not have the skill line
-        if(!playerTarget->_HasSkillLine(skill))
-        {
-            if(sWorld.StartLevel > 1)
-                playerTarget->_AddSkillLine(skill, 5*sWorld.StartLevel, playerTarget->getLevel()*5);
-            else
-                playerTarget->_AddSkillLine(skill, 1, playerTarget->getLevel()*5);
-        }
-    }
 }
 
 void SpellEffectClass::SpellEffectPersistentAA(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Persistent Area Aura
@@ -1008,7 +858,6 @@ void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, i
 
 void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Trigger Missile
 {
-    return;
     //Used by mortar team
     //Triggers area affect spell at destinatiom
     if(!m_caster->IsUnit())
@@ -1067,24 +916,7 @@ void SpellEffectClass::SpellEffectSendEvent(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectApplyAA(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Apply Area Aura
 {
-    if(!target->IsUnit() || m_caster != target)
-        return;
 
-    Unit *unitTarget = castPtr<Unit>(target);
-    if(!unitTarget->isAlive())
-        return;
-
-    Aura* pAura = NULL;
-    AuraTargetMap::iterator itr;
-    if((itr = m_tempAuras.find(unitTarget->GetGUID())) == m_tempAuras.end())
-    {
-        if(m_caster->IsGameObject() && m_caster->GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY) && castPtr<GameObject>(m_caster)->m_summoner)
-            pAura = new Aura(m_spellInfo, castPtr<GameObject>(m_caster)->m_summoner, unitTarget);
-        else pAura = new Aura(m_spellInfo, m_caster, unitTarget);
-        m_tempAuras.insert(std::make_pair(unitTarget->GetGUID(), pAura));
-    } else pAura = itr->second;
-
-    pAura->AddMod(i, m_spellInfo->EffectApplyAuraName[i], amount);
 }
 
 void SpellEffectClass::SpellEffectLearnSpell(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Learn Spell
@@ -1234,87 +1066,6 @@ void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 am
     unitTarget->m_AuraInterface.MassDispel(u_caster, i, m_spellInfo, amount, start, end);
 }
 
-void SpellEffectClass::SpellEffectLanguage(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
-{
-    if(m_caster->GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    Player* pPlayer = castPtr<Player>( m_caster );
-
-    if(!pPlayer->GetSession()->HasGMPermissions())
-    {
-        if(pPlayer->GetTeam() == TEAM_ALLIANCE)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_COMMON ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_COMMON, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_COMMON );
-
-        if(pPlayer->GetTeam() == TEAM_HORDE)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_ORCISH ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_ORCISH, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_ORCISH );
-
-        if(pPlayer->getRace() == RACE_DWARF)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_DWARVEN ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_DWARVEN, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_DWARVEN );
-
-        if(pPlayer->getRace() == RACE_NIGHTELF)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_DARNASSIAN ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_DARNASSIAN, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_DARNASSIAN );
-
-        if(pPlayer->getRace() == RACE_UNDEAD)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_GUTTERSPEAK ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_GUTTERSPEAK, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_GUTTERSPEAK );
-
-        if(pPlayer->getRace() == RACE_TAUREN)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_TAURAHE ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_TAURAHE, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_TAURAHE );
-
-        if(pPlayer->getRace() == RACE_GNOME)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_GNOMISH ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_GNOMISH, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_GNOMISH );
-
-        if(pPlayer->getRace() == RACE_TROLL)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_TROLL ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_TROLL, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_TROLL );
-
-        if(pPlayer->getRace() == RACE_BLOODELF)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_THALASSIAN ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_THALASSIAN, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_THALASSIAN );
-
-        if(pPlayer->getRace() == RACE_DRAENEI)
-        {
-            if( !pPlayer->_HasSkillLine( SKILL_LANG_DRAENEI ) )
-                pPlayer->_AddSkillLine( SKILL_LANG_DRAENEI, 300, 300 );
-        } else pPlayer->_RemoveSkillLine( SKILL_LANG_DRAENEI );
-    }
-}
-
-void SpellEffectClass::SpellEffectDualWield(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
-{
-    if(!m_caster->IsPlayer())
-        return;
-
-    Player *p_caster = castPtr<Player>(m_caster);
-    if( !p_caster->_HasSkillLine( SKILL_DUAL_WIELD ) )
-         p_caster->_AddSkillLine( SKILL_DUAL_WIELD, 1, 1 );
-}
-
 void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Skill Step
 {
     if(!target->IsPlayer())
@@ -1324,8 +1075,7 @@ void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32
     if( skill == 242 )
         skill = SKILL_LOCKPICKING; // somehow for lockpicking misc is different than the skill :s
 
-    SkillLineEntry* sk = NULL;
-    sk = dbcSkillLine.LookupEntry( skill );
+    SkillLineEntry* sk = dbcSkillLine.LookupEntry( skill );
     if( sk == NULL )
         return;
 
@@ -1348,11 +1098,9 @@ void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32
         return;
     };
 
-    if( ptarget->_HasSkillLine( skill ) )
-        ptarget->_ModifySkillMaximum( skill, max );
-    else if( skill == SKILL_RIDING )
-        ptarget->_AddSkillLine( skill, max, max );
-    else ptarget->_AddSkillLine( skill, 1, max );
+    if( ptarget->HasSkillLine( skill ) )
+        ptarget->UpdateSkillLine( skill, amount, max );
+    else ptarget->AddSkillLine( skill, amount, max, skill == SKILL_RIDING ? max : 1 );
 
     //professions fix, for unknow reason when u learn profession it
     //does not teach find herbs for herbalism etc. moreover there is no spell
@@ -1894,7 +1642,7 @@ void SpellEffectClass::SpellEffectSkinning(uint32 i, WorldObject *target, int32 
     Creature* cr = castPtr<Creature>( unitTarget );
     uint32 skill = cr->GetRequiredLootSkill();
 
-    uint32 sk = castPtr<Player>( m_caster )->_GetSkillLineCurrent( skill ), lvl = cr->getLevel();
+    uint32 sk = castPtr<Player>( m_caster )->getSkillLineVal( skill ), lvl = cr->getLevel();
     if( ( sk >= lvl * 5 ) || ( ( sk + 100 ) >= lvl * 10 ) )
     {
         //Fill loot for Skinning
@@ -2219,20 +1967,35 @@ void SpellEffectClass::SpellEffectSkinPlayerCorpse(uint32 i, WorldObject *target
 
 void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
-    // Used by professions only
-    // Effect should be renamed in RequireSkill
-    if(!m_caster->IsPlayer())
+    uint32 skillLine = m_spellInfo->SpellSkillLine ? m_spellInfo->SpellSkillLine : m_spellInfo->EffectMiscValue[i];
+    if(skillLine == 0 || !m_caster->IsPlayer())
+        return;
+    SkillLineEntry *skillLineEntry = dbcSkillLine.LookupEntry(skillLine);
+    if(skillLineEntry == NULL)
         return;
 
-    uint32 val = std::min<uint32>(450, amount * 75);
-    if( castPtr<Player>(m_caster)->_GetSkillLineMax(m_spellInfo->EffectMiscValue[i]) >= val )
-        return;
+    Player *plr = castPtr<Player>(m_caster);
+    uint16 current = 1, skillMax = std::max<uint16>(1, amount * 75);
+    switch(skillLineEntry->categoryId)
+    {
+    case SKILL_TYPE_ATTRIBUTES:
+    case SKILL_TYPE_WEAPON:
+        if(true) // Cataclysm
+            current = plr->getLevel()*5;
+        else if(uint32 startLevel = (std::max<uint32>(plr->getClass() == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel)-1))
+            current = (startLevel+1)*5; // Wotlk and previous
+        skillMax = plr->getLevel()*5;
+        break;
+    case SKILL_TYPE_CLASS:
+    case SKILL_TYPE_ARMOR:
+    case SKILL_TYPE_LANGUAGE:
+        current = skillMax = MAXIMUM_ATTAINABLE_LEVEL*5;
+        break;
+    }
 
-    if( m_spellInfo->EffectMiscValue[i] == SKILL_RIDING )
-        castPtr<Player>(m_caster)->_AddSkillLine( m_spellInfo->EffectMiscValue[i], val, val );
-    else if( castPtr<Player>(m_caster)->_HasSkillLine(m_spellInfo->EffectMiscValue[i]) )
-        castPtr<Player>(m_caster)->_ModifySkillMaximum(m_spellInfo->EffectMiscValue[i], val);
-    else castPtr<Player>(m_caster)->_AddSkillLine( m_spellInfo->EffectMiscValue[i], 1, val);
+    if(!plr->HasSkillLine(skillLine))
+        plr->AddSkillLine(skillLine, amount, skillMax, current);
+    else plr->UpdateSkillLine(skillLine, amount, skillMax);
 }
 
 void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Normalized Weapon damage +

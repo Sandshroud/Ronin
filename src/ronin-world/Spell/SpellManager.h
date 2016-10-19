@@ -14,6 +14,15 @@ typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *c
 typedef bool(*tCanCastCCS)(SpellEntry *sp, Creature *ctr);
 typedef bool(*tGenCCSTargets)(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
 
+#define SKILL_TYPE_ATTRIBUTES           5
+#define SKILL_TYPE_WEAPON               6
+#define SKILL_TYPE_CLASS                7
+#define SKILL_TYPE_ARMOR                8
+#define SKILL_TYPE_SECONDARY            9
+#define SKILL_TYPE_LANGUAGE             10
+#define SKILL_TYPE_PROFESSION           11
+#define SKILL_TYPE_NA                   12
+
 class SERVER_DECL SpellManager : public Singleton<SpellManager>
 {
 public:
@@ -83,6 +92,12 @@ private:
     // Creature Combat spell limiters
     std::map<uint32, tCanCastCCS> m_canCastCCSTriggers;
     std::map<uint32, tGenCCSTargets> m_genCCSTargetTriggers;
+
+    // Skill line parsed data
+    std::map<uint8, std::vector<SkillLineEntry*>> m_skillLinesByCategory;
+    std::map<std::string, SkillLineEntry*> m_skillLinesByName;
+    // Language spells
+    std::set<std::pair<char*, uint16>> m_languageSkillIds;
 };
 
 #define sSpellMgr SpellManager::getSingleton()

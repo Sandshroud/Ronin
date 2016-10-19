@@ -17,8 +17,9 @@ uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
     return type;
 }
 
-void Spell::FillTargetMap()
+void Spell::FillTargetMap(bool fromDelayed)
 {
+    bool ignoreAOE = m_isDelayedAOEMissile && fromDelayed == false;
     uint32 targetTypes[3] = {SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED};
     // Set destination position for target types when we have target pos flags on current target
     for(uint32 i = 0; i < 3; i++)
@@ -48,6 +49,7 @@ void Spell::FillTargetMap()
     // Fill out our different targets for spell effects
     for(uint8 i = 0; i < 3; i++)
     {
+        float radius = GetRadius(i);
         if(targetTypes[i] & SPELL_TARGET_NOT_IMPLEMENTED)
             continue;
 
@@ -66,46 +68,49 @@ void Spell::FillTargetMap()
         if(targetTypes[i] & SPELL_TARGET_OBJECT_SELF)
             AddTarget(i, targetTypes[i], m_caster);
 
-        if(inWorld)
+        if (inWorld && m_caster->IsUnit() && (targetTypes[i] & SPELL_TARGET_OBJECT_CURTOTEMS))
+        {
+            std::vector<Creature*> m_totemList;
+            castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
+            for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
+                AddTarget(i, targetTypes[i], *itr);
+        }
+
+        if(radius && inWorld)
         {   // These require that we're in world with people around us
-            if(targetTypes[i] & (SPELL_TARGET_AREA | SPELL_TARGET_AREA_SELF))  //targetted aoe
-                AddAOETargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
-            if (m_caster->IsUnit() && (targetTypes[i] & SPELL_TARGET_OBJECT_CURTOTEMS))
-            {
-                std::vector<Creature*> m_totemList;
-                castPtr<Unit>(m_caster)->FillSummonList(m_totemList, SUMMON_TYPE_TOTEM);
-                for(std::vector<Creature*>::iterator itr = m_totemList.begin(); itr != m_totemList.end(); itr++)
-                    AddTarget(i, targetTypes[i], *itr);
-            }
+            if(ignoreAOE == false && (targetTypes[i] & SPELL_TARGET_AREA)) // targetted aoe
+                AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
+            if((targetTypes[i] & SPELL_TARGET_AREA_SELF)) // targetted aoe near us
+                AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
 
             //targets party, not raid
             if((targetTypes[i] & SPELL_TARGET_AREA_PARTY) && !(targetTypes[i] & SPELL_TARGET_AREA_RAID))
             {
                 if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
-                    AddAOETargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets); //npcs
-                else AddPartyTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets); //players/pets/totems
+                    AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets); //npcs
+                else AddPartyTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets); //players/pets/totems
             }
 
             if(targetTypes[i] & SPELL_TARGET_AREA_RAID)
             {
                 if(!m_caster->IsPlayer() && !(m_caster->IsCreature() || m_caster->IsTotem()))
-                    AddAOETargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets); //npcs
-                else AddRaidTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets, (targetTypes[i] & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
+                    AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets); //npcs
+                else AddRaidTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets, (targetTypes[i] & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
             }
 
             if(targetTypes[i] & SPELL_TARGET_AREA_CHAIN)
-                AddChainTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
+                AddChainTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
 
             //target cone
             if(targetTypes[i] & SPELL_TARGET_AREA_CONE)
-                AddConeTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
+                AddConeTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
 
             if(targetTypes[i] & SPELL_TARGET_OBJECT_SCRIPTED)
-                AddScriptedOrSpellFocusTargets(i, targetTypes[i], GetRadius(i), m_spellInfo->MaxTargets);
+                AddScriptedOrSpellFocusTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
         }
 
         // Allow auto self target, especially when map is empty
-        if(m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == m_caster->GetGUID()))
+        if(!m_targets.hasDestination() && (m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == m_caster->GetGUID())))
             AddTarget(i, SPELL_TARGET_NONE, m_caster);
     }
 }

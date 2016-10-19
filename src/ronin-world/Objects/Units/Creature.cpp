@@ -626,9 +626,9 @@ bool Creature::CanTrainPlayer(Player *plr)
         return false;
     if(uint16 skillLine = m_trainerData->reqSkill)
     {
-        if(!plr->_HasSkillLine(skillLine))
+        if(!plr->HasSkillLine(skillLine))
             return false;
-        if(plr->_GetSkillLineCurrent(skillLine) < m_trainerData->reqSkillValue)
+        if(plr->getSkillLineVal(skillLine) < m_trainerData->reqSkillValue)
             return false;
     }
     return true;

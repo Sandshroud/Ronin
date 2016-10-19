@@ -23,7 +23,7 @@ Spell::Spell(WorldObject* Caster, SpellEntry *info, uint8 castNumber, WoWGuid it
 	if (!(duelSpell = (m_caster->IsPlayer() && castPtr<Player>(m_caster)->GetDuelState() == DUEL_STATE_STARTED)))
 		duelSpell = (m_caster->IsItem() && castPtr<Item>(m_caster)->GetOwner() && castPtr<Item>(m_caster)->GetOwner()->GetDuelState() == DUEL_STATE_STARTED);
 
-    m_castPositionX = m_castPositionY = m_castPositionZ = 0.f;
+    Caster->GetPosition(m_castPositionX, m_castPositionY, m_castPositionZ);
     m_AreaAura = false;
 
     m_triggeredByAura = aur;
@@ -368,14 +368,19 @@ uint8 Spell::_DidHit(Unit* target, float *resistOut, uint8 *reflectout)
     /************************************************************************/
     /* Check if the unit is evading                                      */
     /************************************************************************/
-    /*if(target->GetTypeId() == TYPEID_UNIT && ((Creature*)target)->GetAIInterface()->getAIState() == STATE_EVADE)
-        return SPELL_DID_HIT_EVADE;*/
+    if(target->IsCreature() && castPtr<Creature>(target)->hasStateFlag(UF_EVADING))
+        return SPELL_DID_HIT_EVADE;
 
     /*************************************************************************/
     /* Check if the target is immune to this mechanic                       */
     /*************************************************************************/
     if(target->GetMechanicDispels(m_spellInfo->MechanicsType))
         return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
+
+    // Creature Aura Immune Flag Check
+    if (Creature* cTarget = target->IsCreature() ? castPtr<Creature>(target) : NULL)
+        if(cTarget->GetCreatureData()->auraMechanicImmunity && (cTarget->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<m_spellInfo->MechanicsType)))
+            return SPELL_DID_HIT_IMMUNE;
 
     /************************************************************************/
     /* Check if the target has a % resistance to this mechanic            */
@@ -638,12 +643,8 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 
     // instant cast(or triggered) and not channeling
     if( m_caster->IsUnit() && ( m_castTime > 0 || m_spellInfo->IsSpellChannelSpell() ) && !m_triggeredSpell  )
-    {
-        m_castPositionX = m_caster->GetPositionX();
-        m_castPositionY = m_caster->GetPositionY();
-        m_castPositionZ = m_caster->GetPositionZ();
         castPtr<Unit>(m_caster)->CastSpell( this );
-    } else cast( false );
+    else cast( false );
 
     return ccr;
 }
@@ -785,7 +786,7 @@ void Spell::cast(bool check)
         }
     }
 
-    FillTargetMap();
+    FillTargetMap(false);
 
     m_isCasting = true;
 
@@ -815,7 +816,7 @@ void Spell::cast(bool check)
     }
     else if(m_missileSpeed > 0.f)
     {
-        if(!m_delayTargets.empty())
+        if(!m_delayTargets.empty() || m_isDelayedAOEMissile)
             m_caster->GetMapInstance()->AddProjectile(this);
         finish();
         return;
@@ -980,6 +981,64 @@ bool Spell::UpdateDelayedTargetEffects(MapInstance *instance, uint32 difftime)
     // Distance is squared, so square our travel distance
     distanceTraveled *= distanceTraveled;
 
+    if(m_isDelayedAOEMissile)
+    {
+        float delta_x = RONIN_UTIL::Diff(m_castPositionX, m_targets.m_dest.x);
+        float delta_y = RONIN_UTIL::Diff(m_castPositionY, m_targets.m_dest.y);
+        float delta_z = RONIN_UTIL::Diff(m_castPositionZ, m_targets.m_dest.z);
+
+        // Wait until we've reached our destination to trigger
+        if(distanceTraveled > (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z))
+            return false;
+
+        // Refill our target map since we're at our destination
+        FillTargetMap(true);
+
+        std::set<WoWGuid> unitTargets;
+        // Handle all effects for our new targets
+        for(uint8 i = 0; i < 3; i++)
+        {
+            if(m_effectTargetMaps[i].empty())
+                continue;
+
+            for(SpellTargetStorage::iterator itr = m_effectTargetMaps[i].begin(); itr != m_effectTargetMaps[i].end(); itr++)
+            {
+                WorldObject *target = NULL;
+                if(m_caster == NULL || (target = m_caster->GetInRangeObject<WorldObject>(itr->first)) == NULL)
+                {
+                    if(itr->first.getHigh() == HIGHGUID_TYPE_GAMEOBJECT)
+                        target = instance->GetGameObject(itr->first);
+                    else target = instance->GetUnit(itr->first);
+                }
+                if(target == NULL)
+                    continue;
+
+                HandleEffects(i, itr->second, target);
+                if(!target->IsUnit() || unitTargets.find(itr->first) != unitTargets.end())
+                    continue;
+                unitTargets.insert(itr->first);
+            }
+        }
+
+        // Handle any delayed effects
+        for(auto itr = unitTargets.begin(); itr != unitTargets.end(); itr++)
+        {
+            SpellTargetStorage::iterator tgtItr;
+            ASSERT((tgtItr = m_fullTargetMap.find(*itr)) != m_fullTargetMap.end());
+            if(Unit *target = m_caster->GetInRangeObject<Unit>(*itr))
+            {
+                HandleDelayedEffects(target, tgtItr->second);
+                if(m_spellInfo->TargetAuraState)
+                    target->RemoveFlag(UNIT_FIELD_AURASTATE, uint32(1) << (m_spellInfo->TargetAuraState - 1) );
+            }
+        }
+
+        // Send any spell misses
+        SendSpellMisses();
+        // Now we're done so trigger our cleanup via mapinstance
+        return true;
+    }
+
     // Check our delayed target map
     SpellDelayTargets targets(m_delayTargets);
     for(SpellDelayTargets::iterator itr = targets.begin(); itr != targets.end(); itr++)
@@ -1058,7 +1117,7 @@ void Spell::finish()
             RemoveItems();
     }
 
-    if(m_delayTargets.empty())
+    if(m_delayTargets.empty() && !m_isDelayedAOEMissile)
         Destruct();
 }
 
@@ -1991,12 +2050,47 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
     if(tgt->HitResult != SPELL_DID_HIT_SUCCESS)
         return;
 
+    // Effect mask used for storage
+    uint32 effectMask = (1<<effIndex);
     // Add effect mask
-    tgt->EffectMask |= (1<<effIndex);
+    tgt->EffectMask |= effectMask;
     // Calculate effect amount
     tgt->effectAmount[effIndex] = CalculateEffect(effIndex, target);
     // Call to spell manager to modify the spell amount
     tgt->moddedAmount[effIndex] = sSpellMgr.ModifyEffectAmount(this, effIndex, m_caster, target, tgt->effectAmount[effIndex]);
+    // Build any modifier data here
+    if(m_spellInfo->isSpellAuraApplicator() && target->IsUnit())
+    {
+        Unit *unitTarget = castPtr<Unit>(target);
+        if(tgt->resistMod)
+            tgt->AuraAddResult = AURA_APPL_RESISTED;
+        else
+        {
+            if(tgt->aura == NULL && tgt->AuraAddResult == AURA_APPL_NOT_RUN)
+            {
+                if((tgt->AuraAddResult = AURA_APPL_RESISTED/*CheckAuraApplication(unitTarget)*/) == AURA_APPL_SUCCESS)
+                {
+                    uint16 auraFlags = m_spellInfo->isPassiveSpell() ? 0 : (AFLAG_EFF_AMOUNT_SEND | (m_spellInfo->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
+                    int16 stackSize = 1;
+                    if(m_spellInfo->procCharges && m_spellInfo->SpellGroupType)
+                    {
+                        stackSize = (m_spellInfo->procCharges&0xFF);
+                        if(m_caster->IsUnit())
+                        {
+                            castPtr<Unit>(m_caster)->SM_FIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
+                            castPtr<Unit>(m_caster)->SM_PIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
+                        }
+                        stackSize *= -1;
+                    }
+                    tgt->aura = new Aura(unitTarget, m_spellInfo, auraFlags, m_caster->getLevel(), stackSize, UNIXTIME, m_caster->GetGUID());
+                }
+            }
+
+            if(tgt->AuraAddResult == AURA_APPL_SUCCESS)
+                tgt->aura->AddMod(effIndex, m_spellInfo->EffectApplyAuraName[effIndex], tgt->effectAmount[effIndex]);
+        }
+    }
+
     // add to the effect target map
     m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
 }

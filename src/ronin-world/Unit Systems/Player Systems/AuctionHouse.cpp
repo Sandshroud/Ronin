@@ -598,7 +598,7 @@ void AuctionHouse::SendAuctionList(Player* plr, WorldPacket * packet)
             if(proto->Class == 2 && proto->SubClass && !(plr->GetWeaponProficiency()&(((uint32)(1))<<proto->SubClass)))
                 continue;
 
-            if(proto->RequiredSkill > 0 && (!plr->_HasSkillLine(proto->RequiredSkill) || (uint32)proto->RequiredSkillRank > plr->_GetSkillLineCurrent(proto->RequiredSkill, true)))
+            if(proto->RequiredSkill > 0 && (!plr->HasSkillLine(proto->RequiredSkill) || (uint32)proto->RequiredSkillRank > plr->getSkillLineVal(proto->RequiredSkill, true)))
                 continue;
         }
 

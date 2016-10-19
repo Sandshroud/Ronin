@@ -704,6 +704,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_WRAP_ITEM].handler                             = &WorldSession::HandleWrapItemOpcode;
     WorldPacketHandlers[CMSG_ITEM_REFUND_INFO].handler                      = &WorldSession::HandleItemRefundInfoOpcode;
     WorldPacketHandlers[CMSG_ITEM_REFUND].handler                           = &WorldSession::HandleItemRefundRequestOpcode;
+    WorldPacketHandlers[CMSG_TRANSMOGRIFY_ITEMS].handler                    = &WorldSession::HandleTransmogrifyItemsOpcode;
 
     // Spell System / Talent System
     WorldPacketHandlers[CMSG_USE_ITEM].handler                              = &WorldSession::HandleUseItemOpcode;
@@ -1063,7 +1064,6 @@ void WorldSession::HandleTimeSyncResp( WorldPacket & recv_data )
 
     if(counter == 0)
         _player->GetMovementInterface()->OnFirstTimeSync();
-
     // This is just a response, no need to do anything... Yet.
 }
 

@@ -40,6 +40,7 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
     m_waterType = 0, m_waterHeight = NO_WATER_HEIGHT;
     m_lastWaterUpdatePos.ChangeCoords(0.f, 0.f, 0.f, 0.f);
 
+    m_pendingDataTimer = 0xFFFFFFFF;
     m_collisionHeight = 0.f;
     m_isKnockBacked = false;
     m_isFalling = false;
@@ -92,6 +93,8 @@ static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {
     &MovementInterface::HandleNormalFall,
     &MovementInterface::HandleRoot,
     &MovementInterface::HandleUnroot,
+    &MovementInterface::HandleGravityDisable,
+    &MovementInterface::HandleGravityEnable,
     &MovementInterface::HandleUpdateKnockBack,
     &MovementInterface::HandleUpdateTeleport,
     &MovementInterface::HandleChangeTransport,
@@ -216,6 +219,8 @@ uint16 MovementInterface::GetInternalMovementCode(uint16 opcode)
     case SMSG_MOVE_NORMAL_FALL: return MOVEMENT_CODE_NORMAL_FALL;
     case SMSG_MOVE_ROOT: return MOVEMENT_CODE_ROOT;
     case SMSG_MOVE_UNROOT: return MOVEMENT_CODE_UNROOT;
+    case SMSG_MOVE_GRAVITY_DISABLE: return MOVEMENT_CODE_GRAVITY_DISABLE;
+    case SMSG_MOVE_GRAVITY_ENABLE: return MOVEMENT_CODE_GRAVITY_ENABLE;
     case SMSG_MOVE_UPDATE_KNOCK_BACK: return MOVEMENT_CODE_UPDATE_KNOCK_BACK;
     case SMSG_MOVE_UPDATE_TELEPORT: return MOVEMENT_CODE_UPDATE_TELEPORT;
     case CMSG_MOVE_CHNG_TRANSPORT: return MOVEMENT_CODE_CHANGE_TRANSPORT;
@@ -372,6 +377,11 @@ void MovementInterface::Update(uint32 msTime, uint32 uiDiff)
 
     HandleBreathing(uiDiff);
 
+    // Pending data timing handler
+    if(m_pendingDataTimer > uiDiff)
+        m_pendingDataTimer -= uiDiff;
+    else HandlePendingMoveData(false);
+
     if(m_Unit->isCasting() && m_Unit->GetCurrentSpell()->GetSpellProto()->isSpellInterruptOnMovement())
         return;
 
@@ -430,21 +440,18 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
         m_lastWaterUpdatePos.ChangeCoords(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z);
     }
 
-    if(m_Unit->IsPlayer() && !castPtr<Player>(m_Unit)->hasGMTag())
+    if(m_Unit->IsPlayer())
     {
         if(m_isFalling == false && (moveCode == MOVEMENT_CODE_JUMP || (m_isFalling = (hasFlag(MOVEMENTFLAG_TOGGLE_FALLING) || hasFlag(MOVEMENTFLAG_TOGGLE_FALLING_FAR)))))
             m_fallPointZ = m_clientLocation.z;
-        else if(m_isFalling && (!(hasFlag(MOVEMENTFLAG_TOGGLE_FALLING) || hasFlag(MOVEMENTFLAG_TOGGLE_FALLING_FAR)) || moveCode == MOVEMENT_CODE_FALL_LAND))
+        else if(m_isFalling == true && moveCode == MOVEMENT_CODE_JUMP)
+            return false;
+        else if(moveCode == MOVEMENT_CODE_FALL_LAND || (m_isFalling && (!(hasFlag(MOVEMENTFLAG_TOGGLE_FALLING) || hasFlag(MOVEMENTFLAG_TOGGLE_FALLING_FAR)))))
         {
-            if(moveCode == MOVEMENT_CODE_JUMP)
-                return false;
-
-            float diff = 0.f;
-            if((diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)
-                m_Unit->DealDamage(m_Unit, float2int32(diff * 0.017f * ((float)m_Unit->GetMaxHealth())), 0, 0, 0);
+            HandlePendingMoveData(true);
             m_isFalling = false;
             m_fallPointZ = 0.f;
-        }
+        } else HandlePendingMoveData(false);
     } else m_fallPointZ = 0.f, m_isFalling = false;
 
     switch(moveCode)
@@ -1098,6 +1105,44 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
         RecalculateMoveSpeed(*itr);
 }
 
+void MovementInterface::HandlePendingMoveData(bool fromLanding)
+{
+    // Set our pending data timer for next update
+    m_pendingDataTimer = 500;
+
+    // If we're falling we need to cut before we handle the pending data
+    if(m_isFalling)
+    {
+        if(fromLanding == true)
+        {   // Handle our pending falling damage
+            float diff = 0.f;
+            if(castPtr<Player>(m_Unit)->hasGMTag() && (diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)
+                m_Unit->DealDamage(m_Unit, float2int32(diff * 0.017f * ((float)m_Unit->GetMaxHealth())), 0, 0, 0);
+            // Damage handled, data will be cleared after this
+        } else return;
+    }
+
+    // Roll through our pending movement data
+    while(!m_pendingMoveData.empty())
+    {
+        WorldPacket data;
+        MovementCodes code = m_pendingMoveData.next();
+        switch(code)
+        {
+        case MOVEMENT_CODE_UNROOT:
+            data.Initialize(SMSG_MOVE_UNROOT, 200);
+            WriteFromServer(data.GetOpcode(), &data);
+            castPtr<Player>(m_Unit)->PushPacket(&data);
+            break;
+        case MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE:
+            data.Initialize(SMSG_SPLINE_MOVE_GRAVITY_ENABLE, 200);
+            WriteFromServer(data.GetOpcode(), &data);
+            castPtr<Player>(m_Unit)->PushPacket(&data);
+            break;
+        }
+    }
+}
+
 void MovementInterface::SetFacing(float orientation)
 {
     m_serverLocation->o = orientation;
@@ -1110,6 +1155,13 @@ void MovementInterface::MoveClientPosition(float x, float y, float z, float o)
     UpdatePostRead(MSG_MOVE_HEARTBEAT, MOVEMENT_CODE_HEARTBEAT, NULL);
 }
 
+void MovementInterface::SetSelfTempData(bool enable)
+{
+    enable ? setServerFlag(MOVEMENTFLAG_TOGGLE_ROOT) : removeServerFlag(MOVEMENTFLAG_TOGGLE_ROOT);
+    enable ? setServerFlag(MOVEMENTFLAG_PENDING_STOP) : removeServerFlag(MOVEMENTFLAG_PENDING_STOP);
+    enable ? setServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY) : removeServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY);
+}
+
 void MovementInterface::SendTimeSyncReq()
 {
     if(!m_Unit->IsPlayer())
@@ -1118,7 +1170,7 @@ void MovementInterface::SendTimeSyncReq()
     // Send our time sync request packet
     WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
     data << uint32(m_timeSyncCounter); // counter
-    castPtr<Player>(m_Unit)->PushPacket(&data, true);
+    castPtr<Player>(m_Unit)->PushPacket(&data);
     m_sentTimeSync.insert(m_timeSyncCounter);
     m_timeSyncCounter = std::max<uint32>(0x0000000F, RandomUInt());
 }
@@ -1127,11 +1179,6 @@ void MovementInterface::OnPreSetInWorld()
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
         RecalculateMoveSpeed(MovementSpeedTypes(i));
-
-    if(!m_Unit->IsPlayer())
-        return;
-    setServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY);
-    setRooted(true);
 }
 
 void MovementInterface::OnPrePushToWorld()
@@ -1147,19 +1194,24 @@ void MovementInterface::OnPrePushToWorld()
 void MovementInterface::OnPushToWorld()
 {
     UnlockTransportData();
-    SendTimeSyncReq();
-
     if(!m_Unit->IsPlayer())
         return;
-
+    // Push data for our active mover
     WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER);
     data.WriteGuidBitString(8, m_moverGuid, 5, 7, 3, 6, 0, 4, 1, 2);
     data.WriteSeqByteString(8, m_moverGuid, 6, 2, 3, 0, 5, 7, 1, 4);
     castPtr<Player>(m_Unit)->PushPacket( &data );
+    // Disable player root from login/map transfer
+    m_pendingMoveData.add(MOVEMENT_CODE_UNROOT);
+    // Send a spline gravity enable since we don't have the regular packet parsed yet
+    m_pendingMoveData.add(MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE);
+    // Send a time sync request
+    SendTimeSyncReq();
 }
 
 void MovementInterface::OnRemoveFromWorld()
 {
+    m_pendingDataTimer = 0xFFFFFFFF;
     m_timeSyncCounter = 0;
     m_moveAckCounter = 0;
 
@@ -1173,9 +1225,8 @@ void MovementInterface::OnRemoveFromWorld()
 }
 
 void MovementInterface::OnFirstTimeSync()
-{
-    removeServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY);
-    setRooted(false);
+{   // Update our pending data timer to activate in the next few cycles
+    m_pendingDataTimer = std::min<uint32>(m_pendingDataTimer, 500);
 }
 
 void MovementInterface::OnDeath()

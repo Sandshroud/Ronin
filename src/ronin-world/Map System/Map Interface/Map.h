@@ -57,8 +57,13 @@ public:
     Map(MapEntry *map, char *name);
     ~Map();
 
+    void PreloadTerrain(bool continent) { _InitializeTerrain(continent); }
     void Initialize(CellSpawns *mapSpawns, bool continent);
 
+protected: // Do not let anyone else access this
+    void _InitializeTerrain(bool continent);
+
+public:
     RONIN_INLINE std::string GetNameString() { return mapName; }
     RONIN_INLINE const char* GetName() { return mapName.c_str(); }
 

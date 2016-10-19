@@ -421,6 +421,7 @@ protected:
     void HandleInsertGemOpcode(WorldPacket &recvPacket);
     void HandleItemRefundInfoOpcode( WorldPacket& recvPacket );
     void HandleItemRefundRequestOpcode( WorldPacket& recvPacket );
+    void HandleTransmogrifyItemsOpcode( WorldPacket& recvPacket );
 
     /// Combat opcodes (CombatHandler.cpp)
     void HandleAttackSwingOpcode(WorldPacket& recvPacket);
@@ -731,6 +732,7 @@ private:
     Mutex charDataLock;
     // First: Char index, Second: Pair<First: Player guid, Second: Player Map>;
     Loki::AssocVector<uint8, PlayerInfo*> m_charData;
+    std::set<WoWGuid> m_bannedCharacters;
 
     // Tutorials
     void LoadTutorials();
