@@ -12,6 +12,16 @@ class LogonCommServerSocket;
 struct Patch;
 class PatchJob;
 
+enum SocketState
+{
+    STATE_CLOSED = 0,
+    STATE_NEED_CHALLENGE,
+    STATE_NEED_PROOF,
+    STATE_NEED_REPROOF,
+    STATE_AUTHENTICATED,
+    STATE_PATCHING
+};
+
 class AuthSocket : public TcpSocket
 {
     friend class LogonCommServerSocket;
@@ -29,15 +39,15 @@ public:
     // Client Packet Handlers
     //////////////////////////
 
-    void HandleChallenge();
-    void HandleProof();
-    void HandleRealmlist();
-    void HandleReconnectChallenge();
-    void HandleReconnectProof();
-    void HandleTransferAccept();
-    void HandleTransferResume();
-    void HandleTransferCancel();
-    void HandleCMD19();
+    bool HandleChallenge();
+    bool HandleProof();
+    bool HandleRealmlist();
+    bool HandleReconnectChallenge();
+    bool HandleReconnectProof();
+    bool HandleTransferAccept();
+    bool HandleTransferResume();
+    bool HandleTransferCancel();
+    bool HandleCMD19();
 
     ///////////////////////////////////////////////////
     // Server Packet Builders
@@ -69,8 +79,8 @@ protected:
 
     sAuthLogonChallenge_C m_challenge;
     Account * m_account;
-    bool m_authenticated;
     std::string AccountName;
+    SocketState m_state;
 
     //////////////////////////////////////////////////
     // Authentication BigNumbers

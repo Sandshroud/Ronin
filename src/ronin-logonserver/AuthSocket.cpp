@@ -25,7 +25,6 @@ AuthSocket::AuthSocket(SOCKET fd, const sockaddr_in * peer) : TcpSocket(fd, 3276
     N.SetHexStr("894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7");
     g.SetDword(7);
     s.SetRand(256);
-    m_authenticated = false;
     m_account = 0;
     last_recv = time(NULL);
     removedFromSet = false;
@@ -34,6 +33,7 @@ AuthSocket::AuthSocket(SOCKET fd, const sockaddr_in * peer) : TcpSocket(fd, 3276
     _authSocketLock.Acquire();
     _authSockets.insert(this);
     _authSocketLock.Release();
+    m_state = STATE_NEED_CHALLENGE;
 }
 
 AuthSocket::~AuthSocket()
@@ -57,43 +57,187 @@ void AuthSocket::OnDisconnect()
     }
 }
 
-void AuthSocket::HandleChallenge()
+void AuthSocket::SendChallengeError(uint8 Error)
 {
+    uint8 buffer[3];
+    buffer[0] = buffer[1] = 0;
+    buffer[2] = Error;
+
+    Send(buffer, 3);
+}
+
+void AuthSocket::SendProofError(uint8 Error, uint8 * M2)
+{
+    uint8 buffer[32];
+    memset(buffer, 0, 32);
+
+    buffer[0] = 1;
+    buffer[1] = Error;
+    if(M2 == 0)
+    {
+#ifdef USING_BIG_ENDIAN
+        *(uint32*)&buffer[2] = swap32(3);
+#else
+        *(uint32*)&buffer[2] = 3;
+#endif
+        Send(buffer, 6);
+        return;
+    }
+    
+    memcpy(&buffer[2], M2, 20);
+    Send(buffer, 32);
+}
+
+#define AUTH_CHALLENGE 0
+#define AUTH_PROOF 1
+#define AUTH_RECHALLENGE 2
+#define AUTH_REPROOF 3
+#define REALM_LIST 16
+#define INITIATE_TRANSFER 48        // 0x30
+#define TRANSFER_DATA 49        // 0x31
+#define ACCEPT_TRANSFER 50      // 0x32
+#define RESUME_TRANSFER 51      // 0x33
+#define CANCEL_TRANSFER 52      // 0x34
+#define MAX_AUTH_CMD 53
+
+typedef bool (AuthSocket::*AuthHandler)();
+static AuthHandler Handlers[MAX_AUTH_CMD] = {
+        &AuthSocket::HandleChallenge,           // 0
+        &AuthSocket::HandleProof,               // 1
+        &AuthSocket::HandleReconnectChallenge,  // 2
+        &AuthSocket::HandleReconnectProof,      // 3
+        NULL,                                   // 4
+        NULL,                                   // 5
+        NULL,                                   // 6
+        NULL,                                   // 7
+        NULL,                                   // 8
+        NULL,                                   // 9
+        NULL,                                   // 10
+        NULL,                                   // 11
+        NULL,                                   // 12
+        NULL,                                   // 13
+        NULL,                                   // 14
+        NULL,                                   // 15
+        &AuthSocket::HandleRealmlist,           // 16
+        NULL,                                   // 17
+        NULL,                                   // 18
+        &AuthSocket::HandleCMD19,               // 19
+        NULL,                                   // 20
+        NULL,                                   // 21
+        NULL,                                   // 22
+        NULL,                                   // 23
+        NULL,                                   // 24
+        NULL,                                   // 25
+        NULL,                                   // 26
+        NULL,                                   // 27
+        NULL,                                   // 28
+        NULL,                                   // 29
+        NULL,                                   // 30
+        NULL,                                   // 31
+        NULL,                                   // 32
+        NULL,                                   // 33
+        NULL,                                   // 34
+        NULL,                                   // 35
+        NULL,                                   // 36
+        NULL,                                   // 37
+        NULL,                                   // 38
+        NULL,                                   // 39
+        NULL,                                   // 40
+        NULL,                                   // 41
+        NULL,                                   // 42
+        NULL,                                   // 43
+        NULL,                                   // 44
+        NULL,                                   // 45
+        NULL,                                   // 46
+        NULL,                                   // 47
+        NULL,                                   // 48
+        NULL,                                   // 49
+        &AuthSocket::HandleTransferAccept,      // 50
+        &AuthSocket::HandleTransferResume,      // 51
+        &AuthSocket::HandleTransferCancel,      // 52
+};
+
+bool AuthSocket::HandleCMD19()
+{
+    return false;
+}
+
+void AuthSocket::OnRecvData()
+{
+    if(!IsConnected())
+        return;
+
+    if(m_state == STATE_CLOSED)
+    {
+        Disconnect();
+        return;
+    }
+
+    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset();
+    last_recv = UNIXTIME;
+    if(Command >= MAX_AUTH_CMD)
+        sLog.Debug("AuthSocket", "Out of range cmd %u", Command);
+    else if(Handlers[Command] == NULL)
+        sLog.Debug("AuthSocket", "Unknown cmd %u", Command);
+    else if(!(this->*Handlers[Command])())
+    {
+        m_state = STATE_CLOSED;
+        Disconnect();
+    }
+}
+
+bool AuthSocket::HandleRealmlist()
+{
+    if(m_state != STATE_AUTHENTICATED)
+    {
+        sLog.Notice("AuthSocket","Realmlist without auth\n");
+        return false;
+    }
+
+    sLog.Debug("AuthSocket","HandleRealmlist.");
+    sInfoCore.SendRealms(this);
+    return true;
+}
+
+bool AuthSocket::HandleChallenge()
+{
+    if(m_state != STATE_NEED_CHALLENGE)
+        return false;
+
     // No header
     if(GetReadBuffer()->GetSize() < 4)
-        return;
+        return true;
 
     if(sInfoCore.GetRealmMap().empty())
     {   // If we lack a realm to connect to, block em, it's better then making them sit and get locked into an empty list.
         SendChallengeError(CE_IPBAN);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     // Check the rest of the packet is complete.
     uint8 * ReceiveBuffer = (uint8*)GetReadBuffer()->GetBufferOffset();
     uint16 full_size = *(uint16*)&ReceiveBuffer[2];
 
-    sLog.Debug("AuthChallenge","got header, body is 0x%02X bytes", full_size);
-
-    if(GetReadBuffer()->GetSize() < uint32(full_size+4))
-        return;
-
-    // Copy the data into our cached challenge structure
+    // Make sure it's not a bloated packet
     if(full_size > sizeof(sAuthLogonChallenge_C))
-    {
-        Disconnect();
-        return;
-    }
+        return false;
+
+    sLog.Debug("AuthChallenge","got header, body is 0x%02X bytes", full_size);
+    if(GetReadBuffer()->GetSize() < uint32(full_size+4))
+        return true;
 
     sLog.Debug("AuthChallenge","got full packet.");
 
+    // Copy the data into our cached challenge structure
     GetReadBuffer()->Read(&m_challenge, full_size + 4);
 
     // Check client build.
     if(GetBuild() > LogonServer::getSingleton().max_build)
     {
         SendChallengeError(CE_WRONG_BUILD_NUMBER);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     if(GetBuild() < LogonServer::getSingleton().min_build)
@@ -110,7 +254,8 @@ void AuthSocket::HandleChallenge()
         {
             // could not find a valid patch
             SendChallengeError(CE_WRONG_BUILD_NUMBER);
-            return;
+            m_state = STATE_CLOSED;
+            return true;
         }
 
         sLog.Debug("Patch", "Selected patch %u%s for client.", m_patch->Version,m_patch->Locality);
@@ -129,7 +274,10 @@ void AuthSocket::HandleChallenge()
             0x49, 0x76, 0x5c, 0x5b, 0x35, 0x9a, 0x93, 0x3c, 0x6f, 0x3c, 0x63, 0x6d, 0xc0, 0x00
         };
         Send(response, 119);
-        return;
+
+        // Wait for proof
+        m_state = STATE_NEED_PROOF;
+        return true;
     }
 
     // Check for a possible IP ban on this client.
@@ -139,25 +287,25 @@ void AuthSocket::HandleChallenge()
     {
     case BAN_STATUS_PERMANENT_BAN:
         SendChallengeError(CE_ACCOUNT_CLOSED);
-        return;
-
+        m_state = STATE_CLOSED;
+        return true;
     case BAN_STATUS_TIME_LEFT_ON_BAN:
         SendChallengeError(CE_ACCOUNT_FREEZED);
-        return;
-
-    default:
-        break;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     // Null-terminate the account string
-    if(m_challenge.I_len >= 0x50) { Disconnect(); return; }
+    if(m_challenge.I_len >= 0x50)
+        return false;
+
     m_challenge.I[m_challenge.I_len] = 0;
     AccountName = (char*)&m_challenge.I;
     std::string::size_type i = AccountName.rfind("#");
     if( i != std::string::npos )
     {
         printf("# ACCOUNTNAME!\n");
-        return;
+        return false;
     }
 
     // Look up the account information
@@ -168,24 +316,25 @@ void AuthSocket::HandleChallenge()
 
         // Non-existant account
         SendChallengeError(CE_NO_ACCOUNT);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     // Check that the account isn't banned.
     if(m_account->Banned == 1)
     {
-        SendChallengeError(CE_ACCOUNT_CLOSED);
         sLog.Notice("AuthChallenge","Account Name: \"%s\" - Account state: CLOSED", AccountName.c_str());
-        return;
+        SendChallengeError(CE_ACCOUNT_CLOSED);
+        m_state = STATE_CLOSED;
+        return true;
     }
     else if(m_account->Banned > 0)
     {
-        SendChallengeError(CE_ACCOUNT_FREEZED);
         sLog.Notice("AuthChallenge","Account Name: \"%s\" - Account state: FROZEN (%u)", AccountName.c_str(), m_account->Banned);
-        return;
-    }
-    else
-        sLog.Notice("AuthChallenge","Account Name: \"%s\" - Account state: OK", AccountName.c_str());
+        SendChallengeError(CE_ACCOUNT_FREEZED);
+        m_state = STATE_CLOSED;
+        return true;
+    } else sLog.Notice("AuthChallenge","Account Name: \"%s\" - Account state: OK", AccountName.c_str());
 
     // update cached locale
     if(!m_account->forcedLocale)
@@ -230,29 +379,39 @@ void AuthSocket::HandleChallenge()
     memcpy(&response[c], unk.AsByteArray(), 16);            c += 16;
     response[c] = 0;                                        c += 1;
 
-    Send(response, c);
     sLog.Debug("AuthSocket","Sending Success Response");
+    // Send our challenge response
+    Send(response, c);
+
+    // Wait for proof
+    m_state = STATE_NEED_PROOF;
+    return true;
 }
 
-void AuthSocket::HandleProof()
+bool AuthSocket::HandleProof()
 {
+    if( m_state != STATE_NEED_PROOF || m_account == NULL )
+        return false;
+
     if(GetReadBuffer()->GetSize() < sizeof(sAuthLogonProof_C))
-        return;
+        return true;
 
     // patch
-    if(m_patch&&!m_account)
+    if(m_patch && !m_account)
     {
-        //RemoveReadBufferBytes(75,false);
-        GetReadBuffer()->Remove(75);
+        // Clear out the proof
+        GetReadBuffer()->Remove(sizeof(sAuthLogonProof_C));
+
+        // Send patch start
         sLog.Debug("AuthLogonProof","Intitiating PatchJob");
         uint8 bytes[2] = {0x01,0x0a};
         Send(bytes,2);
         PatchMgr::getSingleton().InitiatePatch(m_patch, this);
-        return;
-    }
 
-    if(!m_account)
-        return;
+        // Wait for patch data
+        m_state = STATE_PATCHING;
+        return true;
+    }
 
     sLog.Debug("AuthLogonProof","Interleaving and checking proof...");
 
@@ -333,9 +492,10 @@ void AuthSocket::HandleProof()
     {
         // Authentication failed.
         //SendProofError(4, 0);
-        SendChallengeError(CE_NO_ACCOUNT);
         sLog.Debug("AuthLogonProof","M1 values don't match.");
-        return;
+        SendChallengeError(CE_NO_ACCOUNT);
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     // Store sessionkey
@@ -358,167 +518,44 @@ void AuthSocket::HandleProof()
         memcpy(proof.M2, sha.GetDigest(), 20);
         proof.unk2 = 0;
         SendPacket( (uint8*) &proof, sizeof(proof) );
-    }
-    else
-        SendProofError(0, sha.GetDigest());
+    } else SendProofError(0, sha.GetDigest());
 
     sLog.Debug("AuthLogonProof","Authentication Success.");
-
-    // we're authenticated now :)
-    m_authenticated = true;
 
     // Don't update when IP banned, but update anyway if it's an account ban
     const char* m_sessionkey_hex = m_sessionkey.AsHexStr();
     sLogonSQL->Execute("UPDATE accounts SET lastlogin=NOW(), SessionKey = '%s', lastip='%s' WHERE acct=%u;", m_sessionkey_hex, GetIP(), m_account->AccountId);
+
+    // we're authenticated now :)
+    m_state = STATE_AUTHENTICATED;
+    return true;
 }
 
-void AuthSocket::SendChallengeError(uint8 Error)
+bool AuthSocket::HandleReconnectChallenge()
 {
-    uint8 buffer[3];
-    buffer[0] = buffer[1] = 0;
-    buffer[2] = Error;
+    // Only when we are looking for it
+    if(m_state != STATE_NEED_CHALLENGE)
+        return false;
 
-    Send(buffer, 3);
-}
-
-void AuthSocket::SendProofError(uint8 Error, uint8 * M2)
-{
-    uint8 buffer[32];
-    memset(buffer, 0, 32);
-
-    buffer[0] = 1;
-    buffer[1] = Error;
-    if(M2 == 0)
-    {
-#ifdef USING_BIG_ENDIAN
-        *(uint32*)&buffer[2] = swap32(3);
-#else
-        *(uint32*)&buffer[2] = 3;
-#endif
-        Send(buffer, 6);
-        return;
-    }
-    
-    memcpy(&buffer[2], M2, 20);
-    Send(buffer, 32);
-}
-
-#define AUTH_CHALLENGE 0
-#define AUTH_PROOF 1
-#define AUTH_RECHALLENGE 2
-#define AUTH_REPROOF 3
-#define REALM_LIST 16
-#define INITIATE_TRANSFER 48        // 0x30
-#define TRANSFER_DATA 49        // 0x31
-#define ACCEPT_TRANSFER 50      // 0x32
-#define RESUME_TRANSFER 51      // 0x33
-#define CANCEL_TRANSFER 52      // 0x34
-#define MAX_AUTH_CMD 53
-
-typedef void (AuthSocket::*AuthHandler)();
-static AuthHandler Handlers[MAX_AUTH_CMD] = {
-        &AuthSocket::HandleChallenge,           // 0
-        &AuthSocket::HandleProof,               // 1
-        &AuthSocket::HandleReconnectChallenge,  // 2
-        &AuthSocket::HandleReconnectProof,      // 3
-        NULL,                                   // 4
-        NULL,                                   // 5
-        NULL,                                   // 6
-        NULL,                                   // 7
-        NULL,                                   // 8
-        NULL,                                   // 9
-        NULL,                                   // 10
-        NULL,                                   // 11
-        NULL,                                   // 12
-        NULL,                                   // 13
-        NULL,                                   // 14
-        NULL,                                   // 15
-        &AuthSocket::HandleRealmlist,           // 16
-        NULL,                                   // 17
-        NULL,                                   // 18
-        &AuthSocket::HandleCMD19,               // 19
-        NULL,                                   // 20
-        NULL,                                   // 21
-        NULL,                                   // 22
-        NULL,                                   // 23
-        NULL,                                   // 24
-        NULL,                                   // 25
-        NULL,                                   // 26
-        NULL,                                   // 27
-        NULL,                                   // 28
-        NULL,                                   // 29
-        NULL,                                   // 30
-        NULL,                                   // 31
-        NULL,                                   // 32
-        NULL,                                   // 33
-        NULL,                                   // 34
-        NULL,                                   // 35
-        NULL,                                   // 36
-        NULL,                                   // 37
-        NULL,                                   // 38
-        NULL,                                   // 39
-        NULL,                                   // 40
-        NULL,                                   // 41
-        NULL,                                   // 42
-        NULL,                                   // 43
-        NULL,                                   // 44
-        NULL,                                   // 45
-        NULL,                                   // 46
-        NULL,                                   // 47
-        NULL,                                   // 48
-        NULL,                                   // 49
-        &AuthSocket::HandleTransferAccept,      // 50
-        &AuthSocket::HandleTransferResume,      // 51
-        &AuthSocket::HandleTransferCancel,      // 52
-};
-
-void AuthSocket::HandleCMD19()
-{
-    // Its actually sending a packet to the patcher, just ignore it
-}
-
-void AuthSocket::OnRecvData()
-{
-    if(GetReadBuffer()->GetSize() < 1)
-        return;
-
-    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset();
-    last_recv = UNIXTIME;
-    if(Command < MAX_AUTH_CMD && Handlers[Command] != NULL)
-        (this->*Handlers[Command])();
-    else
-        sLog.Notice("AuthSocket", "Unknown cmd %u", Command);
-}
-
-void AuthSocket::HandleRealmlist()
-{
-    sLog.Debug("AuthSocket","HandleRealmlist.");
-    sInfoCore.SendRealms(this);
-}
-
-void AuthSocket::HandleReconnectChallenge()
-{
     // No header
     if(GetReadBuffer()->GetSize() < 4)
-        return; 
+        return true;
 
     // Check the rest of the packet is complete.
     uint8 * ReceiveBuffer = (uint8*)GetReadBuffer()->GetBufferOffset();
     uint16 full_size = *(uint16*)&ReceiveBuffer[2];
-    sLog.Debug("ReconnectChallenge","got header, body is 0x%02X bytes", full_size);
 
-    if(GetReadBuffer()->GetSize() < (uint32)full_size+4)
-        return;
-
-    // Copy the data into our cached challenge structure
+    // Make sure the packet is not bloated
     if((size_t)(full_size+4) > sizeof(sAuthLogonChallenge_C))
-    {
-        Disconnect();
-        return;
-    }
+        return false;
+
+    sLog.Debug("ReconnectChallenge","got header, body is 0x%02X bytes", full_size);
+    if(GetReadBuffer()->GetSize() < (uint32)full_size+4)
+        return true;
 
     sLog.Debug("ReconnectChallenge", "got full packet.");
 
+    // Copy the data into our cached challenge structure
     memcpy(&m_challenge, ReceiveBuffer, full_size + 4);
     GetReadBuffer()->Read(&m_challenge, full_size + 4);
 
@@ -527,7 +564,8 @@ void AuthSocket::HandleReconnectChallenge()
         m_challenge.build < LogonServer::getSingleton().min_build)
     {
         SendChallengeError(CE_WRONG_BUILD_NUMBER);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     // Check for a possible IP ban on this client.
@@ -537,22 +575,18 @@ void AuthSocket::HandleReconnectChallenge()
     {
     case BAN_STATUS_PERMANENT_BAN:
         SendChallengeError(CE_ACCOUNT_CLOSED);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
 
     case BAN_STATUS_TIME_LEFT_ON_BAN:
         SendChallengeError(CE_ACCOUNT_FREEZED);
-        return;
-
-    default:
-        break;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     // Null-terminate the account string
     if( m_challenge.I_len >= 50 )
-    {
-        Disconnect();
-        return;
-    }
+        return false;
 
     m_challenge.I[m_challenge.I_len] = 0;
 
@@ -567,35 +601,35 @@ void AuthSocket::HandleReconnectChallenge()
 
         // Non-existant account
         SendChallengeError(CE_NO_ACCOUNT);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
 
     // Check that the account isn't banned.
     if(m_account->Banned == 1)
     {
-        SendChallengeError(CE_ACCOUNT_CLOSED);
         sLog.Notice("ReconnectChallenge","Account banned state = %u", m_account->Banned);
-        return;
+        SendChallengeError(CE_ACCOUNT_CLOSED);
+        m_state = STATE_CLOSED;
+        return true;
     }
     else if(m_account->Banned > 0)
     {
-        SendChallengeError(CE_ACCOUNT_FREEZED);
         sLog.Notice("ReconnectChallenge","Account banned state = %u", m_account->Banned);
-        return;
-    }
-    else
-        sLog.Debug("ReconnectChallenge","Account banned state = %u", m_account->Banned);
+        SendChallengeError(CE_ACCOUNT_FREEZED);
+        m_state = STATE_CLOSED;
+        return true;
+    } else sLog.Debug("ReconnectChallenge","Account banned state = %u", m_account->Banned);
 
     if(!m_account->SessionKey)
     {
         SendChallengeError(CE_SERVER_FULL);
-        return;
+        m_state = STATE_CLOSED;
+        return true;
     }
 
-    /** Mangos figured this out, thanks for the structure.
-     */
-
+    // Mangos is original source for both version builds, many thanks
     ///- Sending response
     if(GetBuild() <= 6005)
     {
@@ -621,31 +655,33 @@ void AuthSocket::HandleReconnectChallenge()
         pkt << uint64(0x00) << uint64(0x00);    // 16 bytes zeros
         Send(pkt.contents(), uint32(pkt.size()));
     }
+
+    // Now we wait for reconnect proof
+    m_state = STATE_NEED_REPROOF;
+    return true;
 }
 
-void AuthSocket::HandleReconnectProof()
+bool AuthSocket::HandleReconnectProof()
 {
-    if( m_account == NULL )
-        return;
+    if( m_state != STATE_NEED_REPROOF || m_account == NULL )
+        return false;
+
+    if(GetReadBuffer()->GetSize() < sizeof(sAuthLogonProofKey_C))
+        return true;
 
     // Load sessionkey from account database.
-    QueryResult * result = sLogonSQL->Query ("SELECT SessionKey FROM accounts WHERE acct = %u", m_account->AccountId);
-    if(result)
+    if(QueryResult *result = sLogonSQL->Query ("SELECT SessionKey FROM accounts WHERE acct = %u", m_account->AccountId))
     {
         Field * field = result->Fetch();
-        K.SetHexStr(field[0].GetString ());
+        K.SetHexStr(field[0].GetString());
         delete result;
     }
     else
     {
         // Disconnect if the sessionkey invalid or not found
         sLog.Debug("AuthReConnectProof","No matching SessionKey found while user %s tried to login.", AccountName.c_str());
-        Disconnect();
-        return;
+        return false;
     }
-
-    if(GetReadBuffer()->GetSize() < sizeof(sAuthLogonProofKey_C))
-        return;
 
     sAuthLogonProofKey_C lp;
     GetReadBuffer()->Read(&lp, sizeof(sAuthLogonProofKey_C));
@@ -659,50 +695,56 @@ void AuthSocket::HandleReconnectProof()
     sha.UpdateBigNumbers(&A, &rs, &K, 0);
     sha.Finalize();
 
-    if (!memcmp(sha.GetDigest(), lp.R2, SHA_DIGEST_LENGTH))
+    if (memcmp(sha.GetDigest(), lp.R2, SHA_DIGEST_LENGTH))
     {
-        ///- Sending response
-        ByteBuffer pkt;
-        pkt << (uint8)  0x03;   //ReconnectProof
-        pkt << (uint8)  0x00;
-        if(GetBuild() > 6141)
-            pkt << (uint16) 0x0000;   // 2 bytes zeros
-        Send(pkt.contents(), uint32(pkt.size()));
+        sLog.Debug("AuthReConnectProof","Authentication Failed.");
+        return false;
+    }
 
-        // we're authenticated now :)
-        m_authenticated = true;
+    sLog.Debug("AuthReConnectProof","Authentication Success.");
 
-        sLog.Debug("AuthReConnectProof","Authentication Success.");
-    } else sLog.Debug("AuthReConnectProof","Authentication Failed.");
+    ///- Sending response
+    ByteBuffer pkt;
+    pkt << (uint8)  0x03;   //ReconnectProof
+    pkt << (uint8)  0x00;
+    if(GetBuild() > 6141)
+        pkt << (uint16) 0x0000;   // 2 bytes zeros
+    Send(pkt.contents(), uint32(pkt.size()));
+
+    // we're authenticated now :)
+    m_state = STATE_AUTHENTICATED;
+    return true;
 }
 
-void AuthSocket::HandleTransferAccept()
+bool AuthSocket::HandleTransferAccept()
 {
     sLog.Debug("AuthSocket","Accepted transfer");
-    if(!m_patch)
-        return;
+    if(m_state != STATE_PATCHING || m_patch == NULL)
+        return false;
 
     GetReadBuffer()->Remove(1);
     PatchMgr::getSingleton().BeginPatchJob(m_patch,this,0);
+    return true;
 }
 
-void AuthSocket::HandleTransferResume()
+bool AuthSocket::HandleTransferResume()
 {
     sLog.Debug("AuthSocket","Resuming transfer");
-    if(!m_patch)
-        return;
+    if(m_state != STATE_PATCHING || m_patch == NULL)
+        return false;
 
     GetReadBuffer()->Remove(1);
     uint64 size;
     GetReadBuffer()->Read(&size, 8);
-    if(size>=m_patch->FileSize)
-        return;
+    if(size >= m_patch->FileSize)
+        return false;
 
     PatchMgr::getSingleton().BeginPatchJob(m_patch,this,(uint32)size);
+    return true;
 }
 
-void AuthSocket::HandleTransferCancel()
+bool AuthSocket::HandleTransferCancel()
 {
     GetReadBuffer()->Remove(1);
-    Disconnect();
+    return false;
 }
