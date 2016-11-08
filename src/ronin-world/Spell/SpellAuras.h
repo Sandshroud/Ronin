@@ -74,7 +74,6 @@ private:
 class SERVER_DECL Aura
 {
 public:
-    Aura(SpellEntry *proto, Unit* target, int16 stackSizeOrProcCharges, WoWGuid casterGuid);
     Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid);
     ~Aura();
 

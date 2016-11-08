@@ -82,8 +82,8 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         return true;
     }
 
-    sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f", unit->GetSQL_id(), unit->GetName(), unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
-    BlueSystemMessage(m_session, "Deleted creature ID %u", unit->GetSQL_id());
+    sWorld.LogGM(m_session, "used npc delete, sqlid %u, creature %s, pos %f %f %f", unit->GetLowGUID(), unit->GetName(), unit->GetPositionX(), unit->GetPositionY(), unit->GetPositionZ());
+    BlueSystemMessage(m_session, "Deleted creature ID %u", unit->GetLowGUID());
     unit->DeleteFromDB();
     if(!unit->IsInWorld())
         return true;
@@ -393,7 +393,7 @@ bool ChatHandler::HandleNPCSetOnObjectCommand(const char * args, WorldSession * 
     }
 
     BlueSystemMessage(m_session, "Setting creature on object(%u)", crt->GetCanMove());
-    sWorld.LogGM(m_session, "Set npc %s, spawn id %u on object", crt->GetName(), crt->GetSQL_id());
+    sWorld.LogGM(m_session, "Set npc %s, spawn id %u on object", crt->GetName(), crt->GetLowGUID());
     return true;
 }
 
@@ -563,7 +563,7 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
     }
 
     bool foundonmap = true;
-    if(GObj->m_spawn && GObj->m_spawn->entry == GObj->GetEntry() && GObj->IsInWorld())
+    if(GObj->m_spawn && GObj->IsInWorld())
     {
         uint32 cellx = GObj->GetMapInstance()->GetPosX(GObj->m_spawn->x);
         uint32 celly = GObj->GetMapInstance()->GetPosY(GObj->m_spawn->y);
@@ -571,17 +571,17 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
         if(cellx < _sizeX && celly < _sizeY)
         {
             foundonmap = false;
-            GOSpawnList::iterator itr;
+            GameObjectSpawnList::iterator itr;
             ASSERT(GObj->GetMapInstance()->GetBaseMap() != NULL)
             CellSpawns *c = GObj->GetMapInstance()->GetBaseMap()->GetSpawnsList(cellx, celly);
             if(c != NULL)
             {
-                for(itr = c->GOSpawns.begin(); itr != c->GOSpawns.end(); itr++)
+                for(itr = c->GameObjectSpawns.begin(); itr != c->GameObjectSpawns.end(); itr++)
                 {
                     if((*itr) == GObj->m_spawn)
                     {
                         foundonmap = true;
-                        c->GOSpawns.erase(itr);
+                        c->GameObjectSpawns.erase(itr);
                         break;
                     }
                 }
@@ -625,7 +625,6 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
         RedSystemMessage(m_session, "Spawn of Gameobject(%u) failed.", entryID);
         return true;
     }
-    go->Init();
 
     Player* chr = m_session->GetPlayer();
     uint32 mapid = chr->GetMapId();
@@ -635,28 +634,7 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
     float o = chr->GetOrientation();
     BlueSystemMessage(m_session, "Spawning Gameobject(%u) at current position", entryID);
 
-    if(Save == true) // If we're saving, create template and add index
-    {
-        // Create spawn instance
-        GOSpawn *gs = new GOSpawn;
-        gs->entry = go->GetEntry();
-        gs->faction = go->GetUInt32Value(GAMEOBJECT_FACTION);
-        gs->flags = go->GetUInt32Value(GAMEOBJECT_FLAGS);
-        gs->id = objmgr.GenerateGameObjectSpawnID();
-        gs->scale = go->GetFloatValue(OBJECT_FIELD_SCALE_X);
-        gs->x = x;
-        gs->y = y;
-        gs->z = z;
-        gs->rAngle = cos(o/2.f);
-        gs->rX = gs->rY = gs->rZ = 0.f;
-        gs->state = go->GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE);
-        go->Load(mapid, gs);
-        go->SaveToDB();
-        uint32 cx = chr->GetMapInstance()->GetPosX(x);
-        uint32 cy = chr->GetMapInstance()->GetPosY(y);
-        chr->GetMapInstance()->AddGoSpawn(cx, cy, gs);
-    } else go->CreateFromProto(entryID,mapid,x,y,z,0.f,0.f,0.f,cos(o/2.f));
-
+    go->Load(mapid, x, y, z, o, 0.f, 0.f, 0.f, 0.f, NULL);
     go->SetInstanceID(chr->GetInstanceID());
     go->PushToWorld(chr->GetMapInstance());
 
@@ -676,8 +654,6 @@ bool ChatHandler::HandleGOInfo(const char *args, WorldSession *m_session)
     }
 
     WhiteSystemMessage(m_session, "Information:");
-    if(GObj->m_spawn)
-        GreenSystemMessage(m_session, "SpawnID: %s%u|r", MSG_COLOR_LIGHTBLUE, GObj->m_spawn->id);
     GreenSystemMessage(m_session, "Entry: %s%u|r", MSG_COLOR_LIGHTBLUE, GObj->GetEntry());
     GreenSystemMessage(m_session, "Model: %s%u|r", MSG_COLOR_LIGHTBLUE, GObj->GetDisplayId());
     GreenSystemMessage(m_session, "State: %s%u|r", MSG_COLOR_LIGHTBLUE, GObj->GetState());
@@ -813,7 +789,7 @@ bool ChatHandler::HandleGOScale(const char* args, WorldSession* m_session)
     go->SetFloatValue(OBJECT_FIELD_SCALE_X, scale);
     go->SaveToDB();
     sWorldMgr.PushToWorldQueue(go);
-    sWorld.LogGM(m_session, "Scaled gameobject spawn id %u to %f", go->m_spawn ? go->m_spawn->id : 0, scale);
+    sWorld.LogGM(m_session, "Scaled gameobject spawn id %u to %f", go->GetLowGUID(), scale);
     return true;
 }
 

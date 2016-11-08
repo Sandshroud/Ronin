@@ -29,6 +29,8 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     SetUInt32Value(PLAYER_BYTES_3, m_playerInfo->charAppearance3);
     // Set our base stats based on race, class, and level
     baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), pInfo->lastLevel);
+    // Set our death state from hased data
+    m_deathState = DeathState(m_playerInfo->lastDeathState);
 
     // Main data initialized, now set defaults
     m_massSummonEnabled = false;
@@ -44,7 +46,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     memset(&m_bindData, 0, sizeof(Player::BindData));
 
     m_lastSwingError = 0;
-    m_lastAreaUpdateMap             = -1;
     m_oldZone                       = 0;
     m_oldArea                       = 0;
     m_feralAP                       = 0;
@@ -80,7 +81,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_weaponProficiency             = 0;
     m_armorProficiency              = 0;
     m_targetIcon                    = 0;
-    m_MountSpellId                  = 0;
     bHasBindDialogOpen              = false;
     m_CurrentCharm                  = NULL;
     m_CurrentTransporter            = NULL;
@@ -103,7 +103,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_lastHonorResetTime            = 0;
     m_TeleportState                 = 1;
     m_beingPushed                   = false;
-    m_FlyingAura                    = 0;
     iInstanceType                   = 0;
     iRaidType                       = 0;
     m_XPoff                         = false;
@@ -218,8 +217,9 @@ bool Player::Initialize()
 
     AchieveMgr.AllocatePlayerData(GetGUID());
 
-    // Add event handler for exploration tick
-    m_eventHandler.AddStaticEvent(this, &Player::_EventExploration, 1500);
+    // Add our corpse flag for dead players
+    if(m_deathState == DEAD)
+        addStateFlag(UF_CORPSE);
 
     // Add event handler for saving to database
     m_eventHandler.AddStaticEvent(this, &Player::SaveToDB, false, 120000);
@@ -238,10 +238,9 @@ void Player::Destruct()
     if(m_session)
         m_session->SetPlayer(NULL);
 
-    Player* pTarget = objmgr.GetPlayer(GetInviter());
-    if(pTarget)
+    Player* pTarget;
+    if(pTarget = objmgr.GetPlayer(GetInviter()))
         pTarget->SetInviter(0);
-    pTarget = NULL;
 
     if(m_tradeData)
     {
@@ -359,6 +358,127 @@ void Player::Update(uint32 msTime, uint32 diff)
     }
 
     ProcessPendingItemUpdates();
+}
+
+void Player::EventExploration()
+{
+    if(m_position.x >= _maxX || m_position.x <= _minX || m_position.y >= _maxY || m_position.y <= _minY)
+        return;
+
+    m_oldZone = m_zoneId;
+    m_oldArea = m_areaId;
+    UpdateAreaInfo();
+
+    bool restmap = false;
+    World::RestedAreaInfo* restinfo = sWorld.GetRestedMapInfo(GetMapId());
+    if(restinfo != NULL && (restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam()))
+        restmap = true;
+
+    if(m_zoneId == 0xFFFF)
+    {
+        // Clear our worldstates when we have no data.
+        if(m_oldZone != 0xFFFF)
+            GetMapInstance()->GetStateManager().ClearWorldStates(this);
+        // This must be called every update, to keep data fresh.
+        EventDBCChatUpdate();
+    }
+    else if( m_oldZone != m_zoneId )
+    {
+        sWeatherMgr.SendWeather(this);
+
+        m_AuraInterface.RemoveAllAurasByInterruptFlag( AURA_INTERRUPT_ON_LEAVE_AREA );
+
+        m_playerInfo->lastZone = m_zoneId;
+
+        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
+
+        EventDBCChatUpdate();
+
+        GetMapInstance()->GetStateManager().SendWorldStates(this);
+    }
+
+    if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
+    {
+        uint32 mountAuraId = 0; //Mount expired?
+        if(m_AuraInterface.GetMountedAura(mountAuraId) && !(m_mapId == 531 && (mountAuraId == 25953 || mountAuraId == 26054 || mountAuraId == 26055 || mountAuraId == 26056)))
+            Dismount();
+
+        // Now remove all auras that are only usable outdoors (e.g. Travel form)
+        m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
+    }
+
+    if(!m_areaId || m_areaId == 0xFFFF)
+    {
+        m_AuraInterface.RemoveFlightAuras(); // remove flying buff
+        HandleRestedCalculations(restmap);
+        return;
+    }
+
+    AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId);
+    if(at == NULL)
+        at = dbcAreaTable.LookupEntry(m_zoneId); // These maps need their own chat channels.
+    if(at == NULL)
+    {
+        m_AuraInterface.RemoveFlightAuras(); // remove flying buff
+        HandleRestedCalculations(restmap);
+        return;
+    }
+
+    if(!(at->AreaFlags & AREA_FLYING_PERMITTED))
+        m_AuraInterface.RemoveFlightAuras(); // remove flying buff
+
+    UpdatePvPArea();
+
+    if(HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
+    {
+        Unit* pUnit = GetSelection() ? m_mapInstance->GetUnit(GetSelection()) : NULL;
+        if(pUnit && !sFactionSystem.isAttackable(this, pUnit))
+        {
+            EventAttackStop();
+            smsg_AttackStop(pUnit);
+        }
+
+        if(DuelingWith != NULL)
+            DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
+    }
+
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
+
+    // bur: we dont want to explore new areas when on taxi
+    if(!GetTaxiState() && !GetTransportGuid() && m_session)
+    {
+        uint32 offset = at->explorationFlag / 32;
+        if(offset < 156)
+        {
+            offset += PLAYER_EXPLORED_ZONES_1;
+
+            uint32 val = (uint32)(1 << (at->explorationFlag % 32));
+            uint32 currFields = GetUInt32Value(offset);
+            if(!(currFields & val))//Unexplored Area
+            {
+                SetUInt32Value(offset, (uint32)(currFields | val));
+
+                uint32 explore_xp = at->level * 10 * sWorld.getRate(RATE_XP);
+                WorldPacket data(SMSG_EXPLORATION_EXPERIENCE, 8);
+                data << at->AreaId << explore_xp;
+                PushPacket(&data);
+                GiveXP(explore_xp, 0, false, false);
+            }
+        }
+
+        sQuestMgr.OnPlayerExploreArea(this, at->AreaId);
+    }
+
+    // Check for a restable area
+    bool rest_on = restmap;
+    if(rest_on == false && ((at->ZoneId && (restinfo = sWorld.GetRestedAreaInfo(at->ZoneId))) || (restinfo = sWorld.GetRestedAreaInfo(at->AreaId))))
+    {
+        if(restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam())
+            rest_on = true;
+        else rest_on = false;
+    }
+
+    HandleRestedCalculations(rest_on);
 }
 
 void Player::PushPacket(WorldPacket *data, bool direct)
@@ -840,7 +960,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
 
     // Misc player data
     ss << uint32(iInstanceType) << ", " << uint32(iRaidType) << ", " << uint32(m_isResting) << ", " << uint32(m_restState) << ", " << uint32(m_restAmount);
-    ss << ", " << uint32(m_deathState) << ", " << uint64(sWorld.GetWeekStart()) << ", " << uint64(UNIXTIME) << ", 0, 0);"; // Reset for position and talents
+    ss << ", " << uint64(sWorld.GetWeekStart()) << ", " << uint64(UNIXTIME) << ", 0, 0);"; // Reset for position and talents
 
     if(buf)
         buf->AddQueryStr(ss.str());
@@ -964,7 +1084,7 @@ bool Player::LoadFromDB()
         taxiPath, taxiMoveTime, taxiTravelTime, taxiMountId, \
         transportGuid, transportX, transportY, transportZ, \
         entryPointMapId, entryPointX, entryPointY, entryPointZ, entryOrientation, \
-        instanceDifficulty, raidDifficulty, isResting, restState, restTime, deathstate, \
+        instanceDifficulty, raidDifficulty, isResting, restState, restTime, \
         lastWeekResetTime, lastSaveTime, needPositionReset, needTalentReset FROM character_data WHERE guid='%u'", m_objGuid.getLow());
 
     q->AddQuery("SELECT * FROM character_actions WHERE guid = '%u'", m_objGuid.getLow());
@@ -981,7 +1101,8 @@ bool Player::LoadFromDB()
     q->AddQuery("SELECT item_enchantments.itemguid, item_data.itementry, item_enchantments.enchantslot, item_enchantments.enchantid, item_enchantments.enchantsuffix, item_enchantments.enchantcharges, item_enchantments.enchantexpiretimer FROM item_enchantments JOIN item_data ON item_data.itemguid = item_enchantments.itemguid WHERE item_enchantments.itemguid IN(SELECT item_data.itemguid FROM item_data WHERE item_data.ownerguid = '%u');", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_known_titles WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_questlog WHERE guid = '%u'", m_objGuid.getLow());
-    q->AddQuery("SELECT * FROM character_quests_completed WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_quests_completion_masks WHERE guid = '%u'", m_objGuid.getLow());
+    q->AddQuery("SELECT * FROM character_quests_completed_repeatable WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_reputation WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_skills WHERE guid = '%u'", m_objGuid.getLow());
     q->AddQuery("SELECT * FROM character_social WHERE guid = '%u'", m_objGuid.getLow());
@@ -1069,13 +1190,12 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     iInstanceType = fields[PLAYERLOAD_FIELD_INSTANCE_DIFFICULTY].GetUInt32();
     iRaidType = fields[PLAYERLOAD_FIELD_RAID_DIFFICULTY].GetUInt32();
 
-    m_isResting = fields[PLAYERLOAD_FIELD_ISRESTING].GetUInt8();
-    m_restState = fields[PLAYERLOAD_FIELD_RESTSTATE].GetUInt8();
-    m_restAmount = fields[PLAYERLOAD_FIELD_RESTTIME].GetUInt32();
-
-    m_deathState = DeathState(fields[PLAYERLOAD_FIELD_DEATHSTATE].GetUInt32());
-    if(m_deathState == DEAD)
-        addStateFlag(UF_CORPSE);
+    if(getLevel() != GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
+    {
+        m_isResting = fields[PLAYERLOAD_FIELD_ISRESTING].GetUInt8();
+        m_restState = fields[PLAYERLOAD_FIELD_RESTSTATE].GetUInt8();
+        m_restAmount = fields[PLAYERLOAD_FIELD_RESTTIME].GetUInt32();
+    }
 
     m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
     _LoadPlayerAuras(results[PLAYER_LO_AURAS].result);
@@ -1088,7 +1208,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     m_talentInterface.LoadGlyphData(results[PLAYER_LO_GLYPHS].result);
     _LoadKnownTitles(results[PLAYER_LO_KNOWN_TITLES].result);
     _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
-    _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result);
+    _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result, results[PLAYER_LO_QUESTS_COMPLETED_REPEATABLE].result);
     m_factionInterface.LoadFactionData(results[PLAYER_LO_REPUTATIONS].result);
     _LoadSkills(results[PLAYER_LO_SKILLS].result);
     _LoadSpells(results[PLAYER_LO_SPELLS].result);
@@ -1365,16 +1485,16 @@ void Player::_SavePlayerQuestLog(QueryBuffer * buf)
         if(ss.str().length())
             ss << ", ";
 
-        ss << "(" << GetLowGUID()
-        << ", " << uint32(i)
-        << ", " << uint32(questLog->GetQuest()->id)
-        << ", " << questLog->getExpirationTime()
-        << ", " << questLog->GetObjectiveCount(0)
-        << ", " << questLog->GetObjectiveCount(1)
-        << ", " << questLog->GetObjectiveCount(2)
-        << ", " << questLog->GetObjectiveCount(3)
-        << ", " << questLog->GetExplorationFlag()
-        << ", " << questLog->GetPlayerSlainCount();
+        ss << "(" << ((uint32)GetLowGUID())
+        << ", " << ((uint32)i)
+        << ", " << ((uint32)questLog->GetQuest()->id)
+        << ", " << ((uint32)questLog->getExpirationTime())
+        << ", " << ((uint32)questLog->GetObjectiveCount(0))
+        << ", " << ((uint32)questLog->GetObjectiveCount(1))
+        << ", " << ((uint32)questLog->GetObjectiveCount(2))
+        << ", " << ((uint32)questLog->GetObjectiveCount(3))
+        << ", " << ((uint32)questLog->GetExplorationFlag())
+        << ", " << ((uint32)questLog->GetPlayerSlainCount());
         ss << ")";
     }
 
@@ -1385,60 +1505,119 @@ void Player::_SavePlayerQuestLog(QueryBuffer * buf)
     }
 }
 
-void Player::_LoadCompletedQuests(QueryResult *result)
+void Player::_LoadCompletedQuests(QueryResult *completionMasks, QueryResult *repeatable)
 {
-    if(result == NULL)
-        return;
-
-    do
+    if(completionMasks)
     {
-        Field *fields = result->Fetch();
-        uint32 questId = fields[1].GetUInt32();
-        Quest *qst = sQuestMgr.GetQuestPointer(questId);
-        if(qst == NULL)
-            continue;
-
-        time_t timeStamp = fields[2].GetUInt64();
-        if(qst->qst_is_repeatable == REPEATABLE_DAILY)
+        do
         {
-            if(timeStamp <= sWorld.GetLastDailyResetTime())
-                continue; // Don't load up dailies if they're from before the last reset
+            Field *fields = completionMasks->Fetch();
+            uint16 index = fields[1].GetUInt16(); uint64 mask = fields[2].GetUInt64();
+            m_completedQuests.insert(std::make_pair(index, mask));
+            for(uint8 i = 0; i < 64; i++)
+            {
+                if((mask & (((uint64)(1))<<i)) == 0)
+                    continue;
+                uint32 questId = (((uint32)index)*64)+i;
+                // Quest data parsing
+                if(Quest *qst = sQuestMgr.GetQuestPointer(questId))
+                {
 
-            m_completedDailyQuests.insert(std::make_pair(qst->id, timeStamp));
-        } else m_completedQuests.insert(std::make_pair(qst->id, timeStamp));
-    }while(result->NextRow());
+                }
+            }
+
+        }while(completionMasks->NextRow());
+    }
+
+    if(repeatable)
+    {
+        do
+        {
+            Field *fields = repeatable->Fetch();
+            Quest *qst = sQuestMgr.GetQuestPointer(fields[1].GetUInt32());
+            if(qst == NULL || qst->qst_is_repeatable == UNREPEATABLE_QUEST)
+                continue;
+            time_t timeStamp = fields[2].GetUInt64();
+            switch(qst->qst_is_repeatable)
+            {
+            case REPEATABLE_QUEST:
+                m_completedRepeatableQuests.insert(std::make_pair(qst->id, timeStamp));
+                break;
+            case REPEATABLE_DAILY:
+                {
+                    // Don't load up dailies if they're from before the last reset
+                    if(timeStamp > sWorld.GetLastDailyResetTime())
+                        m_completedDailyQuests.insert(std::make_pair(qst->id, timeStamp));
+                }break;
+            case REPEATABLE_WEEKLY:
+                {
+                    // Don't load up dailies if they're from before the last reset
+                    if(timeStamp > sWorld.GetWeekStart())
+                        m_completedWeeklyQuests.insert(std::make_pair(qst->id, timeStamp));
+                }break;
+            }
+        }while(repeatable->NextRow());
+    }
 }
 
 void Player::_SaveCompletedQuests(QueryBuffer * buf)
 {
-    if(buf)buf->AddQuery("DELETE FROM character_quests_completed WHERE guid = '%u';", GetLowGUID());
-    else CharacterDatabase.Execute("DELETE FROM character_quests_completed WHERE guid = '%u';", GetLowGUID());
+    if(buf)
+    {
+        buf->AddQuery("DELETE FROM character_quests_completion_masks WHERE guid = '%u';", GetLowGUID());
+        buf->AddQuery("DELETE FROM character_quests_completed_repeatable WHERE guid = '%u';", GetLowGUID());
+    }
+    else
+    {
+        CharacterDatabase.Execute("DELETE FROM character_quests_completion_masks WHERE guid = '%u';", GetLowGUID());
+        CharacterDatabase.Execute("DELETE FROM character_quests_completed_repeatable WHERE guid = '%u';", GetLowGUID());
+    }
 
     std::stringstream ss;
-    std::map<uint32, time_t>::iterator itr;
-    for(itr = m_completedQuests.begin(); itr != m_completedQuests.end(); itr++)
+    // Store our completed quest masks
+    for(std::map<uint16, uint64>::iterator itr = m_completedQuests.begin(); itr != m_completedQuests.end(); itr++)
     {
         if(ss.str().length())
             ss << ", ";
-        ss << "(" << GetLowGUID()
-        << ", " << uint32(itr->first)
-        << ", " << itr->second;
-        ss << ")";
+        ss << "(" << GetLowGUID() << ", " << uint32(itr->first) << ", " << itr->second << ")";
     }
-    for(itr = m_completedDailyQuests.begin(); itr != m_completedDailyQuests.end(); itr++)
-    {
-        if(ss.str().length())
-            ss << ", ";
-        ss << "(" << GetLowGUID()
-        << ", " << uint32(itr->first)
-        << ", " << itr->second;
-        ss << ")";
-    }
-
+    // Push our stream into the database
     if(ss.str().length())
     {
-        if(buf)buf->AddQuery("REPLACE INTO character_quests_completed VALUES %s;", ss.str().c_str());
-        else CharacterDatabase.Execute("REPLACE INTO character_quests_completed VALUES %s;", ss.str().c_str());
+        if(buf)buf->AddQuery("REPLACE INTO character_quests_completion_masks VALUES %s;", ss.str().c_str());
+        else CharacterDatabase.Execute("REPLACE INTO character_quests_completion_masks VALUES %s;", ss.str().c_str());
+        ss.clear();
+    }
+
+    // Store our completed repeatable quests into the stream
+    for(std::map<uint32, time_t>::iterator itr = m_completedRepeatableQuests.begin(); itr != m_completedRepeatableQuests.end(); itr++)
+    {
+        if(ss.str().length())
+            ss << ", ";
+        ss << "(" << GetLowGUID() << ", " << uint32(itr->first) << ", " << itr->second << ")";
+    }
+
+    // Store our completed daily quests into the stream
+    for(std::map<uint32, time_t>::iterator itr = m_completedDailyQuests.begin(); itr != m_completedDailyQuests.end(); itr++)
+    {
+        if(ss.str().length())
+            ss << ", ";
+        ss << "(" << GetLowGUID() << ", " << uint32(itr->first) << ", " << itr->second << ")";
+    }
+
+    // Store our completed weekly quests into the stream
+    for(std::map<uint32, time_t>::iterator itr = m_completedWeeklyQuests.begin(); itr != m_completedWeeklyQuests.end(); itr++)
+    {
+        if(ss.str().length())
+            ss << ", ";
+        ss << "(" << GetLowGUID() << ", " << uint32(itr->first) << ", " << itr->second << ")";
+    }
+
+    // Push our repeatable quest stream into the database
+    if(ss.str().length())
+    {
+        if(buf)buf->AddQuery("REPLACE INTO character_quests_completed_repeatable VALUES %s;", ss.str().c_str());
+        else CharacterDatabase.Execute("REPLACE INTO character_quests_completed_repeatable VALUES %s;", ss.str().c_str());
     }
 }
 
@@ -1892,138 +2071,6 @@ void Player::EventDismount(uint32 money, float x, float y, float z)
         m_taxiData->paths.erase(m_taxiData->paths.begin());
         TaxiStart(p, m_taxiData->ModelId);
     }
-}
-
-void Player::_EventExploration()
-{
-    if(!IsInWorld())
-        return;
-    if(m_position.x > _maxX || m_position.x < _minX || m_position.y > _maxY || m_position.y < _minY)
-        return;
-    if(GetMapInstance()->GetCellByCoords(GetPositionX(),GetPositionY()) == NULL)
-        return;
-    if(m_lastAreaUpdateMap == GetMapId() && m_lastAreaPosition.DistanceSq(GetPosition()) < sWorld.AreaUpdateDistance)
-        return;
-    bool newMap = m_lastAreaUpdateMap != GetMapId();
-    m_lastAreaUpdateMap = GetMapId();
-    m_lastAreaPosition = GetPosition();
-
-    m_oldZone = m_zoneId;
-    m_oldArea = m_areaId;
-    UpdateAreaInfo();
-
-    bool restmap = false;
-    World::RestedAreaInfo* restinfo = sWorld.GetRestedMapInfo(GetMapId());
-    if(restinfo != NULL && (restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam()))
-        restmap = true;
-
-    if(m_zoneId == 0xFFFF)
-    {
-        // Clear our worldstates when we have no data.
-        if(m_oldZone != 0xFFFF)
-            GetMapInstance()->GetStateManager().ClearWorldStates(this);
-        // This must be called every update, to keep data fresh.
-        EventDBCChatUpdate();
-    }
-    else if( m_oldZone != m_zoneId || newMap )
-    {
-        sWeatherMgr.SendWeather(this);
-
-        m_AuraInterface.RemoveAllAurasByInterruptFlag( AURA_INTERRUPT_ON_LEAVE_AREA );
-
-        m_playerInfo->lastZone = m_zoneId;
-
-        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
-
-        EventDBCChatUpdate();
-
-        GetMapInstance()->GetStateManager().SendWorldStates(this);
-    }
-
-    if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
-    {
-        //Mount expired?
-        if(IsMounted() && !(m_mapId == 531 && (m_MountSpellId == 25953 || m_MountSpellId == 26054 || m_MountSpellId == 26055 || m_MountSpellId == 26056)))
-            Dismount();
-
-        // Now remove all auras that are only usable outdoors (e.g. Travel form)
-        m_AuraInterface.RemoveAllAurasWithAttributes(0, ATTRIBUTES_ONLY_OUTDOORS);
-    }
-
-    if(!m_areaId || m_areaId == 0xFFFF)
-    {
-        if(m_FlyingAura)
-            RemoveAura(m_FlyingAura); // remove flying buff
-        HandleRestedCalculations(restmap);
-        return;
-    }
-
-    AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId);
-    if(at == NULL)
-        at = dbcAreaTable.LookupEntry(m_zoneId); // These maps need their own chat channels.
-    if(at == NULL)
-    {
-        if(m_FlyingAura)
-            RemoveAura(m_FlyingAura); // remove flying buff
-        HandleRestedCalculations(restmap);
-        return;
-    }
-
-    if(m_FlyingAura && !(at->AreaFlags & AREA_FLYING_PERMITTED))
-        RemoveAura(m_FlyingAura); // remove flying buff
-
-    UpdatePvPArea();
-
-    if(HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
-    {
-        Unit* pUnit = GetSelection() ? m_mapInstance->GetUnit(GetSelection()) : NULL;
-        if(pUnit && !sFactionSystem.isAttackable(this, pUnit))
-        {
-            EventAttackStop();
-            smsg_AttackStop(pUnit);
-        }
-
-        if(DuelingWith != NULL)
-            DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
-    }
-
-    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
-
-    // bur: we dont want to explore new areas when on taxi
-    if(!GetTaxiState() && !GetTransportGuid() && m_session)
-    {
-        uint32 offset = at->explorationFlag / 32;
-        if(offset < 156)
-        {
-            offset += PLAYER_EXPLORED_ZONES_1;
-
-            uint32 val = (uint32)(1 << (at->explorationFlag % 32));
-            uint32 currFields = GetUInt32Value(offset);
-            if(!(currFields & val))//Unexplored Area
-            {
-                SetUInt32Value(offset, (uint32)(currFields | val));
-
-                uint32 explore_xp = at->level * 10 * sWorld.getRate(RATE_XP);
-                WorldPacket data(SMSG_EXPLORATION_EXPERIENCE, 8);
-                data << at->AreaId << explore_xp;
-                PushPacket(&data);
-                GiveXP(explore_xp, 0, false, false);
-            }
-        }
-
-        sQuestMgr.OnPlayerExploreArea(this, at->AreaId);
-    }
-
-    // Check for a restable area
-    bool rest_on = restmap;
-    if((at->ZoneId && (restinfo = sWorld.GetRestedAreaInfo(at->ZoneId))) || (restinfo = sWorld.GetRestedAreaInfo(at->AreaId)))
-    {
-        if(restinfo->ReqTeam == -1 || restinfo->ReqTeam == GetTeam())
-            rest_on = true;
-        else rest_on = false;
-    }
-
-    HandleRestedCalculations(rest_on);
 }
 
 void Player::EventDeath()
@@ -2520,7 +2567,7 @@ void Player::OnPushToWorld()
     Unit::OnPushToWorld();
 
     // Update area data
-    _EventExploration();
+    EventExploration();
 
     // Send our auras
     m_AuraInterface.SendAuraData();
@@ -2632,7 +2679,7 @@ void Player::RemoveFromWorld()
     m_changingMaps = true;
 }
 
-void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown /* = false */, bool skip_stat_apply /* = false  */)
+void Player::ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown /* = false */)
 {
     ASSERT( item );
     if (slot >= INVENTORY_SLOT_BAG_END)
@@ -2652,10 +2699,21 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
     if(proto->Delay) ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_WEAPONDELAY, ITEM_STAT_CUSTOM_WEAPON_DELAY, proto->Delay);
     if(proto->Armor) ModifyBonuses( apply, item->GetGUID(), MOD_SLOT_ARMOR, ITEM_STAT_PHYSICAL_RESISTANCE, proto->Armor);
 
+    uint32 reforgeStatType = 0xFFFFFFFF, reforgeStatVal = 0;
+    if(EnchantmentInstance *instance = item->GetEnchantment(REFORGE_ENCHANTMENT_SLOT))
+        if(ItemReforgeEntry *entry = dbcItemReforge.LookupEntry(instance->EnchantmentId))
+            reforgeStatType = entry->sourceStat;
+
     // Stats
     for( uint8 i = 0; i < 10; i++ )
+    {
         if(int32 val = proto->Stats[i].Value)
+        {
+            if(proto->Stats[i].Type == reforgeStatType)
+                reforgeStatVal = val;
             ModifyBonuses( apply, item->GetGUID(), i, proto->Stats[i].Type, val);
+        }
+    }
 
     for( uint8 k = 0; k < 5; k++ )
     {
@@ -2673,15 +2731,12 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
                     else RemoveShapeShiftSpell( spells->Id );
                 } else if(apply == false)
                     RemoveAura( item->GetProto()->Spells[k].Id );
-                else
+                else if(Spell *spell = new Spell(this, spells))
                 {
                     SpellCastTargets targets;
                     targets.m_unitTarget = GetGUID();
-                    if(Spell *spell = new Spell(this, spells))
-                    {
-                        spell->castedItemId = item->GetEntry();
-                        spell->prepare( &targets, true );
-                    }
+                    spell->castedItemId = item->GetEntry();
+                    spell->prepare( &targets, true );
                 }
             }
         }
@@ -2706,9 +2761,18 @@ void Player::_ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedo
         EnchantmentInstance *instance = item->GetEnchantment(i);
         if(instance == NULL)
             continue;
+
+        uint32 randomSuffix = instance->RandomSuffix;
+        // Set our visible enchantment data
         if( slot < EQUIPMENT_SLOT_END && i <= TEMP_ENCHANTMENT_SLOT )
-            SetUInt16Value( visibleSlot + 1, i, instance->Enchantment->Id );
-        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_PERM_ENCHANT + (i*4), ITEM_STAT_MOD_ENCHANTID, instance->Enchantment->Id, instance->RandomSuffix, item->GetItemPropertySeed());
+            SetUInt16Value( visibleSlot + 1, i, instance->EnchantmentId );
+        // Precharge our reforge with our stat value
+        if(i == REFORGE_ENCHANTMENT_SLOT)
+            randomSuffix = reforgeStatVal;
+        // Handle our different enchantments, transmog overrides only visible slot
+        if(i == TRANSMOG_ENCHANTMENT_SLOT)
+            SetUInt32Value( visibleSlot, apply ? instance->EnchantmentId : 0 );
+        else ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_PERM_ENCHANT + (i*4), ITEM_STAT_MOD_ENCHANTID, instance->EnchantmentId, randomSuffix, item->GetItemPropertySeed());
     }
 }
 
@@ -3069,31 +3133,57 @@ uint32 Player::GetQuestStatusForQuest(uint32 questid, uint8 type, bool skiplevel
 
 void Player::AddToCompletedQuests(uint32 quest_id)
 {
-    m_completedQuests.insert(std::make_pair(quest_id, UNIXTIME));
+    Quest *qst = sQuestMgr.GetQuestPointer(quest_id);
+    if(qst == NULL)
+        return;
+
+    if(qst->qst_is_repeatable == 0)
+    {
+        uint16 offset = ((uint16)quest_id / 64);
+        uint64 val = ((uint64)1) << ((uint64)(quest_id % 64));
+        if(m_completedQuests.find(offset) == m_completedQuests.end())
+            m_completedQuests.insert(std::make_pair(offset, val));
+        else m_completedQuests[val] |= val;
+    }
+    else if(qst->qst_is_repeatable == REPEATABLE_QUEST)
+        m_completedRepeatableQuests.insert(std::make_pair(quest_id, UNIXTIME));
+    else if(qst->qst_is_repeatable == REPEATABLE_DAILY)
+    {
+        if(m_completedDailyQuests.size() >= 25)
+            return;
+
+        accessLock.Acquire();
+        SetUInt32Value(PLAYER_FIELD_DAILY_QUESTS_1 + uint32(m_completedDailyQuests.size()), quest_id);
+        m_completedDailyQuests.insert(std::make_pair(quest_id, UNIXTIME));
+        accessLock.Release();
+    }
+    else if(qst->qst_is_repeatable == REPEATABLE_WEEKLY)
+    {
+        if(m_completedWeeklyQuests.size() >= 25)
+            return;
+
+        accessLock.Acquire();
+        m_completedWeeklyQuests.insert(std::make_pair(quest_id, UNIXTIME));
+        accessLock.Release();
+    }
 }
 
 bool Player::HasFinishedQuest(uint32 quest_id)
 {
-    return m_completedQuests.find(quest_id) != m_completedQuests.end();
-}
-
-void Player::AddToCompletedDailyQuests(uint32 quest_id)
-{
-    if(m_completedDailyQuests.size() >= 25)
-        return;
-
-    accessLock.Acquire();
-    SetUInt32Value(PLAYER_FIELD_DAILY_QUESTS_1 + uint32(m_completedDailyQuests.size()), quest_id);
-    m_completedDailyQuests.insert(std::make_pair(quest_id, UNIXTIME));
-    accessLock.Release();
+    uint16 offset = ((uint16)quest_id / 64);
+    if(m_completedQuests.find(offset) == m_completedQuests.end())
+        return false;
+    return (m_completedQuests[offset] & ((uint64)1) << ((uint64)(quest_id % 64))) > 0;
 }
 
 void Player::ResetDailyQuests()
 {
+    accessLock.Acquire();
     m_completedDailyQuests.clear();
 
     for(uint32 i = 0; i < 25; i++)
         SetUInt32Value(PLAYER_FIELD_DAILY_QUESTS_1 + i, 0);
+    accessLock.Release();
 }
 
 bool Player::HasFinishedDailyQuest(uint32 quest_id)
@@ -3155,46 +3245,35 @@ float Player::CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level
 void Player::HandleRestedCalculations(bool rest_on)
 {
     LocationVector loc = GetPosition();
-    if (rest_on)
+    if(rest_on == true && m_isResting == false)
+        ApplyPlayerRestState(true);
+    else if(GetTeam() == TEAM_HORDE && HasAreaFlag(OBJECT_AREA_FLAG_INDOORS) && HasAreaFlag(OBJECT_AREA_FLAG_HORDE_ZONE))
+        ApplyPlayerRestState(true);
+    else if(GetTeam() == TEAM_ALLIANCE && HasAreaFlag(OBJECT_AREA_FLAG_INDOORS) && HasAreaFlag(OBJECT_AREA_FLAG_ALLIANCE_ZONE))
+        ApplyPlayerRestState(true);
+    else if(HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
     {
-        if(!m_isResting)
-            ApplyPlayerRestState(true);
-    }
-    else if(GetMapInstance()->CanUseCollision(this))
-    {
-        if(false)
+        /*if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(LastAreaTrigger->AreaTriggerID))
         {
-            if(m_isResting)
+            float delta = 3.2f;
+            if(ATE->radius) // If there is a radius, check our distance with the middle.
             {
-                if(!sVMapInterface.IsIndoor(GetMapId(), loc.x, loc.y, loc.z + 2.0f))
-                    ApplyPlayerRestState(false);
+                if(CalcDistance(ATE->base_x, ATE->base_y, ATE->base_z) < ATE->radius+delta)
+                    ApplyPlayerRestState(true);
             }
-            else if(sVMapInterface.IsIndoor(GetMapId(), loc.x, loc.y, loc.z + 2.0f))
+            else
             {
-                /*if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(LastAreaTrigger->AreaTriggerID))
-                {
-                    float delta = 3.2f;
-                    if(ATE->radius) // If there is a radius, check our distance with the middle.
-                    {
-                        if(CalcDistance(ATE->base_x, ATE->base_y, ATE->base_z) < ATE->radius+delta)
-                            ApplyPlayerRestState(true);
-                    }
-                    else
-                    {
-                        if(IsInBox(ATE->base_x, ATE->base_y, ATE->base_z, ATE->box_length, ATE->box_width, ATE->box_height, ATE->box_yaw, delta))
-                            ApplyPlayerRestState(true);
-                    }
-                }
-                else
-                {   // Clear our trigger, since it's wrong anyway.
-                    LastAreaTrigger = NULL;
-                    ApplyPlayerRestState(false);
-                }*/
-                ApplyPlayerRestState(false);
+                if(IsInBox(ATE->base_x, ATE->base_y, ATE->base_z, ATE->box_length, ATE->box_width, ATE->box_height, ATE->box_yaw, delta))
+                    ApplyPlayerRestState(true);
             }
-        } else if(m_isResting)
-            ApplyPlayerRestState(false);
-    } else ApplyPlayerRestState(false);
+        }
+        else
+        {   // Clear our trigger, since it's wrong anyway.
+            LastAreaTrigger = NULL;
+        }*/
+        ApplyPlayerRestState(false);
+    } else if(rest_on == false)
+        ApplyPlayerRestState(false);
 }
 
 uint32 Player::SubtractRestXP(uint32 &amount)
@@ -3261,17 +3340,14 @@ void Player::UpdateRestState()
 
 void Player::ApplyPlayerRestState(bool apply)
 {
-    if(apply)
+    if(m_isResting == apply)
+        return;
+
+    if((m_isResting = apply) == true)
     {
         m_restState = RESTSTATE_RESTED;
-        m_isResting = true;
         SetFlag(PLAYER_FLAGS, PLAYER_FLAG_RESTING); //put zzz icon
-    }
-    else
-    {
-        m_isResting = false;
-        RemoveFlag(PLAYER_FLAGS,PLAYER_FLAG_RESTING);   //remove zzz icon
-    }
+    } else RemoveFlag(PLAYER_FLAGS,PLAYER_FLAG_RESTING);   //remove zzz icon
     UpdateRestState();
 }
 
@@ -3494,10 +3570,8 @@ bool Player::HasQuestForItem(uint32 itemid)
     Quest *qst;
     for(uint32 i = 0; i < QUEST_LOG_COUNT; i++)
     {
-        if( m_questLog[i] != NULL )
+        if( qst = (m_questLog[i] ? m_questLog[i]->GetQuest() : NULL) )
         {
-            qst = m_questLog[i]->GetQuest();
-
             // No item_quest association found, check the quest requirements
             if( !qst->count_required_item )
                 continue;
@@ -3512,18 +3586,14 @@ bool Player::HasQuestForItem(uint32 itemid)
 
 bool Player::CanNeedItem(ItemPrototype* proto)
 {
-    if(proto->Class == ITEM_CLASS_WEAPON)
-        if(!(GetWeaponProficiency() & (uint32(1) << proto->SubClass)))
-            return false;
-    else if(proto->Class == ITEM_CLASS_ARMOR)
-        if(!(GetArmorProficiency() & (uint32(1) << proto->SubClass)))
-            return false;
-    if(proto->AllowableClass)
-        if(!(proto->AllowableClass & getClassMask()))
-            return false;
-    if(proto->AllowableRace)
-        if(!(proto->AllowableRace & getRaceMask()))
-            return false;
+    if(proto->Class == ITEM_CLASS_WEAPON && !(GetWeaponProficiency() & (uint32(1) << proto->SubClass)))
+        return false;
+    if(proto->Class == ITEM_CLASS_ARMOR && !(GetArmorProficiency() & (uint32(1) << proto->SubClass)))
+        return false;
+    if(proto->AllowableClass && !(proto->AllowableClass & getClassMask()))
+        return false;
+    if(proto->AllowableRace & !(proto->AllowableRace & getRaceMask()))
+        return false;
     // Crow: Should be all we need for now.
     return true;
 }
@@ -3923,14 +3993,14 @@ void Player::RemoveQuestsFromLine(uint32 skill_line)
         }
     }
 
-    std::map<uint32, time_t>::iterator itr;
+    /*std::map<uint32, time_t>::iterator itr;
     for (itr = m_completedQuests.begin(); itr != m_completedQuests.end();)
     {
         Quest * qst = sQuestMgr.GetQuestPointer(itr->first);
         if(qst->required_tradeskill == skill_line)
             itr = m_completedQuests.erase(itr);
         else itr++;
-    }
+    }*/
 
     UpdateNearbyGameObjects();
 }
@@ -4191,8 +4261,7 @@ void Player::EventTaxiInterpolate()
 
 void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 startOverride)
 {
-    if( IsMounted() )
-        Dismount();
+    Dismount();
 
     //also remove morph spells
     if(GetUInt32Value(UNIT_FIELD_DISPLAYID) != GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID))
@@ -5001,26 +5070,27 @@ void Player::RequestDuel(Player* pTarget)
     float z = (GetPositionZ() + pTarget->GetPositionZ()*dist)/(1+dist);
 
     //Create flag/arbiter
-    GameObject* pGameObj = GetMapInstance()->CreateGameObject(21680);
-    if( pGameObj == NULL || !pGameObj->CreateFromProto(21680,GetMapId(), x, y, z, GetOrientation()))
-        return;
-    pGameObj->SetInstanceID(GetInstanceID());
+    if(GameObject* pGameObj = GetMapInstance()->CreateGameObject(0, 21680))
+    {
+        pGameObj->Load(GetMapId(), x, y, z, GetOrientation());
+        pGameObj->SetInstanceID(GetInstanceID());
 
-    //Spawn the Flag
-    pGameObj->SetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY, GetGUID());
-    pGameObj->SetUInt32Value(GAMEOBJECT_FACTION, GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-    pGameObj->SetUInt32Value(GAMEOBJECT_LEVEL, GetUInt32Value(UNIT_FIELD_LEVEL));
+        //Spawn the Flag
+        pGameObj->SetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY, GetGUID());
+        pGameObj->SetUInt32Value(GAMEOBJECT_FACTION, GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
+        pGameObj->SetUInt32Value(GAMEOBJECT_LEVEL, GetUInt32Value(UNIT_FIELD_LEVEL));
 
-    //Assign the Flag
-    SetUInt64Value(PLAYER_DUEL_ARBITER,pGameObj->GetGUID());
-    pTarget->SetUInt64Value(PLAYER_DUEL_ARBITER,pGameObj->GetGUID());
+        //Assign the Flag
+        SetUInt64Value(PLAYER_DUEL_ARBITER,pGameObj->GetGUID());
+        pTarget->SetUInt64Value(PLAYER_DUEL_ARBITER,pGameObj->GetGUID());
 
-    WorldPacket data(SMSG_DUEL_REQUESTED, 16);
-    data << pGameObj->GetGUID();
-    data << GetGUID();
-    pTarget->GetSession()->SendPacket(&data);
+        WorldPacket data(SMSG_DUEL_REQUESTED, 16);
+        data << pGameObj->GetGUID();
+        data << GetGUID();
+        pTarget->GetSession()->SendPacket(&data);
 
-    pGameObj->PushToWorld(m_mapInstance);
+        pGameObj->PushToWorld(m_mapInstance);
+    }
 }
 
 void Player::DuelCountdown()
@@ -5759,8 +5829,6 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
     case MOD_SLOT_SOCKET_ENCHANT_3:
     case MOD_SLOT_BONUS_ENCHANT:
     case MOD_SLOT_PRISMATIC_ENCHANT:
-    case MOD_SLOT_REFORGE_ENCHANT:
-    case MOD_SLOT_TRANSMOG_ENCHANT:
     case MOD_SLOT_PROPRETY_ENCHANT_0:
     case MOD_SLOT_PROPRETY_ENCHANT_1:
     case MOD_SLOT_PROPRETY_ENCHANT_2:
@@ -5817,6 +5885,16 @@ void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, in
                         break;
                     }
                 }
+            }
+        }break;
+    case MOD_SLOT_REFORGE_ENCHANT:
+        {
+            if(ItemReforgeEntry *entry = dbcItemReforge.LookupEntry(val))
+            {
+                float val = floor(((float)randSuffixAmt) * entry->sourceMultiplier);
+                ModifyBonuses(apply, guid, slot+1, entry->sourceStat, float2int32(-val));
+                val *= entry->finalMultiplier;
+                ModifyBonuses(apply, guid, slot+2, entry->finalStat, float2int32(val));
             }
         }break;
     }

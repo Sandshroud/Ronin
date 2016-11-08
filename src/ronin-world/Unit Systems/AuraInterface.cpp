@@ -731,6 +731,60 @@ bool AuraInterface::UpdateAuraModifier(uint32 spellId, WoWGuid casterGuid, uint8
     return false;
 }
 
+void AuraInterface::OnDismount()
+{
+    if(m_modifiersByModType.find(SPELL_AURA_MOUNTED) == m_modifiersByModType.end() || m_modifiersByModType[SPELL_AURA_MOUNTED].empty())
+        return;
+
+    std::set<uint8> m_aurasToRemove;
+    for(auto itr = m_modifiersByModType[SPELL_AURA_MOUNTED].begin(); itr != m_modifiersByModType[SPELL_AURA_MOUNTED].end(); itr++)
+        m_aurasToRemove.insert((uint8)(itr->first&0xFF));
+    while(!m_aurasToRemove.empty())
+    {
+        uint8 auraSlot = *m_aurasToRemove.begin();
+        m_aurasToRemove.erase(m_aurasToRemove.begin());
+        RemoveAuraBySlot(auraSlot);
+    }
+}
+
+bool AuraInterface::HasMountAura()
+{
+    if(m_modifiersByModType.find(SPELL_AURA_MOUNTED) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_MOUNTED].empty())
+        return true;
+    return false;
+}
+
+bool AuraInterface::GetMountedAura(uint32 &auraId)
+{
+    auraId = 0;
+    if(m_modifiersByModType.find(SPELL_AURA_MOUNTED) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_MOUNTED].empty())
+        auraId = m_modifiersByModType[SPELL_AURA_MOUNTED].begin()->second->m_spellInfo->Id;
+    return auraId != 0;
+}
+
+bool AuraInterface::HasFlightAura()
+{
+    if(m_modifiersByModType.find(SPELL_AURA_FLY) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_FLY].empty())
+        return true;
+    return false;
+}
+
+void AuraInterface::RemoveFlightAuras()
+{
+    if(m_modifiersByModType.find(SPELL_AURA_FLY) == m_modifiersByModType.end() || m_modifiersByModType[SPELL_AURA_FLY].empty())
+        return;
+
+    std::set<uint8> m_aurasToRemove;
+    for(auto itr = m_modifiersByModType[SPELL_AURA_FLY].begin(); itr != m_modifiersByModType[SPELL_AURA_FLY].end(); itr++)
+        m_aurasToRemove.insert((uint8)(itr->first&0xFF));
+    while(!m_aurasToRemove.empty())
+    {
+        uint8 auraSlot = *m_aurasToRemove.begin();
+        m_aurasToRemove.erase(m_aurasToRemove.begin());
+        RemoveAuraBySlot(auraSlot);
+    }
+}
+
 void AuraInterface::AddAura(Aura* aur, uint8 slot)
 {
     WorldObject *caster = NULL;

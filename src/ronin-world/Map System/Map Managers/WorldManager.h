@@ -281,6 +281,7 @@ private:
 
     CellSpawns *GetSpawn(uint32 mapId) { if(m_SpawnStorageMap.find(mapId) == m_SpawnStorageMap.end()) return NULL; return &m_SpawnStorageMap[mapId]; };
     std::map<uint32, CellSpawns> m_SpawnStorageMap;
+    CellSpawns m_spawnStorage_Kalimdor;
 
     std::map<uint32, uint32> m_loadingMaps;
 };

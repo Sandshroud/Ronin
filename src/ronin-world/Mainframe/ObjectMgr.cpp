@@ -192,7 +192,8 @@ PlayerInfo * ObjectMgr::LoadPlayerInfo(WoWGuid guid)
     pn->lastOnline = fields[18].GetUInt64();
     delete result;
 
-    if(CharRaceEntry * race = dbcCharRace.LookupEntry(pn->charRace))
+    CharRaceEntry *race;
+    if(pn->charTeam == TEAM_NONE && (race = dbcCharRace.LookupEntry(pn->charRace)))
         pn->charTeam = race->TeamId;
 
     if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
@@ -249,6 +250,11 @@ void ObjectMgr::UpdatePlayerData(WoWGuid guid, QueryResult *result)
         info->lastOrientation = fields[15].GetFloat();
         info->lastZone = fields[16].GetUInt32();
         info->lastOnline = fields[17].GetUInt64();
+
+        CharRaceEntry *race;
+        if(info->charTeam == TEAM_NONE && (race = dbcCharRace.LookupEntry(info->charRace)))
+            info->charTeam = race->TeamId;
+
         if(strcmp(info->charName.c_str(), chrName.c_str()))
         {
             std::string lpn = RONIN_UTIL::TOLOWER_RETURN(chrName);
@@ -304,6 +310,10 @@ void ObjectMgr::LoadPlayersInfo()
             pn->lastOrientation = fields[16].GetFloat();
             pn->lastZone = fields[17].GetUInt32();
             pn->lastOnline = fields[18].GetUInt64();
+
+            CharRaceEntry *race;
+            if(pn->charTeam == TEAM_NONE && (race = dbcCharRace.LookupEntry(pn->charRace)))
+                pn->charTeam = race->TeamId;
 
             if( GetPlayerInfoByName(pn->charName.c_str()) != NULL )
             {
@@ -773,7 +783,7 @@ void ObjectMgr::ProcessTitles()
                     entry->titleName = title.substr(pos+cutoff, title.length());
                 } else entry->titleName = title.substr(0, pos-1);
             } else entry->titleName = entry->titleFormat;
-            printf("");
+            sLog.printf("");
         }
     }
     sLog.Notice("ObjectMgr", "Processed %u character titles", dbcCharTitle.GetNumRows());

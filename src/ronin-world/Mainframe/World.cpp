@@ -1052,13 +1052,12 @@ void World::SaveAllPlayers()
     objmgr._playerslock.AcquireReadLock();
     for (itr = objmgr._players.begin(); itr != objmgr._players.end(); itr++)
     {
-        if(itr->second->GetSession())
-        {
-            mt = getMSTime();
-            itr->second->SaveToDB(false);
-            sLog.outString("Saved player `%s` (level %u) in %ums.", itr->second->GetName(), itr->second->GetUInt32Value(UNIT_FIELD_LEVEL), getMSTime() - mt);
-            ++count;
-        }
+        if(itr->second->GetSession() == NULL)
+            continue;
+        mt = getMSTime();
+        itr->second->SaveToDB(false);
+        sLog.outString("Saved player `%s` (level %u) in %ums.", itr->second->GetName(), itr->second->GetUInt32Value(UNIT_FIELD_LEVEL), getMSTime() - mt);
+        ++count;
     }
     objmgr._playerslock.ReleaseReadLock();
     sLog.outString("Saved %u players.", count);
@@ -1356,8 +1355,6 @@ void World::Rehash(bool load)
     // Performance configs
     Collision = mainIni->ReadBoolean("PerformanceSettings", "Collision", false);
     PathFinding = mainIni->ReadBoolean("PerformanceSettings", "Pathfinding", false);
-    AreaUpdateDistance = mainIni->ReadFloat("PerformanceSettings", "AreaUpdateDistance", false);
-    AreaUpdateDistance *= AreaUpdateDistance;
 
     // Server Configs
     StartGold = mainIni->ReadInteger("ServerSettings", "StartGold", 1);
@@ -1646,7 +1643,7 @@ void World::UpdateShutdownStatus()
             data << tbuf;
             SendGlobalMessage(&data, NULL);
 
-            printf("Server shutdown in %s.\n", tbuf);
+            sLog.printf("Server shutdown in %s.\n", tbuf);
         }
     }
     else

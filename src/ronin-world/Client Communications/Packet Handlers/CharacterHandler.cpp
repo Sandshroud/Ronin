@@ -20,7 +20,7 @@ bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_s
 
             if( !sWorld.VerifyName(pName, szLen) )
             {
-                printf("renaming character %s, %u\n", pName, guid.getLow());
+                sLog.printf("renaming character %s, %u\n", pName, guid.getLow());
                 if( Player* pPlayer = objmgr.GetPlayer(guid) )
                 {
                     pPlayer->GetSession()->SystemMessage("Your character has had a force rename set, you will be prompted to rename your character at next login in conformance with server rules.");
@@ -60,7 +60,7 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
         q->AddQuery("SELECT banTimeExpiration FROM banned_characters WHERE guid='%u'", itr->second->charGuid.getLow());
         q->AddQuery("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", itr->second->charGuid.getLow());
         q->AddQuery("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", itr->second->charGuid.getLow());
-        q->AddQuery("SELECT name, race, class, team, appearance, appearance2, appearance3, deathState, level, mapId, instanceId, positionX, positionY, positionZ, orientation, zoneId, lastSaveTime FROM character_data WHERE guid = '%u' AND lastSaveTime != '%ull'", itr->second->charGuid.getLow(), itr->second->lastOnline);
+        q->AddQuery("SELECT name, race, class, team, appearance, appearance2, appearance3, customizeFlags, deathState, level, mapId, instanceId, positionX, positionY, positionZ, orientation, zoneId, lastSaveTime FROM character_data WHERE guid = '%u' AND lastSaveTime != '%ull'", itr->second->charGuid.getLow(), itr->second->lastOnline);
     }
     CharacterDatabase.QueueAsyncQuery(q);
 }
@@ -126,12 +126,14 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
                 player_flags |= 0x800;
             if(info->lastDeathState != 0)
                 player_flags |= 0x2000;
-            if(info->lastLevel > m_maxLevel)
+            // Check to see if character is marked for unavailability
+            if(info->lastLevel > m_maxLevel || !objmgr.CheckPlayerCreateInfo(info->charRace, info->charClass))
                 player_flags |= 0x01000000;
-            else if(QueryResult *res = results[count*4 + 3].result)
+
+            else if(QueryResult *res = results[count*4].result)
             {   // Expire time is infinite when 0
                 uint64 expireTime = res->Fetch()[0].GetUInt64();
-                if(expireTime == 0 || expireTime > UNIXTIME)
+                if(expireTime == 0 || expireTime < UNIXTIME)
                 {
                     player_flags |= 0x01000000;
                     m_bannedCharacters.insert(info->charGuid);
@@ -301,6 +303,8 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     WorldPacket data(SMSG_CHARACTER_CREATE, 1);
     if(m_charData.size() >= 10)
     {
+        //checking number of chars is useless since client will not allow to create more than 10 chars
+        //as the 'create' button will not appear (unless we want to decrease maximum number of characters)
         data << uint8(CHAR_CREATE_ACCOUNT_LIMIT);
         SendPacket(&data);
         return;
@@ -358,9 +362,6 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
         }
         delete result;
     }
-    // loading characters
-
-    uint8 gender,skin,face,hairStyle,hairColor,facialHair,outfitId;
 
     PlayerInfo *pn = objmgr.CreatePlayer();
     pn->charName = name.c_str();
@@ -371,10 +372,9 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     pn->charAppearance3 = recv_data.read<uint8>();
     pn->charAppearance = recv_data.read<uint32>();
     pn->charAppearance2 = recv_data.read<uint8>();
-    outfitId = recv_data.read<uint8>();
+    uint8 outfitId = recv_data.read<uint8>();
 
-    //checking number of chars is useless since client will not allow to create more than 10 chars
-    //as the 'create' button will not appear (unless we want to decrease maximum number of characters)
+    // Construct player pointer and check initialization
     Player* pNewChar = new Player(pn, this);
     if(!pNewChar->Initialize())
     {
@@ -386,11 +386,13 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
         return;
     }
 
+    // Set base data and create in DB
     pNewChar->CreateInDatabase();
 
     // Store new player info
     objmgr.AddPlayerInfo(pn);
 
+    // Clean up our pointer here
     pNewChar->Destruct();
 
     uint8 newIndex = m_charData.size()+1; // Add new character data
@@ -575,7 +577,7 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     if (m_loggingInPlayer || _player || sWorld.HasPendingWorldPush(this))
         response = CHAR_LOGIN_IN_PROGRESS;
     //Better validate this Guid before we create an invalid _player.
-    else if(pInfo == NULL)
+    else if(pInfo == NULL || !objmgr.CheckPlayerCreateInfo(pInfo->charRace, pInfo->charClass))
         response = CHAR_LOGIN_NO_CHARACTER;
     else if(pInfo->lastLevel > m_maxLevel)
         response = CHAR_LOGIN_DISABLED;
@@ -605,11 +607,15 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
 void WorldSession::PlayerLoginProc(PlayerInfo *info)
 {
     //We have a valid Guid so let's create the player and login
-    m_loggingInPlayer = new Player(info, this);
-    m_loggingInPlayer->Initialize();
+    Player *plr = new Player(info, this);
+    if(!plr->Initialize())
+    {
+        delete plr;
+        return;
+    }
 
     sLog.Debug("WorldSession", "Async loading player %u", info->charGuid.getLow());
-    m_loggingInPlayer->LoadFromDB();
+    (m_loggingInPlayer = plr)->LoadFromDB();
 }
 
 void WorldSession::FullLogin(Player* plr)

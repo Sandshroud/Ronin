@@ -4,12 +4,14 @@
 
 #include "StdAfx.h"
 
-Object::Object(uint64 guid, uint32 fieldCount) : m_eventHandler(this), m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false)
+Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false)
 {
     m_uint32Values = new uint32[m_valuesCount];
     memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
 
     SetUInt64Value(OBJECT_FIELD_GUID, guid);
+    SetUInt32Value(OBJECT_FIELD_ENTRY, guid.getEntry());
+
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
     SetTypeFlags(TYPEMASK_TYPE_OBJECT);
     m_objType = TYPEID_OBJECT;
@@ -566,7 +568,7 @@ void Object::ClearLoot()
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(uint64 guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
+WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
 {
     m_mapId = -1;
     m_areaId = m_zoneId = 0;
@@ -1653,12 +1655,11 @@ uint32 GetZoneForMap(uint32 mapid, uint32 areaId)
 void WorldObject::UpdateAreaInfo(MapInstance *mgr)
 {
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
-    if(mgr == NULL && !IsInWorld())
+    if(mgr == NULL && (mgr = GetMapInstance()) == NULL)
     {
         m_zoneId = m_areaId = 0;
         return;
-    } else if(mgr == NULL)
-        mgr = GetMapInstance();
+    }
 
     m_zoneId = m_areaId = mgr->GetAreaID(GetPositionX(), GetPositionY(), GetPositionZ());
     if(uint32 forcedZone = GetZoneForMap(mgr->GetMapId(), m_areaId))

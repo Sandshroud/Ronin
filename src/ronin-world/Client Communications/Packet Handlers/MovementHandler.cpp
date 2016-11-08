@@ -2928,7 +2928,7 @@ void MovementInterface::HandleUpdateSwimSpeed(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateSwimBackSpeed(bool read, ByteBuffer &buffer)
 {
-    printf("HandleUpdateSwimBackSpeed\n");
+    sLog.printf("HandleUpdateSwimBackSpeed\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
@@ -2996,19 +2996,19 @@ void MovementInterface::HandleUpdateFlightSpeed(bool read, ByteBuffer &buffer)
 
 void MovementInterface::HandleUpdateFlightBackSpeed(bool read, ByteBuffer &buffer)
 {
-    printf("HandleUpdateFlightBackSpeed\n");
+    sLog.printf("HandleUpdateFlightBackSpeed\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
 void MovementInterface::HandleUpdateTurnRate(bool read, ByteBuffer &buffer)
 {
-    printf("HandleUpdateTurnRate\n");
+    sLog.printf("HandleUpdateTurnRate\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
 void MovementInterface::HandleUpdatePitchRate(bool read, ByteBuffer &buffer)
 {
-    printf("HandleUpdatePitchRate\n");
+    sLog.printf("HandleUpdatePitchRate\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
@@ -3783,7 +3783,7 @@ void MovementInterface::HandleAckForceSwimSpeedChange(bool read, ByteBuffer &buf
 
 void MovementInterface::HandleAckForceSwimBackSpeedChange(bool read, ByteBuffer &buffer)
 {
-    printf("HandleAckForceSwimBackSpeedChange\n");
+    sLog.printf("HandleAckForceSwimBackSpeedChange\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
@@ -3866,19 +3866,19 @@ void MovementInterface::HandleAckForceFlightSpeedChange(bool read, ByteBuffer &b
 
 void MovementInterface::HandleAckForceFlightBackSpeedChange(bool read, ByteBuffer &buffer)
 {
-    printf("HandleAckForceFlightBackSpeedChange\n");
+    sLog.printf("HandleAckForceFlightBackSpeedChange\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
 void MovementInterface::HandleAckForceTurnRateChange(bool read, ByteBuffer &buffer)
 {
-    printf("HandleAckForceTurnRateChange\n");
+    sLog.printf("HandleAckForceTurnRateChange\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 
 void MovementInterface::HandleAckForcePitchRateChange(bool read, ByteBuffer &buffer)
 {
-    printf("HandleAckForcePitchRateChange\n");
+    sLog.printf("HandleAckForcePitchRateChange\n");
     { for(uint8 i = 3, v = 0, h = 1; v > 3; v++) h = i/v; };
 }
 

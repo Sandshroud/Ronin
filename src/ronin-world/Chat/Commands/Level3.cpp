@@ -309,7 +309,6 @@ bool ChatHandler::HandleNpcInfoCommand(const char *args, WorldSession *m_session
         GreenSystemMessage(m_session, "Vendor Mask: %i", crt->GetVendorMask());
     GreenSystemMessage(m_session, "Team: %s", crt->GetTeamName());
     ColorSystemMessage(m_session, MSG_COLOR_RED, "Entry ID: %u", crt->GetUInt32Value(OBJECT_FIELD_ENTRY));
-    ColorSystemMessage(m_session, MSG_COLOR_RED, "SQL Entry ID: %u", crt->GetSQL_id());
 
     // show byte
     std::stringstream sstext;
@@ -1412,39 +1411,12 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
 
     uint32 mode = mgr->iInstanceMode;
     CreatureSpawn * sp = NULL;
-    if( save )
-    {
-        sp = new CreatureSpawn();
-        sp->entry = entry;
-        sp->id = objmgr.GenerateCreatureSpawnID();
-        sp->x = plr->GetPositionX();
-        sp->y = plr->GetPositionY();
-        sp->z = plr->GetPositionZ();
-        sp->o = plr->GetOrientation();
-        sp->spawnFlags = 0;
-        sp->modelId = p->GetNativeDisplayId();
-        sp->phaseMask = 0xFFFF;
-        sp->eventId = 0;
-        sp->vendormask = 1;
-    }
 
     p->Load(mgr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation(), mode, sp);
-
     p->PushToWorld(mgr);
 
     BlueSystemMessage(m_session, "Spawned a creature `%s` with entry %u at %f %f %f on map %u in phase %u", ctrData->GetFullName(),
         entry, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId(), plr->GetPhaseMask());
-
-    // Save it to the database.
-    if( save )
-    {
-        uint32 x = mgr->GetPosX(plr->GetPositionX());
-        uint32 y = mgr->GetPosY(plr->GetPositionY());
-
-        // Add spawn to map
-        mgr->AddSpawn(x, y, sp);
-        p->SaveToDB(true);
-    }
 
     sWorld.LogGM(m_session, "spawned a %s at %u %f %f %f", ctrData->GetFullName(), plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ() );
     return true;
@@ -1465,10 +1437,10 @@ bool ChatHandler::HandleCreatureRespawnCommand(const char *args, WorldSession *m
         return true;
     }
 
-    if(cCorpse->GetSQL_id() != 0)
+    if(cCorpse->GetLowGUID() != 0)
     {
-        BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetSQL_id() );
-        sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetSQL_id() );
+        BlueSystemMessage( m_session, "Respawning a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetLowGUID() );
+        sWorld.LogGM(m_session, "Respawned a Creature: `%s` with entry: %u on map: %u sqlid: %u", cCorpse->GetName(), cCorpse->GetEntry(), cCorpse->GetMapInstance()->GetMapId(), cCorpse->GetLowGUID() );
         cCorpse->Respawn(false, false);
         return true;
     }
@@ -1916,7 +1888,7 @@ bool ChatHandler::HandleLookupCurrencyCommand(const char *args, WorldSession *m_
     {
         CurrencyTypeEntry *entry = dbcCurrencyType.LookupRow(i);
         if(entry->Flags > 100)
-            printf("");
+            sLog.printf("");
         if(!RONIN_UTIL::FindXinYString(x, RONIN_UTIL::TOLOWER_RETURN(entry->name)))
             continue;
         BlueSystemMessage(m_session, "Currency %04u: %s", entry->Id, format(entry->name, m_session->GetPlayer()->GetName()).c_str());

@@ -105,6 +105,7 @@ enum ObjectInactiveFlags
 {
     OBJECT_INACTIVE_FLAG_INACTIVE   = 0x01,
     OBJECT_INACTIVE_FLAG_DESPAWNED  = 0x02,
+    OBJECT_INACTIVE_FLAG_CONDITION  = 0x04,
     OBJECT_INACTIVE_FLAG_EVENTS     = 0x08,
     OBJECT_ACTIVE_FLAG_MASK         = 0x0F,
 };
@@ -138,7 +139,7 @@ class MapInstance;
 class SERVER_DECL Object
 {
 public:
-    Object(uint64 guid, uint32 fieldCount = OBJECT_END);
+    Object(WoWGuid guid, uint32 fieldCount = OBJECT_END);
     virtual ~Object();
     virtual void Init();
     virtual void Destruct();
@@ -293,7 +294,7 @@ public:
     typedef std::set<WorldObject*> InRangeWorldObjSet;
 
 public:
-    WorldObject(uint64 guid, uint32 fieldCount = OBJECT_END);
+    WorldObject(WoWGuid guid, uint32 fieldCount = OBJECT_END);
     virtual ~WorldObject( );
     virtual void Init();
     virtual void Destruct();
@@ -425,7 +426,7 @@ public:
         return m_position.Distance2DSq( x, y );
     }
 
-    // In-range object management, not sure if we need it
+    // In-range object management
     RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeObjects.find(pObj->GetGUID()) != m_inRangeObjects.end(); }
     RONIN_INLINE void AddInRangeObject(WorldObject* obj)
     {
@@ -512,6 +513,9 @@ public:
                 m_inRangePlayers.erase(itr);
         }
     }
+
+    // Pushing our targets into a specific trigger range for mapping etc
+    RONIN_INLINE virtual void CheckTriggerRange( Unit *uObj, float distSq ) {}
 
     // For when we're remapping an object that's already in our set
     RONIN_INLINE virtual void UpdateInRangeObject(WorldObject *obj) { }

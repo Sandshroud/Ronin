@@ -6,10 +6,6 @@
 
 bool Transporter::CreateAsTransporter(uint32 EntryID, const char* Name)
 {
-    // Try to spawn the Gameobject, no need for locations.
-    if(!CreateFromProto(EntryID,0,0.0f,0.0f,0.0f,0.0f))
-        return false;
-
     SetUInt32Value(GAMEOBJECT_FLAGS,40);
     SetByte(GAMEOBJECT_BYTES_1,GAMEOBJECT_BYTES_ANIMPROGRESS, 100);
 
@@ -369,7 +365,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
     sWorldMgr.PushToWorldQueue(this);
 }
 
-Transporter::Transporter(uint64 guid) : GameObject(guid)
+Transporter::Transporter(uint64 guid) : GameObject(NULL, guid)
 {
 
 }

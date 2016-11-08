@@ -421,6 +421,7 @@ protected:
     void HandleInsertGemOpcode(WorldPacket &recvPacket);
     void HandleItemRefundInfoOpcode( WorldPacket& recvPacket );
     void HandleItemRefundRequestOpcode( WorldPacket& recvPacket );
+    void HandleItemReforgeOpcode( WorldPacket& recvPacket );
     void HandleTransmogrifyItemsOpcode( WorldPacket& recvPacket );
 
     /// Combat opcodes (CombatHandler.cpp)

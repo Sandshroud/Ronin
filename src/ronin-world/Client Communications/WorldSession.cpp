@@ -47,7 +47,7 @@ WorldSession::~WorldSession()
 {
     if(_player != NULL)
     {
-        printf("warning: logged out player in worldsession destructor");
+        sLog.printf("warning: logged out player in worldsession destructor");
         LogoutPlayer();
     }
 
@@ -704,6 +704,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_WRAP_ITEM].handler                             = &WorldSession::HandleWrapItemOpcode;
     WorldPacketHandlers[CMSG_ITEM_REFUND_INFO].handler                      = &WorldSession::HandleItemRefundInfoOpcode;
     WorldPacketHandlers[CMSG_ITEM_REFUND].handler                           = &WorldSession::HandleItemRefundRequestOpcode;
+    WorldPacketHandlers[CMSG_REFORGE_ITEM].handler                          = &WorldSession::HandleItemReforgeOpcode;
     WorldPacketHandlers[CMSG_TRANSMOGRIFY_ITEMS].handler                    = &WorldSession::HandleTransmogrifyItemsOpcode;
 
     // Spell System / Talent System
@@ -1178,6 +1179,9 @@ void WorldSession::LoadTutorials()
 
 void WorldSession::SaveTutorials()
 {
+    if(m_tutorials.IsEmpty())
+        return;
+
     std::stringstream ss;
     ss << "REPLACE INTO account_tutorials VALUES(";
     ss << "'" << GetAccountId() << "', ";

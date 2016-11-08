@@ -36,8 +36,6 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
     MapSessions.clear();
 
     m_corpses.clear();
-    _sqlids_creatures.clear();
-    _sqlids_gameobjects.clear();
 
     mCreaturePool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 8 : 4);
     mGameObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 4 : 2);
@@ -124,8 +122,6 @@ void MapInstance::Destruct()
     mGameObjectPool.Cleanup();
     mDynamicObjectPool.Cleanup();
 
-    _sqlids_creatures.clear();
-    _sqlids_gameobjects.clear();
     m_battleground = NULL;
 
     delete this;
@@ -251,9 +247,7 @@ void MapInstance::PushObject(WorldObject* obj)
         case HIGHGUID_TYPE_UNIT:
             {
                 Creature *creature = castPtr<Creature>(obj);
-                ASSERT((obj->GetLowGUID()) <= m_CreatureHighGuid);
                 m_CreatureStorage.insert(std::make_pair(obj->GetGUID(), creature));
-                if(creature->IsSpawn()) _sqlids_creatures.insert(std::make_pair( creature->GetSQL_id(), creature ) );
                 TRIGGER_INSTANCE_EVENT( this, OnCreaturePushToWorld )( creature );
             }break;
 
@@ -261,7 +255,6 @@ void MapInstance::PushObject(WorldObject* obj)
             {
                 GameObject* go = castPtr<GameObject>(obj);
                 m_gameObjectStorage.insert(std::make_pair(obj->GetGUID(), go));
-                if( go->m_spawn != NULL ) _sqlids_gameobjects.insert(std::make_pair(go->m_spawn->id, go ) );
                 TRIGGER_INSTANCE_EVENT( this, OnGameObjectPushToWorld )( go );
                 sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
             }break;
@@ -391,8 +384,6 @@ void MapInstance::RemoveObject(WorldObject* obj)
     case HIGHGUID_TYPE_VEHICLE:
     case HIGHGUID_TYPE_UNIT:
         {
-            ASSERT(obj->GetLowGUID() <= m_CreatureHighGuid);
-            if(castPtr<Creature>(obj)->IsSpawn()) _sqlids_creatures.erase(castPtr<Creature>(obj)->GetSQL_id());
             m_CreatureStorage.erase(obj->GetGUID());
             TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Creature>(obj) );
         }break;
@@ -407,7 +398,6 @@ void MapInstance::RemoveObject(WorldObject* obj)
 
     case HIGHGUID_TYPE_GAMEOBJECT:
         {
-            if(castPtr<GameObject>(obj)->m_spawn != NULL) _sqlids_gameobjects.erase(castPtr<GameObject>(obj)->m_spawn->id);
             m_gameObjectStorage.erase(obj->GetGUID());
             TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
             sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
@@ -470,8 +460,12 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     if( obj->GetMapInstance() != this )
         return;
 
+    Player* plObj;
     WorldObject* curObj = NULL;
-    Player* plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL;
+    // Update our zone and area data
+    if(plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL)
+        plObj->EventExploration();
+
     ///////////////////////////////////////
     // Update in-range data for old objects
     ///////////////////////////////////////
@@ -584,6 +578,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             Player* plObj2;
             bool cansee, isvisible;
             uint32 posX, posY, count;
+            float distSq, updateRange;
             for (posX = startX; posX <= endX; posX++ )
             {
                 for (posY = startY; posY <= endY; posY++ )
@@ -609,8 +604,8 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                                     continue;
 
                                 // We only need to parse objects that are in range
-                                float updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxObjectViewDistance);
-                                if (!IsInRange(updateRange, obj, curObj))
+                                updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxObjectViewDistance);
+                                if (!IsInRange(updateRange, obj, curObj, distSq))
                                     continue;
 
                                 // We've parsed the object here, erase from our other map
@@ -657,12 +652,19 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                                         }
                                     }
                                 }
+
+                                // Check unit trigger range mapping
+                                if(obj->IsUnit())
+                                    curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
+                                if(curObj->IsUnit())
+                                    obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
                             }
                         }
                     }
                 }
             }
 
+            // Parse through list of what's left of our previous ranged objects
             for(WorldObject::InRangeMap::iterator itr = m_inRange.begin(); itr != m_inRange.end(); itr++)
             {
                 if((curObj = itr->second) == NULL)
@@ -769,28 +771,68 @@ void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* ce
                 continue;
 
             // Add if we are not ourself and range == 0 or distance is withing range.
-            float updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxObjectViewDistance);
-            if (IsInRange(updateRange, obj, curObj))
+            float distSq, updateRange = ((obj->IsPlayer() || curObj->IsPlayer()) ? MaxPlayerViewDistance : MaxObjectViewDistance);
+            if (!IsInRange(updateRange, obj, curObj, distSq))
+                continue;
+
+            if( !obj->IsInRangeSet( curObj ) )
             {
-                if( !obj->IsInRangeSet( curObj ) )
+                // WorldObject in range, add to set
+                obj->AddInRangeObject( curObj );
+                curObj->AddInRangeObject( obj );
+
+                if( curObj->IsPlayer() )
                 {
-                    // WorldObject in range, add to set
-                    obj->AddInRangeObject( curObj );
-                    curObj->AddInRangeObject( obj );
-
-                    if( curObj->IsPlayer() )
+                    Player *plObj2 = castPtr<Player>( curObj );
+                    if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
                     {
-                        Player *plObj2 = castPtr<Player>( curObj );
-                        if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
-                        {
-                            plObj2->AddVisibleObject(obj);
-                            if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
-                                plObj2->PushUpdateBlock(&m_createBuffer, count);
-                            m_createBuffer.clear();
-                        }
+                        plObj2->AddVisibleObject(obj);
+                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                            plObj2->PushUpdateBlock(&m_createBuffer, count);
+                        m_createBuffer.clear();
                     }
+                }
 
-                    if( plObj && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
+                if( plObj && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
+                {
+                    plObj->AddVisibleObject( curObj );
+                    if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                        plObj->PushUpdateBlock(&m_createBuffer, count);
+                    m_createBuffer.clear();
+                }
+            }
+            else
+            {
+                // Check visiblility
+                if( curObj->IsPlayer() )
+                {
+                    Player *plObj2 = castPtr<Player>( curObj );
+                    WorldObject::InRangeWorldObjSet::iterator itr;
+                    bool cansee = plObj2->CanSee(obj), isvisible = plObj2->GetVisibility(obj, &itr);
+                    if(!cansee && isvisible)
+                    {
+                        plObj2->PushOutOfRange(obj->GetGUID());
+                        plObj2->RemoveVisibleObject(itr);
+                    }
+                    else if(cansee && !isvisible)
+                    {
+                        plObj2->AddVisibleObject(obj);
+                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                            plObj2->PushUpdateBlock(&m_createBuffer, count);
+                        m_createBuffer.clear();
+                    }
+                }
+
+                if( plObj )
+                {
+                    WorldObject::InRangeWorldObjSet::iterator itr;
+                    bool cansee = plObj->CanSee( curObj ), isvisible = plObj->GetVisibility( curObj, &itr );
+                    if(!cansee && isvisible)
+                    {
+                        plObj->PushOutOfRange( curObj->GetGUID() );
+                        plObj->RemoveVisibleObject( itr );
+                    }
+                    else if(cansee && !isvisible)
                     {
                         plObj->AddVisibleObject( curObj );
                         if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
@@ -798,47 +840,13 @@ void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* ce
                         m_createBuffer.clear();
                     }
                 }
-                else
-                {
-                    // Check visiblility
-                    if( curObj->IsPlayer() )
-                    {
-                        Player *plObj2 = castPtr<Player>( curObj );
-                        WorldObject::InRangeWorldObjSet::iterator itr;
-                        bool cansee = plObj2->CanSee(obj), isvisible = plObj2->GetVisibility(obj, &itr);
-                        if(!cansee && isvisible)
-                        {
-                            plObj2->PushOutOfRange(obj->GetGUID());
-                            plObj2->RemoveVisibleObject(itr);
-                        }
-                        else if(cansee && !isvisible)
-                        {
-                            plObj2->AddVisibleObject(obj);
-                            if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
-                                plObj2->PushUpdateBlock(&m_createBuffer, count);
-                            m_createBuffer.clear();
-                        }
-                    }
-
-                    if( plObj )
-                    {
-                        WorldObject::InRangeWorldObjSet::iterator itr;
-                        bool cansee = plObj->CanSee( curObj ), isvisible = plObj->GetVisibility( curObj, &itr );
-                        if(!cansee && isvisible)
-                        {
-                            plObj->PushOutOfRange( curObj->GetGUID() );
-                            plObj->RemoveVisibleObject( itr );
-                        }
-                        else if(cansee && !isvisible)
-                        {
-                            plObj->AddVisibleObject( curObj );
-                            if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                                plObj->PushUpdateBlock(&m_createBuffer, count);
-                            m_createBuffer.clear();
-                        }
-                    }
-                }
             }
+
+            // Triggered range mapping
+            if(obj->IsUnit())
+                curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
+            if(curObj->IsUnit())
+                obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
         }
     }
 }
@@ -1327,58 +1335,54 @@ void MapInstance::_PerformPendingUpdates()
     uint32 count = 0;
     WorldObject *wObj;
     PlayerSet m_partyTargets, m_petTargets;
-    ObjectSet::iterator iter = _updates.begin();
-    for(; iter != _updates.end();)
+    for(ObjectSet::iterator iter = _updates.begin(); iter != _updates.end();)
     {
         wObj = *iter;
         ++iter;
-        if(wObj == NULL)
+        if(wObj == NULL || !wObj->IsInWorld())
             continue;
 
-        if( wObj->IsInWorld() )
+        // players have to receive their own updates ;)
+        if( wObj->IsPlayer() )
         {
-            // players have to receive their own updates ;)
-            if( wObj->IsPlayer() )
+            // need to be different! ;)
+            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_SELF) )
+                castPtr<Player>( wObj )->PushUpdateBlock( &m_updateBuffer, count );
+            m_updateBuffer.clear();
+        }
+
+        wObj->OnUpdateProcess();
+        if(wObj->HasInRangePlayers())
+        {
+            // build the update
+            count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC);
+            for(WorldObject::InRangeSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
             {
-                // need to be different! ;)
-                if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_SELF) )
-                    castPtr<Player>( wObj )->PushUpdateBlock( &m_updateBuffer, count );
-                m_updateBuffer.clear();
+                Player *plrTarget = wObj->GetInRangeObject<Player>(*itr);
+                ++itr;
+                if(plrTarget == NULL || !plrTarget->IsVisible(wObj))
+                    continue; // Make sure that the target player can see us.
+                uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
+                if(targetFlag & UF_FLAG_PARTY_MEMBER)
+                    m_partyTargets.insert(plrTarget);
+                else if(targetFlag & UF_FLAG_OWNER)
+                    m_petTargets.insert(plrTarget);
+                else if(count > 0 && m_updateBuffer.size())
+                    plrTarget->PushUpdateBlock(&m_updateBuffer, count);
             }
+            m_updateBuffer.clear();
 
-            wObj->OnUpdateProcess();
-            if(wObj->HasInRangePlayers())
-            {
-                // build the update
-                count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC);
-                for(WorldObject::InRangeSet::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
-                {
-                    Player *plrTarget = wObj->GetInRangeObject<Player>(*itr);
-                    ++itr;
-                    if(plrTarget == NULL || !plrTarget->IsVisible(wObj))
-                        continue; // Make sure that the target player can see us.
-                    uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
-                    if(targetFlag & UF_FLAG_PARTY_MEMBER)
-                        m_partyTargets.insert(plrTarget);
-                    else if(targetFlag & UF_FLAG_OWNER)
-                        m_petTargets.insert(plrTarget);
-                    else if(count > 0 && m_updateBuffer.size())
-                        plrTarget->PushUpdateBlock(&m_updateBuffer, count);
-                }
-                m_updateBuffer.clear();
+            if(m_partyTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PARTY_MEMBER)))
+                for(PlayerSet::iterator itr = m_partyTargets.begin(); itr != m_partyTargets.end(); itr++)
+                    (*itr)->PushUpdateBlock( &m_updateBuffer, count );
+            m_updateBuffer.clear();
+            m_partyTargets.clear();
 
-                if(m_partyTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PARTY_MEMBER)))
-                    for(PlayerSet::iterator itr = m_partyTargets.begin(); itr != m_partyTargets.end(); itr++)
-                        (*itr)->PushUpdateBlock( &m_updateBuffer, count );
-                m_updateBuffer.clear();
-                m_partyTargets.clear();
-
-                if(m_petTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_OWN_PET)))
-                    for(PlayerSet::iterator itr = m_petTargets.begin(); itr != m_petTargets.end(); itr++)
-                        (*itr)->PushUpdateBlock( &m_updateBuffer, count );
-                m_updateBuffer.clear();
-                m_petTargets.clear();
-            }
+            if(m_petTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_OWN_PET)))
+                for(PlayerSet::iterator itr = m_petTargets.begin(); itr != m_petTargets.end(); itr++)
+                    (*itr)->PushUpdateBlock( &m_updateBuffer, count );
+            m_updateBuffer.clear();
+            m_petTargets.clear();
         }
         wObj->ClearUpdateMask();
     }
@@ -1396,9 +1400,9 @@ void MapInstance::_PerformPendingUpdates()
     // generate pending a9packets and send to clients.
     while(!_processQueue.empty())
     {
-        if(plyr = *_processQueue.begin())
-            if(plyr->GetMapInstance() == this)
-                plyr->PopPendingUpdates();
+        plyr = *_processQueue.begin();
+        if(plyr && plyr->GetMapInstance() == this)
+            plyr->PopPendingUpdates();
         _processQueue.erase(_processQueue.begin());
     }
     m_updateMutex.Release();
@@ -1457,10 +1461,10 @@ void MapInstance::UnloadCell(uint32 x, uint32 y)
     c->Unload();
 }
 
-bool MapInstance::IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj)
+bool MapInstance::IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut)
 {
     // First distance check, are we in range?
-    if(currentobj->GetDistance2dSq( obj ) > fRange )
+    if((distOut = currentobj->GetDistance2dSq(obj)) > fRange)
         return false;
     float heightDifference = fabs(obj->GetPositionZ()-currentobj->GetPositionZ());
     if((heightDifference*heightDifference) > fRange)
@@ -1532,18 +1536,6 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * p
     }*/
 }
 
-Creature* MapInstance::GetSqlIdCreature(uint32 sqlid)
-{
-    CreatureSqlIdMap::iterator itr = _sqlids_creatures.find(sqlid);
-    return (itr == _sqlids_creatures.end()) ? NULL : itr->second;
-}
-
-GameObject* MapInstance::GetSqlIdGameObject(uint32 sqlid)
-{
-    GameObjectSqlIdMap::iterator itr = _sqlids_gameobjects.find(sqlid);
-    return (itr == _sqlids_gameobjects.end()) ? NULL : itr->second;
-}
-
 void MapInstance::HookOnAreaTrigger(Player* plr, uint32 id)
 {
     switch (id)
@@ -1557,8 +1549,10 @@ void MapInstance::HookOnAreaTrigger(Player* plr, uint32 id)
     }
 }
 
-Creature* MapInstance::CreateCreature(uint32 entry)
+Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
 {
+    if(!guid.empty())
+        entry = guid.getEntry();
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL || !ctrData->HasValidModelData())
     {
@@ -1567,14 +1561,21 @@ Creature* MapInstance::CreateCreature(uint32 entry)
     }
 
     uint16 highGuid = (ctrData->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT);
-    Creature *cr = new Creature(ctrData, MAKE_NEW_GUID(++m_CreatureHighGuid, entry, highGuid));
+    if(guid.empty() && IsInstance())
+        guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), entry, highGuid);
+    else if(guid.empty())
+        guid = MAKE_NEW_GUID(++m_CreatureHighGuid, entry, highGuid);
+    ASSERT( guid.getHigh() == highGuid );
+
+    Creature *cr = new Creature(ctrData, guid);
     cr->Init();
-    ASSERT( cr->GetHighGUID() == highGuid );
     return cr;
 }
 
 Summon* MapInstance::CreateSummon(uint32 entry)
 {
+    return NULL;
+
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL)
     {
@@ -1588,19 +1589,20 @@ Summon* MapInstance::CreateSummon(uint32 entry)
     return sum;
 }
 
-GameObject* MapInstance::CreateGameObject(uint32 entry)
+GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
 {
-    // Validate the entry
+    if(!guid.empty())
+        entry = guid.getEntry();
     GameObjectInfo *goi = GameObjectNameStorage.LookupEntry( entry );
     if( goi == NULL )
     {
         sLog.Warning("MapInstance", "Skipping CreateGameObject for entry %u due to incomplete database.", entry);
         return NULL;
     }
+    ASSERT( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT );
 
-    GameObject *go = new GameObject(MAKE_NEW_GUID(++m_GOHighGuid, entry, HIGHGUID_TYPE_GAMEOBJECT));
+    GameObject *go = new GameObject(goi, MAKE_NEW_GUID(++m_GOHighGuid, entry, HIGHGUID_TYPE_GAMEOBJECT));
     go->Init();
-    ASSERT( go->GetHighGUID() == HIGHGUID_TYPE_GAMEOBJECT );
     return go;
 }
 

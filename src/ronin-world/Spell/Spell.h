@@ -227,6 +227,8 @@ private:
     // adds a target to the list, performing DidHit checks on units
     void _AddTarget(WorldObject* target, const uint32 effIndex);
 
+    AuraApplicationResult CheckAuraApplication(Unit *target);
+
     // didhit checker
     uint8 _DidHit(Unit* target, float *resistOut = NULL, uint8 *reflectout = NULL);
 

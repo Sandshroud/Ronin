@@ -390,7 +390,7 @@ void MovementInterface::Update(uint32 msTime, uint32 uiDiff)
     {   // We have a clean path and a unit state, generate next target location
         if(int moveMask = RONIN_UTIL::getRBitOffset(m_movementState))
         {
-            printf("Moving with mask %08X\n", 1<<moveMask);
+            sLog.printf("Moving with mask %08X\n", 1<<moveMask);
             switch(moveMask)
             {
 

@@ -31,9 +31,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_taggingPlayer = m_taggingGroup = 0;
     m_lootMethod = -1;
 
-    m_AreaUpdateTimer = 0;
-    m_lastAreaPosition.ChangeCoords(0.0f, 0.0f, 0.0f);
-
     m_aggroRangeMod = 0.f;
     m_creaturePool = 0xFF;
     m_skinned = false; // 0x02
@@ -69,15 +66,27 @@ void Creature::Init()
 
     for(std::vector<uint32>::iterator itr = _creatureData->combatSpells.begin(); itr != _creatureData->combatSpells.end(); itr++)
     {
-        CreatureSpell *spell = new CreatureSpell();
-        if(spell->spellEntry = dbcSpell.LookupEntry(*itr))
+        if(SpellEntry *spellEntry = dbcSpell.LookupEntry(*itr))
         {
-            spell->castTimer = std::min<uint32>(spell->spellEntry->StartRecoveryTime, std::min<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime));
-            spell->cooldownTimer = std::min<uint32>(5000, std::max<uint32>(spell->spellEntry->StartRecoveryTime, std::max<uint32>(spell->spellEntry->CategoryRecoveryTime, spell->spellEntry->RecoveryTime)));
+            if(spellEntry->isSpellAuraApplicator() && !spellEntry->isNegativeSpell1())
+                continue; // These aren't combat spells
+
+            CreatureSpell *spell = new CreatureSpell();
+            spell->spellEntry = spellEntry;
+            // Soonest cast time is the least of our cooldowns
+            spell->castTimer = std::min<uint32>(spellEntry->StartRecoveryTime, std::min<uint32>(spellEntry->CategoryRecoveryTime, spellEntry->RecoveryTime));
+            // Cast cooldown is based on the highest of our cooldowns
+            spell->cooldownTimer = std::max<uint32>(spellEntry->StartRecoveryTime, std::max<uint32>(spellEntry->CategoryRecoveryTime, spellEntry->RecoveryTime));
+            // Aura applicator check
+            if(spellEntry->isSpellAuraApplicator()) // If we're applying an aura, make sure that we don't recast within the duration time
+                spell->cooldownTimer += (spellEntry->Duration[0] > 0 ? spellEntry->Duration[0] : spellEntry->Duration[1] > 0 ? spellEntry->Duration[1] : spellEntry->Duration[2] > 0 ? spellEntry->Duration[2] : 0);
+            // Push back the cast timer a bit
             if(spell->castTimer == 0 || spell->castTimer == spell->cooldownTimer)
-                spell->castTimer = 5000;
+                spell->castTimer += spell->castTimer ? 2000 : 5000;
+            if(spell->cooldownTimer < 5000)
+                spell->cooldownTimer = 5000;
             m_combatSpells.push_back(spell);
-        } else delete spell;
+        }
     }
 
     if(uint32 vehicleKitId = _creatureData->vehicleEntry)
@@ -132,18 +141,6 @@ void Creature::Despawn(uint32 respawntime)
 
 void Creature::Update(uint32 msTime, uint32 uiDiff)
 {
-    m_AreaUpdateTimer += uiDiff;
-    if(m_AreaUpdateTimer >= 5000)
-    {
-        if(m_lastAreaPosition.DistanceSq(GetPosition()) > sWorld.AreaUpdateDistance)
-        {
-            // Update our area id and position
-            UpdateAreaInfo();
-            m_lastAreaPosition = GetPosition();
-        }
-        m_AreaUpdateTimer = 0;
-    }
-
     Unit::Update(msTime, uiDiff);
 
     if(hasStateFlag(UF_CORPSE))
@@ -214,6 +211,11 @@ void Creature::OnRemoveInRangeObject(WorldObject *pObj)
         if((itr = std::find(m_inRangeHostiles.begin(), m_inRangeHostiles.end(), pObj->GetGUID())) != m_inRangeHostiles.end())
             m_inRangeHostiles.erase(itr);
     }
+}
+
+void Creature::CheckTriggerRange(Unit *uObj, float distSq)
+{
+
 }
 
 void Creature::UpdateInRangeObject(WorldObject *pObj)
@@ -427,25 +429,18 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
 {
     if(IsSummon()) //Just in case.
         return;
+    // Todo: update this function
+    return;
 
-    bool newSpawn = !IsSpawn();
-    if(newSpawn)
-        (m_spawn = new CreatureSpawn())->id = objmgr.GenerateCreatureSpawnID();
-    else if(m_spawn->id == 0)
-        m_spawn->id = objmgr.GenerateCreatureSpawnID();
-
-    m_spawn->entry = GetEntry();
     m_spawn->x = (!saveposition && (m_spawn != NULL)) ? m_spawn->x : m_position.x;
     m_spawn->y = (!saveposition && (m_spawn != NULL)) ? m_spawn->y : m_position.y;
     m_spawn->z = (!saveposition && (m_spawn != NULL)) ? m_spawn->z : m_position.z;
     m_spawn->o = (!saveposition && (m_spawn != NULL)) ? m_spawn->o : m_position.o;
-    m_spawn->modelId = GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID);
-    m_spawn->vendormask = newSpawn ? 0x01 : GetVendorMask();
 
     std::stringstream ss;
     ss << "REPLACE INTO creature_spawns VALUES("
-        << uint32(m_spawn->id) << ","
-        << uint32(m_spawn->entry) << ","
+        << uint32(m_objGuid.getLow()) << ","
+        << uint32(m_objGuid.getEntry()) << ","
         << uint32(GetMapId()) << ","
         << float(m_spawn->x) << ","
         << float(m_spawn->y) << ","
@@ -453,10 +448,7 @@ void Creature::SaveToDB(bool saveposition /*= false*/)
         << float(m_spawn->o) << ","
         << uint32(m_spawn->modelId) << ","
         << int32(m_spawn->vendormask) << " )";
-
     WorldDatabase.Execute(ss.str().c_str());
-    if(newSpawn && IsInWorld())
-        GetMapInstance()->AddSpawn(GetMapInstance()->GetPosX(m_spawn->x), GetMapInstance()->GetPosY(m_spawn->y), m_spawn);
 }
 
 void Creature::DeleteFromDB()
@@ -464,8 +456,9 @@ void Creature::DeleteFromDB()
     if( m_spawn == NULL )
         return;
 
-    WorldDatabase.Execute("DELETE FROM creature_spawns WHERE id=%u",  GetSQL_id());
-    WorldDatabase.Execute("DELETE FROM creature_waypoints WHERE spawnid=%u",  GetSQL_id());
+    return;
+    WorldDatabase.Execute("DELETE FROM creature_spawns WHERE id=%u", GetLowGUID());
+    WorldDatabase.Execute("DELETE FROM creature_waypoints WHERE spawnid=%u", GetLowGUID());
 }
 
 /////////////
@@ -889,8 +882,6 @@ void Creature::FormationLinkUp(uint32 SqlId)
     if(!m_mapInstance)       // shouldnt happen
         return;
 
-    if( Creature *creature = m_mapInstance->GetSqlIdCreature(SqlId) )
-        haslinkupevent = false;
 }
 
 void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn, bool reload)
@@ -904,7 +895,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     // Event objects should be spawned inactive
     if(m_spawn && m_spawn->eventId)
     {
-        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
+        if(m_spawn->eventId) m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
         WorldObject::Deactivate(5000);
     }
 

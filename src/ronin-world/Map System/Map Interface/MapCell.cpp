@@ -213,7 +213,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             CreatureSpawn *spawn = *i;
-            if(Creature *c = _instance->CreateCreature(spawn->entry))
+            if(Creature *c = _instance->CreateCreature(spawn->guid))
             {
                 c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _instance->iInstanceMode, spawn);
                 c->SetInstanceID(_instance->GetInstanceID());
@@ -229,22 +229,18 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         }
     }
 
-    if(sp->GOSpawns.size())//got GOs
+    if(sp->GameObjectSpawns.size())//got GOs
     {
-        for(GOSpawnList::iterator i = sp->GOSpawns.begin(); i != sp->GOSpawns.end(); i++)
+        for(GameObjectSpawnList::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
         {
-            GOSpawn *spawn = *i;
-            if(GameObject *go = _instance->CreateGameObject(spawn->entry))
+            GameObjectSpawn *spawn = *i;
+            if(GameObject *go = _instance->CreateGameObject(spawn->guid))
             {
-                if(!go->Load(mapId, spawn))
-                {
-                    go->Destruct();
-                    continue;
-                }
+                go->Load(mapId, spawn->x, spawn->y, spawn->z, 0.f, spawn->rX, spawn->rY, spawn->rZ, spawn->rAngle, spawn);
+                go->SetInstanceID(_instance->GetInstanceID());
 
                 go->PushToWorld(_instance);
                 loadCount++;
-                TRIGGER_GO_EVENT(go, OnSpawn);
             }
         }
     }

@@ -315,12 +315,9 @@ bool ChatHandler::HandleQuestFinishCommand(const char * args, WorldSession * m_s
             else
                 recout += "The quest has now been completed for that player.";
 
-            if(qst->qst_is_repeatable == REPEATABLE_DAILY)
-                plr->AddToCompletedDailyQuests(quest_id);
-            else
+            plr->AddToCompletedQuests(quest_id);
+            if(qst->qst_is_repeatable == UNREPEATABLE_QUEST)
             {
-                plr->AddToCompletedQuests(quest_id);
-
                 if(qst->qst_zone_id > 0)
                     AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUESTS_IN_ZONE, 1, qst->qst_zone_id);
 

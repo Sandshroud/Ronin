@@ -184,7 +184,7 @@ void Item::SaveToDB( int8 containerslot, uint8 slot, bool firstsave, QueryBuffer
             if(!ssench.str().empty())
                 ssench << ", ";
             ssench << "('" << m_uint32Values[OBJECT_FIELD_GUID] << "', '"
-                << uint32(i) << "', '" << enchantInst->Enchantment->Id << "', '"
+                << uint32(i) << "', '" << enchantInst->EnchantmentId << "', '"
                 << uint32(enchantInst->RandomSuffix) << "', '"<< uint32(0) << "', '" << uint32(0) << "')";
         }
     }
@@ -248,7 +248,7 @@ void Item::SetOwner( Player* owner )
     m_owner = owner;
 }
 
-int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm /* = false */, bool apply /* = true */, bool RemoveAtLogout /* = false */, uint32 Slot_, uint32 RandomSuffix, bool dummy /* = false */ )
+int32 Item::AddEnchantment(uint32 enchantId, uint32 Duration, bool Perm /* = false */, bool apply /* = true */, bool RemoveAtLogout /* = false */, uint32 Slot_, uint32 RandomSuffix, bool dummy /* = false */ )
 {
     int32 Slot = Slot_;
     m_isDirty = true;
@@ -259,7 +259,8 @@ int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, 
     EnchantmentInstance *Instance = new EnchantmentInstance();
     Instance->ApplyTime = UNIXTIME;
     Instance->Slot = Slot;
-    Instance->Enchantment = Enchantment;
+    Instance->Enchantment = dbcSpellItemEnchant.LookupEntry(enchantId);
+    Instance->EnchantmentId = enchantId;
     Instance->Duration = Duration;
     Instance->RemoveAtLogout = RemoveAtLogout;
     Instance->RandomSuffix = RandomSuffix;
@@ -268,7 +269,7 @@ int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, 
     m_owner->ApplyItemMods(this, invSlot, false);
 
     // Set the enchantment in the item fields.
-    SetEnchantmentId(Slot, Enchantment->Id);
+    SetEnchantmentId(Slot, enchantId);
     SetEnchantmentDuration(Slot, (uint32)Instance->ApplyTime);
     SetEnchantmentCharges(Slot, 0);
 
@@ -288,13 +289,10 @@ int32 Item::AddEnchantment(SpellItemEnchantEntry* Enchantment, uint32 Duration, 
 
 void Item::LoadEnchantment(uint8 slot, uint32 enchantId, uint32 suffix, uint32 expireTime, uint32 charges)
 {
-    SpellItemEnchantEntry *entry = dbcSpellItemEnchant.LookupEntry(enchantId);
-    if(entry == NULL)
-        return;
-
     uint8 invSlot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
     EnchantmentInstance *Instance = new EnchantmentInstance();
-    Instance->Enchantment = entry;
+    Instance->Enchantment = dbcSpellItemEnchant.LookupEntry(enchantId);
+    Instance->EnchantmentId = enchantId;
     Instance->Slot = slot;
     Instance->RandomSuffix = suffix;
     Instance->Duration = expireTime;
@@ -425,7 +423,7 @@ void Item::RemoveRelatedEnchants( SpellItemEnchantEntry* newEnchant )
     {
         if(EnchantmentInstance *instance = m_enchantments[i])
         {
-            if( instance->Enchantment->Id == newEnchant->Id || ( instance->Enchantment->EnchantGroups > 1 && newEnchant->EnchantGroups > 1 ) )
+            if( instance->Enchantment && (instance->Enchantment->Id == newEnchant->Id || ( instance->Enchantment->EnchantGroups > 1 && newEnchant->EnchantGroups > 1 ) ))
             {
                 RemoveEnchantment( instance->Slot );
             }
@@ -439,7 +437,7 @@ void Item::RemovePermanentEnchant()
     {
         if(EnchantmentInstance *instance = m_enchantments[i])
         {
-            if( instance->Duration != 0 )// not perm
+            if( instance->Enchantment == NULL || instance->Duration != 0 )// not perm
                 continue;
             if(IsGemRelated( instance->Enchantment ))
                 continue;
@@ -455,7 +453,7 @@ void Item::RemoveTemporaryEnchant()
     {
         if(EnchantmentInstance *instance = m_enchantments[i])
         {
-            if(instance->Enchantment->Id == GetProto()->SocketBonus)
+            if(instance->Enchantment == NULL || instance->Enchantment->Id == GetProto()->SocketBonus)
                 continue;
             RemoveEnchantment(i);
             return;
@@ -469,7 +467,7 @@ void Item::RemoveSocketBonusEnchant()
     {
         if(EnchantmentInstance *instance = m_enchantments[i])
         {
-            if(instance->Enchantment->Id != GetProto()->SocketBonus)
+            if(instance->Enchantment == NULL || instance->Enchantment->Id != GetProto()->SocketBonus)
                 continue;
             RemoveEnchantment(i);
             return;

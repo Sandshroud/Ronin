@@ -98,7 +98,7 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 
             if(!(result = _player->GetInventory()->SafeAddItem(i2,DstInvSlot,DstSlot)))
             {
-                printf("HandleBuyItemInSlot: Error while adding item to dstslot");
+                sLog.printf("HandleBuyItemInSlot: Error while adding item to dstslot");
                 //i2->DeleteFromDB();
                 i2->Destruct();
                 i2 = NULL;
@@ -570,7 +570,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
             result = _player->GetInventory()->SafeAddItem(oitem,SrcInvSlot,SrcSlot);
             if(!result)
             {
-                printf("HandleAutoEquip: Error while adding item to SrcSlot");
+                sLog.printf("HandleAutoEquip: Error while adding item to SrcSlot");
                 oitem->Destruct();
                 oitem = NULL;
             }
@@ -579,7 +579,7 @@ void WorldSession::HandleAutoEquipItemOpcode( WorldPacket & recv_data )
         result = _player->GetInventory()->SafeAddItem(eitem, INVENTORY_SLOT_NOT_SET, Slot);
         if(!result)
         {
-            printf("HandleAutoEquip: Error while adding item to Slot");
+            sLog.printf("HandleAutoEquip: Error while adding item to Slot");
             eitem->Destruct();
             eitem = NULL;
         }
@@ -652,7 +652,7 @@ void WorldSession::HandleBuyBackOpcode( WorldPacket & recv_data )
             result = _player->GetInventory()->AddItemToFreeSlot(it);
             if(!result)
             {
-                printf("HandleBuyBack: Error while adding item to free slot");
+                sLog.printf("HandleBuyBack: Error while adding item to free slot");
                 it->Destruct();
                 it = NULL;
             }
@@ -932,7 +932,7 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
                     result = _player->GetInventory()->SafeAddItem(srcitem, INVENTORY_SLOT_NOT_SET, NewSlot);
                     if(!result)
                     {
-                        printf("HandleAutoStoreBagItem: Error while adding item to newslot");
+                        sLog.printf("HandleAutoStoreBagItem: Error while adding item to newslot");
                         srcitem->Destruct();
                         srcitem = NULL;
                         return;
@@ -972,7 +972,7 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
                             result = _player->GetInventory()->SafeAddItem(srcitem, DstInv, NewSlot);
                             if(!result)
                             {
-                                printf("HandleBuyItemInSlot: Error while adding item to newslot");
+                                sLog.printf("HandleBuyItemInSlot: Error while adding item to newslot");
                                 srcitem->Destruct();
                                 srcitem = NULL;
                                 return;
@@ -1435,7 +1435,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
             {
                 if(!(gp->SocketMask & TargetItem->GetProto()->ItemSocket[i]))
                     colorMatch[i] = false;
-                TargetItem->AddEnchantment(Enchantment, 0, true, apply, false, SOCK_ENCHANTMENT_SLOT1+i);
+                TargetItem->AddEnchantment(Enchantment->Id, 0, true, apply, false, SOCK_ENCHANTMENT_SLOT1+i);
                 applied = true;
             }
             else
@@ -1447,7 +1447,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
                 // If we're negative, its a dummy gem.
                 if(ip->GemProperties < 0 && (Enchantment = dbcSpellItemEnchant.LookupEntry(-ip->GemProperties)))
                 {
-                    TargetItem->AddEnchantment(Enchantment, 0, true, apply, false, SOCK_ENCHANTMENT_SLOT1+i, 0, true);
+                    TargetItem->AddEnchantment(Enchantment->Id, 0, true, apply, false, SOCK_ENCHANTMENT_SLOT1+i, 0, true);
                     applied = true;
                 }
             }
@@ -1484,7 +1484,7 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
             if(TargetItem->HasEnchantment(TargetItem->GetProto()->SocketBonus) == 0 && (Enchantment = dbcSpellItemEnchant.LookupEntry(TargetItem->GetProto()->SocketBonus)))
             {
                 filledSlots |= (1<<3);
-                TargetItem->AddEnchantment(Enchantment, 0, true, apply, false, BONUS_ENCHANTMENT_SLOT);
+                TargetItem->AddEnchantment(Enchantment->Id, 0, true, apply, false, BONUS_ENCHANTMENT_SLOT);
             }
         } else TargetItem->RemoveSocketBonusEnchant();
     }
@@ -1516,10 +1516,150 @@ void WorldSession::HandleItemRefundRequestOpcode( WorldPacket& recv_data )
 
 }
 
+void WorldSession::HandleItemReforgeOpcode( WorldPacket& recv_data )
+{
+    WoWGuid guid;
+    uint32 slot, containerSlot, reforgeType;
+    WorldPacket response(SMSG_REFORGE_RESULT, 1);
+    recv_data >> reforgeType >> slot >> containerSlot;
+    if(containerSlot == INVENTORY_SLOT_NONE) containerSlot = -1;
+    recv_data.ReadGuidBitString(8, guid, 2, 6, 3, 4, 1, 0, 7, 5);
+    recv_data.ReadGuidByteString(8, guid, 2, 3, 6, 4, 1, 0, 7, 5);
+
+    Creature *reforgeNpc;
+    if(guid.getHigh() != HIGHGUID_TYPE_UNIT || (reforgeNpc = _player->GetInRangeObject<Creature>(guid)) == NULL)
+    {
+        response.WriteBit(false);
+        response.FlushBits();
+        SendPacket(&response);
+        return;
+    }
+
+    Item *targetItem = _player->GetInventory()->GetInventoryItem(containerSlot, slot);
+    if(targetItem == NULL || ((reforgeType > 0) != (targetItem->GetEnchantment(REFORGE_ENCHANTMENT_SLOT) == NULL)))
+    {
+        response.WriteBit(false);
+        response.FlushBits();
+        SendPacket(&response);
+        return;
+    }
+
+    // If we have no sent reforge type, we can just remove our current reforge enchant
+    if(reforgeType == 0)
+    {
+        targetItem->RemoveEnchantment(REFORGE_ENCHANTMENT_SLOT);
+        response.WriteBit(true);
+        response.FlushBits();
+        SendPacket(&response);
+        return;
+    }
+
+    ItemReforgeEntry *entry = dbcItemReforge.LookupEntry(reforgeType);
+    if(entry == NULL || false)//targetItem->CanUseReforge(entry))
+    {
+        response.WriteBit(false);
+        response.FlushBits();
+        SendPacket(&response);
+        return;
+    }
+
+    // Check to see if we have enough money
+    uint64 cost = 100000/*targetItem->CalculateTransmogCost()*/, money = _player->GetUInt64Value(PLAYER_FIELD_COINAGE);
+    if(cost && cost > money)
+    {
+        response.WriteBit(false);
+        response.FlushBits();
+        SendPacket(&response);
+        return;
+    }
+    // Update player coinage
+    _player->SetUInt64Value(PLAYER_FIELD_COINAGE, money-cost);
+    // Add our reforge enchantment, the rest is done in bonuses
+    targetItem->AddEnchantment(reforgeType, 0, true, true, false, REFORGE_ENCHANTMENT_SLOT);
+    // Send our success response
+    response.WriteBit(true);
+    response.FlushBits();
+    SendPacket(&response);
+}
+
 void WorldSession::HandleTransmogrifyItemsOpcode( WorldPacket& recv_data )
 {
     uint32 count = recv_data.ReadBits(22);
     if(count >= EQUIPMENT_SLOT_END)
+    {
+        SKIP_READ_PACKET(recv_data);
         return;
+    }
 
+    uint64 cost = 0;
+    WoWGuid npcGuid;
+    std::vector<uint32> itemSlots(count, 0);
+    std::vector<WoWGuid> itemGuids(count, 0);
+    std::vector<uint32> itemTransmogs(count, 0);
+    for (uint8 i = 0; i < count; ++i)
+        recv_data.ReadGuidBitString(8, itemGuids[i], 0, 5, 6, 2, 3, 7, 4, 1);
+    recv_data.ReadGuidBitString(8, npcGuid, 7, 3, 5, 6, 1, 4, 0, 2);
+
+    bool hasTransmogError = false;
+    for(uint8 i = 0; i < count; i++)
+    {
+        itemTransmogs[i] = recv_data.read<uint32>();
+        recv_data.ReadGuidByteString(8, itemGuids[i], 1, 5, 0, 4, 6, 7, 3, 2);
+        itemSlots[i] = recv_data.read<uint32>();
+        if(itemTransmogs[i] == 0)
+            continue;
+
+        if(sItemMgr.LookupEntry(itemTransmogs[i]) == NULL)
+            hasTransmogError = true;
+        else if(itemSlots[i] >= EQUIPMENT_SLOT_END)
+            hasTransmogError = true;
+        else
+        {
+            Item *sourceItem = NULL, *targetItem = NULL;
+            if((sourceItem = _player->GetInventory()->GetItemByGUID(itemGuids[i])) == NULL)
+                hasTransmogError = true;
+            else if(sourceItem->GetEntry() != itemTransmogs[i])
+                hasTransmogError = true;
+            else if((targetItem = _player->GetInventory()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, itemSlots[i])) == NULL)
+                hasTransmogError = true;
+            else if(false)//!targetItem->CanBeTransmoggedTo(sourceItem))
+                hasTransmogError = true;
+            else
+            {
+
+                cost += 100000;//targetItem->CalculateTransmogCost();
+            }
+        }
+    }
+
+    recv_data.ReadGuidByteString(8, npcGuid, 7, 2, 5, 4, 3, 1, 6, 0);
+    Creature *transmogNpc;
+    if(hasTransmogError || npcGuid.getHigh() != HIGHGUID_TYPE_UNIT || (transmogNpc = _player->GetInRangeObject<Creature>(npcGuid)) == NULL)
+    {
+        // PLAYER CHEATED, THAT MOTHER FUCKER
+        Disconnect();
+        return;
+    }
+
+    // Check to see if we have enough money
+    uint64 money = _player->GetUInt64Value(PLAYER_FIELD_COINAGE);
+    if(cost && cost > money)
+    {
+        Disconnect();
+        return;
+    }
+    // Update player coinage
+    _player->SetUInt64Value(PLAYER_FIELD_COINAGE, money-cost);
+
+    // Apply and remove our transmogs
+    for(uint8 i = 0; i < count; i++)
+    {
+        Item *targetItem = _player->GetInventory()->GetInventoryItem(INVENTORY_SLOT_NOT_SET, itemSlots[i]);
+        if(targetItem == NULL)
+            continue;
+
+        if(itemGuids[i] && itemTransmogs[i])
+            targetItem->AddEnchantment(itemTransmogs[i], NULL, true, true, false, TRANSMOG_ENCHANTMENT_SLOT);
+        else targetItem->RemoveEnchantment(TRANSMOG_ENCHANTMENT_SLOT);
+    }
 }

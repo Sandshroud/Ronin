@@ -612,6 +612,8 @@ public:
 
     // Quick calls
     RONIN_INLINE void AddAura(Aura* aur, uint8 slot = 0xFF) { m_AuraInterface.AddAura(aur, slot); };
+    RONIN_INLINE void RefreshAura(SpellEntry *sp, WoWGuid guid) { }//m_AuraInterface.RefreshAura(spellId, guid); }
+    RONIN_INLINE void AddAuraStack(SpellEntry *sp, WoWGuid guid) { }//m_AuraInterface.RefreshAura(spellId, guid); }
 
     // Has
     RONIN_INLINE bool HasAura(uint32 spellid) { return m_AuraInterface.HasAura(spellid); };
@@ -950,7 +952,6 @@ public:
 
 protected:
     MovementInterface m_movementInterface;
-    LocationVector m_lastAreaPosition;
 
 public:
     void _UpdateSpells(uint32 time);

@@ -31,6 +31,7 @@ struct EnchantmentInstance
 {
     SpellItemEnchantEntry *Enchantment;
     uint32 Slot;
+    uint32 EnchantmentId;
     uint32 RandomSuffix;
     uint32 Duration;
     time_t ApplyTime;
@@ -167,7 +168,7 @@ public:
     }
 
     //! Adds an enchantment to the item.
-    int32 AddEnchantment( SpellItemEnchantEntry* Enchantment, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
+    int32 AddEnchantment( uint32 enchantId, uint32 Duration, bool Perm = false, bool apply = true, bool RemoveAtLogout = false, uint32 Slot_ = 0, uint32 RandomSuffix = 0, bool dummy = false );
     void LoadEnchantment(uint8 slot, uint32 enchantId, uint32 suffix, uint32 expireTime, uint32 charges);
 
     const char* ConstructItemLink() { return m_proto->ConstructItemLink(GetItemRandomPropertyId(), GetItemPropertySeed(), GetStackCount()).c_str(); }

@@ -70,9 +70,15 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
 
     if (spellInfo->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
     {
-        if (_player->IsInCombat() || _player->IsMounted())
+        if (_player->IsInCombat())
         {
             _player->GetInventory()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_NOT_IN_COMBAT);
+            return;
+        }
+
+        if(_player->m_AuraInterface.HasMountAura())
+        {
+            _player->GetInventory()->BuildInventoryChangeError(tmpItem,NULL,INV_ERR_SHAPESHIFT_FORM_CANNOT_EQUIP);
             return;
         }
 

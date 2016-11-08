@@ -393,42 +393,6 @@ Unit* Aura::GetUnitCaster()
     return NULL;
 }
 
-Aura::Aura( SpellEntry* proto, Unit* target, int16 stackSizeOrProcCharges, WoWGuid casterGuid )
-    : m_target(target), m_spellProto(proto), m_auraFlags(0), m_auraLevel(MAXIMUM_ATTAINABLE_LEVEL), m_duration(-1), m_expirationTime(0), m_casterGuid(casterGuid),
-    m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
-    m_positive(!proto->isNegativeSpell1())
-{
-    m_stackSizeorProcCharges = stackSizeOrProcCharges;//(m_spellProto->procCharges ? (-int16(m_spellProto->procCharges&0xFF)) : 1);
-    if(!IsPassive())
-    {
-        m_auraFlags |= AFLAG_EFF_AMOUNT_SEND;
-        if(m_positive && !m_spellProto->isForcedApplication())
-            m_auraFlags |= AFLAG_POSITIVE;
-        else if(!m_positive)
-            m_auraFlags |= AFLAG_NEGATIVE;
-    }
-
-    m_modcount = 0;
-    memset(m_modList, 0, sizeof(Modifier)*3);
-    CalculateDuration();
-
-    /*if( caster->IsUnit() )
-    {
-        m_auraLevel = castPtr<Unit>(caster)->getLevel();
-        if(m_stackSizeorProcCharges < 0 && m_spellProto->SpellGroupType)
-        {
-            int32 procCharges = m_stackSizeorProcCharges&0xFF;
-            castPtr<Unit>(caster)->SM_FIValue(SMT_CHARGES, (int32*)&procCharges, m_spellProto->SpellGroupType);
-            castPtr<Unit>(caster)->SM_PIValue(SMT_CHARGES, (int32*)&procCharges, m_spellProto->SpellGroupType);
-            m_stackSizeorProcCharges = -(procCharges&0xFF);
-        }
-    }*/
-
-    m_castedItemId = 0;
-    m_triggeredSpellId = 0;
-    periodic_target = 0;
-}
-
 Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid)
     : m_target(target), m_spellProto(proto), m_auraFlags(auraFlags), m_auraLevel(auraLevel), m_duration(-1), m_expirationTime(0), m_casterGuid(casterGuid),
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
@@ -483,7 +447,7 @@ void Aura::CalculateDuration()
     {
         m_auraFlags |= AFLAG_HAS_DURATION;
         m_expirationTime = UNIXTIME+(m_duration/1000);
-    }
+    } else m_expirationTime = 0;
 }
 
 void Aura::Remove()
@@ -1268,9 +1232,6 @@ void Aura::SpellAuraTransform(bool apply)
         sLog.Debug("Aura","SpellAuraTransform cannot find CreatureData for id %d",mod->m_miscValue[0]);
     else displayId = data->displayInfo[0];
 
-    if( m_target->IsPlayer() && castPtr<Player>(m_target)->IsMounted() )
-        m_target->Dismount();
-
     Unit * m_caster = GetUnitCaster();
     switch( m_spellProto->Id )
     {
@@ -1722,10 +1683,6 @@ void Aura::SpellAuraMounted(bool apply)
 
     Player* pPlayer = castPtr<Player>(m_target);
 
-    //Remove any previous mount if we had one
-    if(pPlayer->IsMounted())
-        pPlayer->Dismount();
-
     if(apply)
     {
         TRIGGER_INSTANCE_EVENT( pPlayer->GetMapInstance(), OnPlayerMount )( pPlayer );
@@ -1737,8 +1694,6 @@ void Aura::SpellAuraMounted(bool apply)
             return;
 
         pPlayer->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
-        pPlayer->m_MountSpellId = m_spellProto->Id;
-        pPlayer->m_FlyingAura = 0;
 
         if( pPlayer->GetShapeShift() && pPlayer->m_ShapeShifted != m_spellProto->Id && 
             !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
@@ -1765,8 +1720,6 @@ void Aura::SpellAuraMounted(bool apply)
         if(mod->fixed_amount)
             pPlayer->RemoveAura(mod->fixed_amount);
 
-        pPlayer->m_MountSpellId = 0;
-        pPlayer->m_FlyingAura = 0;
         pPlayer->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
         pPlayer->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip( AURA_INTERRUPT_ON_DISMOUNT, GetSpellId() );
     }
@@ -2645,7 +2598,7 @@ void Aura::SendPeriodicAuraLog(uint64 CasterGuid, Unit* Target, SpellEntry *sp, 
         }break;
     default:
         {
-            printf("Unknown type!");
+            sLog.printf("Unknown type!");
             return;
         }break;
     }

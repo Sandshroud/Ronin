@@ -457,6 +457,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/ItemLimitCategory.dbc", datapath), itemlimitcategoryFormat, dbcItemLimitCategory);
     ADD_LOAD_DB(format("%s/ItemRandomProperties.dbc", datapath), itemrandompropertiesFormat, dbcItemRandomProperties);
     ADD_LOAD_DB(format("%s/ItemRandomSuffix.dbc", datapath), itemrandomsuffixFormat, dbcItemRandomSuffix);
+    ADD_LOAD_DB(format("%s/ItemReforge.dbc", datapath), itemreforgeFormat, dbcItemReforge);
     ADD_LOAD_DB(format("%s/ItemSet.dbc", datapath), itemsetFormat, dbcItemSet);
     ADD_LOAD_DB(format("%s/LFGDungeons.dbc", datapath), lfgdungeonsFormat, dbcLFGDungeons);
     ADD_LOAD_DB(format("%s/Lock.dbc", datapath), lockFormat, dbcLock);

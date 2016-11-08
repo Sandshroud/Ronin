@@ -601,15 +601,22 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     // Call base spell preparations
     _Prepare();
 
-    if( m_triggeredSpell == false && (ccr = (m_canCastResult = CanCast(false))) != SPELL_CANCAST_OK )
+    // Non triggered spell cast checks
+    if(m_triggeredSpell == false)
     {
-        SendCastResult( m_canCastResult );
+        if(m_caster->IsUnit() && !m_spellInfo->isCastableWhileMounted())
+            castPtr<Unit>(m_caster)->Dismount();
 
-        if( m_triggeredByAura )
-            SendChannelUpdate( 0 );
+        if( (ccr = (m_canCastResult = CanCast(false))) != SPELL_CANCAST_OK )
+        {
+            SendCastResult( m_canCastResult );
 
-        finish();
-        return ccr;
+            if( m_triggeredByAura )
+                SendChannelUpdate( 0 );
+
+            finish();
+            return ccr;
+        }
     }
 
     // Handle triggered spells here that aren't channeled spells
@@ -619,7 +626,12 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
         return ccr;
     }
 
-    if( !HasPower() )
+    // Double check our dismounting here
+    if(m_caster->IsUnit() && !m_spellInfo->isCastableWhileMounted())
+        castPtr<Unit>(m_caster)->Dismount();
+
+    // Triggered channel spells can ignore power checks
+    if( m_triggeredSpell == false && !HasPower() )
     {
         SendCastResult(SPELL_FAILED_NO_POWER);
         finish();
@@ -1446,7 +1458,7 @@ uint8 Spell::CanCast(bool tolerate)
         }
 
         // check if spell is allowed while not mounted
-        if(!p_caster->IsMounted())
+        if(!p_caster->m_AuraInterface.HasMountAura())
         {
             if( m_spellInfo->Id == 25860) // Reindeer Transformation
                 return SPELL_FAILED_ONLY_MOUNTED;
@@ -1455,18 +1467,6 @@ uint8 Spell::CanCast(bool tolerate)
         {
             if (!m_spellInfo->isCastableWhileMounted())
                 return SPELL_FAILED_NOT_MOUNTED;
-        }
-
-        for(uint8 i = 0; i < 3; i++)
-        {
-            if( m_spellInfo->Effect[i] == SPELL_EFFECT_OPEN_LOCK && m_spellInfo->EffectMiscValue[i] == LOCKTYPE_SLOW_OPEN )
-            {
-                if( p_caster->GetMountSpell() )
-                    p_caster->RemoveAura( p_caster->GetMountSpell() );
-
-                //p_caster->RemoveStealth();
-                break;
-            }
         }
 
         // check if we have the required tools, totems, etc
@@ -2022,6 +2022,28 @@ uint32 GetDiminishingGroup(uint32 NameHash)
     return ret;
 }
 
+AuraApplicationResult Spell::CheckAuraApplication(Unit *target)
+{
+    // If it's passive and we already have it, reject, should happen earlier than this though...
+    if(m_spellInfo->isPassiveSpell() && target->HasAura(m_spellInfo->Id))
+        return AURA_APPL_REJECTED;
+
+    // Check if we have the aura to be updated
+    if(Aura *aur = target->m_AuraInterface.FindActiveAuraWithNameHash(m_spellInfo->NameHash))
+    {
+        SpellEntry *targetEntry = aur->GetSpellProto();
+        // Check to see if we can just stack up our aura
+        if(targetEntry->maxstack > 1)
+            return AURA_APPL_STACKED;
+        // Just refresh the aura, part of cata changes is it doesn't matter what rank
+        if(targetEntry->procCharges || (m_spellInfo->RankNumber && targetEntry->RankNumber >= m_spellInfo->RankNumber))
+            return AURA_APPL_REFRESH;
+    }
+
+    // No aura or complications found, pass through
+    return AURA_APPL_SUCCESS;
+}
+
 void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
 {
     // Check if we're in the current list already, and if so, don't readd us.
@@ -2063,12 +2085,15 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
     {
         Unit *unitTarget = castPtr<Unit>(target);
         if(tgt->resistMod)
+        {
             tgt->AuraAddResult = AURA_APPL_RESISTED;
+            ASSERT(tgt->aura == NULL);
+        }
         else
         {
             if(tgt->aura == NULL && tgt->AuraAddResult == AURA_APPL_NOT_RUN)
             {
-                if((tgt->AuraAddResult = AURA_APPL_RESISTED/*CheckAuraApplication(unitTarget)*/) == AURA_APPL_SUCCESS)
+                if((tgt->AuraAddResult = CheckAuraApplication(unitTarget)) == AURA_APPL_SUCCESS)
                 {
                     uint16 auraFlags = m_spellInfo->isPassiveSpell() ? 0 : (AFLAG_EFF_AMOUNT_SEND | (m_spellInfo->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
                     int16 stackSize = 1;

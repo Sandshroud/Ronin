@@ -17,6 +17,7 @@ public:
 
     ~UpdateMask() { CleanupMask(); }
 
+    RONIN_INLINE bool IsEmpty() { return mUpdateMask == NULL; }
     RONIN_INLINE void CleanupMask() { if(mUpdateMask) delete[] mUpdateMask; mUpdateMask = NULL; }
 
     RONIN_INLINE void SetBit(uint32 index) { if(mUpdateMask == NULL) return; mUpdateMask[index>>3] |= 1 << (index & 0x7); }
@@ -28,8 +29,8 @@ public:
     RONIN_INLINE uint32 GetCount() const { return mCount; }
     RONIN_INLINE uint8* GetMask() { return mUpdateMask; }
 
-    RONIN_INLINE uint8 GetBlock(uint32 index) { return mUpdateMask[index]; }
-    RONIN_INLINE void SetBlock(uint32 index, uint8 value) { mUpdateMask[index] = value; }
+    RONIN_INLINE uint8 GetBlock(uint32 index) { if(mUpdateMask == NULL) return 0; return mUpdateMask[index]; }
+    RONIN_INLINE void SetBlock(uint32 index, uint8 value) { if(mUpdateMask == NULL) return; mUpdateMask[index] = value; }
 
     RONIN_INLINE void SetCount(uint32 valuesCount)
     {

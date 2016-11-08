@@ -13,22 +13,22 @@ class TerrainMgr;
 class TemplateMgr;
 struct Formation;
 
+// World
 typedef struct
 {
-    uint32 id;//spawn ID
-    uint32 entry;
+    WoWGuid guid;
     float x, y, z, o;
     uint32 spawnFlags;
     uint32 modelId;
     uint16 phaseMask;
     uint32 eventId;
+    uint32 conditionId;
     int32 vendormask;
 }CreatureSpawn;
 
 typedef struct
 {
-    uint32 id;//spawn ID
-    uint32 entry;
+    WoWGuid guid;
     float  x, y, z;
     float  rX, rY, rZ, rAngle;
     uint32 state;
@@ -38,15 +38,15 @@ typedef struct
     uint16 phaseMask;
     uint32 eventId;
     uint32 conditionId;
-} GOSpawn;
+}GameObjectSpawn;
 
-typedef std::vector<CreatureSpawn*> CreatureSpawnList;
-typedef std::vector<GOSpawn*> GOSpawnList;
+typedef std::vector<CreatureSpawn*>     CreatureSpawnList;
+typedef std::vector<GameObjectSpawn*>   GameObjectSpawnList;
 
 typedef struct
 {
     CreatureSpawnList CreatureSpawns;
-    GOSpawnList GOSpawns;
+    GameObjectSpawnList GameObjectSpawns;
 }CellSpawns;
 
 typedef std::map<std::pair<uint32, uint32>, CellSpawns > SpawnsMap;

@@ -532,7 +532,8 @@ void WorldSession::HandleZoneUpdateOpcode( WorldPacket & recv_data )
     uint32 newZone;
     recv_data >> newZone;
 
-    _player->_EventExploration();
+    // Push us into our update buffer
+    _player->GetMapInstance()->ObjectLocationChange(_player);
 
     //clear buyback
     _player->GetInventory()->EmptyBuyBack();
@@ -1262,8 +1263,7 @@ void WorldSession::HandleDismountOpcode(WorldPacket& recv_data)
     if( !_player->IsInWorld() || _player->GetTaxiState())
         return;
 
-    if( _player->IsMounted() )
-        castPtr<Unit>(_player)->Dismount();
+    _player->Dismount();
 }
 
 void WorldSession::HandleSetAutoLootPassOpcode(WorldPacket & recv_data)

@@ -30,14 +30,19 @@ class SERVER_DECL consoleLog : public Singleton<consoleLog>
 {
 public:
     void Init(int log_Level);
+    void SetDelayPrint(bool delay) { m_delayPrint = delay; }
+
+    unsigned int Update(int targetTime);
     void SetLoggingLevel(int loglevel) { m_logLevel = loglevel; };
     void SetCLoggingLevel(int cloglevel) { m_clogLevel = cloglevel; };
     void SetAllLoggingLevel(int tloglevel) { m_logLevel = m_clogLevel = tloglevel; };
     int GetLogLevel() { return m_logLevel; }
     int GetCLogLevel() { return m_clogLevel; }
 
+    void printf( const char *format, ... );
+
 private:
-    void PrintTime();
+    void PrintTime(time_t t_override = 0);
     virtual time_t GetTime();
     void SetColor(int color);
 
@@ -71,6 +76,9 @@ private:
 
     Mutex logLock;
     int m_logLevel, m_clogLevel;
+
+    bool m_delayPrint;
+    std::vector<std::pair<std::pair<int, time_t>, std::pair<std::string, std::string>>> m_delayedMessages;
 };
 
 #define sLog consoleLog::getSingleton()

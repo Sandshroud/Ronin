@@ -4,8 +4,10 @@
 
 #include "StdAfx.h"
 
-GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
+GameObject::GameObject(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
 {
+    pInfo = info;
+
     SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
     m_objType = TYPEID_GAMEOBJECT;
 
@@ -17,17 +19,16 @@ GameObject::GameObject(uint64 guid, uint32 fieldCount) : WorldObject(guid, field
     m_summonedGo = false;
     invisible = false;
     invisibilityFlag = INVIS_FLAG_NORMAL;
-    spell = NULL;
+    m_triggerSpell = NULL;
+    m_triggerRange = 0.f;
     m_summoner = NULL;
     charges = -1;
     m_ritualmembers = NULL;
     m_rotation.x = m_rotation.y = m_rotation.z = m_rotation.w = 0.f;
     m_quests = NULL;
-    pInfo = NULL;
     m_spawn = NULL;
     m_deleted = false;
     m_created = false;
-    initiated = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
 }
@@ -76,9 +77,9 @@ void GameObject::Update(uint32 msTime, uint32 p_time)
     WorldObject::Update(msTime, p_time);
 }
 
-void GameObject::SearchNearbyUnits()
+void GameObject::_searchNearbyUnits()
 {
-    if(GetState() != 1)
+    if(GetState() != 1 || m_inTriggerRangeObjects.empty())
         return;
     if(m_summonedGo && !(m_summoner && m_summoner->isAlive()))
     {
@@ -87,33 +88,39 @@ void GameObject::SearchNearbyUnits()
     }
 
     SpellCastTargets tgt;
-    tgt.m_targetMask |= 0x02;
-    tgt.m_dest = GetPosition();
+    tgt.m_targetMask |= (m_triggerSpell->isSpellAreaOfEffect() ? 0x40 : 0x02);
+    tgt.m_src = tgt.m_dest = GetPosition();
 
-    for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
+    for(std::set<WoWGuid>::iterator itr = m_inTriggerRangeObjects.begin(); itr != m_inTriggerRangeObjects.end(); itr++)
     {
         if(Unit *pUnit = GetInRangeObject<Unit>(*itr))
         {
-            if(pUnit != m_summoner && GetDistanceSq(pUnit) <= range)
+            if(pUnit == m_summoner)
+                continue;
+            if(m_summonedGo && !sFactionSystem.isAttackable(m_summoner, pUnit))
+                continue;
+            if(m_triggerSpell->HasEffect(SPELL_EFFECT_APPLY_AURA) && pUnit->HasAura(m_triggerSpell->Id))
+                continue;
+
+            tgt.m_unitTarget = *itr;
+            if(Spell* sp = new Spell(this, m_triggerSpell))
+                sp->prepare(&tgt, true);
+
+            if(GetType() == GAMEOBJECT_TYPE_TRAP)
             {
-                if(m_summonedGo && !sFactionSystem.isAttackable(m_summoner, pUnit))
-                    continue;
-                if(spell->HasEffect(SPELL_EFFECT_APPLY_AURA) && pUnit->HasAura(spell->Id))
-                    continue;
-
-                tgt.m_unitTarget = *itr;
-                if(Spell* sp = new Spell(this, spell))
-                    sp->prepare(&tgt, true);
-
-                if(m_summonedGo)
-                {
-                    Deactivate(0);
-                    return;
-                }
-
-                if(spell->isSpellAreaOfEffect())
-                    return;
+                if(GetInfo()->data.trap.type == 1)
+                    Deactivate(GetInfo()->GetSequenceTimer());
+                return; // Trigger once
             }
+
+            if(m_summonedGo)
+            {
+                Deactivate(0);
+                return;
+            }
+
+            if(m_triggerSpell->isSpellAreaOfEffect())
+                return;
         }
     }
 }
@@ -150,46 +157,20 @@ void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
     }
 }
 
+void GameObject::CheckTriggerRange(Unit *uObj, float distSq)
+{
+    if(m_triggerSpell == NULL || m_triggerRange == 0.f)
+        return;
+    bool inRange = (distSq <= m_triggerRange);
+    if(inRange == true && m_inTriggerRangeObjects.find(uObj->GetGUID()) == m_inTriggerRangeObjects.end())
+        m_inTriggerRangeObjects.insert(uObj->GetGUID());
+    else if(inRange == false && m_inTriggerRangeObjects.find(uObj->GetGUID()) != m_inTriggerRangeObjects.end())
+        m_inTriggerRangeObjects.erase(uObj->GetGUID());
+}
+
 void GameObject::Reactivate()
 {
     // Todo: Check spawn points and reset data for respawn event
-}
-
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float rAngle, float rX, float rY, float rZ)
-{
-    return CreateFromProto(entry, mapid, vec.x, vec.y, vec.z, rAngle, rX, rY, rZ);
-}
-
-bool GameObject::CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float rAngle, float rX, float rY, float rZ)
-{
-    if((pInfo = GameObjectNameStorage.LookupEntry(entry)) == NULL)
-    {
-        Destruct();
-        return false;
-    }
-
-    if(m_created == false)
-    {
-        m_created = true;
-        WorldObject::_Create( mapid, x, y, z, 0.f );
-        SetUInt32Value( OBJECT_FIELD_ENTRY, entry );
-        UpdateRotations(rX, rY, rZ, rAngle);
-        SetDisplayId(pInfo->DisplayID);
-        SetFlags(pInfo->DefaultFlags);
-        SetType(pInfo->Type);
-        SetState(0x01);
-        InitAI();
-
-        if(pInfo->Type == GAMEOBJECT_TYPE_TRANSPORT)
-        {
-            SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
-            m_updateFlags |= UPDATEFLAG_TRANSPORT;
-        }
-
-        if(pInfo->Type == GAMEOBJECT_TYPE_CHAIR && m_chairData.empty())
-            _recalculateChairSeats();
-    }
-    return true;
 }
 
 void GameObject::_recalculateChairSeats()
@@ -231,7 +212,7 @@ void GameObject::SaveToDB()
 
     std::stringstream ss;
     ss << "REPLACE INTO gameobject_spawns VALUES("
-        << m_spawn->id << ","
+        << GetLowGUID() << ","
         << GetEntry() << ","
         << GetMapId() << ","
         << GetPositionX() << ","
@@ -252,17 +233,13 @@ void GameObject::SaveToDB()
 
 void GameObject::InitAI()
 {
-    if(pInfo == NULL || initiated)
-        return;
-
-    initiated = true; // Initiate after check, so we do not spam if we return without a point.
-
-    uint32 spellid = 0;
     switch(pInfo->Type)
     {
     case GAMEOBJECT_TYPE_TRAP:
         {
-            spellid = pInfo->GetSpellID();
+            m_triggerSpell = dbcSpell.LookupEntry(pInfo->GetSpellID());
+            m_triggerRange = std::max<float>(3.f, pInfo->data.trap.radius);
+            m_triggerRange *= m_triggerRange;
         }break;
     case GAMEOBJECT_TYPE_SPELL_FOCUS://redirect to properties of another go
         {
@@ -277,11 +254,14 @@ void GameObject::InitAI()
                 return;
             }
 
-            if(gopInfo->data.raw.data[4])
-                spellid = gopInfo->data.raw.data[4];
+            m_triggerSpell = dbcSpell.LookupEntry(gopInfo->data.raw.data[4]);
+            return;
         }break;
     case GAMEOBJECT_TYPE_RITUAL:
         {
+            if(m_ritualmembers)
+                return;
+
             m_ritualmembers = new uint32[pInfo->data.ritual.reqParticipants];
             memset(m_ritualmembers, 0, (sizeof(uint32)*(pInfo->data.ritual.reqParticipants)));
             return;
@@ -292,13 +272,13 @@ void GameObject::InitAI()
             {
                 for(uint32 i = 0; i < 8; i++)
                 {
-                    if(pLock->locktype[i])
+                    if(pLock->locktype[i] == 2) //locktype;
                     {
-                        if(pLock->locktype[i] == 2) //locktype;
+                        //herbalism and mining;
+                        if(pLock->lockmisc[i] == LOCKTYPE_MINING || pLock->lockmisc[i] == LOCKTYPE_HERBALISM)
                         {
-                            //herbalism and mining;
-                            if(pLock->lockmisc[i] == LOCKTYPE_MINING || pLock->lockmisc[i] == LOCKTYPE_HERBALISM)
-                                CalcMineRemaining(true);
+                            CalcMineRemaining(true);
+                            break;
                         }
                     }
                 }
@@ -313,80 +293,108 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_AURA_GENERATOR:
         {
-            spell = dbcSpell.LookupEntry(GetInfo()->data.auraGenerator.auraID1);
-            return;
+            m_triggerSpell = dbcSpell.LookupEntry(GetInfo()->data.auraGenerator.auraID1);
+            m_triggerRange = GetInfo()->data.auraGenerator.radius;
+            m_triggerRange *= m_triggerRange;
         }break;
     }
 
-    SpellEntry *sp;
-    if(spellid == 0 || (sp = dbcSpell.LookupEntry(spellid)) == NULL)
+    if(m_triggerSpell == NULL)
         return;
-    spell = sp;
-
-    //ok got valid spell that will be casted on target when it comes close enough
-    //get the range for that
-    float r = 0;
-    for(uint32 i = 0; i < 3; ++i)
-    {
-        if(spell->Effect[i])
+    if(m_triggerRange == 0.f)
+    {   //ok got valid spell that will be casted on target when it comes close enough
+        //get the range for that
+        float r = 0;
+        for(uint32 i = 0; i < 3; ++i)
         {
-            float t = spell->radiusHostile[i];
-            if(t > r)
-                r = t;
+            if(m_triggerSpell->Effect[i])
+            {
+                float t = m_triggerSpell->radiusHostile[i];
+                if(t > r)
+                    r = t;
+            }
         }
+
+        if(r < 0.1f)//no range
+            r = m_triggerSpell->maxRange[0];
+        m_triggerRange = r*r;//square to make code faster
     }
 
-    if(r < 0.1f)//no range
-        r = spell->maxRange[0];
-    range = r*r;//square to make code faster
-
-    if(GetType() != GAMEOBJECT_TYPE_AURA_GENERATOR)
-        m_eventHandler.AddStaticEvent(this, &GameObject::SearchNearbyUnits, pInfo->GetSequenceTimer());
+    m_eventHandler.AddStaticEvent(this, &GameObject::_searchNearbyUnits, pInfo->GetSequenceTimer());
 }
 
-bool GameObject::Load(uint32 mapId, GOSpawn *spawn)
+void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverride, float rX, float rY, float rZ, float rAngle, GameObjectSpawn *spawn)
 {
-    // Create based on our proto data for overriding later with spawn data
-    if(!CreateFromProto(spawn->entry, mapId, spawn->x, spawn->y, spawn->z, spawn->rAngle, spawn->rX, spawn->rY, spawn->rZ))
-        return false;
-
     // Set our spawn pointer
     m_spawn = spawn;
 
+    // Call create function
+    WorldObject::_Create( mapId, x, y, z, 0.f );
+
+    float rotZ = rZ, rotAng = rAngle;
+    if(angleOverride != 0.f)
+    {
+
+    }
+
+    // Update our rotation data
+    UpdateRotations(rX, rY, rotZ, rotAng);
+
+    // Load data from gob info
+    SetFlags(spawn ? spawn->flags : pInfo->DefaultFlags);
+    SetDisplayId(pInfo->DisplayID);
+    SetType(pInfo->Type);
+    SetState(0x01);
+
     // Event objects should be spawned inactive
-    if(m_spawn && m_spawn->eventId)
+    if(m_spawn && (m_spawn->eventId || m_spawn->conditionId))
     {
-        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_INACTIVE;
-        m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
-        m_objDeactivationTimer = 5000;
+        if(m_spawn->eventId) m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
+        if(m_spawn->conditionId) m_inactiveFlags |= OBJECT_INACTIVE_FLAG_CONDITION;
+        Deactivate(5000);
     }
 
-    // Set our phase mask
-    m_phaseMask = spawn->phaseMask;
-
-    // Custom object faction setting per spawn
-    if(spawn->faction)
+    // Load spawn specific data
+    if(spawn)
     {
-        SetUInt32Value(GAMEOBJECT_FACTION, spawn->faction);
-        m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->faction);
+        // Gameobject scale from spawndata
+        SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
+
+        // last state
+        SetState(spawn->state);
+
+        // Set our phase mask
+        m_phaseMask = spawn->phaseMask;
+
+        // Custom object faction setting per spawn
+        if(spawn->faction)
+        {
+            SetUInt32Value(GAMEOBJECT_FACTION, spawn->faction);
+            m_factionTemplate = dbcFactionTemplate.LookupEntry(spawn->faction);
+        }
     }
 
-    // Load spawn data
-    SetFlags(spawn->flags);
-    SetState(spawn->state);
-    SetFloatValue(OBJECT_FIELD_SCALE_X, spawn->scale);
+    // Transports and flag checks
     if(GetType() == GAMEOBJECT_TYPE_TRANSPORT)
     {
         SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
+        m_updateFlags |= UPDATEFLAG_TRANSPORT;
         SetState(24);
-    }
-    else if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
+    } else if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
         SetAnimProgress(100);
 
+    // Load up our chair data
+    if(pInfo->Type == GAMEOBJECT_TYPE_CHAIR && m_chairData.empty())
+        _recalculateChairSeats();
+
+    // Trigger AI setup
+    InitAI();
+
+    // Trigger on creation call
     TRIGGER_GO_EVENT(castPtr<GameObject>(this), OnCreate);
 
+    // Load quest data
     _LoadQuests();
-    return true;
 }
 
 uint32 GameObject::BuildStopFrameData(ByteBuffer *buff)
@@ -423,8 +431,7 @@ int64 GameObject::PackRotation(ObjectRotation *rotation)
 
 void GameObject::DeleteFromDB()
 {
-    if( m_spawn != NULL )
-        WorldDatabase.Execute("DELETE FROM gameobject_spawns WHERE id=%u", m_spawn->id);
+
 }
 
 void GameObject::EventCloseDoor()
@@ -670,23 +677,6 @@ void GameObject::SetStatusRebuilt()
     m_Go_Uint32Values[GO_UINT32_HEALTH] = IntactHealth + DamagedHealth;
 }
 
-void GameObject::AuraGenSearchTarget()
-{
-    if(!IsInWorld() || m_deleted || !spell)
-        return;
-
-    WorldObject::InRangeSet::iterator itr;
-    for( itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); itr++)
-    {
-        Unit *unit = GetInRangeObject<Unit>(*itr);
-        if (GetDistanceSq(unit) > pInfo->data.auraGenerator.radius)
-            continue;
-        if(unit->HasAura(spell->Id))
-            continue;
-        //unit->ApplyAura(spell, unit, unit);
-    }
-}
-
 void GameObject::SetStatusDamaged()
 {
     SetFlags(GO_FLAG_DAMAGED);
@@ -730,8 +720,7 @@ void GameObject::Use(Player *p)
             if(goinfo->data.chair.onlyCreatorUse && p->GetGUID() != GetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY))
                 return;
 
-            if( p->IsMounted() )
-                p->RemoveAura( p->m_MountSpellId );
+            p->Dismount();
 
             float lowestDist = 90.f;
             uint32 nearest_slot = 0xFF;
@@ -1019,9 +1008,10 @@ void GameObject::Use(Player *p)
                 return;
 
             /* Create the summoning portal */
-            GameObject* pGo = p->GetMapInstance()->CreateGameObject(179944);
-            if( pGo == NULL || !pGo->CreateFromProto(179944, p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), cos(p->GetOrientation()/2.f)))
+            GameObject* pGo = p->GetMapInstance()->CreateGameObject(0, 179944);
+            if( pGo == NULL )
                 return;
+            pGo->Load(p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), p->GetOrientation());
 
             // dont allow to spam them
             GameObject* gobj = castPtr<GameObject>(p->GetMapInstance()->GetObjectClosestToCoords(179944, p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), 999999.0f, TYPEID_GAMEOBJECT));
@@ -1042,8 +1032,7 @@ void GameObject::Use(Player *p)
         {
             p->SafeTeleport( p->GetMapId(), p->GetInstanceID(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation() );
             p->SetStandState(STANDSTATE_SIT_HIGH_CHAIR);
-            if( p->IsMounted() )
-                p->RemoveAura( p->m_MountSpellId );
+            p->Dismount();
 
             WorldPacket data(SMSG_ENABLE_BARBER_SHOP, 0);
             p->GetSession()->SendPacket(&data);

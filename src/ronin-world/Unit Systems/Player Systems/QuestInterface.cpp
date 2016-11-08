@@ -293,7 +293,8 @@ void QuestLogEntry::Finish()
     uint32 base = GetBaseField(m_slot);
     m_Player->SetUInt32Value(base + 0, 0);
     m_Player->SetUInt32Value(base + 1, 0);
-    m_Player->SetUInt32Value(base + 2, 0);
+    m_Player->SetUInt64Value(base + 2, 0);
+    m_Player->SetUInt32Value(base + 4, 0);
 
     // clear from player log
     m_Player->SetQuestLogSlot(NULL, m_slot);

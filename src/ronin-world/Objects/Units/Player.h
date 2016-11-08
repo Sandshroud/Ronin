@@ -249,7 +249,7 @@ struct PlayerInfo
     uint32 achievementPoints;
     uint32 professionId[2], professionSkill[2], professionRank[2];
 
-    Group * m_Group;
+    Group *m_Group;
     int8 subGroup;
 
     uint32 GuildId;
@@ -455,6 +455,7 @@ enum ItemBonusModSlot
     MOD_SLOT_REFORGE_ENCHANT_2,
     MOD_SLOT_REFORGE_ENCHANT_3,
 
+    // Spacer, not actually used
     MOD_SLOT_TRANSMOG_ENCHANT,
     MOD_SLOT_TRANSMOG_ENCHANT_1,
     MOD_SLOT_TRANSMOG_ENCHANT_2,
@@ -507,6 +508,7 @@ enum PlayerLoadOrder : uint8
     PLAYER_LO_KNOWN_TITLES,
     PLAYER_LO_QUEST_LOG,
     PLAYER_LO_QUESTS_COMPLETED,
+    PLAYER_LO_QUESTS_COMPLETED_REPEATABLE,
     PLAYER_LO_REPUTATIONS,
     PLAYER_LO_SKILLS,
     PLAYER_LO_SOCIAL,
@@ -555,7 +557,6 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_ISRESTING,
     PLAYERLOAD_FIELD_RESTSTATE,
     PLAYERLOAD_FIELD_RESTTIME,
-    PLAYERLOAD_FIELD_DEATHSTATE,
     PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME,
     PLAYERLOAD_FIELD_LAST_SAVE_TIME,
     PLAYERLOAD_FIELD_NEEDS_POSITION_RESET,
@@ -597,8 +598,8 @@ public:
     // Reactivate is a function players don't need
     virtual void Reactivate() {}
 
-    void PushIntoWorld();
     void Update( uint32 msTime, uint32 diff );
+    void EventExploration();
 
     virtual bool IsInWorld() { return m_mapInstance != NULL && Object::IsInWorld(); }
 
@@ -690,7 +691,7 @@ private:
     void _LoadPlayerQuestLog(QueryResult * result);
     void _SavePlayerQuestLog(QueryBuffer * buf);
 
-    void _LoadCompletedQuests(QueryResult * result);
+    void _LoadCompletedQuests(QueryResult *completionMasks, QueryResult *repeatable);
     void _SaveCompletedQuests(QueryBuffer * buf);
 
     void _LoadSkills(QueryResult * result);
@@ -881,20 +882,18 @@ public:
     void                SetQuestLogSlot(QuestLogEntry *entry, uint32 slot);
 
     RONIN_INLINE uint32 GetFinishedDailiesCount() { return (uint32)m_completedDailyQuests.size(); }
-    void                AddToCompletedQuests(uint32 quest_id);
-    void                AddToCompletedDailyQuests(uint32 quest_id);
 
-    bool                HasFinishedQuest(uint32 quest_id);
-    bool                HasFinishedDailyQuest(uint32 quest_id);
-    bool                HasQuestForItem(uint32 itemid);
-    bool                CanFinishQuest(Quest* qst);
-    bool                HasQuestSpell(uint32 spellid);
-    void                RemoveQuestSpell(uint32 spellid);
-    bool                HasQuestMob(uint32 entry);
-    void                RemoveQuestMob(uint32 entry);
-    void                RemoveQuestsFromLine(uint32 skill_line);
-    void                ResetDailyQuests();
-    uint16              FindQuestSlot(uint32 questid);
+    void AddToCompletedQuests(uint32 quest_id);
+    bool HasFinishedQuest(uint32 quest_id);
+    bool HasFinishedDailyQuest(uint32 quest_id);
+    bool HasQuestForItem(uint32 itemid);
+    bool HasQuestSpell(uint32 spellid);
+    void RemoveQuestSpell(uint32 spellid);
+    bool HasQuestMob(uint32 entry);
+    void RemoveQuestMob(uint32 entry);
+    void RemoveQuestsFromLine(uint32 skill_line);
+    void ResetDailyQuests();
+    uint16 FindQuestSlot(uint32 questid);
 
     void EventPortToGM(uint32 guid);
 
@@ -1028,11 +1027,7 @@ public:
     /************************************************************************/
     /* Player Items                                                         */
     /************************************************************************/
-    RONIN_INLINE void ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown=false) {  _ApplyItemMods(item, slot, apply, justdrokedown); }
-
-
-private:
-    void _ApplyItemMods( Item* item, uint8 slot, bool apply, bool justdrokedown = false, bool skip_stat_apply = false );
+    void ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown = false);
 
 public:
     /************************************************************************/
@@ -1179,8 +1174,6 @@ public:
     uint32 GetTotalItemLevel();
     uint32 GetAverageItemLevel(bool skipmissing = false);
 
-    RONIN_INLINE bool IsMounted() {return (m_MountSpellId!=0 ? true : false); }
-
     void _Warn(const char *message);
     void _Kick();
     void _Disconnect();
@@ -1304,8 +1297,6 @@ public:
     uint32 GetLastLoginTime() { return  m_timeLogoff; };
 
 protected:
-    void _EventExploration();
-
     void RemovePendingPlayer(uint8 reason = CHAR_LOGIN_NO_CHARACTER);
 
     /************************************************************************/
@@ -1350,9 +1341,6 @@ public:
     static DrunkenState GetDrunkenstateByValue(uint16 value);
     void EventDrunkenVomit();
 
-    uint32 GetMountSpell() { return m_MountSpellId; }
-    void SetMountSpell(uint32 spellId) { m_MountSpellId = spellId; }
-
 private:
     Mutex accessLock;
     bool ok_to_remove;
@@ -1388,7 +1376,6 @@ private:
 
     // Player::Update data
     // Used in player exploration functions
-    int32 m_lastAreaUpdateMap;
     uint32 m_oldZone, m_oldArea;
 
     // Player Reputation
@@ -1518,7 +1505,8 @@ public:
     std::set<uint32> quest_spells;
     std::set<uint32> quest_mobs;
 
-    std::map<uint32, time_t> m_completedQuests, m_completedDailyQuests;
+    std::map<uint16, uint64> m_completedQuests;
+    std::map<uint32, time_t> m_completedRepeatableQuests, m_completedDailyQuests, m_completedWeeklyQuests;
 
     //Spells variables
     Player* DuelingWith;
@@ -1532,7 +1520,6 @@ public:
     // GameObject commands
     WoWGuid m_selectedGo;
     uint32 m_ShapeShifted;
-    uint32 m_MountSpellId;
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;
@@ -1559,7 +1546,6 @@ public:
     uint32 OnlineTime;
     uint32 m_TeleportState;
     bool m_beingPushed;
-    uint32 m_FlyingAura;
     bool m_XPoff;
     uint32 iInstanceType;
     uint32 iRaidType;

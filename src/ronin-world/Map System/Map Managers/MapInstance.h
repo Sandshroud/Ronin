@@ -188,7 +188,7 @@ public:
     /////////////////////////////////////////////
     uint32 m_CreatureHighGuid;
     CreatureStorageMap m_CreatureStorage;
-    Creature* CreateCreature(uint32 entry);
+    Creature *CreateCreature(WoWGuid guid, uint32 entry = 0);
 
     RONIN_INLINE Creature* GetCreature(WoWGuid guid)
     {
@@ -205,13 +205,7 @@ public:
 /////////////////////////////////////////////
     uint32 m_GOHighGuid;
     GameObjectStorageMap m_gameObjectStorage;
-    GameObject* CreateGameObject(uint32 entry);
-
-    RONIN_INLINE uint32 GenerateGameobjectGuid()
-    {
-        m_GOHighGuid &= 0x00FFFFFF;
-        return ++m_GOHighGuid;
-    }
+    GameObject *CreateGameObject(WoWGuid guid, uint32 entry = 0);
 
     RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
     {
@@ -281,10 +275,10 @@ public:
     void PushObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
 
-    void ChangeObjectLocation(WorldObject* obj); // update inrange lists
+    virtual void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
     void ChangeFarsightLocation(Player* plr, float X, float Y, bool apply);
-    bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj);
+    bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
 
     //! Mark object as updated
     bool UpdateQueued(WorldObject *obj);
@@ -343,9 +337,9 @@ public:
         GetBaseMap()->GetSpawnsListAndCreate(x, y)->CreatureSpawns.push_back(sp);
     }
 
-    RONIN_INLINE void AddGoSpawn(uint32 x, uint32 y, GOSpawn * gs)
+    RONIN_INLINE void AddGoSpawn(uint32 x, uint32 y, GameObjectSpawn * gs)
     {
-        GetBaseMap()->GetSpawnsListAndCreate(x, y)->GOSpawns.push_back(gs);
+        GetBaseMap()->GetSpawnsListAndCreate(x, y)->GameObjectSpawns.push_back(gs);
     }
 
     void UnloadCell(uint32 x,uint32 y);
@@ -417,11 +411,6 @@ public:
 
     CBattleground* m_battleground;
     std::vector<Corpse* > m_corpses;
-    CreatureSqlIdMap _sqlids_creatures;
-    GameObjectSqlIdMap _sqlids_gameobjects;
-
-    Creature* GetSqlIdCreature(uint32 sqlid);
-    GameObject* GetSqlIdGameObject(uint32 sqlid);
 
     // world state manager stuff
     WorldStateManager* m_stateManager;

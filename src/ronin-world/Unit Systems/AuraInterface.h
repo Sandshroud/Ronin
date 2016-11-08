@@ -80,6 +80,15 @@ public:
     bool HasCombatStatusAffectingAuras(WoWGuid checkGuid);
     bool HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid casterguid);
 
+    // Mounts
+    void OnDismount();
+
+    bool HasMountAura();
+    bool GetMountedAura(uint32 &auraId);
+
+    bool HasFlightAura();
+    void RemoveFlightAuras();
+
     /*****************************
     ************ Add *************
     ******************************/

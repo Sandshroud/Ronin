@@ -126,7 +126,7 @@ void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool co
     OUTPACKET_RESULT res;
     if( (len + 10) > WORLDSOCKET_SENDBUF_SIZE )
     {
-        printf("WARNING: Tried to send a packet of %u bytes (which is too large) to a socket. Opcode was: %u (0x%04X)\n", uint(len), uint(opcode), uint(opcode));
+        sLog.printf("WARNING: Tried to send a packet of %u bytes (which is too large) to a socket. Opcode was: %u (0x%04X)\n", uint(len), uint(opcode), uint(opcode));
         return;
     }
 
@@ -179,7 +179,7 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     if(compressed) newOpcode |= OPCODE_COMPRESSION_MASK;
     LockWriteBuffer();
 
-    //printf("Sending opcode %s%s (0x%.4X)\n", compressed ? "COMPRESSED_" : "", sOpcodeMgr.GetOpcodeName(opcode), opcode);
+    //sLog.printf("Sending opcode %s%s (0x%.4X)\n", compressed ? "COMPRESSED_" : "", sOpcodeMgr.GetOpcodeName(opcode), opcode);
     // Encrypt the packet
     // First, create the header.
     _sendHeader.SetData(len+2, newOpcode);
@@ -559,7 +559,7 @@ void WorldSocket::OnRecvData()
             }break;
         default:
             {
-                //printf("Queuing packet %s(0x%.4X)\n", sOpcodeMgr.GetOpcodeName(Packet->GetOpcode()), Packet->GetOpcode());
+                //sLog.printf("Queuing packet %s(0x%.4X)\n", sOpcodeMgr.GetOpcodeName(Packet->GetOpcode()), Packet->GetOpcode());
                 if(mSession)
                 {
                     mSession->QueuePacket(Packet);

@@ -82,8 +82,10 @@ enum QuestCompletionStatus : uint8
 
 enum RepeatableTypes
 {
+    UNREPEATABLE_QUEST  = 0,
     REPEATABLE_QUEST    = 1,
     REPEATABLE_DAILY    = 2,
+    REPEATABLE_WEEKLY   = 3,
 };
 
 #pragma pack(PRAGMA_PACK)

@@ -20,7 +20,7 @@ Map::~Map()
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {
         itr->second.CreatureSpawns.clear();
-        itr->second.GOSpawns.clear();
+        itr->second.GameObjectSpawns.clear();
     }
     m_spawns.clear();
 }
@@ -59,7 +59,7 @@ void Map::LoadSpawns(CellSpawns *mapSpawns)
     for(SpawnsMap::iterator itr = m_spawns.begin(); itr != m_spawns.end(); itr++)
     {
         itr->second.CreatureSpawns.clear();
-        itr->second.GOSpawns.clear();
+        itr->second.GameObjectSpawns.clear();
     }
     m_spawns.clear();
     if(mapSpawns == NULL)
@@ -71,10 +71,10 @@ void Map::LoadSpawns(CellSpawns *mapSpawns)
         GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back((*i));
     }
 
-    for(GOSpawnList::iterator i = mapSpawns->GOSpawns.begin(); i != mapSpawns->GOSpawns.end(); i++)
+    for(GameObjectSpawnList::iterator i = mapSpawns->GameObjectSpawns.begin(); i != mapSpawns->GameObjectSpawns.end(); i++)
     {
         uint32 cellx = CellHandler<MapInstance>::GetPosX((*i)->x), celly = CellHandler<MapInstance>::GetPosY((*i)->y);
-        GetSpawnsListAndCreate(cellx, celly)->GOSpawns.push_back((*i));
+        GetSpawnsListAndCreate(cellx, celly)->GameObjectSpawns.push_back((*i));
     }
 }
 

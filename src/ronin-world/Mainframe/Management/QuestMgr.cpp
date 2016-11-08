@@ -1406,12 +1406,9 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
     }
 
     //Add to finished quests
-    if(qst->qst_is_repeatable == REPEATABLE_DAILY)
-        plr->AddToCompletedDailyQuests(qst->id);
-    else if(!IsQuestRepeatable(qst))
+    plr->AddToCompletedQuests(qst->id);
+    if(qst->qst_is_repeatable == UNREPEATABLE_QUEST)
     {
-        plr->AddToCompletedQuests(qst->id);
-
         if(qst->qst_zone_id > 0)
             AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUESTS_IN_ZONE, 1, qst->qst_zone_id);
 

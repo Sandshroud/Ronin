@@ -211,6 +211,7 @@ public:
     void RenamePlayerInfo(PlayerInfo * pn, const char * oldname, const char * newname);
     void DeletePlayerInfo(uint32 guid);
     PlayerCreateInfo* GetPlayerCreateInfo(uint8 race, uint8 class_) const;
+    bool CheckPlayerCreateInfo(uint8 race, uint8 class_) { return mPlayerCreateInfo.find(((uint16)(((uint16)class_)|(((uint16)race)<<8)))) != mPlayerCreateInfo.end(); }
 
     // Gameobject Stuff
     std::map<uint32, std::set<uint32> > GameObjectInvolvedQuestIds;

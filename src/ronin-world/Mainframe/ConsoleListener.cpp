@@ -413,5 +413,5 @@ void LocalConsole::Write(const char * Format, ...)
 
 void LocalConsole::WriteNA(const char * Format)
 {
-    printf(Format);
+    sLog.printf(Format);
 }

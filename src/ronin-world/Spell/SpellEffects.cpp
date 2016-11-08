@@ -121,17 +121,17 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTar
 
                     // Trigger application data update
                     Aur->UpdatePreApplication();
-                    unitTarget->m_AuraInterface.AddAura(Aur);
+                    unitTarget->AddAura(Aur);
                 }
             }break;
-        /*case AURA_APPL_REFRESH:
+        case AURA_APPL_REFRESH:
             if(!(unitTarget->isDead() && !m_spellInfo->isDeathPersistentAura()))
-                unitTarget->m_AuraInterface.RefreshAura(m_spellInfo, m_casterGuid);
+                unitTarget->RefreshAura(m_spellInfo, m_casterGuid);
             break;
         case AURA_APPL_STACKED:
             if(!(unitTarget->isDead() && !m_spellInfo->isDeathPersistentAura()))
-                unitTarget->m_AuraInterface.AddAuraStack(m_spellInfo);
-            break;*/
+                unitTarget->AddAuraStack(m_spellInfo, m_casterGuid);
+            break;
         }
     }
 }
@@ -436,6 +436,7 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_ALLOW_PET_RENAME]             = &SpellEffectClass::SpellEffectAllowPetRename;
     m_spellEffectMap[SPELL_EFFECT_SET_TALENT_SPECS_COUNT]       = &SpellEffectClass::SpellEffectSetTalentSpecsCount;
     m_spellEffectMap[SPELL_EFFECT_ACTIVATE_TALENT_SPEC]         = &SpellEffectClass::SpellEffectActivateTalentSpec;
+    m_spellEffectMap[SPELL_EFFECT_DAMAGE_FROM_MAX_HEALTH_PCT]   = &SpellEffectClass::SpellEffectDelayed;
 }
 
 void SpellEffectClass::SpellEffectNULL(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
@@ -1197,7 +1198,8 @@ void SpellEffectClass::SpellEffectEnchantItem(uint32 i, WorldObject *target, int
     if(itemTarget == NULL)
         return;
 
-    SpellItemEnchantEntry *enchant = dbcSpellItemEnchant.LookupEntry(m_spellInfo->EffectMiscValue[i]);
+    uint32 enchantmentId = m_spellInfo->EffectMiscValue[i];
+    SpellItemEnchantEntry *enchant = dbcSpellItemEnchant.LookupEntry(enchantmentId);
     if(enchant == NULL )
     {
         sLog.outError("Invalid enchantment entry %u for Spell %u", m_spellInfo->EffectMiscValue[i], m_spellInfo->Id);
@@ -1206,7 +1208,7 @@ void SpellEffectClass::SpellEffectEnchantItem(uint32 i, WorldObject *target, int
 
     //remove other perm enchantment that was enchanted by profession
     itemTarget->RemovePermanentEnchant();
-    int32 Slot = itemTarget->AddEnchantment(enchant, NULL, true, true, false, PERM_ENCHANTMENT_SLOT);
+    int32 Slot = itemTarget->AddEnchantment(enchantmentId, NULL, true, true, false, PERM_ENCHANTMENT_SLOT);
     if(Slot < 0)
         return; // Apply failed
     itemTarget->m_isDirty = true;
@@ -1221,7 +1223,8 @@ void SpellEffectClass::SpellEffectEnchantItemTemporary(uint32 i, WorldObject *ta
     if(itemTarget == NULL)
         return;
 
-    SpellItemEnchantEntry *enchant = dbcSpellItemEnchant.LookupEntry(m_spellInfo->EffectMiscValue[i]);
+    uint32 enchantmentId = m_spellInfo->EffectMiscValue[i];
+    SpellItemEnchantEntry *enchant = dbcSpellItemEnchant.LookupEntry(enchantmentId);
     if(enchant == NULL )
     {
         sLog.outError("Invalid enchantment entry %u for Spell %u", m_spellInfo->EffectMiscValue[i], m_spellInfo->Id);
@@ -1230,7 +1233,7 @@ void SpellEffectClass::SpellEffectEnchantItemTemporary(uint32 i, WorldObject *ta
 
     //remove other perm enchantment that was enchanted by profession
     itemTarget->RemoveTemporaryEnchant();
-    int32 Slot = itemTarget->AddEnchantment(enchant, amount, false, true, false, TEMP_ENCHANTMENT_SLOT);
+    int32 Slot = itemTarget->AddEnchantment(enchantmentId, amount, false, true, false, TEMP_ENCHANTMENT_SLOT);
     if(Slot < 0)
         return; // Apply failed
     itemTarget->m_isDirty = true;
@@ -1874,8 +1877,8 @@ void SpellEffectClass::SpellEffectDispelMechanic(uint32 i, WorldObject *target, 
     int32 sMisc = (int32)m_spellInfo->EffectMiscValue[i];
     unitTarget->m_AuraInterface.AttemptDispel(u_caster, sMisc, (unitTarget == u_caster || !sFactionSystem.isAttackable( u_caster, unitTarget )));
 
-    if( unitTarget->IsPlayer() && m_spellInfo->NameHash == SPELL_HASH_DAZED && castPtr<Player>(unitTarget)->IsMounted() )
-        castPtr<Player>(unitTarget)->Dismount();
+    if( m_spellInfo->NameHash == SPELL_HASH_DAZED )
+        unitTarget->Dismount();
 }
 
 void SpellEffectClass::SpellEffectSummonDeadPet(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

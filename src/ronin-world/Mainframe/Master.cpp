@@ -109,7 +109,7 @@ bool Master::Run(int argc, char ** argv)
             break;
         default:
             sLog.SetLoggingLevel(3);
-            printf("Usage: %s [--checkconf] [--conf <filename>] [--realmconf <filename>] [--version]\n", argv[0]);
+            sLog.printf("Usage: %s [--checkconf] [--conf <filename>] [--realmconf <filename>] [--version]\n", argv[0]);
             return true;
         }
     }
@@ -122,10 +122,10 @@ bool Master::Run(int argc, char ** argv)
     UNIXTIME = time(NULL);
     g_localTime = *localtime(&UNIXTIME);
 
-    printf(BANNER, BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, PLATFORM_TEXT, ARCH);
+    sLog.printf(BANNER, BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, PLATFORM_TEXT, ARCH);
     sLog.Line();
 
-    printf( "The key combination <Ctrl-C> will safely shut down the server at any time.\n" );
+    sLog.printf( "The key combination <Ctrl-C> will safely shut down the server at any time.\n" );
     sLog.Line();
 
 #ifndef WIN32
@@ -209,11 +209,6 @@ bool Master::Run(int argc, char ** argv)
     ConsoleThread* console = new ConsoleThread();
     ThreadPool.ExecuteTask("ConsoleThread", console);
 
-    uint32 realCurrTime = getMSTime(), realPrevTime = realCurrTime;
-
-    // Socket loop!
-    uint32 start = 0, last_time = realCurrTime, etime = 0;
-
     // Start Network Subsystem
     sLog.Debug("Server","Starting network subsystem..." );
     CreateSocketEngine(std::min<int8>(16, mainIni->ReadInteger("ServerSettings", "NetworkThreads", 2)));
@@ -243,7 +238,6 @@ bool Master::Run(int argc, char ** argv)
     HANDLE hThread = GetCurrentThread();
 #endif
 
-    uint32 loopcounter = 0, LastLogonUpdate = getMSTime();
     if(mainIni->ReadInteger("LogLevel", "Screen", 1) == -1)
     {
         sLog.Init(1);
@@ -257,9 +251,10 @@ bool Master::Run(int argc, char ** argv)
     ListenSocket<WorldSocket> * ls = new ListenSocket<WorldSocket>();
     bool listnersockcreate = ls->Open(host.c_str(), wsport);
 
+    sLog.SetDelayPrint(true);
     while( !m_stopEvent && listnersockcreate )
     {
-        start = getMSTime();
+        uint32 diff = sLog.Update(25);
 
         /* since time() is an expensive system call, we only update it once per server loop */
         curTime = time(NULL);
@@ -270,22 +265,13 @@ bool Master::Run(int argc, char ** argv)
             UpdateRandomNumberGenerators();
         }
 
-        sLogonCommHandler.UpdateSockets(getMSTime()-LastLogonUpdate);
-        LastLogonUpdate = getMSTime();
+        sLogonCommHandler.UpdateSockets(diff);
         sSocketDeleter.Update();
-
-        /* UPDATE */
-        last_time = getMSTime();
-        etime = last_time - start;
-        if( etime < 25 )
-        {
-#if PLATFORM == PLATFORM_WIN
-            WaitForSingleObject( hThread, 25 - etime );
-#else
-            Sleep( 25 - etime );
-#endif
-        }
     }
+
+    sLog.SetDelayPrint(false);
+    sLog.Update(1);
+
     // begin server shutdown
     sLog.Notice( "Shutdown", "Initiated at %s", RONIN_UTIL::ConvertTimeStampToDataTime( (uint32)UNIXTIME).c_str() );
     bServerShutdown = true;
@@ -511,7 +497,7 @@ void segfault_handler(int c)
 
     m_crashed = true;
 
-    printf ("Segfault handler entered...\n");
+    sLog.printf ("Segfault handler entered...\n");
     try
     {
         if( World::getSingletonPtr() != 0 )
@@ -534,7 +520,7 @@ void segfault_handler(int c)
         sLog.outString( "Threw an exception while attempting to save all data." );
     }
 
-    printf("Writing coredump...\n");
+    sLog.printf("Writing coredump...\n");
     abort();
 }
 #endif

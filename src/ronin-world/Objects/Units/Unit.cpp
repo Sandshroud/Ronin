@@ -1178,14 +1178,10 @@ bool Unit::canFly()
         if(ctr->GetCanMove() & LIMIT_AIR)
             return true;
     }
-    else if(IsPlayer())
-    {
-        Player* plr = castPtr<Player>(this);
-        if(plr->m_FlyingAura)
-            return true;
-    }
 
     if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
+        return true;
+    if(m_AuraInterface.HasFlightAura())
         return true;
 
     return false;
@@ -3460,23 +3456,7 @@ void Unit::RemoveFFAPvPFlag()
 
 void Unit::Dismount()
 {
-    if(IsPlayer())
-    {
-        Player* plr = castPtr<Player>(this);
-        if( plr->m_MountSpellId )
-        {
-            m_AuraInterface.RemoveAllAuras( plr->m_MountSpellId);
-            plr->m_MountSpellId = 0;
-        }
-
-        if( plr->m_FlyingAura )
-        {
-            m_AuraInterface.RemoveAllAuras( plr->m_FlyingAura);
-            plr->m_FlyingAura = 0;
-            plr->SetUInt32Value( UNIT_FIELD_DISPLAYID, plr->GetUInt32Value( UNIT_FIELD_NATIVEDISPLAYID ) );
-        }
-    }
-
+    m_AuraInterface.OnDismount();
     m_movementInterface.OnDismount();
 
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
@@ -3540,12 +3520,12 @@ void Unit::Teleport(float x, float y, float z, float o)
 
 void Unit::SetRedirectThreat(Unit * target, float amount, uint32 Duration)
 {
-    printf("TODO: ThreatRedirect\n");
+    sLog.printf("TODO: ThreatRedirect\n");
 }
 
 void Unit::EventResetRedirectThreat()
 {
-    printf("TODO: ThreatRedirect\n");
+    sLog.printf("TODO: ThreatRedirect\n");
 }
 
 uint32 Unit::GetCreatureType()

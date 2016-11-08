@@ -163,7 +163,7 @@ struct GameObjectData
         {
             uint32 lockId;                                  //0 -> Lock.dbc
             uint32 level;                                   //1
-            uint32 diameter;                                //2 diameter for trap activation
+            uint32 radius;                                  //2 diameter for trap activation
             uint32 spellId;                                 //3
             uint32 type;                                    //4 0 trap with no despawn after cast. 1 trap despawns after cast. 2 bomb casts on spawn.
             uint32 cooldown;                                //5 time in secs
@@ -522,8 +522,9 @@ class SERVER_DECL GameObject : public WorldObject
     };
 
 public:
-    GameObject(uint64 guid, uint32 fieldCount = GAMEOBJECT_END);
+    GameObject(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount = GAMEOBJECT_END);
     ~GameObject( );
+
     virtual void Init();
     virtual void Destruct();
 
@@ -537,10 +538,9 @@ public:
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld();
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
+    virtual void CheckTriggerRange(Unit *uObj, float distSq);
 
     virtual void Reactivate();
-
-    void SearchNearbyUnits();
 
     RONIN_INLINE uint8 GetGameObjectPool() { return m_gameobjectPool; }
     RONIN_INLINE void AssignGameObjectPool(uint8 pool) { m_gameobjectPool = pool; }
@@ -548,10 +548,7 @@ public:
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
-    bool CreateFromProto(uint32 entry,uint32 mapid, const LocationVector vec, float rAngle, float rX = 0.f, float rY = 0.f, float rZ = 0.f);
-    bool CreateFromProto(uint32 entry,uint32 mapid, float x, float y, float z, float rAngle, float rX = 0.f, float rY = 0.f, float rZ = 0.f);
-
-    bool Load(uint32 mapId, GOSpawn *spawn);
+    void Load(uint32 mapId, float x, float y, float z, float angleOverride = 0.f, float rX = 0.f, float rY = 0.f, float rZ = 0.f, float rAngle = 0.f, GameObjectSpawn *spawn = NULL);
 
     uint32 BuildStopFrameData(ByteBuffer *buff);
     void UpdateRotations(float rotX, float rotY, float rotZ, float rotAngle);
@@ -596,11 +593,8 @@ public:
     ObjectRotation m_rotation;
 
     void InitAI();
-    SpellEntry* spell;
 
-    bool initiated;
     bool m_created;
-    float range;
     uint16 counter;
     int32 charges;//used for type==22,to limit number of usages.
     bool invisible;//invisible
@@ -609,8 +603,8 @@ public:
     int8 bannerslot;
     int8 bannerauraslot;
 
-    RONIN_INLINE bool HasAI() { return spell != 0; }
-    GOSpawn * m_spawn;
+    RONIN_INLINE bool HasAI() { return m_triggerSpell != 0; }
+    GameObjectSpawn * m_spawn;
 
     RONIN_INLINE bool CanMine(){return (m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] > 0);}
     RONIN_INLINE void UseMine(){ if(m_Go_Uint32Values[GO_UINT32_MINES_REMAINING]) m_Go_Uint32Values[GO_UINT32_MINES_REMAINING]--;}
@@ -647,8 +641,6 @@ public:
     void SetStatusDestroyed();
     void SetStatusDamaged();
     void SetStatusRebuilt();
-    //Aura Generator
-    void AuraGenSearchTarget();
 
     RONIN_INLINE uint32 GetGOui32Value(uint32 id)
     {
@@ -672,6 +664,9 @@ protected:
     uint8 m_gameobjectPool;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX];
 
+    float m_triggerRange;
+    SpellEntry* m_triggerSpell;
+
     struct seatData
     {
         WoWGuid user;
@@ -681,4 +676,8 @@ protected:
 
     ChairSlotAndUser m_chairData;
     void _recalculateChairSeats();
+
+    std::set<WoWGuid> m_inTriggerRangeObjects;
+
+    void _searchNearbyUnits();
 };

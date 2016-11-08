@@ -27,6 +27,9 @@ public:
     MapInstance *GetInstanceForObject(WorldObject *obj);
     // Pre teleport check for instance creation 
     uint32 PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate = true);
+    
+    uint32 AllocateCreatureGuid() { counterLock.Acquire(); uint32 ret = ++m_creatureGUIDCounter; counterLock.Release(); return ret; };
+    uint32 AllocateGameObjectGuid() { counterLock.Acquire(); uint32 ret = ++m_gameObjectGUIDCounter; counterLock.Release(); return ret; };
 
 private:
     Map *GetMapData(uint32 mapId) { Map *ret = NULL; mapDataLock.Acquire(); ret = m_mapData.find(mapId) == m_mapData.end() ? NULL : m_mapData.at(mapId); mapDataLock.Release(); return ret; }
@@ -43,8 +46,13 @@ private:
     // First is instance id, second is pointer
     std::map<uint32, std::pair<MapInstanceContainer*, MapInstance*>> mInstanceStorage;
 
+    Mutex counterLock;
     // Counter
     uint32 m_instanceCounter;
+    // Creature guids
+    uint32 m_creatureGUIDCounter;
+    // Gameobject guids
+    uint32 m_gameObjectGUIDCounter;
 
     // instance data storage
     InstanceDataMap m_instanceData;

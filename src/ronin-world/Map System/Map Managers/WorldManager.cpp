@@ -26,9 +26,9 @@ void WorldManager::Destruct()
         for(CreatureSpawnList::iterator i = itr->second.CreatureSpawns.begin(); i != itr->second.CreatureSpawns.end(); i++)
             delete (*i);
         itr->second.CreatureSpawns.clear();
-        for(GOSpawnList::iterator i = itr->second.GOSpawns.begin(); i != itr->second.GOSpawns.end(); i++)
+        for(GameObjectSpawnList::iterator i = itr->second.GameObjectSpawns.begin(); i != itr->second.GameObjectSpawns.end(); i++)
             delete (*i);
-        itr->second.GOSpawns.clear();
+        itr->second.GameObjectSpawns.clear();
     }
     m_SpawnStorageMap.clear();
 
@@ -55,74 +55,86 @@ void WorldManager::ParseMapDBC()
 
 void WorldManager::LoadSpawnData()
 {
-    std::stringstream ss[2];
-    for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
-    {
-        uint8 index = itr->second->IsContinent() ? 0 : 1;
-        if(!ss[index].str().empty())
-            ss[index] << ", ";
-        ss[index] << itr->first;
-    }
-
     ProcessPreSpawnLoadTables();
 
-    for(uint8 i = 0; i < 2; i++)
+    for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
     {
+        if(!itr->second->IsContinent())
+            continue;
         uint32 count = 0;
-        if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, vendorMask FROM creature_spawns WHERE map IN(%s)", ss[i].str().c_str()))
+        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_creatures'", itr->second->MapID))
         {
-            do
+            delete checkRes;
+            if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, conditionId, vendorMask FROM world_data_%03u_creatures", itr->second->MapID))
             {
-                count++;
-                Field * fields = result->Fetch();
-                uint32 mapId = fields[0].GetUInt32();
-                CreatureSpawn *cspawn = new CreatureSpawn();
-                cspawn->id = fields[1].GetUInt32();
-                cspawn->entry = fields[2].GetUInt32();
-                cspawn->x = fields[3].GetFloat();
-                cspawn->y = fields[4].GetFloat();
-                cspawn->z = fields[5].GetFloat();
-                cspawn->o = NormAngle(fields[6].GetFloat());
-                cspawn->modelId = fields[7].GetUInt32();
-                cspawn->phaseMask = fields[8].GetUInt16();
-                cspawn->eventId = fields[9].GetUInt32();
-                cspawn->vendormask = fields[10].GetInt32();
-                m_SpawnStorageMap[mapId].CreatureSpawns.push_back(cspawn);
-            }while(result->NextRow());
-            delete result;
-        }
+                do
+                {
+                    count++;
+                    Field * fields = result->Fetch();
+                    uint32 entry = fields[1].GetUInt32();
+                    CreatureData *data;
+                    if((data = sCreatureDataMgr.GetCreatureData(entry)) == NULL)
+                        continue;
 
-        if(QueryResult *result = WorldDatabase.Query("SELECT map, id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId, conditionId FROM gameobject_spawns WHERE map IN(%s)", ss[i].str().c_str()))
+                    CreatureSpawn *cspawn = new CreatureSpawn();
+                    cspawn->guid = MAKE_NEW_GUID(fields[0].GetUInt32(), entry, (data->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT));
+                    cspawn->x = fields[2].GetFloat();
+                    cspawn->y = fields[3].GetFloat();
+                    cspawn->z = fields[4].GetFloat();
+                    cspawn->o = NormAngle(fields[5].GetFloat());
+                    cspawn->modelId = fields[6].GetUInt32();
+                    cspawn->phaseMask = fields[7].GetUInt16();
+                    cspawn->eventId = fields[8].GetUInt32();
+                    cspawn->conditionId = fields[9].GetUInt32();
+                    cspawn->vendormask = fields[10].GetInt32();
+                    m_SpawnStorageMap[itr->second->MapID].CreatureSpawns.push_back(cspawn);
+                }while(result->NextRow());
+                delete result;
+            }
+        } else sLog.Error("WorldManager", "Continent %s is missing creature spawn table!", itr->second->name);
+
+        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_gameobjects'", itr->second->MapID))
         {
-            do
+            delete checkRes;
+            if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId, conditionId FROM world_data_%03u_gameobjects", itr->second->MapID))
             {
-                count++;
-                Field * fields = result->Fetch();
-                uint32 mapId = fields[0].GetUInt32();
-                GOSpawn *gspawn = new GOSpawn();
-                gspawn->id = fields[1].GetUInt32();
-                gspawn->entry = fields[2].GetUInt32();
-                gspawn->x = fields[3].GetFloat();
-                gspawn->y = fields[4].GetFloat();
-                gspawn->z = fields[5].GetFloat();
-                gspawn->rX = fields[6].GetFloat();
-                gspawn->rY = fields[7].GetFloat();
-                gspawn->rZ = fields[8].GetFloat();
-                gspawn->rAngle = fields[9].GetFloat();
-                gspawn->state = fields[10].GetUInt32();
-                gspawn->flags = fields[11].GetUInt32();
-                gspawn->faction = fields[12].GetUInt32();
-                gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
-                gspawn->phaseMask = fields[14].GetUInt16();
-                gspawn->eventId = fields[15].GetUInt32();
-                gspawn->conditionId = fields[16].GetUInt32();
-                m_SpawnStorageMap[mapId].GOSpawns.push_back(gspawn);
-            }while(result->NextRow());
-            delete result;
-        }
+                do
+                {
+                    count++;
+                    Field * fields = result->Fetch();
+                    uint32 entry = fields[1].GetUInt32();
+                    GameObjectInfo *info;
+                    if((info = GameObjectNameStorage.LookupEntry(entry)) == NULL)
+                        continue;
 
-        sLog.Notice("WorldManager", "%u %s spawns loaded into storage.", count, i == 0 ? "Continent" : "Instance");
+                    GameObjectSpawn *gspawn = new GameObjectSpawn();
+                    gspawn->guid = MAKE_NEW_GUID(fields[0].GetUInt32(), entry, HIGHGUID_TYPE_GAMEOBJECT);
+                    gspawn->x = fields[2].GetFloat();
+                    gspawn->y = fields[3].GetFloat();
+                    gspawn->z = fields[4].GetFloat();
+                    gspawn->rX = fields[5].GetFloat();
+                    gspawn->rY = fields[6].GetFloat();
+                    gspawn->rZ = fields[7].GetFloat();
+                    gspawn->rAngle = fields[8].GetFloat();
+                    gspawn->state = fields[9].GetUInt32();
+                    gspawn->flags = fields[10].GetUInt32();
+                    gspawn->faction = fields[11].GetUInt32();
+                    gspawn->scale = std::min<float>(255.f, fields[12].GetFloat());
+                    gspawn->phaseMask = fields[13].GetUInt16();
+                    gspawn->eventId = fields[14].GetUInt32();
+                    gspawn->conditionId = fields[15].GetUInt32();
+                    m_SpawnStorageMap[itr->second->MapID].GameObjectSpawns.push_back(gspawn);
+                }while(result->NextRow());
+                delete result;
+            }
+        } else sLog.Error("WorldManager", "Continent %s is missing gameobject spawn table!", itr->second->name);
+
+        if(count == 0)
+            continue;
+
+        sLog.Notice("WorldManager", "%u spawns for %s loaded into storage.", count, itr->second->name);
     }
+
 }
 
 void WorldManager::LoadMapTileData(TaskList & tl)
@@ -394,7 +406,7 @@ MapInstance* WorldManager::CreateBattlegroundInstance(uint32 mapid)
 void WorldManager::DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid)
 {
     m_mapLock.Acquire();
-    printf("Could not delete battleground instance!\n");
+    sLog.printf("Could not delete battleground instance!\n");
     m_mapLock.Release();
 }
 
@@ -458,26 +470,72 @@ void WorldManager::ProcessPreSpawnLoadTables()
 {
     // These are largely uncessesary, but we'll store them here for the future
     //////////////////// Creature Spawns //////////////////////
+    static const char *creatureDataTables[][2] = 
+    {
+        // Event data is held seperately, so combine our two tables
+        { "world_data_creature_events", "UPDATE %s AS T INNER JOIN world_data_creature_events AS S ON (T.id = S.guid) SET T.eventId = S.event;" },
+        // Condition data is held as multiple tables by different teams, so we have a list to go through
+        { "world_data_creature_pools", "UPDATE %s AS T INNER JOIN world_data_creature_pools AS S ON (T.id = S.guid) SET T.conditionId = S.pool_entry;" },
+        // End
+        { NULL, NULL }
+    };
+
+    for(uint8 i = 0; creatureDataTables[i][0] != NULL; i++)
+    {
+        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE '%s'", creatureDataTables[i][0]))
+        {
+            delete checkRes;
+
+            for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
+            {
+                if(!itr->second->IsContinent())
+                    continue;
+                char buff[100];
+                sprintf(buff, "world_data_%03u_creatures", itr->first);
+                if(checkRes = WorldDatabase.Query("SHOW TABLES LIKE '%s'", buff))
+                {
+                    delete checkRes;
+                    WorldDatabase.Execute(creatureDataTables[i][1], buff);
+                }
+            }
+
+            WorldDatabase.Execute("DROP TABLE `%s`", creatureDataTables[i][0]);
+        }
+    }
 
     /////////////////// Gameobject Spawns /////////////////////
-    // Gameobject packed rotation is sometimes stored incorrectly by different teams, here's our orientation override
-    if(QueryResult *checkRes = WorldDatabase.QueryNA("SHOW TABLES LIKE 'gameobject_spawns_orientation'"))
+    static const char *gameobjectDataTables[][2] = 
     {
-        WorldDatabase.Execute("UPDATE gameobject_spawns INNER JOIN gameobject_spawns_orientation ON (gameobject_spawns.id = gameobject_spawns_orientation.id) SET gameobject_spawns.rotationZ = SIN(CAST(gameobject_spawns_orientation.orientation AS float)/2.0), gameobject_spawns.rotationAngle = COS(CAST(gameobject_spawns_orientation.orientation AS float)/2.0);");
-        WorldDatabase.Execute("DROP TABLE `gameobject_spawns_orientation`");
-    }
+        // Gameobject packed rotation is sometimes stored incorrectly by different teams, here's our orientation override
+        { "world_data_gameobject_orientation", "UPDATE %s AS T INNER JOIN world_data_gameobject_orientation AS S ON (T.id = S.guid) SET T.rotationZ = SIN(CAST(S.orientation AS float)/2.0), T.rotationAngle = COS(CAST(S.orientation AS float)/2.0);" },
+        // Event data is held seperately, so combine our two tables
+        { "world_data_gameobject_events", "UPDATE %s AS T INNER JOIN world_data_gameobject_events AS S ON (T.id = S.guid) SET T.eventId = S.eventEntry;" },
+        // Condition data is held as multiple tables by different teams, so we have a list to go through
+        { "world_data_gameobject_pools", "UPDATE %s AS T INNER JOIN world_data_gameobject_pools AS S ON (T.id = S.guid) SET T.conditionId = S.pool_entry;" },
+        // End
+        { NULL, NULL }
+    };
 
-    // Event data is held seperately, so combine our two tables
-    if(QueryResult *checkRes = WorldDatabase.QueryNA("SHOW TABLES LIKE 'gameobject_event_data'"))
+    for(uint8 i = 0; gameobjectDataTables[i][0] != NULL; i++)
     {
-        WorldDatabase.Execute("UPDATE gameobject_spawns INNER JOIN gameobject_event_data ON (gameobject_spawns.id = gameobject_event_data.guid) SET gameobject_spawns.eventId = gameobject_event_data.eventEntry;");
-        WorldDatabase.Execute("DROP TABLE `gameobject_event_data`");
-    }
+        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE '%s'", gameobjectDataTables[i][0]))
+        {
+            delete checkRes;
 
-    // Condition data is held as multiple tables by different teams, so we have a list to go through
-    if(QueryResult *checkRes = WorldDatabase.QueryNA("SHOW TABLES LIKE 'gameobject_pool_data'"))
-    {
-        WorldDatabase.Execute("UPDATE gameobject_spawns INNER JOIN gameobject_pool_data ON (gameobject_spawns.id = gameobject_pool_data.guid) SET gameobject_spawns.conditionId = gameobject_pool_data.pool_entry;");
-        WorldDatabase.Execute("DROP TABLE `gameobject_pool_data`");
+            for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
+            {
+                if(!itr->second->IsContinent())
+                    continue;
+                char buff[100];
+                sprintf(buff, "world_data_%03u_gameobjects", itr->first);
+                if(checkRes = WorldDatabase.Query("SHOW TABLES LIKE '%s'", buff))
+                {
+                    delete checkRes;
+                    WorldDatabase.Execute(gameobjectDataTables[i][1], buff);
+                }
+            }
+
+            WorldDatabase.Execute("DROP TABLE `%s`", gameobjectDataTables[i][0]);
+        }
     }
 }

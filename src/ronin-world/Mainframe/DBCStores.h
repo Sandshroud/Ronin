@@ -936,7 +936,7 @@ struct SpellEntry
     uint32 Totem[2];
 
     // SpellDurationEntry
-    uint32 Duration[3];
+    int32 Duration[3];
 
     // SpellRangeEntry
     float minRange[2]; // minEnemy, minFriend
@@ -1235,8 +1235,8 @@ struct SpellDurationEntry
 {
     uint32 ID;
     int32 Duration1;
-    uint32 Duration2;
-    uint32 Duration3;
+    int32 Duration2;
+    int32 Duration3;
 };
 
 // SpellEffect.dbc

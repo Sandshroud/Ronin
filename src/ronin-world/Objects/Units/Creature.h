@@ -223,6 +223,7 @@ public:
 
     virtual void OnAddInRangeObject(WorldObject *pObj);
     virtual void OnRemoveInRangeObject(WorldObject *pObj);
+    virtual void CheckTriggerRange(Unit *uObj, float distSq);
     virtual void UpdateInRangeObject(WorldObject *pObj);
     virtual void ClearInRangeObjects();
 
@@ -280,8 +281,6 @@ public:
     RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetEnd() { return m_inRangeHostiles.end(); }
 
     void Respawn(bool addrespawnevent, bool free_guid);
-
-    RONIN_INLINE uint32 GetSQL_id() { return IsSpawn() ? GetSpawn()->id : 0; };
 
     // AIInterface
     RONIN_INLINE AIInterface *GetAIInterface() { return &m_aiInterface; }
@@ -462,8 +461,6 @@ public: // values
     AIInterface m_aiInterface;
 
 protected:
-    uint32 m_AreaUpdateTimer;
-
     float m_aggroRangeMod;
 
 public:

@@ -455,7 +455,7 @@ public:
 
     Mutex queueMutex;
     std::string DBCPath, MapPath, VObjPath, MNavPath;
-    float AreaUpdateDistance;
+
     bool AHEnabled, DisableBufferSaving;
     bool Collision, PathFinding;
     bool LogCheaters, LogCommands, LogPlayers, bLogChat;

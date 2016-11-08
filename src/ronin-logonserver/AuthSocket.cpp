@@ -88,73 +88,26 @@ void AuthSocket::SendProofError(uint8 Error, uint8 * M2)
     Send(buffer, 32);
 }
 
-#define AUTH_CHALLENGE 0
-#define AUTH_PROOF 1
-#define AUTH_RECHALLENGE 2
-#define AUTH_REPROOF 3
-#define REALM_LIST 16
-#define INITIATE_TRANSFER 48        // 0x30
-#define TRANSFER_DATA 49        // 0x31
-#define ACCEPT_TRANSFER 50      // 0x32
-#define RESUME_TRANSFER 51      // 0x33
-#define CANCEL_TRANSFER 52      // 0x34
-#define MAX_AUTH_CMD 53
+typedef bool (AuthSocket::*AuthPacketHandler)();
+struct AuthHandler
+{
+    uint8 command;
+    AuthPacketHandler func;
+};
 
-typedef bool (AuthSocket::*AuthHandler)();
-static AuthHandler Handlers[MAX_AUTH_CMD] = {
-        &AuthSocket::HandleChallenge,           // 0
-        &AuthSocket::HandleProof,               // 1
-        &AuthSocket::HandleReconnectChallenge,  // 2
-        &AuthSocket::HandleReconnectProof,      // 3
-        NULL,                                   // 4
-        NULL,                                   // 5
-        NULL,                                   // 6
-        NULL,                                   // 7
-        NULL,                                   // 8
-        NULL,                                   // 9
-        NULL,                                   // 10
-        NULL,                                   // 11
-        NULL,                                   // 12
-        NULL,                                   // 13
-        NULL,                                   // 14
-        NULL,                                   // 15
-        &AuthSocket::HandleRealmlist,           // 16
-        NULL,                                   // 17
-        NULL,                                   // 18
-        &AuthSocket::HandleCMD19,               // 19
-        NULL,                                   // 20
-        NULL,                                   // 21
-        NULL,                                   // 22
-        NULL,                                   // 23
-        NULL,                                   // 24
-        NULL,                                   // 25
-        NULL,                                   // 26
-        NULL,                                   // 27
-        NULL,                                   // 28
-        NULL,                                   // 29
-        NULL,                                   // 30
-        NULL,                                   // 31
-        NULL,                                   // 32
-        NULL,                                   // 33
-        NULL,                                   // 34
-        NULL,                                   // 35
-        NULL,                                   // 36
-        NULL,                                   // 37
-        NULL,                                   // 38
-        NULL,                                   // 39
-        NULL,                                   // 40
-        NULL,                                   // 41
-        NULL,                                   // 42
-        NULL,                                   // 43
-        NULL,                                   // 44
-        NULL,                                   // 45
-        NULL,                                   // 46
-        NULL,                                   // 47
-        NULL,                                   // 48
-        NULL,                                   // 49
-        &AuthSocket::HandleTransferAccept,      // 50
-        &AuthSocket::HandleTransferResume,      // 51
-        &AuthSocket::HandleTransferCancel,      // 52
+static AuthHandler Handlers[] = {
+    { 0x00, &AuthSocket::HandleChallenge },
+    { 0x01, &AuthSocket::HandleProof },
+    { 0x02, &AuthSocket::HandleReconnectChallenge },
+    { 0x03, &AuthSocket::HandleReconnectProof },
+    { 0x10, &AuthSocket::HandleRealmlist },
+    { 0x13, &AuthSocket::HandleCMD19 },
+    // 0x30 Init Transfer
+    // 0x31 Transfer data
+    { 0x32, &AuthSocket::HandleTransferAccept },
+    { 0x33, &AuthSocket::HandleTransferResume },
+    { 0x34, &AuthSocket::HandleTransferCancel },
+    { 0xFF, NULL },
 };
 
 bool AuthSocket::HandleCMD19()
@@ -173,13 +126,15 @@ void AuthSocket::OnRecvData()
         return;
     }
 
-    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset();
     last_recv = UNIXTIME;
-    if(Command >= MAX_AUTH_CMD)
-        sLog.Debug("AuthSocket", "Out of range cmd %u", Command);
-    else if(Handlers[Command] == NULL)
+    AuthPacketHandler *Handler = NULL;
+    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset(), intCommand = 0xFF;
+    for(uint8 i = 0; Handlers[i].command != 0xFF; i++)
+        if(Handlers[i].command == Command)
+            Handler = &Handlers[i].func;
+    if(Handler == NULL)
         sLog.Debug("AuthSocket", "Unknown cmd %u", Command);
-    else if(!(this->*Handlers[Command])())
+    else if(!(this->*(*Handler))())
     {
         m_state = STATE_CLOSED;
         Disconnect();

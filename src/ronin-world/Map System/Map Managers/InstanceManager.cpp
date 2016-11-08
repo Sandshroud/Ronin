@@ -27,6 +27,9 @@ void InstanceManager::Launch()
 
 void InstanceManager::Prepare()
 {
+    // Nullify these counters here
+    m_creatureGUIDCounter = m_gameObjectGUIDCounter = 0;
+
     // Create all non-instance type maps.
     if( QueryResult *result = CharacterDatabase.Query( "SELECT MAX(id) FROM instances" ) )
     {
@@ -61,7 +64,10 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
         else if(plr->CanCreateNewDungeon(mapId))
         {
             // Instance ID generation occurs inside mutex
+            counterLock.Acquire();
             uint32 instanceId = ++m_instanceCounter;
+            counterLock.Release();
+
             ret = new MapInstance(mapData, mapId, instanceId);
             _AddInstance(instanceId, ret);
         }
