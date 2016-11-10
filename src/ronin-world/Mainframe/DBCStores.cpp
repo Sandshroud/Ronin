@@ -192,7 +192,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(ScalingStatDistributionEntry, dbcScalingStatDis
 static const char *scalingstatdistributionFormat = "uiiiiiiiiiiuuuuuuuuuuxu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ScalingStatValuesEntry, dbcScalingStatValues);
-static const char *scalingstatvaluesFormat = "xuuuuuuuuuuuuuuuuuuuuuxxxxxxxxxxxxxxxxxxxxxxxxx";
+static const char *scalingstatvaluesFormat = "xuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillRaceClassInfoEntry, dbcSkillRaceClassInfo);
 static const char *skillraceclassinfoFormat = "xuuuuuxxx";

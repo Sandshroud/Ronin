@@ -36,7 +36,7 @@ void PlayerInventory::AddToWorld()
         if(m_pItems[i])
         {
             if(!m_pItems[i]->IsInWorld() && i < INVENTORY_SLOT_BAG_END) // only equipment slots get mods.
-                m_pOwner->ApplyItemMods(m_pItems[i], i, true, false);
+                m_pOwner->ApplyItemMods(m_pItems[i], i, true);
 
             m_pItems[i]->SetItemInWorld(true);
             if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
@@ -54,7 +54,7 @@ void PlayerInventory::RemoveFromWorld()
         if(m_pItems[i])
         {
             if(m_pItems[i]->IsInWorld() && i < INVENTORY_SLOT_BAG_END) // only equipment slots get mods.
-                m_pOwner->ApplyItemMods(m_pItems[i], i, false, false);
+                m_pOwner->ApplyItemMods(m_pItems[i], i, false);
             m_pItems[i]->SetItemInWorld(false);
 
             if(Container *pContainer = m_pItems[i]->IsContainer() ? castPtr<Container>(m_pItems[i]) : NULL)
@@ -430,7 +430,7 @@ Item* PlayerInventory::SafeRemoveAndRetreiveItemByGuidRemoveStats(uint64 guid, b
         Item* item = GetInventoryItem(i);
         if (item && item->GetGUID() == guid)
         {
-            m_pOwner->ApplyItemMods(item, i, false, false);
+            m_pOwner->ApplyItemMods(item, i, false);
             return SafeRemoveAndRetreiveItemFromSlot(INVENTORY_SLOT_NOT_SET, i, destroy);
         }
     }
@@ -440,7 +440,7 @@ Item* PlayerInventory::SafeRemoveAndRetreiveItemByGuidRemoveStats(uint64 guid, b
         Item* item = GetInventoryItem(i);
         if(item && item->GetGUID() == guid)
         {
-            m_pOwner->ApplyItemMods(item, i, false, false);
+            m_pOwner->ApplyItemMods(item, i, false);
             return SafeRemoveAndRetreiveItemFromSlot(INVENTORY_SLOT_NOT_SET, i, destroy);
         }
         else
@@ -2445,6 +2445,19 @@ void PlayerInventory::mAddItemToBestSlot(ItemPrototype *proto, uint32 count, boo
         delete item;
 }
 
+void PlayerInventory::ModifyLevelBasedItemBonuses(bool apply)
+{
+    for( uint32 x = EQUIPMENT_SLOT_START; x < EQUIPMENT_SLOT_END; ++x )
+    {
+        if(ItemPrototype *proto = GetInventoryItem(x) ? GetInventoryItem(x)->GetProto() : NULL)
+        {
+            if(proto->ScalingStatDistribution == 0)
+                continue;
+            m_pOwner->ApplyItemMods(GetInventoryItem(x), x, apply);
+        }
+    }
+}
+
 AddItemResult PlayerInventory::AddItemToFreeBankSlot(Item* item)
 {
     //special items first
@@ -2675,10 +2688,8 @@ void PlayerInventory::ReduceItemDurability()
                 pItem->SetUInt32Value( ITEM_FIELD_DURABILITY, ( pItem->GetUInt32Value( ITEM_FIELD_DURABILITY ) - 1 ) );
                 pItem->m_isDirty = true;
                 //check final durabiity
-                if( !pItem->GetUInt32Value( ITEM_FIELD_DURABILITY ) ) //no dur left
-                {
-                    GetOwner()->ApplyItemMods( pItem, slot, false, true );
-                }
+                if(pItem->GetUInt32Value( ITEM_FIELD_DURABILITY ) == 0 ) //no dur left
+                    GetOwner()->ApplyItemMods( pItem, slot, false );
             }
         }
     }

@@ -404,13 +404,15 @@ enum ItemBonusModSlot
     MOD_SLOT_MINDAMAGE,
     MOD_SLOT_MAXDAMAGE,
     MOD_SLOT_WEAPONDELAY,
-    MOD_SLOT_MAX_STAT = 14,
+    // Can be spell power or other
+    MOD_SLOT_BONUS_STAT,
+    MOD_SLOT_MAX_STAT = 15,
 
     // Define this here ahead of time, as these are based on item enchant slots
     MOD_SLOT_MAX_ENCHANT = MOD_SLOT_MAX_STAT+MAX_ENCHANTMENT_SLOT,
 
     // Start our item enchantment mod slots
-    MOD_SLOT_PERM_ENCHANT = 14,
+    MOD_SLOT_PERM_ENCHANT = 15,
     MOD_SLOT_PERM_ENCHANT_1,
     MOD_SLOT_PERM_ENCHANT_2,
     MOD_SLOT_PERM_ENCHANT_3,
@@ -1027,7 +1029,7 @@ public:
     /************************************************************************/
     /* Player Items                                                         */
     /************************************************************************/
-    void ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown = false);
+    void ApplyItemMods(Item* item, uint8 slot, bool apply);
 
 public:
     /************************************************************************/
@@ -1493,6 +1495,14 @@ private:
         float posX, posY, posZ;
     } m_bindData;
 
+    // Rested data
+    struct RestData
+    {
+        bool isResting;
+        uint8 restState;
+        uint32 restAmount;
+    } m_restData;
+
     /// Creature Interaction data
     std::map<uint32, uint32> m_vendorIndexSlots;
 
@@ -1586,9 +1596,6 @@ public:
     uint32 m_duelCountdownTimer;
     uint8 m_duelStatus;
     uint8 m_duelState;
-    bool m_isResting;
-    uint8 m_restState;
-    uint32 m_restAmount;
 
     uint32 m_armorProficiency, m_weaponProficiency;
     // STATUS

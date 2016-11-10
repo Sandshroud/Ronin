@@ -77,14 +77,15 @@ uint32 World::GetMaxLevel(WorldSession *session)
     if(LevelCap_Custom_All && LevelCap_Custom_All != MAXIMUM_CEXPANSION_LEVEL)
         return LevelCap_Custom_All;
 
-    uint32 level = MAXIMUM_ATTAINABLE_LEVEL;
-    if( session->HasFlag(ACCOUNT_FLAG_XPACK_03) )
+    uint32 level = 60; // Classic World of Warcraft
+    if( session->CanUseCommand('z') )
+        level = MAXIMUM_ATTAINABLE_LEVEL;
+    else if( session->HasFlag(ACCOUNT_FLAG_XPACK_03) )
         level = MAXIMUM_CEXPANSION_LEVEL;
     else if( session->HasFlag(ACCOUNT_FLAG_XPACK_02) )
         level = 80;
     else if( session->HasFlag(ACCOUNT_FLAG_XPACK_01) )
         level = 70;
-    else level = 60;// Classic World of Warcraft
     return level;
 }
 

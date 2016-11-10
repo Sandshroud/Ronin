@@ -703,7 +703,7 @@ struct ScalingStatDistributionEntry
 {
     uint32 Id;                  // 0
     int32  StatMod[10];         // 1-10
-    uint32 Modifier[10];        // 11-20
+    int32 Modifier[10];         // 11-20
     //uint32 unk1;
     uint32 MaxLevel;            // 22
 };
@@ -715,10 +715,8 @@ struct ScalingStatValuesEntry
     uint32 dpsMod[6];           // DPS mod for level
     uint32 spellBonus;          // spell power for level
     uint32 ssdMultiplier[5];    // Multiplier for ScalingStatDistribution
-    uint32 armorMod[4];         // Armor for level
-    uint32 armorMod2[4];        // Low Armor for level
-    //uint32 unk[24];
-    //uint32 unk2;                // unk, probably also Armor for level (flag 0x80000?)
+    uint32 armorMod[8][4];      // Armor for level
+    uint32 cloakArmor;
 };
 
 struct SkillRaceClassInfoEntry

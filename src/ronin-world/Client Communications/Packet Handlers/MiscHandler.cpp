@@ -453,7 +453,7 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & recv_data )
     if(pPlayer)
     {
         WorldPacket data(SMSG_LOGOUT_RESPONSE, 5);
-        if(pPlayer->m_isResting ||    // We are resting so log out instantly
+        if(pPlayer->m_restData.isResting ||    // We are resting so log out instantly
             pPlayer->GetTaxiState() ||  // or we are on a taxi
             HasGMPermissions())        // or we are a gm
         {

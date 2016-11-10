@@ -60,8 +60,9 @@ public:
 
     void mLoadItemsFromDatabase(QueryResult * inventory, QueryResult *enchants);
     void mSaveItemsToDatabase(bool first, QueryBuffer * buf);
-
     void mAddItemToBestSlot(ItemPrototype *proto, uint32 count, bool fromDB);
+
+    void ModifyLevelBasedItemBonuses(bool apply);
 
     Item* GetInventoryItem(WoWGuid guid);
     Item* GetInventoryItem(int16 slot);

@@ -87,6 +87,7 @@ struct ItemPrototype
     int32 ForcedPetId;
     uint32 ItemSetRank;
     uint32 DisenchantReqSkill;
+    uint8 weaponType;
 
     std::string ConstructItemLink(uint32 random_prop, uint32 random_suffix, uint32 stack);
     bool ValidateItemLink(const char *szLink);
@@ -94,6 +95,17 @@ struct ItemPrototype
 };
 
 #pragma pack(PRAGMA_POP)
+
+enum ItemProtoWeaponType
+{
+    PROTO_WEAPON_TYPE_NONE,
+    PROTO_WEAPON_TYPE_ONE_HANDER,
+    PROTO_WEAPON_TYPE_TWO_HANDER,
+    PROTO_WEAPON_TYPE_ONE_HANDER_CASTER,
+    PROTO_WEAPON_TYPE_TWO_HANDER_CASTER,
+    PROTO_WEAPON_TYPE_RANGED,
+    PROTO_WEAPON_TYPE_RANGED_CASTER
+};
 
 class SERVER_DECL ItemManager : public Singleton<ItemManager>
 {
@@ -104,6 +116,10 @@ public:
     uint32 GetSkillForItem(ItemPrototype *proto);
     uint64 CalculateBuyPrice(uint32 itemId, uint32 count, Player *player, Creature *vendor, ItemExtendedCostEntry *ec);
     uint64 CalculateSellPrice(uint32 itemId, uint32 count);
+
+    int32 GetScalingDPSMod(ItemPrototype *proto, ScalingStatValuesEntry *scalingStat, float &damageMod);
+    int32 GetScalingArmor(ItemPrototype *proto, ScalingStatValuesEntry *scalingStat);
+    int32 CalcStatMod(ItemPrototype *proto, ScalingStatValuesEntry *scalingStat, int32 modifier);
 
 public:
     static const uint32 arm_skills[7];

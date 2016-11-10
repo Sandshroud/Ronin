@@ -76,6 +76,55 @@ uint64 ItemManager::CalculateSellPrice(uint32 itemId, uint32 count)
     return sellPrice;
 }
 
+int32 ItemManager::GetScalingDPSMod(ItemPrototype *proto, ScalingStatValuesEntry *scalingStat, float &damageMod)
+{
+    if(uint8 type = proto->weaponType)
+    {
+        damageMod = 0.3f;
+        if(type == PROTO_WEAPON_TYPE_TWO_HANDER || type == PROTO_WEAPON_TYPE_TWO_HANDER_CASTER)
+            damageMod = 0.2f;
+        return scalingStat->dpsMod[type-1];
+    }
+    return 0;
+}
+
+int32 ItemManager::GetScalingArmor(ItemPrototype *proto, ScalingStatValuesEntry *scalingStat)
+{
+    if(proto->Class == ITEM_CLASS_ARMOR)
+    {
+        uint8 armorType = std::min<uint8>(4, proto->SubClass - 1);
+        switch (proto->InventoryType)
+        {
+            case INVTYPE_SHOULDERS: return scalingStat->armorMod[0][armorType];
+            case INVTYPE_CHEST: case INVTYPE_ROBE: return scalingStat->armorMod[1][armorType];
+            case INVTYPE_HEAD: return scalingStat->armorMod[2][armorType];
+            case INVTYPE_LEGS: return scalingStat->armorMod[3][armorType];
+            case INVTYPE_FEET: return scalingStat->armorMod[4][armorType];
+            case INVTYPE_WAIST: return scalingStat->armorMod[5][armorType];
+            case INVTYPE_HANDS: return scalingStat->armorMod[6][armorType];
+            case INVTYPE_WRISTS: return scalingStat->armorMod[7][armorType];
+            case INVTYPE_CLOAK: return scalingStat->cloakArmor;
+        }
+    }
+    return 0;
+}
+
+int32 ItemManager::CalcStatMod(ItemPrototype *proto, ScalingStatValuesEntry *scalingStat, int32 modifier)
+{
+    if (proto->InventoryType < NUM_INVENTORY_TYPES)
+    {
+        switch (proto->InventoryType)
+        {
+        case INVTYPE_HEAD: case INVTYPE_CHEST: case INVTYPE_LEGS: case INVTYPE_2HWEAPON: case INVTYPE_ROBE:                             return (scalingStat->ssdMultiplier[0] * modifier)/10000;
+        case INVTYPE_SHOULDERS: case INVTYPE_WAIST: case INVTYPE_FEET: case INVTYPE_HANDS: case INVTYPE_TRINKET:                        return (scalingStat->ssdMultiplier[1] * modifier)/10000;
+        case INVTYPE_NECK: case INVTYPE_WRISTS: case INVTYPE_FINGER: case INVTYPE_SHIELD: case INVTYPE_CLOAK: case INVTYPE_HOLDABLE:    return (scalingStat->ssdMultiplier[2] * modifier)/10000;
+        case INVTYPE_RANGED: case INVTYPE_THROWN: case INVTYPE_RANGEDRIGHT: case INVTYPE_RELIC:                                         return (scalingStat->ssdMultiplier[3] * modifier)/10000;
+        case INVTYPE_WEAPON: case INVTYPE_WEAPONMAINHAND: case INVTYPE_WEAPONOFFHAND:                                                   return (scalingStat->ssdMultiplier[4] * modifier)/10000;
+        }
+    }
+    return 0;
+}
+
 uint32 CalcWeaponDurability(uint32 subClass, uint32 quality, uint32 itemLevel);
 uint32 CalcArmorDurability(uint32 inventoryType, uint32 quality, uint32 itemLevel);
 
@@ -185,6 +234,13 @@ void ItemManager::InitializeItemPrototypes()
         proto->lowercase_name = proto->Name.c_str();
         for(uint32 j = 0; j < proto->lowercase_name.length(); ++j)
             proto->lowercase_name[j] = tolower(proto->lowercase_name[j]);
+
+        // Custom field defaults
+        proto->FoodType = 0;
+        proto->ForcedPetId = 0;
+        proto->ItemSetRank = 0;
+        proto->DisenchantReqSkill = 0;
+        proto->weaponType = PROTO_WEAPON_TYPE_NONE;
         m_itemPrototypeContainer.insert(std::make_pair(itemData->ID, proto));
     }
     // Unload our db2 files since we won't need them
@@ -296,6 +352,12 @@ void ItemManager::LoadItemOverrides()
                     proto->HolidayId = 0;
                     proto->StatScalingFactor = 0;
                     proto->lowercase_name = "";
+                    // Custom field defaults
+                    proto->FoodType = 0;
+                    proto->ForcedPetId = 0;
+                    proto->ItemSetRank = 0;
+                    proto->DisenchantReqSkill = 0;
+                    proto->weaponType = PROTO_WEAPON_TYPE_NONE;
                     m_itemPrototypeContainer.insert(std::make_pair(entry, proto));
                     overrideFlags = 0x01 | 0x02;
                 } else proto = m_itemPrototypeContainer.at(entry);
@@ -424,6 +486,44 @@ void ItemManager::LoadItemOverrides()
         ArmorQ = NULL, ArmorS = NULL, ArmorT = NULL, ArmorE = NULL, Damage = NULL;
         if(proto->Class == ITEM_CLASS_WEAPON)
         {
+            switch(proto->SubClass)
+            {
+            case ITEM_SUBCLASS_WEAPON_AXE:
+            case ITEM_SUBCLASS_WEAPON_MACE:
+            case ITEM_SUBCLASS_WEAPON_SWORD:
+            case ITEM_SUBCLASS_WEAPON_DAGGER:
+            case ITEM_SUBCLASS_WEAPON_THROWN:
+                proto->weaponType = PROTO_WEAPON_TYPE_ONE_HANDER;
+                if(proto->FlagsExtra & 0x200)
+                    proto->weaponType += 2;
+                break;
+            case ITEM_SUBCLASS_WEAPON_TWOHAND_AXE:
+            case ITEM_SUBCLASS_WEAPON_TWOHAND_MACE:
+            case ITEM_SUBCLASS_WEAPON_POLEARM:
+            case ITEM_SUBCLASS_WEAPON_TWOHAND_SWORD:
+            case ITEM_SUBCLASS_WEAPON_STAFF:
+            case ITEM_SUBCLASS_WEAPON_FISHING_POLE:
+                proto->weaponType = PROTO_WEAPON_TYPE_TWO_HANDER;
+                if(proto->FlagsExtra & 0x200)
+                    proto->weaponType += 2;
+                break;
+
+            case ITEM_SUBCLASS_WEAPON_BOW:
+            case ITEM_SUBCLASS_WEAPON_GUN:
+            case ITEM_SUBCLASS_WEAPON_CROSSBOW:
+                proto->weaponType = PROTO_WEAPON_TYPE_RANGED;
+                if(proto->FlagsExtra & 0x200)
+                    proto->weaponType++;
+                break;
+            case ITEM_SUBCLASS_WEAPON_WAND:
+                proto->weaponType = PROTO_WEAPON_TYPE_RANGED_CASTER;
+                break;
+            case ITEM_SUBCLASS_WEAPON_FIST_WEAPON:
+                if(proto->FlagsExtra & 0x200)
+                    proto->weaponType = PROTO_WEAPON_TYPE_RANGED_CASTER;
+                break;
+            }
+
             proto->Durability = CalcWeaponDurability(proto->SubClass, proto->Quality, proto->ItemLevel);
             switch(proto->InventoryType)
             {

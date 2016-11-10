@@ -723,7 +723,7 @@ void WorldSession::FullLogin(Player* plr)
         sWorld.SendMessageToGMs(this, "%s%s %s (%s) is now online.|r", MSG_COLOR_GOLD, CanUseCommand('z') ? "Admin" : "GameMaster", plr->GetName(), GetAccountNameS(), GetPermissions());
 
     //Set current RestState
-    if( plr->m_isResting)       // We are in a resting zone, turn on Zzz
+    if( plr->m_restData.isResting )       // We are in a resting zone, turn on Zzz
         plr->ApplyPlayerRestState(true);
 
     //Check if there is a time difference between lastlogoff and now

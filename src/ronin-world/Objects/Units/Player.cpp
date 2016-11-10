@@ -28,7 +28,8 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     SetUInt32Value(PLAYER_BYTES_2, m_playerInfo->charAppearance2);
     SetUInt32Value(PLAYER_BYTES_3, m_playerInfo->charAppearance3);
     // Set our base stats based on race, class, and level
-    baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), pInfo->lastLevel);
+    if((baseStats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), pInfo->lastLevel)) == NULL)
+        baseStats = sStatSystem.GetMaxUnitBaseStats(getRace(), getClass());
     // Set our death state from hased data
     m_deathState = DeathState(m_playerInfo->lastDeathState);
 
@@ -74,9 +75,9 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_banned                        = 0;
     //Bind possition
     m_timeLogoff                    = 0;
-    m_isResting                     = 0;
-    m_restState                     = 0;
-    m_restAmount                    = 0;
+    m_restData.isResting            = false;
+    m_restData.restState            = 0;
+    m_restData.restAmount           = 0;
     m_afk_reason                    = "";
     m_weaponProficiency             = 0;
     m_armorProficiency              = 0;
@@ -959,7 +960,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     ss << uint32(0) << ", " << float(0.f) << ", " << float(0.f) << ", " << float(0.f) << ", " << float(0.f) << ", ";
 
     // Misc player data
-    ss << uint32(iInstanceType) << ", " << uint32(iRaidType) << ", " << uint32(m_isResting) << ", " << uint32(m_restState) << ", " << uint32(m_restAmount);
+    ss << uint32(iInstanceType) << ", " << uint32(iRaidType) << ", " << uint32(m_restData.isResting) << ", " << uint32(m_restData.restState) << ", " << uint32(m_restData.restAmount);
     ss << ", " << uint64(sWorld.GetWeekStart()) << ", " << uint64(UNIXTIME) << ", 0, 0);"; // Reset for position and talents
 
     if(buf)
@@ -1192,9 +1193,9 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 
     if(getLevel() != GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
     {
-        m_isResting = fields[PLAYERLOAD_FIELD_ISRESTING].GetUInt8();
-        m_restState = fields[PLAYERLOAD_FIELD_RESTSTATE].GetUInt8();
-        m_restAmount = fields[PLAYERLOAD_FIELD_RESTTIME].GetUInt32();
+        m_restData.isResting = fields[PLAYERLOAD_FIELD_ISRESTING].GetUInt8();
+        m_restData.restState = fields[PLAYERLOAD_FIELD_RESTSTATE].GetUInt8();
+        m_restData.restAmount = fields[PLAYERLOAD_FIELD_RESTTIME].GetUInt32();
     }
 
     m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
@@ -1897,9 +1898,6 @@ void Player::CreateInDatabase()
     m_mapId = m_bindData.mapId = m_createInfo->mapId;
     m_zoneId = m_bindData.zoneId = m_createInfo->zoneId;
     SetPosition( (m_bindData.posX = m_createInfo->positionX), (m_bindData.posY = m_createInfo->positionY), (m_bindData.posZ = m_createInfo->positionZ), m_createInfo->Orientation);
-    m_isResting = 0;
-    m_restAmount = 0;
-    m_restState = 0;
 
     setLevel(std::max<uint32>(getClass() == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel));
 
@@ -1986,41 +1984,43 @@ void Player::CreateInDatabase()
 
 void Player::setLevel(uint32 level)
 {
-    uint32 currLevel = GetUInt32Value(UNIT_FIELD_LEVEL);
+    m_inventory.ModifyLevelBasedItemBonuses(false);
+    uint32 prevLevel = GetUInt32Value(UNIT_FIELD_LEVEL);
     Unit::setLevel(level);
-    if(currLevel == level)
-        return;
-
-    UpdateFieldValues();
-    _UpdateMaxSkillCounts();
-    if (m_playerInfo)
-        m_playerInfo->lastLevel = level;
-
-    if(IsInWorld())
+    m_inventory.ModifyLevelBasedItemBonuses(true);
+    if(prevLevel != level)
     {
-        m_talentInterface.InitGlyphsForLevel(level);
-        if(currLevel > 9 || level > 9)
-        {
-            if(level <= 9)
-                m_talentInterface.ResetAllSpecs();
-            else m_talentInterface.RecalculateAvailableTalentPoints();
+        UpdateFieldValues();
+        _UpdateMaxSkillCounts();
+        if (m_playerInfo)
+            m_playerInfo->lastLevel = level;
 
-            // If we're previously or currently above 9 and previously or currently below 9, resend achievement data
-            if(currLevel <= 9 || level <= 9)
+        if(IsInWorld())
+        {
+            m_talentInterface.InitGlyphsForLevel(level);
+            if(prevLevel > 9 || level > 9)
             {
-                WorldPacket data(SMSG_ALL_ACHIEVEMENT_DATA, 20);
-                AchieveMgr.BuildAchievementData(GetGUID(), &data);
-                PushPacket(&data);
+                if(level <= 9)
+                    m_talentInterface.ResetAllSpecs();
+                else m_talentInterface.RecalculateAvailableTalentPoints();
+
+                // If we're previously or currently above 9 and previously or currently below 9, resend achievement data
+                if(prevLevel <= 9 || level <= 9)
+                {
+                    WorldPacket data(SMSG_ALL_ACHIEVEMENT_DATA, 20);
+                    AchieveMgr.BuildAchievementData(GetGUID(), &data);
+                    PushPacket(&data);
+                }
             }
+
+            UpdateNearbyQuestGivers(); // For quests that require levels
+            SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
+            SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));
         }
 
-        UpdateNearbyQuestGivers(); // For quests that require levels
-        SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
-        SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));
+        AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, level, prevLevel);
+        sLog.outDebug("Player %s set parameters to level %u", GetName(), level);
     }
-
-    AchieveMgr.UpdateCriteriaValue(this, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, level, currLevel);
-    sLog.outDebug("Player %s set parameters to level %u", GetName(), level);
 }
 
 void Player::SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen)
@@ -2095,7 +2095,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGu
     }
 
     uint32 restxp = 0; //add reststate bonus
-    if(!m_restState == RESTSTATE_RESTED && allowbonus)
+    if(m_restData.restState == RESTSTATE_RESTED && allowbonus)
     {
         restxp = SubtractRestXP(xp);
         xp += restxp;
@@ -2679,7 +2679,7 @@ void Player::RemoveFromWorld()
     m_changingMaps = true;
 }
 
-void Player::ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedown /* = false */)
+void Player::ApplyItemMods(Item* item, uint8 slot, bool apply)
 {
     ASSERT( item );
     if (slot >= INVENTORY_SLOT_BAG_END)
@@ -2687,17 +2687,45 @@ void Player::ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedow
     ASSERT(item->GetOwner() == this);
 
     //fast check to skip mod applying if the item doesnt meat the requirements.
-    if(item->GetUInt32Value( ITEM_FIELD_DURABILITY ) == 0 && item->GetUInt32Value( ITEM_FIELD_MAXDURABILITY ) && justdrokedown == false )
+    if(apply && item->GetUInt32Value(ITEM_FIELD_MAXDURABILITY) && item->GetUInt32Value(ITEM_FIELD_DURABILITY) == 0)
         return;
 
     ItemPrototype* proto = item->GetProto();
-    if(proto->minDamage && proto->maxDamage)
+    ScalingStatDistributionEntry *statDist = NULL;
+    ScalingStatValuesEntry *scalingStatValues = NULL;
+    int32 plrLevel = std::min<int32>(MAXIMUM_ATTAINABLE_LEVEL, getLevel()), minDamage = proto->minDamage, maxDamage = proto->maxDamage, armor = proto->Armor, bonusStat = 0, bonusStatType = 0;
+    if(statDist = (proto->ScalingStatDistribution ? dbcScalingStatDistribution.LookupEntry(proto->ScalingStatDistribution) : NULL))
     {
-        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MINDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MIN, proto->minDamage);
-        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MAXDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MAX, proto->maxDamage);
+        if(plrLevel > statDist->MaxLevel)
+            plrLevel = statDist->MaxLevel;
+        scalingStatValues = dbcScalingStatValues.LookupEntry(plrLevel);
+
+        float damageModifier = 1.f;
+        if(int32 dpsMod = sItemMgr.GetScalingDPSMod(proto, scalingStatValues, damageModifier))
+        {
+            float middle = (((float)dpsMod) * proto->Delay)/1000.f;
+            minDamage = (1.f - damageModifier) * middle;
+            maxDamage = (1.f + damageModifier) * middle;
+        }
+
+        if(proto->FlagsExtra & 0x0200)
+        {   // Caster weapons have spell power as their bonus stat
+            bonusStatType = ITEM_STAT_SPELL_POWER;
+            bonusStat = scalingStatValues ? scalingStatValues->spellBonus : 0;
+        }
+
+        armor = sItemMgr.GetScalingArmor(proto, scalingStatValues);
     }
+
+    if(minDamage && maxDamage)
+    {
+        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MINDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MIN, minDamage);
+        ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_MAXDAMAGE, ITEM_STAT_CUSTOM_DAMAGE_MAX, maxDamage);
+    }
+    if(armor) ModifyBonuses( apply, item->GetGUID(), MOD_SLOT_ARMOR, ITEM_STAT_PHYSICAL_RESISTANCE, armor);
+    if(bonusStatType) ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_BONUS_STAT, bonusStatType, bonusStat);
+    // Push our delay modifier
     if(proto->Delay) ModifyBonuses(apply, item->GetGUID(), MOD_SLOT_WEAPONDELAY, ITEM_STAT_CUSTOM_WEAPON_DELAY, proto->Delay);
-    if(proto->Armor) ModifyBonuses( apply, item->GetGUID(), MOD_SLOT_ARMOR, ITEM_STAT_PHYSICAL_RESISTANCE, proto->Armor);
 
     uint32 reforgeStatType = 0xFFFFFFFF, reforgeStatVal = 0;
     if(EnchantmentInstance *instance = item->GetEnchantment(REFORGE_ENCHANTMENT_SLOT))
@@ -2707,12 +2735,24 @@ void Player::ApplyItemMods(Item* item, uint8 slot, bool apply, bool justdrokedow
     // Stats
     for( uint8 i = 0; i < 10; i++ )
     {
-        if(int32 val = proto->Stats[i].Value)
+        int32 val = proto->Stats[i].Value, type = proto->Stats[i].Type;
+        if(statDist && scalingStatValues)
         {
-            if(proto->Stats[i].Type == reforgeStatType)
-                reforgeStatVal = val;
-            ModifyBonuses( apply, item->GetGUID(), i, proto->Stats[i].Type, val);
+            if(statDist->Modifier[i] < 0)
+                continue;
+
+            type = statDist->StatMod[i];
+            if(apply)
+                val = sItemMgr.CalcStatMod(proto, scalingStatValues, statDist->Modifier[i]);
+            else if(type)
+                val = 1;
         }
+        if(val == 0)
+            continue;
+
+        if(type == reforgeStatType)
+            reforgeStatVal = val;
+        ModifyBonuses( apply, item->GetGUID(), i, type, val);
     }
 
     for( uint8 k = 0; k < 5; k++ )
@@ -3022,7 +3062,7 @@ void Player::DeathDurabilityLoss(double percent)
                     pNewDurability = 0;
 
                 if(pNewDurability <= 0)
-                    ApplyItemMods(pItem, i, false, true);
+                    ApplyItemMods(pItem, i, false);
 
                 pItem->SetUInt32Value(ITEM_FIELD_DURABILITY,(uint32)pNewDurability);
             }
@@ -3245,7 +3285,7 @@ float Player::CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level
 void Player::HandleRestedCalculations(bool rest_on)
 {
     LocationVector loc = GetPosition();
-    if(rest_on == true && m_isResting == false)
+    if(rest_on == true && m_restData.isResting == false)
         ApplyPlayerRestState(true);
     else if(GetTeam() == TEAM_HORDE && HasAreaFlag(OBJECT_AREA_FLAG_INDOORS) && HasAreaFlag(OBJECT_AREA_FLAG_HORDE_ZONE))
         ApplyPlayerRestState(true);
@@ -3281,8 +3321,7 @@ uint32 Player::SubtractRestXP(uint32 &amount)
     if(GetUInt32Value(UNIT_FIELD_LEVEL) >= GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))      // Save CPU, don't waste time on this if you've reached max_level
         return (amount = 0);
 
-    uint32 restedBonus = (m_restAmount > amount ? amount : m_restAmount);
-    m_restAmount -= restedBonus; // Subtract the rested bonus
+    m_restData.restAmount -= std::min(m_restData.restAmount, amount);
     UpdateRestState(); // Update clients interface with new values.
     return amount;
 }
@@ -3310,16 +3349,16 @@ void Player::AddCalculatedRestXP(uint32 seconds)
     uint32 rested_xp = uint32(0.05f * xp_to_lvl * ( seconds / (3600 * ( 8 / bubblerate))));
 
     // if we are at a resting area rest_XP goes 4 times faster (making it 1 bubble every 2 hrs)
-    if (m_isResting) rested_xp *= 4;
+    if (m_restData.isResting) rested_xp *= 4;
 
     // Add result to accumulated rested XP
-    m_restAmount += uint32(rested_xp);
+    m_restData.restAmount += uint32(rested_xp);
 
     // and set limit to be max 1.5 * 20 bubbles * multiplier (1.5 * xp_to_level * multiplier)
-    if (m_restAmount > xp_to_lvl + (uint32)((float)( xp_to_lvl*1.5f ) * bubblerate ))
-        m_restAmount = xp_to_lvl + (uint32)((float)( xp_to_lvl*1.5f ) * bubblerate );
+    if (m_restData.restAmount > xp_to_lvl + (uint32)((float)( xp_to_lvl*1.5f ) * bubblerate ))
+        m_restData.restAmount = xp_to_lvl + (uint32)((float)( xp_to_lvl*1.5f ) * bubblerate );
 
-    sLog.Debug("REST","Add %d rest XP to a total of %d, RestState %d", rested_xp, m_restAmount,m_isResting);
+    sLog.Debug("REST","Add %d rest XP to a total of %d, RestState %d", rested_xp, m_restData.restAmount, m_restData.isResting);
 
     // Update clients interface with new values.
     UpdateRestState();
@@ -3327,25 +3366,25 @@ void Player::AddCalculatedRestXP(uint32 seconds)
 
 void Player::UpdateRestState()
 {
-    if(m_restAmount && GetUInt32Value(UNIT_FIELD_LEVEL) < GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
-        m_restState = RESTSTATE_RESTED;
-    else m_restState = RESTSTATE_NORMAL;
+    if(m_restData.restAmount && GetUInt32Value(UNIT_FIELD_LEVEL) < GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
+        m_restData.restState = RESTSTATE_RESTED;
+    else m_restData.restState = RESTSTATE_NORMAL;
 
     // Update RestState 100%/200%
-    SetByte(PLAYER_BYTES_2, 3, m_restState);
+    SetByte(PLAYER_BYTES_2, 3, m_restData.restState);
 
     //update needle (weird, works at 1/2 rate)
-    SetUInt32Value(PLAYER_REST_STATE_EXPERIENCE, (m_restAmount ? 1+(m_restAmount >> 1) : 0));
+    SetUInt32Value(PLAYER_REST_STATE_EXPERIENCE, (m_restData.restAmount ? 1+(m_restData.restAmount >> 1) : 0));
 }
 
 void Player::ApplyPlayerRestState(bool apply)
 {
-    if(m_isResting == apply)
+    if(m_restData.isResting == apply)
         return;
 
-    if((m_isResting = apply) == true)
+    if((m_restData.isResting = apply) == true)
     {
-        m_restState = RESTSTATE_RESTED;
+        m_restData.restState = RESTSTATE_RESTED;
         SetFlag(PLAYER_FLAGS, PLAYER_FLAG_RESTING); //put zzz icon
     } else RemoveFlag(PLAYER_FLAGS,PLAYER_FLAG_RESTING);   //remove zzz icon
     UpdateRestState();
