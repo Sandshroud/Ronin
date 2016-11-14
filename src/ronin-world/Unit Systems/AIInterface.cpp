@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-AIInterface::AIInterface(Creature *creature, UnitPathSystem *unitPath, Unit *owner) : m_Creature(creature), m_path(unitPath), m_AISeed(RandomUInt()), m_waypointCounter(0), m_waypointMap(NULL),
+AIInterface::AIInterface(Creature *creature, UnitPathSystem *unitPath, Unit *owner) : m_Creature(creature), m_path(unitPath), m_AISeed(RandomUInt()), m_waypointMap(NULL),
 m_AIState(creature->isAlive() ? AI_STATE_IDLE : AI_STATE_DEAD), // Initialize AI state idle if unit is not dead
 m_AIFlags(AI_FLAG_NONE)
 {
@@ -22,7 +22,13 @@ void AIInterface::Init()
         m_AIFlags |= AI_FLAG_DISABLED;
 }
 
-void AIInterface::Update(uint32 p_time)
+void AIInterface::SetWaypoints(WaypointStorage *waypoints)
+{
+    if(m_waypointMap = waypoints)
+        waypointIterator = m_waypointMap->end();
+}
+
+void AIInterface::Update(uint32 msTime, uint32 p_time)
 {
     if(m_AIState == AI_STATE_DEAD || m_AIFlags & AI_FLAG_DISABLED)
         return;
@@ -47,7 +53,7 @@ void AIInterface::Update(uint32 p_time)
 
             if(FindTarget() == false)
             {
-                if(!m_path->hasDestination())
+                if(!m_path->hasDestination() || (m_pendingWaitTimer == 0 && m_path->closeToDestination(msTime)))
                 {
                     if(m_pendingWaitTimer)
                     {
@@ -169,7 +175,19 @@ void AIInterface::FindNextPoint()
 
     if(m_waypointMap && !m_waypointMap->empty())
     {   // Process waypoint map travel
+        if(waypointIterator == m_waypointMap->end() || ++waypointIterator == m_waypointMap->end())
+            waypointIterator = m_waypointMap->begin();
 
+        CreatureWaypoint *point = waypointIterator->second;
+        switch(point->moveType)
+        {
+        case 0: m_path->SetSpeed(MOVE_SPEED_WALK); break;
+        case 1: m_path->SetSpeed(MOVE_SPEED_RUN); break;
+        case 2: m_path->SetSpeed(MOVE_SPEED_FLIGHT); break;
+        }
+
+        m_path->MoveToPoint(point->x, point->y, point->z, point->o);
+        m_pendingWaitTimer = point->delay;
         return;
     }
 
@@ -206,7 +224,8 @@ void AIInterface::_HandleCombatAI()
         // If we already have a target but he doesn't qualify back us out of combat
         if(unitTarget)
         {
-            m_path->StopMoving();
+            if(m_path->hasDestination())
+                m_path->StopMoving();
             m_targetGuid.Clean();
             m_Creature->EventAttackStop();
         }
@@ -238,7 +257,9 @@ void AIInterface::_HandleCombatAI()
         o = m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f;
         x -= attackRange * cosf(o);
         y -= attackRange * sinf(o);
-        m_path->MoveToPoint(x, y, z, o);
+
+        m_path->SetSpeed(MOVE_SPEED_RUN);//unitTarget->GetCombatMovement());
+        m_path->MoveToPoint(x, y, z, o, true);
     } else m_Creature->SetOrientation(m_Creature->GetAngle(unitTarget));
 
     if(!m_Creature->ValidateAttackTarget(m_targetGuid))

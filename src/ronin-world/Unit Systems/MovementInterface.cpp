@@ -1211,9 +1211,12 @@ void MovementInterface::OnPushToWorld()
 
 void MovementInterface::OnRemoveFromWorld()
 {
+    m_pendingMoveData.clear();
     m_pendingDataTimer = 0xFFFFFFFF;
     m_timeSyncCounter = 0;
     m_moveAckCounter = 0;
+    m_isFalling = false;
+    m_fallPointZ = 0.f;
 
     removeServerFlag(MOVEMENTFLAG_MASK_A_ON_RFW);
     removeServerFlag(MOVEMENTFLAG_MASK_B_ON_RFW);

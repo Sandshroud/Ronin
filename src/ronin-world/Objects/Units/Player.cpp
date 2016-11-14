@@ -2824,9 +2824,9 @@ void Player::BuildPlayerRepop()
     SpellCastTargets tgt;
     tgt.m_unitTarget = GetGUID();
 
-    SpellEntry *inf = dbcSpell.LookupEntry(Wispform ? 20584 : 8326);
-    if(Spell* sp = new Spell(this, inf))
-        sp->prepare(&tgt, true);
+    if(SpellEntry *inf = dbcSpell.LookupEntry(Wispform ? 20584 : 8326))
+        if(Spell* sp = new Spell(this, inf))
+            sp->prepare(&tgt, true);
 
     StopMirrorTimer(0);
     StopMirrorTimer(1);
@@ -3537,10 +3537,15 @@ void Player::OnAddInRangeObject(WorldObject* pObj)
     //unit based objects, send aura data
     if (pObj->IsUnit())
     {
+        Unit *uObj = castPtr<Unit>(pObj);
         WorldPacket data(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
-        data << pObj->GetGUID().asPacked();
-        if(castPtr<Unit>(pObj)->m_AuraInterface.BuildAuraUpdateAllPacket(&data))
+        data << uObj->GetGUID().asPacked();
+        if(uObj->m_AuraInterface.BuildAuraUpdateAllPacket(&data))
             PushPacket(&data);
+
+        UnitPathSystem *path;
+        if((path = uObj->GetMovementInterface()->GetPath()) && path->hasDestination())
+            path->SendMovementPacket(this);
     }
 }
 

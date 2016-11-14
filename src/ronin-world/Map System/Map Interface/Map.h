@@ -13,6 +13,15 @@ class TerrainMgr;
 class TemplateMgr;
 struct Formation;
 
+typedef struct
+{
+    uint32 moveType;
+    float x, y, z, o;
+    uint32 delay, actionId;
+}CreatureWaypoint;
+
+typedef std::map<uint32, CreatureWaypoint*> WaypointStorage;
+
 // World
 typedef struct
 {
@@ -24,6 +33,8 @@ typedef struct
     uint32 eventId;
     uint32 conditionId;
     int32 vendormask;
+
+    WaypointStorage m_waypointData;
 }CreatureSpawn;
 
 typedef struct

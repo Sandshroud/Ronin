@@ -61,6 +61,18 @@ bool UnitPathSystem::GetDestination(float &x, float &y, float *z)
     return true;
 }
 
+bool UnitPathSystem::closeToDestination(uint32 msTime)
+{   // Creatures update every 400ms, should be changed to be within the 500ms block creation
+    if(((msTime-m_pathStartTime) + 400) >= m_pathLength)
+        return true;
+    return false;
+}
+
+void UnitPathSystem::SetSpeed(MovementSpeedTypes speedType)
+{
+    _moveSpeed = speedType;
+}
+
 void UnitPathSystem::_CleanupPath()
 {
     _destX = _destY = fInfinite;
@@ -72,10 +84,34 @@ void UnitPathSystem::_CleanupPath()
     }
 }
 
-void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
+void UnitPathSystem::MoveToPoint(float x, float y, float z, float o, bool pointOverride)
 {
     if((_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
         return;
+
+    uint32 timeNeededToFinishBackups = 0;
+    std::vector<MovementPoint> m_backupPoints;
+    if(pointOverride == false && !m_movementPoints.empty())
+    {
+        uint32 timeWalked = getMSTime()-m_pathStartTime;
+        if(timeWalked < m_pathLength)
+        {   // TODO: We only really need the target point and the time it takes to get there
+            for(size_t i = 1; i < m_movementPoints.size(); i++)
+            {
+                if(timeWalked >= m_movementPoints[i]->timeStamp)
+                    continue;
+
+                // Create a new temporary point for reinsertion
+                MovementPoint point(*m_movementPoints[i]);
+                // Save our position
+                point.pos = m_movementPoints[i]->pos;
+                // New timestamp
+                timeNeededToFinishBackups = (point.timeStamp = m_movementPoints[i]->timeStamp-timeWalked);
+                // store
+                m_backupPoints.push_back(point);
+            }
+        }
+    }
 
     // Clean up any existing paths
     _CleanupPath();
@@ -83,7 +119,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     m_pathCounter++;
     m_pathStartTime = getMSTime();
     _destX = x, _destY = y, _destZ = z, _destO = o;
-    float speed = m_Unit->GetMoveSpeed(MOVE_SPEED_RUN), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
+    float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
 
     LocationVector currPos = m_Unit->GetPosition();
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), currPos.x, currPos.y))
@@ -100,8 +136,16 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
         if(fabs(currPos.z-terrainHeight) > 15.f)
             ignoreTerrainHeight = true;
 
+        if(m_backupPoints.size())
+        {
+            m_pathLength += timeNeededToFinishBackups;
+            for(std::vector<MovementPoint>::iterator itr = m_backupPoints.begin(); itr != m_backupPoints.end(); itr++)
+                m_movementPoints.push_back(new MovementPoint((*itr).timeStamp, (*itr).pos.x, (*itr).pos.y, (*itr).pos.z));
+            m_backupPoints.clear();
+        }
+
         // Path calculation
-        uint32 timeToMove = 0;
+        uint32 timeToMove = timeNeededToFinishBackups;
         while((m_pathLength-timeToMove) > 500)
         {
             timeToMove += 500;
@@ -160,5 +204,38 @@ void UnitPathSystem::BroadcastMovementPacket()
 
 void UnitPathSystem::SendMovementPacket(Player *plr)
 {
+    uint32 moveTime = getMSTime()-m_pathStartTime;
+    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (moveTime >= m_pathLength))
+        return;
 
+    WorldPacket data(SMSG_MONSTER_MOVE, 100);
+    data << m_Unit->GetGUID().asPacked();
+    data << uint8(0);
+    data.appendvector(m_Unit->GetPosition(), false);
+    data << uint32(m_pathCounter);
+    if(_destO == fInfinite) data << uint8(0);
+    else data << uint8(4) << float( _destO );
+    data << uint32(0x00400000);
+    data << uint32(m_pathLength - moveTime);
+
+    uint32 counter = 0;
+    size_t counterPos = data.wpos();
+    data << uint32(0); // movement point counter
+    for(uint32 i = 1; i < m_movementPoints.size(); i++)
+    {
+        if(MovementPoint *path = m_movementPoints[i])
+        {
+            if(path->timeStamp <= moveTime)
+                continue;
+
+            data << path->pos.x << path->pos.y << path->pos.z;
+            counter++;
+        }
+    }
+
+    if(counter == 0)
+        return;
+
+    data.put<uint32>(counterPos, counter);
+    plr->PushPacket(&data);
 }

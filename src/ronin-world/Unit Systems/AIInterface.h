@@ -33,9 +33,10 @@ public:
 
     // Post creation initialization call
     void Init();
+    void SetWaypoints(WaypointStorage *waypoints);
 
     // Update
-    void Update(uint32 p_time);
+    void Update(uint32 msTime, uint32 p_time);
 
     void OnAttackStop();
     void OnDeath();
@@ -59,8 +60,8 @@ protected:
     void _HandleCombatAI();
 
 protected:
-    uint32 m_waypointCounter;
-    std::map<uint32, Position> *m_waypointMap;
+    WaypointStorage *m_waypointMap;
+    WaypointStorage::iterator waypointIterator;
 
 private:
     Creature* m_Creature;

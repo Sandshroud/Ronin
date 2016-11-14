@@ -4,6 +4,8 @@
 
 #pragma once
 
+enum MovementSpeedTypes : uint8;
+
 struct MovementPoint
 {
     MovementPoint() : pos(0.f, 0.f, 0.f), timeStamp(0) {}
@@ -25,13 +27,17 @@ public: // Class functions
     bool Update(uint32 msTime, uint32 uiDiff);
 
     bool hasDestination();
+    bool closeToDestination(uint32 msTime);
+
     bool GetDestination(float &x, float &y, float *z = NULL);
+
+    void SetSpeed(MovementSpeedTypes speedType);
 
 private:
     void _CleanupPath();
 
 public:
-    void MoveToPoint(float x, float y, float z, float o = fInfinite);
+    void MoveToPoint(float x, float y, float z, float o = fInfinite, bool pointOverride = false);
     void StopMoving();
 
     void BroadcastMovementPacket();
@@ -39,6 +45,8 @@ public:
 
 private:
     Unit *m_Unit;
+
+    MovementSpeedTypes _moveSpeed;
 
     uint32 m_pathCounter, m_pathStartTime, m_pathLength;
 

@@ -61,7 +61,9 @@ void WorldManager::LoadSpawnData()
     {
         if(!itr->second->IsContinent())
             continue;
+
         uint32 count = 0;
+        std::map<uint32, CreatureSpawn*> m_creatureDataShortcut;
         if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_creatures'", itr->second->MapID))
         {
             delete checkRes;
@@ -88,10 +90,58 @@ void WorldManager::LoadSpawnData()
                     cspawn->conditionId = fields[9].GetUInt32();
                     cspawn->vendormask = fields[10].GetInt32();
                     m_SpawnStorageMap[itr->second->MapID].CreatureSpawns.push_back(cspawn);
+                    m_creatureDataShortcut.insert(std::make_pair(cspawn->guid.getLow(), cspawn));
                 }while(result->NextRow());
                 delete result;
             }
         } else sLog.Error("WorldManager", "Continent %s is missing creature spawn table!", itr->second->name);
+
+        std::set<CreatureSpawn*> m_handledSpawns;
+        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_creatures'", itr->second->MapID))
+        {
+            delete checkRes;
+            if(QueryResult *result = WorldDatabase.Query("SELECT guid, point, movetype, position_x, position_y, position_z, orientation, delay, actionid FROM world_data_%03u_waypoints", itr->second->MapID))
+            {
+                do
+                {
+                    Field * fields = result->Fetch();
+                    uint32 guid = fields[0].GetUInt32();
+                    uint32 point = fields[1].GetUInt32();
+                    if(m_creatureDataShortcut.find(guid) == m_creatureDataShortcut.end())
+                    {
+                        sLog.outDebug("");
+                        continue;
+                    }
+                    CreatureSpawn *cspawn = m_creatureDataShortcut.at(guid);
+                    // Create our waypoint to push to our spawn
+                    CreatureWaypoint *waypoint = new CreatureWaypoint();
+                    waypoint->moveType = fields[2].GetUInt32();
+                    waypoint->x = fields[3].GetFloat();
+                    waypoint->y = fields[4].GetFloat();
+                    waypoint->z = fields[5].GetFloat();
+                    waypoint->o = NormAngle(fields[6].GetFloat());
+                    waypoint->actionId = fields[8].GetUInt32();
+                    cspawn->m_waypointData.insert(std::make_pair(point, waypoint));
+                    if(m_handledSpawns.find(cspawn) == m_handledSpawns.end())
+                        m_handledSpawns.insert(cspawn);
+                }while(result->NextRow());
+                delete result;
+            }
+        } else sLog.Error("WorldManager", "Continent %s is missing creature waypoint table!", itr->second->MapID);
+        m_creatureDataShortcut.clear();
+
+        // Push our spawn point to the beginning of our waypoint map
+        for(std::set<CreatureSpawn*>::iterator itr = m_handledSpawns.begin(); itr != m_handledSpawns.end(); itr++)
+        {
+            CreatureWaypoint *waypoint = new CreatureWaypoint();
+            waypoint->moveType = waypoint->delay = waypoint->actionId = 0;
+            waypoint->x = (*itr)->x;
+            waypoint->y = (*itr)->y;
+            waypoint->z = (*itr)->z;
+            waypoint->o = (*itr)->o;
+            (*itr)->m_waypointData.insert(std::make_pair(0, waypoint));
+        }
+        m_handledSpawns.clear();
 
         if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_gameobjects'", itr->second->MapID))
         {

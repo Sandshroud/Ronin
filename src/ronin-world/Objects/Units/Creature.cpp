@@ -150,7 +150,7 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
         else Despawn(UF_CORPSE);
     }
 
-    m_aiInterface.Update(uiDiff);
+    m_aiInterface.Update(msTime, uiDiff);
 
     // Combat handling, check if we have a script and if the script is not handling the combat update
     //if(m_script == NULL || !m_script->EventUpdateCombat(msTime, uiDiff))
@@ -893,9 +893,10 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     _Create(mapId, x, y, z, o);
 
     // Event objects should be spawned inactive
-    if(m_spawn && m_spawn->eventId)
+    if(m_spawn && (m_spawn->eventId || m_spawn->conditionId))
     {
         if(m_spawn->eventId) m_inactiveFlags |= OBJECT_INACTIVE_FLAG_EVENTS;
+        if(m_spawn->conditionId) m_inactiveFlags |= OBJECT_INACTIVE_FLAG_CONDITION;
         WorldObject::Deactivate(5000);
     }
 
@@ -1003,6 +1004,9 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
                 b_has_shield = (m_shieldProto = sItemMgr.LookupEntry(tmpitemid)) != NULL;
         }
     }
+
+    // Push our waypoints through to AI
+    m_aiInterface.SetWaypoints(m_spawn ? &m_spawn->m_waypointData : NULL);
 }
 
 void Creature::RemoveLimboState(Unit* healer)
