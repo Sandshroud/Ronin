@@ -39,6 +39,8 @@ public:
     ~Corpse();
     virtual void Init();
     virtual void Destruct();
+    virtual bool IsCorpse() { return true; }
+
     // Reactivate isn't code we need for corpse I think
     virtual void Reactivate() {}
 

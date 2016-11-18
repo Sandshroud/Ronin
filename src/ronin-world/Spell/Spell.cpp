@@ -118,7 +118,7 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
     float r = range * range;
     WorldObject *wObj = NULL;
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -172,7 +172,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
     std::vector<WorldObject*> ChainTargetContainer;
     bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -237,7 +237,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
     WorldObject *wObj = NULL;
     bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -272,7 +272,7 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
 {
     float r = range*range;
 
-    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
         if(GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr))
         {
@@ -297,7 +297,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
     }
 
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
-    for( WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
+    for( WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
         Unit *unit = m_caster->GetInRangeObject<Unit>(*itr);
         if(!unit->isAlive())
@@ -329,7 +329,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
     }
 
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
-    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
+    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
         Unit *unit = m_caster->GetInRangeObject<Unit>(*itr);
         if(!unit->isAlive())
@@ -1489,7 +1489,7 @@ uint8 Spell::CanCast(bool tolerate)
         if( ( m_spellInfo->NameHash == SPELL_HASH_CANNIBALIZE || m_spellInfo->Id == 46584 ))
         {
             bool check = false;
-            for(WorldObject::InRangeSet::iterator i = p_caster->GetInRangeUnitSetBegin(); i != p_caster->GetInRangeUnitSetEnd(); i++)
+            for(WorldObject::InRangeArray::iterator i = p_caster->GetInRangeUnitSetBegin(); i != p_caster->GetInRangeUnitSetEnd(); i++)
             {
                 Unit *target = p_caster->GetInRangeObject<Unit>(*i);
                 if(p_caster->GetDistance2dSq(target) <= 25)
@@ -1506,7 +1506,7 @@ uint8 Spell::CanCast(bool tolerate)
         {
             float focusRange;
             bool found = false;
-            for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+            for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
             {
                 GameObject *target = p_caster->GetInRangeObject<GameObject>(*itr);
                 if(target == NULL || target->GetType() != GAMEOBJECT_TYPE_SPELL_FOCUS)
@@ -2126,7 +2126,7 @@ void Spell::DamageGosAround(uint32 i)
     float r = GetRadius(i);
     r *= r;
     LocationVector target = ((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) ? m_targets.m_dest : ((m_targets.m_targetMask & TARGET_FLAG_SOURCE_LOCATION) ? m_targets.m_src : m_caster->GetPosition()));
-    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr )
+    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr )
     {
         if(GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr))
         {

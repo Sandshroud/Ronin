@@ -683,7 +683,7 @@ void Aura::EventRelocateRandomTarget()
     std::set<Unit* > enemies;
 
     Unit *uObj = NULL;
-    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
+    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
         if((uObj = m_caster->GetInRangeObject<Unit>(*itr)) == NULL)
             continue;
@@ -1518,7 +1518,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
             data << pTarget->GetGUID();
 
             //now get rid of mobs agro. pTarget->CombatStatus.AttackersForgetHate() - this works only for already attacking mobs
-            WorldObject::InRangeSet::iterator itr, itr2;
+            WorldObject::InRangeArray::iterator itr, itr2;
             for(itr = pTarget->GetInRangeUnitSetBegin(); itr != pTarget->GetInRangeUnitSetEnd();)
             {
                 itr2 = itr++;

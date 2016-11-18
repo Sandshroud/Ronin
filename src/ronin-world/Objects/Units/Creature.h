@@ -214,6 +214,10 @@ public:
 
     virtual void Update(uint32 msTime, uint32 uiDiff);
 
+    virtual void RemoveFromWorld();
+
+    virtual bool IsCreature() { return true; }
+
     virtual bool IsActiveObject() { return true; }
     virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
 
@@ -277,8 +281,8 @@ public:
 
     RONIN_INLINE bool HasInrangeHostiles() { return !m_inRangeHostiles.empty(); }
     RONIN_INLINE size_t GetInRangeHostileCount() { return m_inRangeHostiles.size(); }
-    RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetBegin() { return m_inRangeHostiles.begin(); }
-    RONIN_INLINE WorldObject::InRangeSet::iterator GetInRangeHostileSetEnd() { return m_inRangeHostiles.end(); }
+    RONIN_INLINE WorldObject::InRangeUnitSet::iterator GetInRangeHostileSetBegin() { return m_inRangeHostiles.begin(); }
+    RONIN_INLINE WorldObject::InRangeUnitSet::iterator GetInRangeHostileSetEnd() { return m_inRangeHostiles.end(); }
 
     void Respawn(bool addrespawnevent, bool free_guid);
 
@@ -450,6 +454,7 @@ public: // values
     bool m_noDeleteAfterDespawn;
     bool m_limbostate;
     bool m_pickPocketed;
+    bool m_zoneVisibleSpawn;
 
     bool m_skinned;
     int8 m_lootMethod;
@@ -489,7 +494,7 @@ public:
     uint32 m_enslaveCount;
     uint32 m_enslaveSpell;
 
-    WorldObject::InRangeSet m_inRangeHostiles;
+    WorldObject::InRangeUnitSet m_inRangeHostiles;
 
     //CreatureScript *m_script;
 

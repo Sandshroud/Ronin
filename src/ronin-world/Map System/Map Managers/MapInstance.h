@@ -28,17 +28,28 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-static const uint32 MaxObjectViewDistance = 8100;
-static const uint32 MaxPlayerViewDistance = 38000;
+static const uint32 MaxViewDistance = 38000;
 
 #define MAX_TRANSPORTERS_PER_MAP 25
 #define RESERVE_EXPAND_SIZE 1024
 
 #define TRIGGER_INSTANCE_EVENT( Mgr, Func )
+#define VECTOR_POOLS 1
 
 /// Storage pool used to store and dynamically update objects in our map
-template < class T > class StoragePool
+template < class T > class SERVER_DECL StoragePool
 {
+public: // Defined type
+#ifdef VECTOR_POOLS
+    typedef std::vector<T*> PoolSet;
+    #define POOL_FIND(itr, pool, val) itr = std::find(pool.begin(), pool.end(), val)
+    #define POOL_ADD(pool, obj) pool.push_back(obj)
+#else
+    typedef std::set<T*> PoolSet;
+    #define POOL_FIND(itr, pool, val) itr = pool.find(val)
+    #define POOL_ADD(pool, obj) pool.insert(obj)
+#endif
+
 public:
     StoragePool() : mPoolCounter(0), mPoolAddCounter(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
 
@@ -50,7 +61,7 @@ public:
         if(mPoolSize == 1) // Don't initialize the single stack
             return;
         mPoolLastUpdateStack = new uint32[mPoolSize];
-        mPoolStack = new std::set<T*>[mPoolSize];
+        mPoolStack = new PoolSet[mPoolSize];
     }
 
     void Cleanup()
@@ -64,7 +75,7 @@ public:
     {
         T* ptr = NULL;
         uint32 diff = pDiff;
-        std::set<T*> *targetPool;
+        PoolSet *targetPool;
         if(mPoolStack == NULL) // No stack so use our main pool
             targetPool = &mPool;
         else
@@ -109,13 +120,13 @@ public:
     uint8 Add(T *obj)
     {
         uint8 pool = 0xFF;
-        mPool.insert(obj);
+        POOL_ADD(mPool, obj);
         if(mPoolStack)
         {
             pool = mPoolAddCounter++;
             if(mPoolAddCounter == mPoolSize)
                 mPoolAddCounter = 0;
-            mPoolStack[pool].insert(obj);
+            POOL_ADD(mPoolStack[pool], obj);
         }
         return pool;
     }
@@ -123,8 +134,8 @@ public:
     // Remove our object from the stack, poolID is needed to remove from the correct stack quickly
     void Remove(T *obj, uint8 poolId)
     {
-        std::set<T*>::iterator itr;
-        if((itr = mPool.find(obj)) != mPool.end())
+        PoolSet::iterator itr;
+        if((POOL_FIND(itr, mPool, obj)) != mPool.end())
         {
             // check iterator
             if( poolIterator == itr )
@@ -134,7 +145,7 @@ public:
 
         if(mPoolStack && poolId != 0xFF)
         {
-            if((itr = mPoolStack[poolId].find(obj)) != mPoolStack[poolId].end())
+            if((POOL_FIND(itr, mPool, obj)) != mPoolStack[poolId].end())
             {
                 // check iterator
                 if( poolIterator == itr )
@@ -144,13 +155,13 @@ public:
         }
     }
 
-    typename std::set<T*>::iterator begin() { return mPool.begin(); };
-    typename std::set<T*>::iterator end() { return mPool.end(); };
+    typename PoolSet::iterator begin() { return mPool.begin(); };
+    typename PoolSet::iterator end() { return mPool.end(); };
 
 private:
 
-    std::set<T*> mPool, *mPoolStack;
-    typename std::set<T*>::iterator poolIterator;
+    PoolSet mPool, *mPoolStack;
+    typename PoolSet::iterator poolIterator;
     uint32 mPoolCounter, mPoolAddCounter, mPoolSize, *mPoolLastUpdateStack;
 };
 
@@ -182,6 +193,9 @@ public:
 
     bool IsClosing() { return false; }
     bool IsFull() { return false; }
+
+    void AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
+    void RemoveZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
 
     /////////////////////////////////////////////////////////
     // Local (MapInstance) storage/generation of Creatures
@@ -365,6 +379,9 @@ protected:
     //! Objects that exist on map
     uint32 _mapId;
 
+    // Storage for processing inrange updates
+    WorldObject::InRangeObjSet m_inRangeStorage;
+
     // In this zone, we always show these objects
     Loki::AssocVector<WorldObject*, uint32> m_rangelessObjects;
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_zoneRangelessObjects;
@@ -372,7 +389,7 @@ protected:
     bool _CellActive(uint32 x, uint32 y);
     void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
 
-    void ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
+    bool ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
 public:

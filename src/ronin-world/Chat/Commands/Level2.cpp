@@ -527,7 +527,7 @@ bool ChatHandler::HandleGOSelect(const char *args, WorldSession *m_session)
 
     GameObject* GObj = NULL;
     float cDist = 9999.f, nDist = 0.f;
-    for(WorldObject::InRangeSet::iterator itr = plr->GetInRangeGameObjectSetBegin(); itr != plr->GetInRangeGameObjectSetEnd(); itr++ )
+    for(WorldObject::InRangeArray::iterator itr = plr->GetInRangeGameObjectSetBegin(); itr != plr->GetInRangeGameObjectSetEnd(); itr++ )
     {
         if(GameObject *gob = plr->GetInRangeObject<GameObject>(*itr))
         {

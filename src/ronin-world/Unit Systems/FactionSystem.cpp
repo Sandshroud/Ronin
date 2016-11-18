@@ -191,34 +191,16 @@ FactionInteractionStatus FactionSystem::GetPlayerAttackStatus(Player *plrA, Play
 FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, WorldObject* objB, bool CheckStealth)// A can attack B?
 {
     // can't attack self.. this causes problems with buffs if we don't have it :p
-    if( !objA || !objB || objA == objB )
-        return FI_STATUS_NONE;
-    if( !objA->IsInWorld() || !objB->IsInWorld() )
+    if(objA == objB || IsInteractionLocked(objA) || IsInteractionLocked(objB))
         return FI_STATUS_NONE;
     // can't attack corpses either...
     if( objA->GetTypeId() == TYPEID_CORPSE || objB->GetTypeId() == TYPEID_CORPSE )
         return FI_STATUS_NONE;
-    // Dead people can't attack anything.
-    if( (objA->IsUnit() && !castPtr<Unit>(objA)->isAlive()) || (objB->IsUnit() && !castPtr<Unit>(objB)->isAlive()) )
-        return FI_STATUS_NONE;
-    // Flag checks start
-    if(objA->IsUnit())
-    {
-        if(objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI) || objA->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
-            return FI_STATUS_NONE;
-        if(objA->HasFlag(UNIT_FIELD_FLAGS, (objB->IsPlayer() ? UNIT_FLAG_IGNORE_PC : objB->IsUnit() ? UNIT_FLAG_IGNORE_NPC : UNIT_FLAG_NON_ATTACKABLE)))
-            return FI_STATUS_NONE;
-    }
 
-    if(objB->IsUnit())
-    {
-        if(objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI) || objB->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
-            return FI_STATUS_NONE;
-        if(objB->HasFlag(UNIT_FIELD_FLAGS, (objA->IsPlayer() ? UNIT_FLAG_IGNORE_PC : objA->IsUnit() ? UNIT_FLAG_IGNORE_NPC : UNIT_FLAG_NON_ATTACKABLE)))
-            return FI_STATUS_NONE;
-    }
-    // Flag checks end
-    if(!objA->PhasedCanInteract(objB))
+    // Flag checks start
+    if(objA->IsUnit() && objA->HasFlag(UNIT_FIELD_FLAGS, (objB->IsPlayer() ? UNIT_FLAG_IGNORE_PC : objB->IsUnit() ? UNIT_FLAG_IGNORE_NPC : UNIT_FLAG_NON_ATTACKABLE)))
+        return FI_STATUS_NONE;
+    if(objB->IsUnit() && objB->HasFlag(UNIT_FIELD_FLAGS, (objA->IsPlayer() ? UNIT_FLAG_IGNORE_PC : objA->IsUnit() ? UNIT_FLAG_IGNORE_NPC : UNIT_FLAG_NON_ATTACKABLE)))
         return FI_STATUS_NONE;
 
     // we cannot attack sheathed units. Maybe checked in other places too ?
@@ -307,7 +289,7 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
         return FI_STATUS_HOSTILE; // Skip the rest of this, it's all faction shit.
     }
 
-    return GetFactionsInteractStatus(castPtr<Unit>(objA), castPtr<Unit>(objB), true);
+    return GetFactionsInteractStatus(objA, objB, true);
 }
 
 bool FactionSystem::IsInteractionLocked(WorldObject *obj)
@@ -346,8 +328,6 @@ bool FactionSystem::CanEitherUnitAttack(Unit *unitA, Unit *unitB, bool CheckStea
 {
     // can't attack self.. this causes problems with buffs if we don't have it :p
     if(IsInteractionLocked(unitA) || IsInteractionLocked(unitB))
-        return false;
-    if(!unitA->PhasedCanInteract(unitB) || !unitB->PhasedCanInteract(unitA))
         return false;
     // Only check target for stealth
     /*if( CheckStealth && unitB->InStealth() && unitA->CalcDistance(unitB) > 5.0f)
@@ -394,9 +374,6 @@ bool FactionSystem::isCombatSupport(WorldObject* objA, WorldObject* objB)// B co
 
     // We do need all factiondata for this
     if( objB->GetFactionTemplate() == NULL || objA->GetFactionTemplate() == NULL || objB->GetFaction() == NULL || objA->GetFaction() == NULL )
-        return false;
-
-    if(!objA->PhasedCanInteract(objB))
         return false;
 
     bool combatSupport = false;

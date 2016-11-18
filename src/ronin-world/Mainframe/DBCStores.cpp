@@ -59,7 +59,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureBoundDataEntry, dbcCreatureBoundData);
 static const char *creatureboundFormat = "ufffffff";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureDisplayInfoEntry, dbcCreatureDisplayInfo);
-static const char *creaturedisplayinfoFormat = "uxxufxxxxxxxxxxxx";
+static const char *creaturedisplayinfoFormat = "uxxufxxxxxixxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureDisplayInfoExtraEntry, dbcCreatureDisplayInfoExtra);
 static const char *creaturedisplayinfoextraFormat = "uuxxxxxxxxxxxxxxxxxxx";

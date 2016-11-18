@@ -188,7 +188,9 @@ struct CreatureDisplayInfoEntry
     //uint32 Sound;
     uint32 ExtraDisplayInfoEntry;
     float Scale;
-    //uint32 unk[12];
+    //uint32 unk[5];
+    int32 sizeClass;
+    //uint32 unk[6];
 };
 
 struct CreatureDisplayInfoExtraEntry

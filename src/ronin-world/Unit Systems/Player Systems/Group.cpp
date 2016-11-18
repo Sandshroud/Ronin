@@ -884,10 +884,7 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
         *data << uint16(pPlayer->GetAreaId());
 
     if(Flags & GROUP_UPDATE_FLAG_POSITION)
-    {
         *data << int16(pPlayer->GetPositionX()) << int16(pPlayer->GetPositionY());          // wtf packed floats? O.o
-        pPlayer->m_last_group_position = pPlayer->GetPosition();
-    }
 
     if(Flags & GROUP_UPDATE_TYPE_FULL_REQUEST_REPLY)
     {
@@ -934,11 +931,8 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
                 plr = (*itr)->m_loggedInPlayer;
                 ++itr;
 
-                if(plr && plr != pPlayer)
-                {
-                    if(plr->GetDistance2dSq(pPlayer) > MaxPlayerViewDistance)
-                        plr->GetSession()->SendPacket(data);
-                }
+                if(plr && plr != pPlayer && !plr->GetInRangeObject(pPlayer->GetGUID()))
+                    plr->PushPacket(data);
             }
         }
         m_groupLock.Release();

@@ -34,6 +34,7 @@ public:
 
     // Iterating through different phases of sets
     MapCell::CellObjectSet *GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &conditionAccess, std::vector<uint32> &eventAccess, bool &handledAllPhases);
+    void FillObjectSets(std::set<WorldObject*> &set, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess);
 
     //State Related
     void SetActivity(bool state);

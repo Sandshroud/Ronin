@@ -531,6 +531,8 @@ public:
     virtual void Update(uint32 msTime, uint32 p_time);
     virtual void OnFieldUpdated(uint16 index);
 
+    virtual bool IsGameObject() { return true; }
+
     virtual bool IsActiveObject() { return true; }
     virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
     virtual uint32 getConditionID() { return m_spawn ? m_spawn->conditionId : 0; }

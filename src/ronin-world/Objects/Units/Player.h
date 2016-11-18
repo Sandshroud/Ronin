@@ -597,6 +597,8 @@ public:
 
     virtual void RemoveFromWorld();
 
+    virtual bool IsPlayer() { return true; }
+
     // Reactivate is a function players don't need
     virtual void Reactivate() {}
 
@@ -1128,11 +1130,11 @@ public:
     virtual void ClearInRangeObjects();
     RONIN_INLINE void AddVisibleObject(WorldObject* pObj) { m_visibleObjects.insert(pObj); }
     RONIN_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
-    RONIN_INLINE void RemoveVisibleObject(InRangeWorldObjSet::iterator itr) { m_visibleObjects.erase(itr); }
-    RONIN_INLINE InRangeWorldObjSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
+    RONIN_INLINE void RemoveVisibleObject(InRangeObjSet::iterator itr) { m_visibleObjects.erase(itr); }
+    RONIN_INLINE InRangeObjSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
     RONIN_INLINE void RemoveIfVisible(WorldObject* obj)
     {
-        InRangeWorldObjSet::iterator itr = m_visibleObjects.find(obj);
+        InRangeObjSet::iterator itr = m_visibleObjects.find(obj);
         if(itr == m_visibleObjects.end())
             return;
 
@@ -1140,14 +1142,14 @@ public:
         PushOutOfRange(obj->GetGUID());
     }
 
-    RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeWorldObjSet::iterator *itr)
+    RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeObjSet::iterator *itr)
     {
         *itr = m_visibleObjects.find(obj);
         return ((*itr) != m_visibleObjects.end());
     }
 
-    RONIN_INLINE InRangeWorldObjSet::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
-    RONIN_INLINE InRangeWorldObjSet::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
+    RONIN_INLINE InRangeObjSet::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
+    RONIN_INLINE InRangeObjSet::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
 
     // Misc
     void SetDrunk(uint16 value, uint32 itemId = 0);
@@ -1417,6 +1419,7 @@ private:
     PlayerInventory m_inventory;
     // Stores player currency
     PlayerCurrency m_currency;
+
     // Pending item updates pushed from interfaces
     std::set<Item*> m_pendingUpdates;
     // Item bonus storage
@@ -1425,6 +1428,8 @@ private:
     ItemBonusModByType itemBonusMapByType;
     // Stores player talent data, action bars and glyphs
     TalentInterface m_talentInterface;
+    // Stores player quest data
+    //QuestInterface m_questInterface;
 
     // Power regeneration data
     std::vector<float> m_regenPowerFraction;
@@ -1562,7 +1567,6 @@ public:
     // spell to (delay, last time)
     Channel* watchedchannel;
 
-    LocationVector m_last_group_position;
     int32 m_rap_mod_pct;
     Creature* m_tempSummon;
     bool m_deathVision;
@@ -1608,7 +1612,7 @@ public:
     std::set<uint32> m_channels;
     std::map<uint32, Channel*> m_channelsbyDBCID;
     // Visible objects
-    InRangeWorldObjSet m_visibleObjects;
+    InRangeObjSet m_visibleObjects;
     // Groups/Raids
     WoWGuid m_GroupInviter;
 

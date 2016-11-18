@@ -24,7 +24,12 @@ void WorldManager::Destruct()
     for(std::map<uint32, CellSpawns>::iterator itr = m_SpawnStorageMap.begin(); itr != m_SpawnStorageMap.end(); itr++)
     {
         for(CreatureSpawnList::iterator i = itr->second.CreatureSpawns.begin(); i != itr->second.CreatureSpawns.end(); i++)
+        {
+            for(WaypointStorage::iterator itr = (*i)->m_waypointData.begin(); itr != (*i)->m_waypointData.end(); itr++)
+                delete itr->second;
+            (*i)->m_waypointData.clear();
             delete (*i);
+        }
         itr->second.CreatureSpawns.clear();
         for(GameObjectSpawnList::iterator i = itr->second.GameObjectSpawns.begin(); i != itr->second.GameObjectSpawns.end(); i++)
             delete (*i);
@@ -46,7 +51,7 @@ void WorldManager::ParseMapDBC()
             continue;
         if(m_loadedMaps.find(map->MapID) != m_loadedMaps.end())
             continue;
-        if(!map->IsContinent() && !map->Instanceable())
+        if(!(map->IsContinent() || map->Instanceable()))
             continue;
 
         m_loadedMaps.insert(std::make_pair(map->MapID, map));
@@ -67,7 +72,7 @@ void WorldManager::LoadSpawnData()
         if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_creatures'", itr->second->MapID))
         {
             delete checkRes;
-            if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, conditionId, vendorMask FROM world_data_%03u_creatures", itr->second->MapID))
+            if(QueryResult *result = WorldDatabase.Query("SELECT guid, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, conditionId, vendorMask FROM world_data_%03u_creatures", itr->second->MapID))
             {
                 do
                 {
@@ -120,6 +125,7 @@ void WorldManager::LoadSpawnData()
                     waypoint->y = fields[4].GetFloat();
                     waypoint->z = fields[5].GetFloat();
                     waypoint->o = NormAngle(fields[6].GetFloat());
+                    waypoint->delay = fields[7].GetUInt32();
                     waypoint->actionId = fields[8].GetUInt32();
                     cspawn->m_waypointData.insert(std::make_pair(point, waypoint));
                     if(m_handledSpawns.find(cspawn) == m_handledSpawns.end())
@@ -127,7 +133,7 @@ void WorldManager::LoadSpawnData()
                 }while(result->NextRow());
                 delete result;
             }
-        } else sLog.Error("WorldManager", "Continent %s is missing creature waypoint table!", itr->second->MapID);
+        } else sLog.Error("WorldManager", "Continent %s is missing creature waypoint table!", itr->second->name);
         m_creatureDataShortcut.clear();
 
         // Push our spawn point to the beginning of our waypoint map
@@ -146,7 +152,7 @@ void WorldManager::LoadSpawnData()
         if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_gameobjects'", itr->second->MapID))
         {
             delete checkRes;
-            if(QueryResult *result = WorldDatabase.Query("SELECT id, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId, conditionId FROM world_data_%03u_gameobjects", itr->second->MapID))
+            if(QueryResult *result = WorldDatabase.Query("SELECT guid, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId, conditionId FROM world_data_%03u_gameobjects", itr->second->MapID))
             {
                 do
                 {
@@ -523,9 +529,9 @@ void WorldManager::ProcessPreSpawnLoadTables()
     static const char *creatureDataTables[][2] = 
     {
         // Event data is held seperately, so combine our two tables
-        { "world_data_creature_events", "UPDATE %s AS T INNER JOIN world_data_creature_events AS S ON (T.id = S.guid) SET T.eventId = S.event;" },
+        { "world_data_creature_events", "UPDATE %s AS T INNER JOIN world_data_creature_events AS S ON (T.guid = S.guid) SET T.eventId = S.event;" },
         // Condition data is held as multiple tables by different teams, so we have a list to go through
-        { "world_data_creature_pools", "UPDATE %s AS T INNER JOIN world_data_creature_pools AS S ON (T.id = S.guid) SET T.conditionId = S.pool_entry;" },
+        { "world_data_creature_pools", "UPDATE %s AS T INNER JOIN world_data_creature_pools AS S ON (T.guid = S.guid) SET T.conditionId = S.pool_entry;" },
         // End
         { NULL, NULL }
     };
@@ -557,11 +563,11 @@ void WorldManager::ProcessPreSpawnLoadTables()
     static const char *gameobjectDataTables[][2] = 
     {
         // Gameobject packed rotation is sometimes stored incorrectly by different teams, here's our orientation override
-        { "world_data_gameobject_orientation", "UPDATE %s AS T INNER JOIN world_data_gameobject_orientation AS S ON (T.id = S.guid) SET T.rotationZ = SIN(CAST(S.orientation AS float)/2.0), T.rotationAngle = COS(CAST(S.orientation AS float)/2.0);" },
+        { "world_data_gameobject_orientation", "UPDATE %s AS T INNER JOIN world_data_gameobject_orientation AS S ON (T.guid = S.guid) SET T.rotationZ = SIN(CAST(S.orientation AS float)/2.0), T.rotationAngle = COS(CAST(S.orientation AS float)/2.0);" },
         // Event data is held seperately, so combine our two tables
-        { "world_data_gameobject_events", "UPDATE %s AS T INNER JOIN world_data_gameobject_events AS S ON (T.id = S.guid) SET T.eventId = S.eventEntry;" },
+        { "world_data_gameobject_events", "UPDATE %s AS T INNER JOIN world_data_gameobject_events AS S ON (T.guid = S.guid) SET T.eventId = S.event;" },
         // Condition data is held as multiple tables by different teams, so we have a list to go through
-        { "world_data_gameobject_pools", "UPDATE %s AS T INNER JOIN world_data_gameobject_pools AS S ON (T.id = S.guid) SET T.conditionId = S.pool_entry;" },
+        { "world_data_gameobject_pools", "UPDATE %s AS T INNER JOIN world_data_gameobject_pools AS S ON (T.guid = S.guid) SET T.conditionId = S.pool_entry;" },
         // End
         { NULL, NULL }
     };

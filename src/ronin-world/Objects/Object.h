@@ -222,12 +222,12 @@ public:
     // type
     RONIN_INLINE uint8 GetTypeId() { return m_objType; }
     RONIN_INLINE bool IsUnit() { return IsCreature() || IsPlayer(); }
-    RONIN_INLINE bool IsItem() { return (GetTypeFlags() & TYPEMASK_TYPE_ITEM); }
-    RONIN_INLINE bool IsCreature() { return GetTypeId() == TYPEID_UNIT; }
-    RONIN_INLINE bool IsPlayer() { return GetTypeId() == TYPEID_PLAYER; }
-    RONIN_INLINE bool IsGameObject() { return GetTypeId() == TYPEID_GAMEOBJECT; }
-    RONIN_INLINE bool IsDynamicObj() { return GetTypeId() == TYPEID_DYNAMICOBJECT; }
-    RONIN_INLINE bool IsCorpse() { return GetTypeId() == TYPEID_CORPSE; }
+    virtual bool IsItem() { return false; }
+    virtual bool IsCreature() { return false; }
+    virtual bool IsPlayer() { return false; }
+    virtual bool IsGameObject() { return false; }
+    virtual bool IsDynamicObj() { return false; }
+    virtual bool IsCorpse() { return false; }
     virtual bool IsContainer() { return false; }
     virtual bool IsObject() { return false; }
     virtual bool IsTotem() { return false; }
@@ -289,9 +289,16 @@ private:
 class SERVER_DECL WorldObject : public Object
 {
 public:
-    typedef std::vector<WoWGuid> InRangeSet;
-    typedef Loki::AssocVector<WoWGuid, WorldObject*> InRangeMap;
-    typedef std::set<WorldObject*> InRangeWorldObjSet;
+    // Storage indicators, be very specific when defining the typename
+    typedef std::set<WoWGuid> InRangeSet;
+
+    typedef std::set<WorldObject*> InRangeObjSet;
+    typedef std::set<Unit*> InRangeUnitSet;
+
+    // These two change definition based on performance desired, keep names as vague as possible
+    typedef std::vector<WoWGuid> InRangeArray;
+    // These two change definition based on performance desired, keep names as vague as possible
+    typedef Loki::AssocVector<WoWGuid, WorldObject*> InRangeHashMap;
 
 public:
     WorldObject(WoWGuid guid, uint32 fieldCount = OBJECT_END);
@@ -316,6 +323,7 @@ public:
     bool IsActivated() { return (m_inactiveFlags & OBJECT_INACTIVE_FLAG_INACTIVE) == 0; }
     bool hasInactiveFlag(uint16 flag) { return m_inactiveFlags & flag; }
 
+    virtual float getViewDistanceMod() { return 1.f; }
     virtual uint32 getEventID() { return 0; }
     virtual uint32 getConditionID() { return 0; }
 
@@ -427,13 +435,14 @@ public:
     }
 
     // In-range object management
-    RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeObjects.find(pObj->GetGUID()) != m_inRangeObjects.end(); }
+    RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeSet.find(pObj->GetGUID()) != m_inRangeSet.end(); }
     RONIN_INLINE void AddInRangeObject(WorldObject* obj)
     {
         if( obj == NULL || !needStoreInRangeObject(obj->GetTypeId()))
             return;
 
         m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));
+        m_inRangeSet.insert(obj->GetGUID());
         OnAddInRangeObject(obj);
     }
 
@@ -441,6 +450,7 @@ public:
     {
         ASSERT(obj);
         OnRemoveInRangeObject(obj);
+        m_inRangeSet.erase(obj->GetGUID());
         m_inRangeObjects.erase(obj->GetGUID());
         return true;
     }
@@ -449,7 +459,7 @@ public:
     {
         if(m_objGuid == guid)
             return this;
-        InRangeMap::iterator itr;
+        InRangeHashMap::iterator itr;
         if((itr = m_inRangeObjects.find(guid)) != m_inRangeObjects.end())
             return itr->second;
         return NULL;
@@ -501,7 +511,7 @@ public:
 
     RONIN_INLINE virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
-        InRangeSet::iterator itr;
+        InRangeArray::iterator itr;
         WoWGuid guid = pObj->GetGUID();
         if((pObj->IsGameObject() || pObj->IsDynamicObj()) && ((itr = std::find(m_inRangeGameObjects.begin(), m_inRangeGameObjects.end(), guid)) != m_inRangeGameObjects.end()))
             m_inRangeGameObjects.erase(itr);
@@ -522,6 +532,7 @@ public:
 
     RONIN_INLINE virtual void ClearInRangeObjects()
     {
+        m_inRangeSet.clear();
         m_inRangeObjects.clear();
         m_inRangeGameObjects.clear();
         m_inRangePlayers.clear();
@@ -533,17 +544,21 @@ public:
     RONIN_INLINE size_t GetInRangePlayerCount() { return m_inRangePlayers.size(); }
     RONIN_INLINE size_t GetInRangeGameObjectCount() { return m_inRangeGameObjects.size(); }
 
-    RONIN_INLINE InRangeSet::iterator GetInRangeUnitSetBegin() { return m_inRangeUnits.begin(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangeUnitSetEnd() { return m_inRangeUnits.end(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangePlayerSetBegin() { return m_inRangePlayers.begin(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangePlayerSetEnd() { return m_inRangePlayers.end(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangeGameObjectSetBegin() { return m_inRangeGameObjects.begin(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangeGameObjectSetEnd() { return m_inRangeGameObjects.end(); }
+    RONIN_INLINE InRangeArray::iterator GetInRangeUnitSetBegin() { return m_inRangeUnits.begin(); }
+    RONIN_INLINE InRangeArray::iterator GetInRangeUnitSetEnd() { return m_inRangeUnits.end(); }
+    RONIN_INLINE InRangeArray::iterator GetInRangePlayerSetBegin() { return m_inRangePlayers.begin(); }
+    RONIN_INLINE InRangeArray::iterator GetInRangePlayerSetEnd() { return m_inRangePlayers.end(); }
+    RONIN_INLINE InRangeArray::iterator GetInRangeGameObjectSetBegin() { return m_inRangeGameObjects.begin(); }
+    RONIN_INLINE InRangeArray::iterator GetInRangeGameObjectSetEnd() { return m_inRangeGameObjects.end(); }
 
-    RONIN_INLINE InRangeMap const* GetInRangeMap() { return &m_inRangeObjects; }
-    RONIN_INLINE InRangeMap::iterator GetInRangeMapBegin() { return m_inRangeObjects.begin(); }
-    RONIN_INLINE InRangeMap::iterator GetInRangeMapEnd() { return m_inRangeObjects.end(); }
-    RONIN_INLINE InRangeMap::iterator FindInRangeSet(WorldObject * obj) { ASSERT(obj); return m_inRangeObjects.find(obj->GetGUID()); }
+    RONIN_INLINE InRangeSet const* GetInRangeSet() { return &m_inRangeSet; }
+    RONIN_INLINE InRangeSet::iterator GetInRangeSetBegin() { return m_inRangeSet.begin(); }
+    RONIN_INLINE InRangeSet::iterator GetInRangeSetEnd() { return m_inRangeSet.end(); }
+
+    RONIN_INLINE InRangeHashMap const* GetInRangeMap() { return &m_inRangeObjects; }
+    RONIN_INLINE InRangeHashMap::iterator GetInRangeMapBegin() { return m_inRangeObjects.begin(); }
+    RONIN_INLINE InRangeHashMap::iterator GetInRangeMapEnd() { return m_inRangeObjects.end(); }
+    RONIN_INLINE InRangeHashMap::iterator FindInRangeMap(WorldObject * obj) { ASSERT(obj); return m_inRangeObjects.find(obj->GetGUID()); }
 
     void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false,float maxRange=-1.f);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
@@ -572,10 +587,6 @@ public:
     void PlaySoundToPlayer( Player* plr, uint32 sound_entry );
     void PlaySoundToSet(uint32 sound_entry);
     void EventSpellHit(Spell* pSpell);
-
-    bool IsObjectBlocked(WorldObject *pObj);
-    bool AreaCanInteract(WorldObject *pObj);
-    bool PhasedCanInteract(WorldObject* pObj);
 
     // Area flags
     bool HasAreaFlag(uint8 areaFlag) { return (m_areaFlags & areaFlag); };
@@ -617,8 +628,9 @@ protected:
     LocationVector m_position, m_spawnLocation, m_lastMapUpdatePosition;
 
     //! Set of Objects in range.
-    InRangeMap m_inRangeObjects;
-    InRangeSet m_inRangeUnits, m_inRangePlayers, m_inRangeGameObjects;
+    InRangeSet m_inRangeSet;
+    InRangeHashMap m_inRangeObjects;
+    InRangeArray m_inRangeUnits, m_inRangePlayers, m_inRangeGameObjects;
 
 public:
     bool IsInLineOfSight(WorldObject* pObj);

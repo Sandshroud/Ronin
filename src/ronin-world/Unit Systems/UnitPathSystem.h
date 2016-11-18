@@ -14,7 +14,6 @@ struct MovementPoint
     uint32 timeStamp;
 };
 
-
 class UnitPathSystem
 {
 public: // Class defines
@@ -50,7 +49,7 @@ private:
 
     uint32 m_pathCounter, m_pathStartTime, m_pathLength;
 
-    float _srcX, _srcY, _srcZ;
+    MovementPoint srcPoint;
     float _destX, _destY, _destZ, _destO;
 
     std::deque<MovementPoint*> m_movementPoints;

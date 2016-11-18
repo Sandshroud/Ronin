@@ -32,6 +32,7 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_lootMethod = -1;
 
     m_aggroRangeMod = 0.f;
+
     m_creaturePool = 0xFF;
     m_skinned = false; // 0x02
     b_has_shield = false; // 0x04
@@ -44,6 +45,7 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_pickPocketed = false; // 0x200
     haslinkupevent = false; // 0x400
     has_waypoint_text = has_combat_text = false; // 0x800  // 0x1000
+    m_zoneVisibleSpawn = false;
 
     //m_script = NULL;
 }
@@ -157,6 +159,13 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
         EventUpdateCombat(msTime, uiDiff);
 }
 
+void Creature::RemoveFromWorld()
+{
+    if(m_mapInstance && m_zoneId && m_zoneVisibleSpawn)
+        m_mapInstance->RemoveZoneVisibleSpawn(m_zoneId, this);
+    Unit::RemoveFromWorld();
+}
+
 void Creature::UpdateFieldValues()
 {
     if(m_modQueuedModUpdates.find(100) != m_modQueuedModUpdates.end())
@@ -186,7 +195,7 @@ float Creature::GetAggroRange()
     // detect range auras
     baseAggro += m_aggroRangeMod;
     // Modifying based on rank
-    baseAggro += _creatureData->rank*1.25f;
+    baseAggro += ((float)_creatureData->rank)*1.25f;
     // Add half model size after modifiers
     baseAggro += GetModelHalfSize();
     return baseAggro;
@@ -195,7 +204,7 @@ float Creature::GetAggroRange()
 void Creature::OnAddInRangeObject(WorldObject *pObj)
 {
     if(pObj->IsUnit() && sFactionSystem.isHostile(this, pObj))
-        m_inRangeHostiles.push_back(pObj->GetGUID());
+        m_inRangeHostiles.insert(castPtr<Unit>(pObj));
     Unit::OnAddInRangeObject(pObj);
 }
 
@@ -207,9 +216,8 @@ void Creature::OnRemoveInRangeObject(WorldObject *pObj)
     Unit::OnRemoveInRangeObject(pObj);
     if(pObj->IsUnit())
     {
-        WorldObject::InRangeSet::iterator itr;
-        if((itr = std::find(m_inRangeHostiles.begin(), m_inRangeHostiles.end(), pObj->GetGUID())) != m_inRangeHostiles.end())
-            m_inRangeHostiles.erase(itr);
+        WorldObject::InRangeArray::iterator itr;
+        m_inRangeHostiles.erase(castPtr<Unit>(pObj));
     }
 }
 
@@ -223,13 +231,12 @@ void Creature::UpdateInRangeObject(WorldObject *pObj)
     if(!pObj->IsUnit())
         return;
 
-    WorldObject::InRangeSet::iterator itr;
+    Unit *uObj = castPtr<Unit>(pObj);
     bool isHostile = sFactionSystem.isHostile(this, pObj);
-    if((itr = std::find(m_inRangeHostiles.begin(), m_inRangeHostiles.end(), pObj->GetGUID())) != m_inRangeHostiles.end())
-    {
-        if(!isHostile) m_inRangeHostiles.erase(itr);
-    } else if(isHostile)
-        m_inRangeHostiles.push_back(pObj->GetGUID());
+    if(isHostile == false)
+        m_inRangeHostiles.erase(uObj);
+    else if(m_inRangeHostiles.find(uObj) == m_inRangeHostiles.end())
+        m_inRangeHostiles.insert(uObj);
 }
 
 void Creature::ClearInRangeObjects()
@@ -629,6 +636,7 @@ bool Creature::CanTrainPlayer(Player *plr)
 
 void Creature::UpdateAreaInfo(MapInstance *instance)
 {
+    uint32 lastZone = m_zoneId;
     Unit::UpdateAreaInfo(instance);
 
     // Team based area code
@@ -638,6 +646,14 @@ void Creature::UpdateAreaInfo(MapInstance *instance)
         uint8 areaFlags = GetAreaFlags();
         if(areaFlags & OBJECT_AREA_FLAG_INSANCTUARY)
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+    }
+
+    if(m_zoneVisibleSpawn)
+    {
+        if(lastZone)
+            instance->RemoveZoneVisibleSpawn(lastZone, this);
+        if(m_zoneId)
+            instance->AddZoneVisibleSpawn(m_zoneId, this);
     }
 }
 
@@ -920,8 +936,13 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     uint8 race = RACE_HUMAN;
     if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
+    {
         if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
             race = extraInfo->Race;
+
+        if(displayEntry->sizeClass >= 4)
+            m_zoneVisibleSpawn = true;
+    }
 
     SetByte(UNIT_FIELD_BYTES_0, 0, race);
     SetByte(UNIT_FIELD_BYTES_0, 1, _creatureData->Class);

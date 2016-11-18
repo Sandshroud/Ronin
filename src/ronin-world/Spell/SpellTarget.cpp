@@ -218,7 +218,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
         AddTarget(i, TargetType, m_caster);
 
     WorldObject *wObj = NULL;
-    for(WorldObject::InRangeMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -242,7 +242,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
     AddTarget(i, TargetType, p);
 
     float range = radius*radius;
-    WorldObject::InRangeSet::iterator itr;
+    WorldObject::InRangeArray::iterator itr;
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
         Player *target = u->GetInRangeObject<Player>(*itr);
@@ -269,7 +269,7 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
     AddTarget(i, TargetType, p);
 
     float range = radius*radius;
-    WorldObject::InRangeSet::iterator itr;
+    WorldObject::InRangeArray::iterator itr;
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
         Player *target = u->GetInRangeObject<Player>(*itr);
@@ -330,7 +330,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     if(jumps <= 1 || m_effectTargetMaps[i].size() == 0) //1 because we've added the first target, 0 size if spell is resisted
         return;
 
-    WorldObject::InRangeSet::iterator itr;
+    WorldObject::InRangeArray::iterator itr;
     for(itr = firstTarget->GetInRangeUnitSetBegin(); itr != firstTarget->GetInRangeUnitSetEnd(); itr++)
     {
         Unit *target = m_caster->GetInRangeObject<Unit>(*itr);
@@ -363,7 +363,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
 
 void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    WorldObject::InRangeSet::iterator itr;
+    WorldObject::InRangeArray::iterator itr;
     for(itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
     {
         Unit *target = m_caster->GetInRangeObject<Unit>(*itr);
@@ -385,7 +385,7 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
 
 void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    for(WorldObject::InRangeSet::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
         if(GameObject* go = m_caster->GetInRangeObject<GameObject>(*itr))
         {

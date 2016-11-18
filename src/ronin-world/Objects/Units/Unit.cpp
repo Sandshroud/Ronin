@@ -2726,7 +2726,7 @@ void Unit::RemoveFromWorld()
 {
     SummonExpireAll(false);
 
-    for(WorldObject::InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+    for(WorldObject::InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -2776,11 +2776,11 @@ void Unit::UpdateVisibility()
     uint32 count;
     ByteBuffer buffer(2500);
     bool can_see, is_visible;
-    WorldObject::InRangeWorldObjSet::iterator itr, it3;
+    WorldObject::InRangeObjSet::iterator itr, it3;
     if( GetTypeId() == TYPEID_PLAYER )
     {
         Player *plr = castPtr<Player>(this), *pl = NULL;
-        for( WorldObject::InRangeMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); ++itr)
+        for( WorldObject::InRangeHashMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); ++itr)
         {
             if(WorldObject *pObj = itr->second)
             {
@@ -2824,7 +2824,7 @@ void Unit::UpdateVisibility()
     }
     else            // For units we can save a lot of work
     {
-        for(WorldObject::InRangeSet::iterator it2 = GetInRangeUnitSetBegin(); it2 != GetInRangeUnitSetEnd(); it2++)
+        for(WorldObject::InRangeArray::iterator it2 = GetInRangeUnitSetBegin(); it2 != GetInRangeUnitSetEnd(); it2++)
         {
             if(Player *plr = GetInRangeObject<Player>(*it2))
             {

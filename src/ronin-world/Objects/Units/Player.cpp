@@ -366,8 +366,7 @@ void Player::EventExploration()
     if(m_position.x >= _maxX || m_position.x <= _minX || m_position.y >= _maxY || m_position.y <= _minY)
         return;
 
-    m_oldZone = m_zoneId;
-    m_oldArea = m_areaId;
+    uint32 oldZone = m_zoneId, oldArea = m_areaId;
     UpdateAreaInfo();
 
     bool restmap = false;
@@ -378,12 +377,14 @@ void Player::EventExploration()
     if(m_zoneId == 0xFFFF)
     {
         // Clear our worldstates when we have no data.
-        if(m_oldZone != 0xFFFF)
-            GetMapInstance()->GetStateManager().ClearWorldStates(this);
+        if(oldZone == 0xFFFF)
+            return;
+
+        GetMapInstance()->GetStateManager().ClearWorldStates(this);
         // This must be called every update, to keep data fresh.
         EventDBCChatUpdate();
     }
-    else if( m_oldZone != m_zoneId )
+    else if( oldZone != m_zoneId )
     {
         sWeatherMgr.SendWeather(this);
 
@@ -391,12 +392,13 @@ void Player::EventExploration()
 
         m_playerInfo->lastZone = m_zoneId;
 
-        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, m_oldZone );
+        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, oldZone );
 
         EventDBCChatUpdate();
 
         GetMapInstance()->GetStateManager().SendWorldStates(this);
-    }
+    } else if(m_areaId == oldArea)
+        return;
 
     if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
     {
@@ -443,7 +445,7 @@ void Player::EventExploration()
             DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
     }
 
-    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, m_oldArea );
+    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, oldArea );
 
     // bur: we dont want to explore new areas when on taxi
     if(!GetTaxiState() && !GetTransportGuid() && m_session)
@@ -4163,7 +4165,7 @@ void Player::Reset_ToLevel1()
 void Player::UpdateNearbyGameObjects()
 {
     ByteBuffer buff(500);
-    for(WorldObject::InRangeSet::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
+    for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
     {
         if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
         {
@@ -4178,7 +4180,7 @@ void Player::UpdateNearbyGameObjects()
 
 void Player::UpdateNearbyQuestGivers()
 {
-    for(WorldObject::InRangeSet::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
+    for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
     {
         if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
         {
@@ -4195,7 +4197,7 @@ void Player::UpdateNearbyQuestGivers()
         }
     }
 
-    for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr )
+    for(WorldObject::InRangeArray::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr )
     {
         if(Creature *cObj = GetInRangeObject<Creature>(*itr))
         {

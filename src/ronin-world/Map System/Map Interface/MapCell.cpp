@@ -183,6 +183,41 @@ MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector
     return NULL;
 }
 
+void MapCell::FillObjectSets(std::set<WorldObject*> &set, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess)
+{
+    Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
+    // Check active conditions and map conditions to see what we have here
+    for(std::vector<uint32>::iterator itr = conditionAccess.begin(); itr != conditionAccess.end(); itr++)
+    {
+        if((iter = m_conditionStorage.find(*itr)) == m_conditionStorage.end() || iter->second->isEmpty())
+            continue;
+        for(MapCell::CellObjectSet::iterator itr2 = iter->second->GetObjectSet()->begin(); itr2 != iter->second->GetObjectSet()->end(); itr2++)
+            set.insert(*itr2);
+    }
+
+    // Check active events or event access to see what we have here
+    for(std::vector<uint32>::iterator itr = eventAccess.begin(); itr != eventAccess.end(); itr++)
+    {
+        if((iter = m_eventStorage.find(*itr)) == m_eventStorage.end() || iter->second->isEmpty())
+            continue;
+        for(MapCell::CellObjectSet::iterator itr2 = iter->second->GetObjectSet()->begin(); itr2 != iter->second->GetObjectSet()->end(); itr2++)
+            set.insert(*itr2);
+    }
+
+    // We're parsing based on bits directly, not on masked 32bit values, if we're capped return false here
+    for(Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter = m_phaseStorage.begin(); iter != m_phaseStorage.end(); iter++)
+    {
+        if((phaseMask & (((uint32)1) << iter->first)) == 0 || iter->second->isEmpty())
+            continue;
+        for(MapCell::CellObjectSet::iterator itr = iter->second->GetObjectSet()->begin(); itr != iter->second->GetObjectSet()->end(); itr++)
+            set.insert(*itr);
+    }
+
+    // Check anything leftover in all other subphases
+    for(MapCell::CellObjectSet::iterator itr = m_objectSet.begin(); itr != m_objectSet.end(); itr++)
+        set.insert(*itr);
+}
+
 void MapCell::SetActivity(bool state)
 {
     uint32 x = _x/8, y = _y/8;

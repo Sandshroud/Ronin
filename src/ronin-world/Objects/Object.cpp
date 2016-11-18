@@ -739,7 +739,7 @@ void WorldObject::Deactivate(uint32 reactivationTime)
     else m_objDeactivationTimer = 0;
 
     DestroyForInrange(IsGameObject());
-    for(InRangeMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); itr++)
+    for(InRangeHashMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); itr++)
         itr->second->RemoveInRangeObject(this);
     ClearInRangeObjects();
 }
@@ -811,9 +811,6 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
     {
         m_lastMapUpdatePosition = m_position;
         m_mapInstance->ObjectLocationChange(this);
-
-        if( IsPlayer() && castPtr<Player>(this)->GetGroup() && castPtr<Player>(this)->m_last_group_position.Distance2DSq(m_position) > 25.0f ) // distance of 5.0
-            castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, castPtr<Player>(this) );
     }
 }
 
@@ -833,7 +830,7 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+    for(InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -857,7 +854,7 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     }
 
     float range = maxRange*maxRange;
-    for(InRangeSet::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
+    for(InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
@@ -1772,62 +1769,6 @@ bool WorldObject::IsInLineOfSight(float x, float y, float z)
     if(!IsInWorld() || !GetMapInstance()->CanUseCollision(this))
         return true;
     return (sVMapInterface.CheckLOS( GetMapId(), GetInstanceID(), GetPhaseMask(), GetPositionX(), GetPositionY(), GetPositionZ() + (IsPlayer() ? Player::NoseHeight(castPtr<Player>(this)->getRace(), castPtr<Player>(this)->getGender()) : 2.f), x, y, z) );
-}
-
-bool WorldObject::IsObjectBlocked(WorldObject *pObj)
-{
-    Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->hasGMTag()) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->hasGMTag()) ? castPtr<Player>(pObj) : NULL);
-    WorldObject *wObj = gmPlr == NULL ? NULL : (gmPlr == this ? pObj : this);
-
-    if(gmPlr && wObj && !wObj->IsActivated())
-    {
-        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_EVENTS))
-        {
-            if(gmPlr->getGMSight() != 1)
-                return true;
-            else if(wObj->getEventID() != gmPlr->getGMEventSight())
-                return true;
-        }
-
-        if(wObj->hasInactiveFlag(OBJECT_INACTIVE_FLAG_DESPAWNED))
-        {
-            if(gmPlr->getGMSight() != 3)
-                return true;
-        }
-
-    } else if(!IsActivated() || !pObj->IsActivated())
-        return true;
-
-    // Objects in different phases shouldn't be inrange either
-    if(!PhasedCanInteract(pObj))
-        return true;
-    // Some random code, need to figure it out
-    if(!AreaCanInteract(pObj))
-        return true;
-    // Object is not blocked, we can interact
-    return false;
-}
-
-bool WorldObject::AreaCanInteract(WorldObject *pObj)
-{
-    // ???
-    return true;
-}
-
-bool WorldObject::PhasedCanInteract(WorldObject* pObj)
-{
-    if(GetPhaseMask() == 0xFFFF || pObj->GetPhaseMask() == 0xFFFF)
-        return true;
-    if(GetPhaseMask() & pObj->GetPhaseMask())
-        return true;
-    if(Player *gmPlr = (IsPlayer() && castPtr<Player>(this)->getGMSight() == 2) ? castPtr<Player>(this) : ((pObj->IsPlayer() && castPtr<Player>(pObj)->getGMSight() == 2) ? castPtr<Player>(pObj) : NULL))
-    {
-        if(this == gmPlr && gmPlr->getGMPhaseSight() & pObj->GetPhaseMask())
-            return true;
-        else if(pObj == gmPlr && gmPlr->getGMPhaseSight() & GetPhaseMask())
-            return true;
-    }
-    return false;
 }
 
 // Returns the base cost of a spell

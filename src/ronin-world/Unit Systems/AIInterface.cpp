@@ -135,28 +135,26 @@ bool AIInterface::FindTarget()
     float baseAggro = m_Creature->GetAggroRange(), targetDist = 0.f;
 
     // Begin iterating through our inrange units
-    for(WorldObject::InRangeSet::iterator itr = m_Creature->GetInRangeHostileSetBegin(); itr != m_Creature->GetInRangeHostileSetEnd(); itr++)
+    for(WorldObject::InRangeUnitSet::iterator itr = m_Creature->GetInRangeHostileSetBegin(); itr != m_Creature->GetInRangeHostileSetEnd(); itr++)
     {
-        if(Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(*itr))
-        {   // Cut down on checks by skipping dead creatures
-            if(unitTarget->isDead())
-                continue;
-            float dist = m_Creature->GetDistanceSq(unitTarget);
-            float aggroRange = unitTarget->ModDetectedRange(m_Creature, baseAggro);
-            aggroRange *= aggroRange; // Distance is squared so square our range
-            if(dist >= MAX_COMBAT_MOVEMENT_DIST || dist >= aggroRange)
-                continue;
-            if(target && targetDist <= dist)
-                continue;
-            if(!sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
-                continue;
-            // LOS is a big system hit so do it last
-            if(!m_Creature->IsInLineOfSight(unitTarget))
-                continue;
+        Unit *unitTarget = (*itr);
+        if(unitTarget->isDead()) // Cut down on checks by skipping dead creatures
+            continue;
+        float dist = m_Creature->GetDistanceSq(unitTarget);
+        float aggroRange = unitTarget->ModDetectedRange(m_Creature, baseAggro);
+        aggroRange *= aggroRange; // Distance is squared so square our range
+        if(dist >= MAX_COMBAT_MOVEMENT_DIST || dist >= aggroRange)
+            continue;
+        if(target && targetDist <= dist)
+            continue;
+        if(!sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
+            continue;
+        // LOS is a big system hit so do it last
+        if(!m_Creature->IsInLineOfSight(unitTarget))
+            continue;
 
-            target = unitTarget;
-            targetDist = dist;
-        }
+        target = unitTarget;
+        targetDist = dist;
     }
 
     if(target)

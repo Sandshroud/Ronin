@@ -16,6 +16,9 @@ public:
     ~DynamicObject( );
     virtual void Init();
     virtual void Destruct();
+
+    virtual bool IsDynamicObj() { return true; }
+
     // Don't think we need reactivate for world objects either
     virtual void Reactivate() {}
 

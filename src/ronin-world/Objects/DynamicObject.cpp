@@ -111,7 +111,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
         radius *= radius;
 
         // Looking for targets in the WorldObject set
-        for(WorldObject::InRangeSet::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr)
+        for(WorldObject::InRangeArray::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr)
         {
             target = GetInRangeObject<Unit>(*itr);
             if(!target->isAlive())
