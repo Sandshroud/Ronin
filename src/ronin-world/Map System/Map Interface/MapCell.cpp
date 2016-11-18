@@ -183,8 +183,22 @@ MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector
     return NULL;
 }
 
-void MapCell::FillObjectSets(std::set<WorldObject*> &set, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess)
+void MapCell::FillObjectSets(std::set<WorldObject*> &set, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess, bool playersOnly)
 {
+    if(playersOnly)
+    {
+        // Player only means check our players against our phase mask to see if we can interact
+        for(auto itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
+        {
+            uint16 plrPhaseMask = (*itr)->GetPhaseMask();
+            if(plrPhaseMask & 0x8000 || plrPhaseMask & phaseMask)
+                set.insert((*itr));
+        }
+
+        // No need to do anything else
+        return;
+    }
+
     Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
     // Check active conditions and map conditions to see what we have here
     for(std::vector<uint32>::iterator itr = conditionAccess.begin(); itr != conditionAccess.end(); itr++)

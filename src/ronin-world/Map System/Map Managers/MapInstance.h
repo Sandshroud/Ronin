@@ -387,13 +387,13 @@ protected:
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_zoneRangelessObjects;
 
     bool _CellActive(uint32 x, uint32 y);
-    void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
+    void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell, bool playerOnly);
 
     bool ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
 public:
-    void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
+    void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY, uint32 minX, uint32 maxX, uint32 minY, uint32 maxY);
 
     bool IsPreloading() { return m_mapPreloading; }
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }

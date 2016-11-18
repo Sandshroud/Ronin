@@ -215,7 +215,7 @@ void MapInstance::PushObject(WorldObject* obj)
         objCell->Init(cx, cy, _mapId, this);
     ASSERT(objCell);
 
-    uint32 count = 0, newCell = 0, startX = cx, startY = cy, endX = startX, endY = startY;
+    uint32 count = 0, newCell = 0, startX = cx, startY = cy, endX = startX, endY = startY, minX = cx ? cx-1 : 0, maxX = (cx < _sizeY-1 ? cx+1 : _sizeY-1), minY = cy ? cy-1 : 0, maxY = (cy < _sizeY-1 ? cy+1 : _sizeY-1);
     static float quartCell = _cellSize/4.f;
     if((newCell = GetPosX(mx + quartCell)) != startX)
         startX = newCell;
@@ -338,7 +338,7 @@ void MapInstance::PushObject(WorldObject* obj)
     if(m_mapPreloading)
         return;
 
-    UpdateInrangeSetOnCells(obj, startX, endX, startY, endY);
+    UpdateInrangeSetOnCells(obj, startX, endX, startY, endY, minX, maxX, minY, maxY);
 }
 
 void MapInstance::RemoveObject(WorldObject* obj)
@@ -579,18 +579,18 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             // Update in-range set for new objects
             //////////////////////////////////////
             bool fullCellProcessing = false;
-            int32 startX = cellX, startY = cellY, endX = cellX, endY = cellY;
+            int32 startX = cellX, startY = cellY, endX = cellX, endY = cellY, minX = cellX ? cellX-1 : 0, maxX = (cellX < _sizeY-1 ? cellX+1 : _sizeY-1), minY = cellY ? cellY-1 : 0, maxY = (cellY < _sizeY-1 ? cellY+1 : _sizeY-1);
             ObjectMovingCells(obj, pOldCell, objCell);
 
             if(plObj)
-            {
-                startX = cellX ? cellX - 1 : 0;
-                startY = cellY ? cellY - 1 : 0;
-                endX = std::min<int32>(_sizeX-1, cellX+1);
-                endY = std::min<int32>(_sizeY-1, cellY+1);
+            {   // Players can see all 9 cells they are a part of
+                startX = minX;
+                startY = minY;
+                endX = maxX;
+                endY = maxY;
             }
             else
-            {
+            {   // Cut down on actual creature range by limiting to a 1.25 cell range
                 uint32 newCell;
                 static float halfCell = _cellSize/2.f, quartCell = _cellSize/4.f;
                 float cellModifier = (plObj ? halfCell : quartCell);
@@ -608,7 +608,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             // Update in-range data for old objects
             ///////////////////////////////////////
             if(!obj->HasInRangeObjects())
-                UpdateInrangeSetOnCells(obj, startX, endX, startY, endY);
+                UpdateInrangeSetOnCells(obj, startX, endX, startY, endY, minX, maxX, minY, maxY);
             else if(m_rangelessObjects.find(obj) == m_rangelessObjects.end())
             {
                 Player* plObj2;
@@ -629,7 +629,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                     for (posY = startY; posY <= endY; posY++ )
                     {
                         if (objCell = GetCell(posX, posY))
-                            objCell->FillObjectSets(m_inRangeStorage, phaseMask, conditionAccess, eventAccess);
+                            objCell->FillObjectSets(m_inRangeStorage, phaseMask, conditionAccess, eventAccess, (posX < startX || posX > endX || posY < startY || posY > endY));
                     }
                 }
 
@@ -734,13 +734,13 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     }
 }
 
-void MapInstance::UpdateInrangeSetOnCells(WorldObject *obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY)
+void MapInstance::UpdateInrangeSetOnCells(WorldObject *obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY, uint32 minX, uint32 maxX, uint32 minY, uint32 maxY)
 {
     Player *pl = obj->IsPlayer() ? castPtr<Player>(obj) : NULL;
-    for (uint32 posX = startX; posX <= endX; posX++ )
-        for (uint32 posY = startY; posY <= endY; posY++ )
+    for (uint32 posX = minX; posX <= maxX; posX++ )
+        for (uint32 posY = minY; posY <= maxY; posY++ )
             if (MapCell *cell = GetCell(posX, posY))
-                UpdateInRangeSet(obj, pl, cell);
+                UpdateInRangeSet(obj, pl, cell, (posX < startX || posX > endX || posY < startY || posY > endY));
 
 }
 
@@ -793,9 +793,9 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
     }
 }
 
-void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell )
+void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell, bool playerOnly )
 {
-    if( cell == NULL )
+    if( cell == NULL || playerOnly )
         return;
 
     std::vector<uint32> conditionAccess, eventAccess;
@@ -953,7 +953,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
         ++itr;
 
         float fposX = ptr->GetPositionX(), fposY = ptr->GetPositionY();
-        uint32 newCell = 0, startX = GetPosX(fposX), startY = GetPosY(fposY), endX = startX, endY = startY;
+        uint32 newCell = 0, startX = GetPosX(fposX), startY = GetPosY(fposY), endX = startX, endY = startY, minX = startX ? startX-1 : 0, maxX = (startX < _sizeY-1 ? startX+1 : _sizeY-1), minY = startY ? startY-1 : 0, maxY = (startY < _sizeY-1 ? startY+1 : _sizeY-1);
 
         static float quartCell = _cellSize/4.f;
         if((newCell = GetPosX(fposX + quartCell)) != startX)
@@ -964,7 +964,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
             startY = newCell;
         else if((newCell = GetPosY(fposY - quartCell)) != endY)
             endY = newCell;
-        UpdateInrangeSetOnCells(ptr, startX, endX, startY, endY);
+        UpdateInrangeSetOnCells(ptr, startX, endX, startY, endY, minX, maxX, minY, maxY);
     }
 
     for(StoragePool<GameObject>::PoolSet::iterator itr = mGameObjectPool.begin(); itr != mGameObjectPool.end();)
@@ -973,7 +973,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
         ++itr;
 
         float fposX = ptr->GetPositionX(), fposY = ptr->GetPositionY();
-        uint32 newCell = 0, startX = GetPosX(fposX), startY = GetPosY(fposY), endX = startX, endY = startY;
+        uint32 newCell = 0, startX = GetPosX(fposX), startY = GetPosY(fposY), endX = startX, endY = startY, minX = startX ? startX-1 : 0, maxX = (startX < _sizeY-1 ? startX+1 : _sizeY-1), minY = startY ? startY-1 : 0, maxY = (startY < _sizeY-1 ? startY+1 : _sizeY-1);
 
         static float quartCell = _cellSize/4.f;
         if((newCell = GetPosX(fposX + quartCell)) != startX)
@@ -984,7 +984,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
             startY = newCell;
         else if((newCell = GetPosY(fposY - quartCell)) != endY)
             endY = newCell;
-        UpdateInrangeSetOnCells(ptr, startX, endX, startY, endY);
+        UpdateInrangeSetOnCells(ptr, startX, endX, startY, endY, minX, maxX, minY, maxY);
     }
     m_poolLock.Release();
 
