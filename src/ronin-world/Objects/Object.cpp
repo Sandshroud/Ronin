@@ -1621,13 +1621,6 @@ void WorldObject::EventSpellHit(Spell* pSpell)
     else pSpell->Destruct();
 }
 
-void WorldObject::SetZoneId(uint32 newZone)
-{
-    m_zoneId = newZone;
-    if( GetTypeId() == TYPEID_PLAYER && castPtr<Player>(this)->GetGroup() )
-        castPtr<Player>(this)->GetGroup()->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, castPtr<Player>(this) );
-}
-
 // These are our hardcoded values
 uint32 GetZoneForMap(uint32 mapid, uint32 areaId)
 {
@@ -1663,7 +1656,7 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
         m_zoneId = m_areaId = forcedZone;
     AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId);
     if(at != NULL && at->ZoneId) // Set our Zone on add to world!
-        SetZoneId(at->ZoneId);
+        m_zoneId = at->ZoneId;
 
     if(sVMapInterface.IsIndoor(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
         m_areaFlags |= OBJECT_AREA_FLAG_INDOORS;
@@ -1674,8 +1667,8 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
         if(sWorld.CheckSanctuary(GetMapId(), m_zoneId, m_areaId))
             m_areaFlags |= OBJECT_AREA_FLAG_INSANCTUARY;
 
-        AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId);
-        if(at != NULL || (at = dbcAreaTable.LookupEntry(m_zoneId)) != NULL)
+        AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId), *zoneAt = dbcAreaTable.LookupEntry(m_zoneId);
+        if(at != NULL || (at = zoneAt) != NULL)
         {
             if(at->category == AREAC_CONTESTED)
                 m_areaFlags |= OBJECT_AREA_FLAG_CONTESTED;
@@ -1685,6 +1678,8 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
                 m_areaFlags |= OBJECT_AREA_FLAG_HORDE_ZONE;
             if(at->AreaFlags & AREA_PVP_ARENA)
                 m_areaFlags |= OBJECT_AREA_FLAG_ARENA_ZONE;
+            if(zoneAt && zoneAt->AreaId == 5145) // Vash'jir
+                m_areaFlags |= OBJECT_AREA_FLAG_UNDERWATER_ZONE;
         }
     }
 }

@@ -539,21 +539,20 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         if(obj->GetPositionX() >= _maxX || obj->GetPositionX() <= _minX ||
             obj->GetPositionY() >= _maxY || obj->GetPositionY() <= _minY)
         {
-            if(obj->IsPlayer())
+            if(plObj)
             {
-                Player* plr = castPtr<Player>( obj );
-                if(plr->GetBindMapId() != GetMapId())
+                if(plObj->GetBindMapId() != GetMapId())
                 {
-                    plr->SafeTeleport(plr->GetBindMapId(),0,plr->GetBindPositionX(),plr->GetBindPositionY(),plr->GetBindPositionZ(),0);
-                    plr->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
+                    plObj->SafeTeleport(plObj->GetBindMapId(),0,plObj->GetBindPositionX(),plObj->GetBindPositionY(),plObj->GetBindPositionZ(),0);
+                    plObj->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
                     return;
                 }
                 else
                 {
-                    obj->GetPositionV()->ChangeCoords(plr->GetBindPositionX(),plr->GetBindPositionY(),plr->GetBindPositionZ(),0);
-                    plr->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
-                    WorldPacket * data = plr->BuildTeleportAckMsg(plr->GetPosition());
-                    plr->GetSession()->SendPacket(data);
+                    obj->GetPositionV()->ChangeCoords(plObj->GetBindPositionX(),plObj->GetBindPositionY(),plObj->GetBindPositionZ(),0);
+                    plObj->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
+                    WorldPacket * data = plObj->BuildTeleportAckMsg(plObj->GetPosition());
+                    plObj->GetSession()->SendPacket(data);
                     delete data;
                 }
             }
@@ -582,25 +581,32 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             int32 startX = cellX, startY = cellY, endX = cellX, endY = cellY, minX = cellX ? cellX-1 : 0, maxX = (cellX < _sizeY-1 ? cellX+1 : _sizeY-1), minY = cellY ? cellY-1 : 0, maxY = (cellY < _sizeY-1 ? cellY+1 : _sizeY-1);
             ObjectMovingCells(obj, pOldCell, objCell);
 
+            // Note that blizzard uses a range check as well as a block check, but we're just using our cell blocks because we want the cycles
             if(plObj)
             {   // Players can see all 9 cells they are a part of
                 startX = minX;
                 startY = minY;
                 endX = maxX;
                 endY = maxY;
+                if(false)//sWorld.EnableHighRangeGameobjectVisibility)
+                {   // Up the visible range of gameobjects to the surrounding 25 cells
+                    minX -= 2;
+                    minY -= 2;
+                    maxX += 2;
+                    maxY += 2;
+                }
             }
             else
             {   // Cut down on actual creature range by limiting to a 1.25 cell range
                 uint32 newCell;
-                static float halfCell = _cellSize/2.f, quartCell = _cellSize/4.f;
-                float cellModifier = (plObj ? halfCell : quartCell);
-                if((newCell = GetPosX(fposX + cellModifier)) != cellX)
+                static float quartCell = _cellSize/4.f;
+                if((newCell = GetPosX(fposX + quartCell)) != cellX)
                     startX = newCell;
-                else if((newCell = GetPosX(fposX - cellModifier)) != cellX)
+                else if((newCell = GetPosX(fposX - quartCell)) != cellX)
                     endX = newCell;
-                if((newCell = GetPosY(fposY + cellModifier)) != cellY)
+                if((newCell = GetPosY(fposY + quartCell)) != cellY)
                     startY = newCell;
-                else if((newCell = GetPosY(fposY - cellModifier)) != cellY)
+                else if((newCell = GetPosY(fposY - quartCell)) != cellY)
                     endY = newCell;
             }
 
@@ -624,12 +630,15 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                     eventAccess.push_back(plObj->getGMEventSight());
 
                 // Process through our cell list
-                for (posX = startX; posX <= endX; posX++ )
+                for (posX = minX; posX <= maxX; posX++ )
                 {
-                    for (posY = startY; posY <= endY; posY++ )
+                    for (posY = minY; posY <= maxY; posY++ )
                     {
-                        if (objCell = GetCell(posX, posY))
-                            objCell->FillObjectSets(m_inRangeStorage, phaseMask, conditionAccess, eventAccess, (posX < startX || posX > endX || posY < startY || posY > endY));
+                        if ((objCell = GetCell(posX, posY)) == NULL)
+                            continue;
+
+                        bool limitedPool = (posX < startX || posX > endX || posY < startY || posY > endY);
+                        objCell->FillObjectSets(obj, m_inRangeStorage, phaseMask, conditionAccess, eventAccess, limitedPool);
                     }
                 }
 

@@ -537,7 +537,7 @@ public:
     virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
     virtual uint32 getConditionID() { return m_spawn ? m_spawn->conditionId : 0; }
 
-    virtual void OnPushToWorld();
+    virtual void OnPrePushToWorld();
     virtual void RemoveFromWorld();
     virtual void OnRemoveInRangeObject(WorldObject* pObj);
     virtual void CheckTriggerRange(Unit *uObj, float distSq);
@@ -668,6 +668,8 @@ protected:
 
     float m_triggerRange;
     SpellEntry* m_triggerSpell;
+
+    bool m_zoneVisibleSpawn;
 
     struct seatData
     {

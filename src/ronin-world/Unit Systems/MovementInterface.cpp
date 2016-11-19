@@ -763,12 +763,13 @@ void MovementInterface::HandleBreathing(uint32 diff)
     uint32 uiDiff = m_breathingUpdateTimer;
     m_breathingUpdateTimer = 0;
 
+    bool underwaterZone = false;
     uint8 old_underwaterState = m_underwaterState;
     if (m_waterHeight == NO_WATER_HEIGHT)
         m_underwaterState &= ~0xFF;
     else
     {
-        float HeightDelta = (m_waterHeight-m_Unit->GetPositionZ())*10;
+        float HeightDelta = (m_waterHeight-m_Unit->GetPositionZ())*10.f;
 
         // All liquids type - check under water position
         if(m_waterType & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
@@ -792,6 +793,8 @@ void MovementInterface::HandleBreathing(uint32 diff)
         if (m_waterType & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
             m_underwaterState |= UNDERWATERSTATE_SLIME;
         else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
+
+        underwaterZone = m_Unit->HasAreaFlag(OBJECT_AREA_FLAG_UNDERWATER_ZONE);
     }
 
     if(!m_Unit->IsPlayer())
@@ -799,7 +802,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
 
     Player *plr = castPtr<Player>(m_Unit);
     // In water
-    if (m_underwaterState & UNDERWATERSTATE_UNDERWATER && m_Unit->isAlive())
+    if (m_underwaterState & UNDERWATERSTATE_UNDERWATER && m_Unit->isAlive() && !m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_WATER_BREATHING))
     {
         // Breath timer not activated - activate it
         if (m_MirrorTimer[BREATH_TIMER] == -1)
@@ -837,43 +840,40 @@ void MovementInterface::HandleBreathing(uint32 diff)
     }
 
     // In dark water
-    if(sWorld.EnableFatigue)
+    if (sWorld.EnableFatigue && (m_underwaterState & UNDERWATERSTATE_FATIGUE) && underwaterZone == false)
     {
-        if (m_underwaterState & UNDERWATERSTATE_FATIGUE)
+        // Fatigue timer not activated - activate it
+        if (m_MirrorTimer[FATIGUE_TIMER] == -1)
         {
-            // Fatigue timer not activated - activate it
-            if (m_MirrorTimer[FATIGUE_TIMER] == -1)
+            m_MirrorTimer[FATIGUE_TIMER] = 60000;
+            plr->SendMirrorTimer(FATIGUE_TIMER, m_MirrorTimer[FATIGUE_TIMER], m_MirrorTimer[FATIGUE_TIMER], -1);
+        }
+        else
+        {
+            m_MirrorTimer[FATIGUE_TIMER] -= uiDiff;
+            // Timer limit - need deal damage or teleport ghost to graveyard
+            if (m_MirrorTimer[FATIGUE_TIMER] < 0)
             {
-                m_MirrorTimer[FATIGUE_TIMER] = 60000;
-                plr->SendMirrorTimer(FATIGUE_TIMER, m_MirrorTimer[FATIGUE_TIMER], m_MirrorTimer[FATIGUE_TIMER], -1);
-            }
-            else
-            {
-                m_MirrorTimer[FATIGUE_TIMER] -= uiDiff;
-                // Timer limit - need deal damage or teleport ghost to graveyard
-                if (m_MirrorTimer[FATIGUE_TIMER] < 0)
+                m_MirrorTimer[FATIGUE_TIMER] += 1000;
+                if (plr->isAlive())                                          // Calculate and deal damage
                 {
-                    m_MirrorTimer[FATIGUE_TIMER] += 1000;
-                    if (plr->isAlive())                                          // Calculate and deal damage
-                    {
-                        uint32 damage = plr->GetMaxHealth() / 5 + RandomUInt(plr->getLevel()-1);
-                        plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_DROWNING, damage );
-                        plr->DealDamage( plr, damage, 0, 0, 0 );
-                    } else if (plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
-                        plr->RepopAtGraveyard(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId());
-                } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
-                    plr->SendMirrorTimer(FATIGUE_TIMER, 60000, m_MirrorTimer[FATIGUE_TIMER], -1);
-            }
+                    uint32 damage = plr->GetMaxHealth() / 5 + RandomUInt(plr->getLevel()-1);
+                    plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_DROWNING, damage );
+                    plr->DealDamage( plr, damage, 0, 0, 0 );
+                } else if (plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
+                    plr->RepopAtGraveyard(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId());
+            } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
+                plr->SendMirrorTimer(FATIGUE_TIMER, 60000, m_MirrorTimer[FATIGUE_TIMER], -1);
         }
-        else if (m_MirrorTimer[FATIGUE_TIMER] != -1)       // Regen timer
-        {
-            int32 DarkWaterTime = 60000;
-            m_MirrorTimer[FATIGUE_TIMER]+=10* uiDiff;
-            if (m_MirrorTimer[FATIGUE_TIMER] >= DarkWaterTime || !plr->isAlive())
-                plr->StopMirrorTimer(FATIGUE_TIMER);
-            else if (m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE)
-                plr->SendMirrorTimer(FATIGUE_TIMER, DarkWaterTime, m_MirrorTimer[FATIGUE_TIMER], 10);
-        }
+    }
+    else if (m_MirrorTimer[FATIGUE_TIMER] != -1)       // Regen timer
+    {
+        int32 DarkWaterTime = 60000;
+        m_MirrorTimer[FATIGUE_TIMER]+=10* uiDiff;
+        if (m_MirrorTimer[FATIGUE_TIMER] >= DarkWaterTime || !plr->isAlive())
+            plr->StopMirrorTimer(FATIGUE_TIMER);
+        else if (m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE)
+            plr->SendMirrorTimer(FATIGUE_TIMER, DarkWaterTime, m_MirrorTimer[FATIGUE_TIMER], 10);
     }
 
     if (m_underwaterState & (UNDERWATERSTATE_LAVA|UNDERWATERSTATE_SLIME))

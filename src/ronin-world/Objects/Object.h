@@ -99,6 +99,7 @@ enum ObjectAreaFlags
     OBJECT_AREA_FLAG_ALLIANCE_ZONE  = 0x10,
     OBJECT_AREA_FLAG_HORDE_ZONE     = 0x20,
     OBJECT_AREA_FLAG_ARENA_ZONE     = 0x40,
+    OBJECT_AREA_FLAG_UNDERWATER_ZONE= 0x80,
 };
 
 enum ObjectInactiveFlags
@@ -379,7 +380,6 @@ public:
     RONIN_INLINE void SetMapId(uint32 newMap) { m_mapId = newMap; }
     RONIN_INLINE const uint32 GetMapId( ) const { return m_mapId; }
 
-    void SetZoneId(uint32 newZone);
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
     RONIN_INLINE const uint32& GetAreaId( ) const { return m_areaId; }
     RONIN_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }

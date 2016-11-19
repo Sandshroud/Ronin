@@ -29,6 +29,7 @@ GameObject::GameObject(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount) : 
     m_spawn = NULL;
     m_deleted = false;
     m_created = false;
+    m_zoneVisibleSpawn = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
 }
@@ -131,14 +132,20 @@ void GameObject::OnFieldUpdated(uint16 index)
         _recalculateChairSeats();
 }
 
-void GameObject::OnPushToWorld()
+void GameObject::OnPrePushToWorld()
 {
-    WorldObject::OnPushToWorld();
+    WorldObject::OnPrePushToWorld();
+
+    if(m_mapInstance && m_zoneId && m_zoneVisibleSpawn)
+        m_mapInstance->AddZoneVisibleSpawn(m_zoneId, this);
 }
 
 void GameObject::RemoveFromWorld()
 {
     WorldObject::RemoveFromWorld();
+
+    if(m_mapInstance && m_zoneId && m_zoneVisibleSpawn)
+        m_mapInstance->RemoveZoneVisibleSpawn(m_zoneId, this);
 }
 
 void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
@@ -334,7 +341,8 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
     float rotZ = rZ, rotAng = rAngle;
     if(angleOverride != 0.f)
     {
-
+        rotZ = std::sin(angleOverride/2.f);
+        rotAng = std::cos(angleOverride/2.f);
     }
 
     // Update our rotation data
@@ -380,8 +388,12 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
         SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
         m_updateFlags |= UPDATEFLAG_TRANSPORT;
         SetState(24);
-    } else if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
+    }
+    else if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
         SetAnimProgress(100);
+
+    if(GetType() == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
+        m_zoneVisibleSpawn = true;
 
     // Load up our chair data
     if(pInfo->Type == GAMEOBJECT_TYPE_CHAIR && m_chairData.empty())
@@ -413,8 +425,18 @@ uint32 GameObject::BuildStopFrameData(ByteBuffer *buff)
 
 void GameObject::UpdateRotations(float rX, float rY, float rZ, float rAngle)
 {
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = rX));
-    SetFloatValue(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = rY));
+    if(pInfo->Type == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
+    {
+        m_rotation.x = rX;
+        m_rotation.y = rY;
+        SetUInt64Value(GAMEOBJECT_PARENTROTATION, pInfo->data.building.destructibleData);
+    }
+    else
+    {
+        SetFloatValue(GAMEOBJECT_PARENTROTATION+0, (m_rotation.x = rX));
+        SetFloatValue(GAMEOBJECT_PARENTROTATION+1, (m_rotation.y = rY));
+    }
+
     SetFloatValue(GAMEOBJECT_PARENTROTATION+2, (m_rotation.z = rZ));
     SetFloatValue(GAMEOBJECT_PARENTROTATION+3, (m_rotation.w = rAngle));
     SetOrientation(m_rotation.toAxisAngleRotation());
@@ -589,7 +611,6 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
 
     p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
     p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
-    p->SetZoneId(GetZoneId());
     p->SetFactionTemplate(u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
     p->PushToWorld(GetMapInstance());
     return p;

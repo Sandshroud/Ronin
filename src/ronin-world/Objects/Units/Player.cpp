@@ -392,13 +392,16 @@ void Player::EventExploration()
 
         m_playerInfo->lastZone = m_zoneId;
 
-        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( castPtr<Player>(this), m_zoneId, oldZone );
+        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( this, m_zoneId, oldZone );
 
         EventDBCChatUpdate();
 
         GetMapInstance()->GetStateManager().SendWorldStates(this);
     } else if(m_areaId == oldArea)
         return;
+
+    if(Group *grp = GetGroup())
+        grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, this );
 
     if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
     {
@@ -2977,7 +2980,6 @@ Corpse* Player::CreateCorpse()
     _cfb1 = ((0x00) | (race << 8) | (0x00 << 16) | (skin << 24));
     _cfb2 = ((face) | (hairstyle << 8) | (haircolor << 16) | (facialhair << 24));
 
-    pCorpse->SetZoneId( GetZoneId() );
     pCorpse->SetUInt32Value( CORPSE_FIELD_BYTES_1, _cfb1 );
     pCorpse->SetUInt32Value( CORPSE_FIELD_BYTES_2, _cfb2 );
     pCorpse->SetUInt32Value( CORPSE_FIELD_FLAGS, 4 );

@@ -2999,7 +2999,6 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
 
         p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
         p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
-        p->SetZoneId(GetZoneId());
         p->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
         p->PushToWorld(GetMapInstance());
         return p;

@@ -57,7 +57,6 @@ void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int3
 
     SetInstanceID(m_owner->GetInstanceID());
     SetFaction(m_owner->GetFactionID());
-    SetZoneId(m_owner->GetZoneId());
     setLevel(m_owner->getLevel());
     SetCreatedBySpell(spellid);
     summonslot = summonslot;
