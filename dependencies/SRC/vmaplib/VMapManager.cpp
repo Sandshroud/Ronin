@@ -306,6 +306,22 @@ namespace VMAP
         return height;
     }
 
+    bool VMapManager::getWMOId(unsigned int mapId, float x, float y, float z, G3D::uint32& wmoId) const
+    {
+        InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);
+        if (instanceTree != iInstanceMapTrees.end())
+        {
+            LocationInfo info;
+            Vector3 pos = convertPositionToInternalRep(x, y, z);
+            if (instanceTree->second->GetLocationInfo(pos, info))//TODO: check bounding && info.hitInstance->HasSolidBounding())
+            {
+                wmoId = info.hitModel->GetWmoID();
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool VMapManager::getAreaInfo(unsigned int mapId, float x, float y, float& z, G3D::uint32& flags, G3D::int32& adtId, G3D::int32& rootId, G3D::int32& groupId) const
     {
         InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);

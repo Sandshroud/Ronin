@@ -111,6 +111,7 @@ namespace VMAP
 
             bool processCommand(char *) { return false; } // for debug and extensions
 
+            bool getWMOId(unsigned int pMapId, float x, float y, float z, unsigned int &wmoId) const;
             bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, unsigned int& flags, int& adtId, int& rootId, int& groupId) const;
             void GetLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &type, float &level) const;
 

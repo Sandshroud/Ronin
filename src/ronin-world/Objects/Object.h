@@ -89,17 +89,18 @@ enum OBJECT_UPDATE_FLAGS
     UPDATEFLAG_UNK2             = 0x4000,
 };
 
-enum ObjectAreaFlags
+enum ObjectAreaFlags : uint16
 {
-    OBJECT_AREA_FLAG_NONE           = 0x00,
-    OBJECT_AREA_FLAG_INDOORS        = 0x01,
-    OBJECT_AREA_FLAG_INCITY         = 0x02,
-    OBJECT_AREA_FLAG_INSANCTUARY    = 0x04,
-    OBJECT_AREA_FLAG_CONTESTED      = 0x08,
-    OBJECT_AREA_FLAG_ALLIANCE_ZONE  = 0x10,
-    OBJECT_AREA_FLAG_HORDE_ZONE     = 0x20,
-    OBJECT_AREA_FLAG_ARENA_ZONE     = 0x40,
-    OBJECT_AREA_FLAG_UNDERWATER_ZONE= 0x80,
+    OBJECT_AREA_FLAG_NONE           = 0x0000,
+    OBJECT_AREA_FLAG_INSIDE_WMO     = 0x0001,
+    OBJECT_AREA_FLAG_INDOORS        = 0x0002,
+    OBJECT_AREA_FLAG_INCITY         = 0x0004,
+    OBJECT_AREA_FLAG_INSANCTUARY    = 0x0008,
+    OBJECT_AREA_FLAG_CONTESTED      = 0x0010,
+    OBJECT_AREA_FLAG_ALLIANCE_ZONE  = 0x0020,
+    OBJECT_AREA_FLAG_HORDE_ZONE     = 0x0040,
+    OBJECT_AREA_FLAG_ARENA_ZONE     = 0x0080,
+    OBJECT_AREA_FLAG_UNDERWATER_AREA= 0x0100,
 };
 
 enum ObjectInactiveFlags
@@ -385,6 +386,8 @@ public:
     RONIN_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
     RONIN_INLINE void SetLastMovementZone(uint32 zone) { m_lastMovementZone = zone; }
     RONIN_INLINE uint32 GetLastMovementZone() { return m_lastMovementZone; }
+    RONIN_INLINE void SetLastMovementArea(uint32 area) { m_lastMovementArea = area; }
+    RONIN_INLINE uint32 GetLastMovementArea() { return m_lastMovementArea; }
 
     //use it to check if a object is in range of another
     bool isInRange(WorldObject* target, float range);
@@ -589,8 +592,8 @@ public:
     void EventSpellHit(Spell* pSpell);
 
     // Area flags
-    bool HasAreaFlag(uint8 areaFlag) { return (m_areaFlags & areaFlag); };
-    uint8 const GetAreaFlags() { return m_areaFlags; };
+    bool HasAreaFlag(uint16 areaFlag) { return (m_areaFlags & areaFlag); };
+    uint16 const GetAreaFlags() { return m_areaFlags; };
 
     uint16 GetPhaseMask() { return m_phaseMask; }
 
@@ -600,6 +603,8 @@ protected:
     /* Main Function called by isInFront(); */
     bool inArc(float Position1X, float Position1Y, float FOV, float Orientation, float Position2X, float Position2Y );
 
+    //! WMO id.
+    uint32 m_wmoId;
     //! Zone id.
     uint32 m_zoneId;
     //! Area id.
@@ -607,7 +612,7 @@ protected:
     //! Phase mask.
     uint16 m_phaseMask;
     //! Area Flags.
-    uint8 m_areaFlags;
+    uint16 m_areaFlags;
     //! Object deactivation
     uint16 m_inactiveFlags;
     //! Continent/map id.
@@ -616,6 +621,7 @@ protected:
     int32 m_instanceId;
     //! Last set Movement zone
     uint32 m_lastMovementZone;
+    uint32 m_lastMovementArea;
     uint32 m_objDeactivationTimer;
 
     //! Map manager

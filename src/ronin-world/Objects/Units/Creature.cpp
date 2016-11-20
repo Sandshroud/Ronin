@@ -45,7 +45,7 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_pickPocketed = false; // 0x200
     haslinkupevent = false; // 0x400
     has_waypoint_text = has_combat_text = false; // 0x800  // 0x1000
-    m_zoneVisibleSpawn = false;
+    m_zoneVisibleSpawn = m_areaVisibleSpawn = false;
 
     //m_script = NULL;
 }
@@ -163,6 +163,8 @@ void Creature::RemoveFromWorld()
 {
     if(m_mapInstance && m_zoneId && m_zoneVisibleSpawn)
         m_mapInstance->RemoveZoneVisibleSpawn(m_zoneId, this);
+    if(m_mapInstance && m_areaId && m_areaVisibleSpawn)
+        m_mapInstance->RemoveAreaVisibleSpawn(m_areaId, this);
     Unit::RemoveFromWorld();
 }
 
@@ -636,7 +638,7 @@ bool Creature::CanTrainPlayer(Player *plr)
 
 void Creature::UpdateAreaInfo(MapInstance *instance)
 {
-    uint32 lastZone = m_zoneId;
+    uint32 lastArea = m_areaId, lastZone = m_zoneId;
     Unit::UpdateAreaInfo(instance);
 
     // Team based area code
@@ -654,6 +656,14 @@ void Creature::UpdateAreaInfo(MapInstance *instance)
             instance->RemoveZoneVisibleSpawn(lastZone, this);
         if(m_zoneId)
             instance->AddZoneVisibleSpawn(m_zoneId, this);
+    }
+
+    if(m_areaVisibleSpawn)
+    {
+        if(lastArea)
+            instance->RemoveAreaVisibleSpawn(lastArea, this);
+        if(m_areaId)
+            instance->AddAreaVisibleSpawn(m_areaId, this);
     }
 }
 
@@ -940,8 +950,10 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
         if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
             race = extraInfo->Race;
 
-        if(displayEntry->sizeClass >= 4)
+        if(displayEntry->sizeClass >= 5)
             m_zoneVisibleSpawn = true;
+        else if(displayEntry->sizeClass == 4)
+            m_areaVisibleSpawn = true;
     }
 
     SetByte(UNIT_FIELD_BYTES_0, 0, race);

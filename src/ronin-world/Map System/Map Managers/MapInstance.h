@@ -196,6 +196,8 @@ public:
 
     void AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
     void RemoveZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
+    void AddAreaVisibleSpawn(uint32 areaId, WorldObject *obj);
+    void RemoveAreaVisibleSpawn(uint32 areaId, WorldObject *obj);
 
     /////////////////////////////////////////////////////////
     // Local (MapInstance) storage/generation of Creatures
@@ -301,7 +303,7 @@ public:
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
 
     // Terrain Functions
-    void GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType);
+    void GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType, bool forceVmapData = false);
     float GetLandHeight(float x, float y);
     uint8 GetWalkableState(float x, float y);
     uint16 GetAreaID(float x, float y, float z = 0.0f);
@@ -383,8 +385,8 @@ protected:
     WorldObject::InRangeObjSet m_inRangeStorage;
 
     // In this zone, we always show these objects
-    Loki::AssocVector<WorldObject*, uint32> m_rangelessObjects;
-    Loki::AssocVector<uint32, std::vector<WorldObject*>> m_zoneRangelessObjects;
+    Loki::AssocVector<WorldObject*, uint32> m_zoneFullRangeObjects, m_areaFullRangeObjects;
+    Loki::AssocVector<uint32, std::vector<WorldObject*>> m_fullRangeObjectsByZone, m_fullRangeObjectsByArea;
 
     bool _CellActive(uint32 x, uint32 y);
     void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell, bool playerOnly);

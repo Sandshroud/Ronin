@@ -55,7 +55,7 @@ namespace VMAP
             GroupModel(const GroupModel &other);
             GroupModel(G3D::uint32 mogpFlags, G3D::uint32 groupWMOID, const G3D::AABox &bound):
                         iBound(bound), iMogpFlags(mogpFlags), iGroupWMOID(groupWMOID), iLiquid(0) {}
-            ~GroupModel() { delete iLiquid; }
+            ~GroupModel() { if(iLiquid) delete iLiquid; }
 
             //! pass mesh data to object and create BIH. Passed vectors get get swapped with old geometry!
             void setMeshData(std::vector<G3D::Vector3> &vert, std::vector<MeshTriangle> &tri);

@@ -71,10 +71,10 @@ void VMapInterface::DeactivateMap(uint32 mapId)
     m_mapDataLock.Release();
 }
 
-bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE *file)
+int VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE *file)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return false;
+        return 0;
     MapLoadData *loadData = m_mapLocks[mapId];
 
     // acquire write lock
@@ -87,7 +87,7 @@ bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE 
         {
             sLog.outDebug("Loading VMap [%u/%u] unsuccessful", tileX, tileY);
             loadData->m_lock.Release();
-            return false;
+            return 0;
         }
     }
 
@@ -96,7 +96,7 @@ bool VMapInterface::ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE 
 
     // release lock
     loadData->m_lock.Release();
-    return true;
+    return 1;
 }
 
 void VMapInterface::DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY)
@@ -231,6 +231,22 @@ float VMapInterface::GetWaterHeight(uint32 mapId, float x, float y, float z, uin
     m_mapLocks[mapId]->m_lock.Release();
 
     // return
+    return res;
+}
+
+bool VMapInterface::IsInObject(uint32 mapId, float x, float y, float z, uint32 &wmoId)
+{
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
+        return false;
+
+    // get read lock
+    m_mapLocks[mapId]->m_lock.Acquire();
+
+    bool res = vMapMgr->getWMOId(mapId, x, y, z, wmoId);
+
+    // release write lock
+    m_mapLocks[mapId]->m_lock.Release();
+
     return res;
 }
 

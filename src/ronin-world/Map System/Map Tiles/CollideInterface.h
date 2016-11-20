@@ -31,7 +31,7 @@ public:
 
     void UpdateSingleMap(uint32 mapId, uint32 p_time);
 
-    bool ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE *file);
+    int ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE *file);
     void DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY);
     bool IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY);
 
@@ -41,6 +41,7 @@ public:
     bool GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 &areaId, uint32 &flags, int32 &adtId, int32 &rootId, int32 &groupid);
     bool CheckLOS(uint32 mapId, uint32 instanceId, int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2);
     bool GetFirstPoint(uint32 mapId, uint32 instanceId, int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float & outx, float & outy, float & outz, float distmod);
+    bool IsInObject(uint32 mapId, float x, float y, float z, uint32 &wmoId);
     bool IsIndoor(uint32 mapId, float x, float y, float z);
     bool IsIncity(uint32 mapid, float x, float y, float z);
     uint16 GetAreaID(uint32 mapId, float x, float y, float z);

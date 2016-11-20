@@ -436,7 +436,7 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
     // Inworld checks for post read after transfering between maps
     if(m_Unit->IsInWorld() && m_lastWaterUpdatePos.DistanceSq(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z) > 2.f)
     {
-        m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, m_waterHeight, m_waterType);
+        m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, m_waterHeight, m_waterType, m_Unit->HasAreaFlag(OBJECT_AREA_FLAG_INSIDE_WMO));
         m_lastWaterUpdatePos.ChangeCoords(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z);
     }
 
@@ -763,7 +763,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
     uint32 uiDiff = m_breathingUpdateTimer;
     m_breathingUpdateTimer = 0;
 
-    bool underwaterZone = false;
+    bool underwaterArea = false, canWalkUnderwater = hasFlag(MOVEMENTFLAG_CAN_SWIM_TO_FLY_TRANSITION);
     uint8 old_underwaterState = m_underwaterState;
     if (m_waterHeight == NO_WATER_HEIGHT)
         m_underwaterState &= ~0xFF;
@@ -794,7 +794,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
             m_underwaterState |= UNDERWATERSTATE_SLIME;
         else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
 
-        underwaterZone = m_Unit->HasAreaFlag(OBJECT_AREA_FLAG_UNDERWATER_ZONE);
+        underwaterArea = m_Unit->HasAreaFlag(OBJECT_AREA_FLAG_UNDERWATER_AREA);
     }
 
     if(!m_Unit->IsPlayer())
@@ -840,7 +840,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
     }
 
     // In dark water
-    if (sWorld.EnableFatigue && (m_underwaterState & UNDERWATERSTATE_FATIGUE) && underwaterZone == false)
+    if (sWorld.EnableFatigue && (m_underwaterState & UNDERWATERSTATE_FATIGUE) && underwaterArea == false)
     {
         // Fatigue timer not activated - activate it
         if (m_MirrorTimer[FATIGUE_TIMER] == -1)

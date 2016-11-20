@@ -118,16 +118,12 @@ namespace VMAP
         {
             iHeight = new float[(iTilesX+1)*(iTilesY+1)];
             memcpy(iHeight, other.iHeight, (iTilesX+1)*(iTilesY+1)*sizeof(float));
-        }
-        else
-            iHeight = 0;
+        } else iHeight = 0;
         if (other.iFlags)
         {
             iFlags = new G3D::uint8[iTilesX * iTilesY];
             memcpy(iFlags, other.iFlags, iTilesX * iTilesY);
-        }
-        else
-            iFlags = 0;
+        } else iFlags = 0;
         return *this;
     }
 
@@ -291,7 +287,8 @@ namespace VMAP
         G3D::uint32 count = 0;
         triangles.clear();
         vertices.clear();
-        delete iLiquid;
+        if(iLiquid)
+            delete iLiquid;
         iLiquid = NULL;
 
         if (!error.length() && fread(&iBound, sizeof(G3D::AABox), 1, rf) != 1)

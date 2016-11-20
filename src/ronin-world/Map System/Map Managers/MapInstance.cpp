@@ -314,9 +314,20 @@ void MapInstance::PushObject(WorldObject* obj)
         plObj->UpdateAreaInfo(this);
 
         /* Add the zone wide objects */
-        if(m_zoneRangelessObjects[plObj->GetZoneId()].size())
+        if(m_fullRangeObjectsByZone[plObj->GetZoneId()].size())
         {
-            for(std::vector<WorldObject* >::iterator itr = m_zoneRangelessObjects[plObj->GetZoneId()].begin(); itr != m_zoneRangelessObjects[plObj->GetZoneId()].end(); itr++)
+            for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByZone[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByZone[plObj->GetZoneId()].end(); itr++)
+            {
+                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
+                    plObj->PushUpdateBlock(&m_createBuffer, count);
+                m_createBuffer.clear();
+            }
+        }
+
+        /* Add the area wide objects */
+        if(m_fullRangeObjectsByArea[plObj->GetAreaId()].size())
+        {
+            for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByArea[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByArea[plObj->GetZoneId()].end(); itr++)
             {
                 if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
                     plObj->PushUpdateBlock(&m_createBuffer, count);
@@ -475,22 +486,22 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     if(Group *grp = plObj ? plObj->GetGroup() : NULL)
         grp->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, plObj );
 
-    ///////////////////////////////////////
-    // Update in-range data for old objects
-    ///////////////////////////////////////
-    uint32 lastZone = obj->GetLastMovementZone(), currZone = obj->GetZoneId();
-    if(lastZone != obj->GetZoneId())
+    ////////////////////////////////////////
+    // Update in-range data for zone objects
+    ////////////////////////////////////////
+    uint32 lastZone = obj->GetLastMovementZone(), currZone;
+    if(lastZone != (currZone = obj->GetZoneId()))
     {
-        if(lastZone && m_zoneRangelessObjects[lastZone].size())
+        if(lastZone && m_fullRangeObjectsByZone[lastZone].size())
         {
-            for(std::vector<WorldObject*>::iterator itr = m_zoneRangelessObjects[lastZone].begin(); itr != m_zoneRangelessObjects[lastZone].end(); itr++)
+            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByZone[lastZone].begin(); itr != m_fullRangeObjectsByZone[lastZone].end(); itr++)
                 if(!(*itr)->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != (*itr)->GetGUID()))
                     obj->RemoveInRangeObject(*itr);
         }
 
-        if(currZone && m_zoneRangelessObjects[currZone].size())
+        if(currZone && m_fullRangeObjectsByZone[currZone].size())
         {
-            for(std::vector<WorldObject*>::iterator itr = m_zoneRangelessObjects[currZone].begin(); itr != m_zoneRangelessObjects[currZone].end(); itr++)
+            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByZone[currZone].begin(); itr != m_fullRangeObjectsByZone[currZone].end(); itr++)
             {
                 if(obj->IsInRangeSet(*itr) || !(*itr)->IsActivated())
                     continue;
@@ -508,6 +519,40 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     }
     obj->SetLastMovementZone(currZone);
 
+    ////////////////////////////////////////
+    // Update in-range data for area objects
+    ////////////////////////////////////////
+    uint32 lastArea = obj->GetLastMovementArea(), currArea;
+    if(lastArea != (currArea = obj->GetAreaId()))
+    {
+        if(lastArea && m_fullRangeObjectsByArea[lastArea].size())
+        {
+            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByArea[lastArea].begin(); itr != m_fullRangeObjectsByArea[lastArea].end(); itr++)
+                if(!(*itr)->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != (*itr)->GetGUID()))
+                    obj->RemoveInRangeObject(*itr);
+        }
+
+        if(currArea && m_fullRangeObjectsByArea[currArea].size())
+        {
+            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByArea[currArea].begin(); itr != m_fullRangeObjectsByArea[currArea].end(); itr++)
+            {
+                if(obj->IsInRangeSet(*itr) || !(*itr)->IsActivated())
+                    continue;
+
+                obj->AddInRangeObject(*itr);
+                if(plObj && plObj->CanSee( (*itr) ) && !plObj->IsVisible( (*itr) ) )
+                {
+                    plObj->AddVisibleObject( (*itr) );
+                    if(uint32 count = (*itr)->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                        plObj->PushUpdateBlock(&m_createBuffer, count);
+                    m_createBuffer.clear();
+                }
+            }
+        }
+    }
+    obj->SetLastMovementArea(currArea);
+
+    // Check if we're moving to a new map
     if(obj->GetMapInstance() != this)
     {
         if(!obj->HasInRangeObjects())
@@ -615,7 +660,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             ///////////////////////////////////////
             if(!obj->HasInRangeObjects())
                 UpdateInrangeSetOnCells(obj, startX, endX, startY, endY, minX, maxX, minY, maxY);
-            else if(m_rangelessObjects.find(obj) == m_rangelessObjects.end())
+            else if(m_zoneFullRangeObjects.find(obj) == m_zoneFullRangeObjects.end() && m_areaFullRangeObjects.find(obj) == m_areaFullRangeObjects.end())
             {
                 Player* plObj2;
                 float distSq = 0.f;
@@ -648,9 +693,12 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                     if((curObj = itr->second) == NULL)
                         continue;
 
-                    Loki::AssocVector<WorldObject*, uint32>::iterator zone_itr;
-                    if((zone_itr = m_rangelessObjects.find(curObj)) != m_rangelessObjects.end())
-                        if(zone_itr->second == obj->GetZoneId())
+                    Loki::AssocVector<WorldObject*, uint32>::iterator fullrange_itr;
+                    if((fullrange_itr = m_zoneFullRangeObjects.find(curObj)) != m_zoneFullRangeObjects.end())
+                        if(fullrange_itr->second == obj->GetZoneId())
+                            continue;
+                    if((fullrange_itr = m_areaFullRangeObjects.find(curObj)) != m_areaFullRangeObjects.end())
+                        if(fullrange_itr->second == obj->GetAreaId())
                             continue;
 
                     // We cannot remove our current transport from inrange set
@@ -1044,8 +1092,19 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
     }
 }
 
-void MapInstance::GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType)
+void MapInstance::GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType, bool forceVmapData)
 {
+    if(forceVmapData)
+    {
+        outHeight = sVMapInterface.GetWaterHeight(_mapId, x, y, z, outType);
+        if(outHeight == NO_WMO_HEIGHT)
+        {   // Clear our data
+            outHeight = NO_WATER_HEIGHT;
+            outType = 0;
+        }
+        return;
+    }
+
     uint16 vwaterType = 0, mapWaterType = GetBaseMap()->GetWaterType(x, y);
     float mapWaterheight = GetBaseMap()->GetWaterHeight(x, y, z);
     float vmapWaterHeight = sVMapInterface.GetWaterHeight(GetMapId(), x, y, z, vwaterType);
@@ -1184,16 +1243,30 @@ void MapInstance::AddObject(WorldObject* obj)
 
 void MapInstance::AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj)
 {
-    m_zoneRangelessObjects[zoneId].push_back(obj);
-    m_rangelessObjects.insert(std::make_pair(obj, zoneId));
+    m_fullRangeObjectsByZone[zoneId].push_back(obj);
+    m_zoneFullRangeObjects.insert(std::make_pair(obj, zoneId));
 }
 
 void MapInstance::RemoveZoneVisibleSpawn(uint32 zoneId, WorldObject *obj)
 {
     std::vector<WorldObject*>::iterator itr;
-    if((itr = std::find(m_zoneRangelessObjects[zoneId].begin(), m_zoneRangelessObjects[zoneId].end(), obj)) != m_zoneRangelessObjects[zoneId].end())
-        m_zoneRangelessObjects[zoneId].erase(itr);
-    m_rangelessObjects.erase(obj);
+    if((itr = std::find(m_fullRangeObjectsByZone[zoneId].begin(), m_fullRangeObjectsByZone[zoneId].end(), obj)) != m_fullRangeObjectsByZone[zoneId].end())
+        m_fullRangeObjectsByZone[zoneId].erase(itr);
+    m_zoneFullRangeObjects.erase(obj);
+}
+
+void MapInstance::AddAreaVisibleSpawn(uint32 areaId, WorldObject *obj)
+{
+    m_fullRangeObjectsByArea[areaId].push_back(obj);
+    m_areaFullRangeObjects.insert(std::make_pair(obj, areaId));
+}
+
+void MapInstance::RemoveAreaVisibleSpawn(uint32 areaId, WorldObject *obj)
+{
+    std::vector<WorldObject*>::iterator itr;
+    if((itr = std::find(m_fullRangeObjectsByArea[areaId].begin(), m_fullRangeObjectsByArea[areaId].end(), obj)) != m_fullRangeObjectsByArea[areaId].end())
+        m_fullRangeObjectsByArea[areaId].erase(itr);
+    m_areaFullRangeObjects.erase(obj);
 }
 
 Unit* MapInstance::GetUnit(WoWGuid guid)

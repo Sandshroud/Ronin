@@ -422,6 +422,9 @@ bool World::SetInitialWorldSettings()
         return false;
     }
 
+    sVMapInterface.Init();
+    sNavMeshInterface.Init();
+
     new AchievementMgr();
     new SpellManager();
     new ObjectMgr();
@@ -501,9 +504,6 @@ bool World::SetInitialWorldSettings()
     sAuctionMgr.LoadAuctionHouses();
 
     sLog.Success("World", "Database loaded in %ums.", getMSTime() - start_time);
-
-    sVMapInterface.Init();
-    sNavMeshInterface.Init();
 
     // calling this puts all maps into our task list.
     sWorldMgr.Load(&tl);

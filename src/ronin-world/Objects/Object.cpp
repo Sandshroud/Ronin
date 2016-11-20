@@ -571,10 +571,11 @@ void Object::ClearLoot()
 WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
 {
     m_mapId = -1;
-    m_areaId = m_zoneId = 0;
+    m_wmoId = m_zoneId = m_areaId = 0;
     m_phaseMask = 0xFFFF;
     m_areaFlags = 0;
     m_lastMovementZone = 0;
+    m_lastMovementArea = 0;
 
     m_mapInstance = NULL;
     m_mapCell = 0;
@@ -615,7 +616,7 @@ void WorldObject::Destruct()
     m_factionTemplate = NULL;
 
     m_mapId = -1;
-    m_areaId = m_zoneId = 0;
+    m_wmoId = m_zoneId = m_areaId = 0;
     m_areaFlags = 0;
     m_lastMovementZone = 0;
     m_instanceId = -1;
@@ -1647,7 +1648,7 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && (mgr = GetMapInstance()) == NULL)
     {
-        m_zoneId = m_areaId = 0;
+        m_wmoId = m_zoneId = m_areaId = 0;
         return;
     }
 
@@ -1658,6 +1659,8 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
     if(at != NULL && at->ZoneId) // Set our Zone on add to world!
         m_zoneId = at->ZoneId;
 
+    if(sVMapInterface.IsInObject(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), m_wmoId))
+        m_areaFlags |= OBJECT_AREA_FLAG_INSIDE_WMO;
     if(sVMapInterface.IsIndoor(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
         m_areaFlags |= OBJECT_AREA_FLAG_INDOORS;
     if(sVMapInterface.IsIncity(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
@@ -1678,8 +1681,9 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
                 m_areaFlags |= OBJECT_AREA_FLAG_HORDE_ZONE;
             if(at->AreaFlags & AREA_PVP_ARENA)
                 m_areaFlags |= OBJECT_AREA_FLAG_ARENA_ZONE;
-            if(zoneAt && zoneAt->AreaId == 5145) // Vash'jir
-                m_areaFlags |= OBJECT_AREA_FLAG_UNDERWATER_ZONE;
+            // Still unsure how Vash'Jir is detected so just go based on ID for now
+            if(at->AreaId != 5146 && (at->ZoneId == 5144 || at->ZoneId == 5145 || at->ZoneId == 5146))
+                m_areaFlags |= OBJECT_AREA_FLAG_UNDERWATER_AREA;
         }
     }
 }

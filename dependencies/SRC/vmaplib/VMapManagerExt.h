@@ -32,6 +32,7 @@ namespace VMAP
         virtual bool getObjectHitPos(unsigned int mapId, unsigned int m_instance, int m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float& ry, float& rz, float modifyDist) = 0;
         virtual float getHeight(unsigned int mapId, unsigned int m_instance, int m_phase, float x, float y, float z, float maxSearchDist) = 0;
 
+        virtual bool getWMOId(unsigned int pMapId, float x, float y, float z, unsigned int &wmoId) const = 0;
         virtual bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, unsigned int& flags, int& adtId, int& rootId, int& groupId) const = 0;
         virtual void GetLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &type, float &level) const = 0;
     };

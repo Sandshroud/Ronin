@@ -454,7 +454,7 @@ public: // values
     bool m_noDeleteAfterDespawn;
     bool m_limbostate;
     bool m_pickPocketed;
-    bool m_zoneVisibleSpawn;
+    bool m_zoneVisibleSpawn, m_areaVisibleSpawn;
 
     bool m_skinned;
     int8 m_lootMethod;
