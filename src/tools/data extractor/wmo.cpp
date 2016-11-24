@@ -151,22 +151,17 @@ bool WMOGroup::open(HANDLE mpqarchive)
         printf("No such file.\n");
         return false;
     }
+
     uint32 size;
     char fourcc[5];
     while (!f.isEof())
     {
         f.read(fourcc,4);
-        f.read(&size, 4);
-        flipcc(fourcc);
-        if (!strcmp(fourcc,"MOGP"))//Fix sizeoff = Data size.
-        {
-            size = 68;
-        }
         fourcc[4] = 0;
-        size_t nextpos = f.getPos() + size;
-        LiquEx_size = 0;
-        liquflags = 0;
+        flipcc(fourcc);
+        f.read(&size, 4);
 
+        size_t nextpos = f.getPos() + size;
         if (!strcmp(fourcc,"MOGP"))//header
         {
             f.read(&groupName, 4);
@@ -182,7 +177,9 @@ bool WMOGroup::open(HANDLE mpqarchive)
             f.read(&fogIdx, 4);
             f.read(&liquidType, 4);
             f.read(&groupWMOID,4);
-
+            // Not sure what the next 8 bits are, but it's part of the header
+            f.seekRelative(8);
+            continue;
         }
         else if (!strcmp(fourcc,"MOPY"))
         {
@@ -401,56 +398,10 @@ int WMOGroup::ConvertToVMAPGroupWmo(FILE *output, WMORoot *rootWMO, bool precise
         int LIQU_h[] = {0x5551494C, static_cast<int>(sizeof(WMOLiquidHeader) + LiquEx_size) + hlq->xtiles*hlq->ytiles};// "LIQU"
         fwrite(LIQU_h, 4, 2, output);
 
+        extern uint16 *LiqType;
+
         // according to WoW.Dev Wiki:
-        uint32 liquidEntry;
-        if (rootWMO->liquidType & 4)
-            liquidEntry = liquidType;
-        else if (liquidType == 15)
-            liquidEntry = 0;
-        else
-            liquidEntry = liquidType + 1;
-
-        if (!liquidEntry)
-        {
-            int v1; // edx@1
-            int v2; // eax@1
-
-            v1 = hlq->xtiles * hlq->ytiles;
-            v2 = 0;
-            if (v1 > 0)
-            {
-                while ((LiquBytes[v2] & 0xF) == 15)
-                {
-                    ++v2;
-                    if (v2 >= v1)
-                        break;
-                }
-
-                if (v2 < v1 && (LiquBytes[v2] & 0xF) != 15)
-                    liquidEntry = (LiquBytes[v2] & 0xF) + 1;
-            }
-        }
-
-        if (liquidEntry && liquidEntry < 21)
-        {
-            switch ((liquidEntry - 1) & 3)
-            {
-                case 0:
-                    liquidEntry = ((mogpFlags & 0x80000) != 0) + 13;
-                    break;
-                case 1:
-                    liquidEntry = 14;
-                    break;
-                case 2:
-                    liquidEntry = 19;
-                    break;
-                case 3:
-                    liquidEntry = 20;
-                    break;
-            }
-        }
-
-        hlq->type = liquidEntry;
+        hlq->type = LiqType[rootWMO->liquidType];
 
         /* std::ofstream llog("Buildings/liquid.log", ios_base::out | ios_base::app);
         llog << filename;

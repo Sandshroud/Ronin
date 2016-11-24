@@ -519,6 +519,13 @@ int main(int argc, char ** argv)
         if(!(success = ExtractDBCFiles()))
             rename(szWorkDirDbc, szWorkDirFailed);
 
+    if(success && !(success = ReadLiquidTypeTableDBC()))
+    {
+        printf("FAILED TO PARSE LIQUID DBC");
+        getchar();
+        return 0;
+    }
+
     // extract data
     if (success && !hasBuildings)
         if(!(success = ExtractWmo()))
@@ -526,29 +533,26 @@ int main(int argc, char ** argv)
 
     if(success)
     {
-        if(success = ReadLiquidTypeTableDBC())
+        //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        //map.dbc
+        DBCFile dbc(LocaleMpq, "DBFilesClient\\Map.dbc");
+        if (success = dbc.open())
         {
-            //xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-            //map.dbc
-            DBCFile dbc(LocaleMpq, "DBFilesClient\\Map.dbc");
-            if (success = dbc.open())
+            map_count = dbc.getRecordCount();
+            map_ids = new map_id[map_count];
+            for (unsigned int x = 0; x < map_count; ++x)
             {
-                map_count = dbc.getRecordCount();
-                map_ids = new map_id[map_count];
-                for (unsigned int x = 0; x < map_count; ++x)
-                {
-                    map_ids[x].id = dbc.getRecord(x).getUInt(0);
-                    strcpy(map_ids[x].name, dbc.getRecord(x).getString(1));
-                }
+                map_ids[x].id = dbc.getRecord(x).getUInt(0);
+                strcpy(map_ids[x].name, dbc.getRecord(x).getString(1));
+            }
 
-                ParsMapFiles();
-                delete [] map_ids;
-                delete [] LiqType;
+            ParsMapFiles();
+            delete [] map_ids;
+            delete [] LiqType;
 
-                // Extract models, listed in GameObjectDisplayInfo.dbc
-                ExtractGameobjectModels();
-            } else printf("FAILED TO OPEN MAP DBC");
-        } else printf("FAILED TO PARSE LIQUID DBC");
+            // Extract models, listed in GameObjectDisplayInfo.dbc
+            ExtractGameobjectModels();
+        } else printf("FAILED TO OPEN MAP DBC");
     }
 
     SFileCloseArchive(WorldMpq);
