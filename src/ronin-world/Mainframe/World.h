@@ -623,7 +623,7 @@ protected:
     tm m_currentTimeData;
     time_t m_weekStart, m_gameTime, m_lastTick, m_lastDailyReset, m_lastHeroicReset;
 
-    bool m_heroicReset, m_dailyReset;
+    bool m_heroicReset, m_heroicWarning, m_dailyReset;
     uint32 m_StartTime, m_queueUpdateTimer, m_pushUpdateTimer;
 
     QueueSet mQueuedSessions;

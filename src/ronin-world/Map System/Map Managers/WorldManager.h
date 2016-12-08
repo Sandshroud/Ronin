@@ -223,6 +223,7 @@ public:
         return false;
     }
 
+    void SendHeroicResetWarning();
     void ResetHeroicInstances();
 
     // check for expired instances

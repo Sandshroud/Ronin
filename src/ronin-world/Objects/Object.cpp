@@ -804,7 +804,8 @@ void WorldObject::OnFieldUpdated(uint16 index)
 void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
     bool updateMap = false;
-    if(m_lastMapUpdatePosition.Distance2DSq(newX, newY) > 4.0f)     /* 2.0f */
+    // Position updating is based off of 2 units of movement, either xy on 2^2 or 2diff
+    if(m_lastMapUpdatePosition.Distance2DSq(newX, newY) > 4.f || RONIN_UTIL::Diff(newZ, m_lastMapUpdatePosition.z) > 2.f)
         updateMap = true;
 
     m_position.ChangeCoords(newX, newY, newZ, NormAngle(newOrientation));

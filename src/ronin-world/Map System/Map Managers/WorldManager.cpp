@@ -410,6 +410,11 @@ void WorldManager::_LoadInstances()
     } else sLog.Debug("WorldManager", "No saved instances found.");
 }
 
+void WorldManager::SendHeroicResetWarning()
+{
+
+}
+
 void WorldManager::ResetHeroicInstances()
 {
 
@@ -564,6 +569,8 @@ void WorldManager::ProcessPreSpawnLoadTables()
     {
         // Gameobject packed rotation is sometimes stored incorrectly by different teams, here's our orientation override
         { "world_data_gameobject_orientation", "UPDATE %s AS T INNER JOIN world_data_gameobject_orientation AS S ON (T.guid = S.guid) SET T.rotationZ = SIN(CAST(S.orientation AS float)/2.0), T.rotationAngle = COS(CAST(S.orientation AS float)/2.0);" },
+        // Though it works fine, most projects store their scale by gameobject entry instead of spawn but we want better customizability
+        { "world_data_gameobject_scale", "UPDATE %s AS T INNER JOIN world_data_gameobject_scale AS S ON (T.entry = S.entry) SET T.scale = S.scale;" },
         // Event data is held seperately, so combine our two tables
         { "world_data_gameobject_events", "UPDATE %s AS T INNER JOIN world_data_gameobject_events AS S ON (T.guid = S.guid) SET T.eventId = S.event;" },
         // Condition data is held as multiple tables by different teams, so we have a list to go through
