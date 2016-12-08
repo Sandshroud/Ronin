@@ -313,10 +313,11 @@ namespace VMAP
         {
             LocationInfo info;
             Vector3 pos = convertPositionToInternalRep(x, y, z);
-            if (instanceTree->second->GetLocationInfo(pos, info))//TODO: check bounding && info.hitInstance->HasSolidBounding())
+            if (instanceTree->second->GetLocationInfo(pos, info))
             {
                 wmoId = info.hitModel->GetWmoID();
-                return true;
+                if(info.hitInstance->flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS && !(info.hitInstance->flags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS || info.hitInstance->flags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
+                    return info.hitModel->IsWithinObject(pos, info.hitInstance);
             }
         }
         return false;

@@ -371,7 +371,7 @@ namespace VMAP
         GModelRayCallback callback(triangles, vertices);
         meshTree.intersectRay(ray, callback, distance, stopAtFirstHit);
         return callback.hit;
-    }
+    } 
 
     bool GroupModel::IsInsideObject(const Vector3 &pos, const Vector3 &down, float &z_dist) const
     {
@@ -385,6 +385,20 @@ namespace VMAP
         if (hit)
             z_dist = dist - 0.1f;
         return hit;
+    }
+
+    bool GroupModel::IsWithinObject(const G3D::Vector3 &pos, const ModelInstance *instance) const
+    {
+        if(triangles.empty() || !instance->getBounds().contains(pos))
+            return false;
+        Vector3 p, up; // We are checking up instead of down
+        instance->CalcOffsetDirection(pos, p, up);
+
+        GModelRayCallback callback(triangles, vertices);
+        Vector3 rPos = p - 0.1f * up;
+        float dist = G3D::inf();
+        G3D::Ray ray(rPos, up);
+        return IntersectRay(ray, dist, false);
     }
 
     bool GroupModel::GetLiquidLevel(const Vector3 &pos, float &liqHeight) const

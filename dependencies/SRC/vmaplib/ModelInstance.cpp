@@ -118,6 +118,12 @@ namespace VMAP
         return false;
     }
 
+    void ModelInstance::CalcOffsetDirection(const G3D::Vector3 pos, G3D::Vector3 &p, G3D::Vector3 &up) const
+    {
+        p = iInvRot * (pos - iPos) * iInvScale;
+        up = iInvRot * Vector3(0.f, 0.f, 1.f);
+    }
+
     GameobjectModelInstance::GameobjectModelInstance(const GameobjectModelSpawn &spawn, WorldModel* model, G3D::int32 m_phase) : iModel(model), m_PhaseMask(m_phase)
     {
         BoundBase = spawn.BoundBase;
