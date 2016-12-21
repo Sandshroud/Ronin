@@ -9,3 +9,7 @@ Hardware this core's fulltilt mode is (over)optimized for:
 Intel(R) Core(TM) i7-4700MQ CPU @ 2.40GHz
 12.0GB RAM
 64-bit Operating System
+
+Recent Contributors
+Karasu(Thetruecrow)
+Citric(Anon)
