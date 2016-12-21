@@ -37,8 +37,6 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
     m_LastUnderwaterState = 0;
     m_MirrorTimer[0] = m_MirrorTimer[1] = m_MirrorTimer[2] = -1;
     m_UnderwaterTime = 180000;
-    m_waterType = 0, m_waterHeight = NO_WATER_HEIGHT;
-    m_lastWaterUpdatePos.ChangeCoords(0.f, 0.f, 0.f, 0.f);
 
     m_pendingDataTimer = 0xFFFFFFFF;
     m_collisionHeight = 0.f;
@@ -433,12 +431,6 @@ bool MovementInterface::UpdatePostRead(uint16 opcode, uint16 moveCode, ByteBuffe
         return false;
 
     m_Unit->SetPosition(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z, m_clientLocation.o);
-    // Inworld checks for post read after transfering between maps
-    if(m_Unit->IsInWorld() && m_lastWaterUpdatePos.DistanceSq(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z) > 2.f)
-    {
-        m_Unit->GetMapInstance()->GetWaterData(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, m_waterHeight, m_waterType, m_Unit->HasAreaFlag(OBJECT_AREA_FLAG_INSIDE_WMO));
-        m_lastWaterUpdatePos.ChangeCoords(m_clientLocation.x, m_clientLocation.y, m_clientLocation.z);
-    }
 
     if(m_Unit->IsPlayer())
     {
@@ -631,10 +623,6 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode, bool distribute)
     case MOVEMENT_CODE_SET_FACING:
     case MOVEMENT_CODE_SET_PITCH:
         break;
-    case MOVEMENT_CODE_ACK_TELEPORT: // Reset water data
-        m_waterType = 0, m_waterHeight = NO_WATER_HEIGHT;
-        m_lastWaterUpdatePos.ChangeCoords(0.f, 0.f, 0.f);
-        break;
     default:
         return true;
     }
@@ -762,35 +750,37 @@ void MovementInterface::HandleBreathing(uint32 diff)
         return;
     uint32 uiDiff = m_breathingUpdateTimer;
     m_breathingUpdateTimer = 0;
+    if(!m_Unit->IsPlayer())
+        return;
 
     bool underwaterArea = false, canWalkUnderwater = hasFlag(MOVEMENTFLAG_CAN_SWIM_TO_FLY_TRANSITION);
     uint8 old_underwaterState = m_underwaterState;
-    if (m_waterHeight == NO_WATER_HEIGHT)
+    if (m_Unit->GetLiqHeight() == NO_WATER_HEIGHT)
         m_underwaterState &= ~0xFF;
     else
     {
-        float HeightDelta = (m_waterHeight-m_Unit->GetPositionZ())*10.f;
+        float HeightDelta = (m_Unit->GetLiqHeight()-m_Unit->GetPositionZ())*10.f;
 
         // All liquids type - check under water position
-        if(m_waterType & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
+        if(m_Unit->GetLiqFlags() & (0x01|0x02|0x04|0x08) && HeightDelta > 20.f)
             m_underwaterState |= UNDERWATERSTATE_UNDERWATER;
         else m_underwaterState &= ~UNDERWATERSTATE_UNDERWATER;
 
         if(!m_Unit->IsPlayer() || !castPtr<Player>(m_Unit)->GetTaxiPath())
         {
             // Allow travel in dark water on taxi or transport
-            if ((m_waterType & 0x10) && m_transportGuid.empty())
+            if ((m_Unit->GetLiqFlags() & 0x10) && m_transportGuid.empty())
                 m_underwaterState |= UNDERWATERSTATE_FATIGUE;
             else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
         } else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
 
         // in lava check, anywhere in lava level
-        if (m_waterType & 0x04 && HeightDelta > 0.f)
+        if (m_Unit->GetLiqFlags() & 0x04 && HeightDelta > 0.f)
             m_underwaterState |= UNDERWATERSTATE_LAVA;
         else m_underwaterState &= ~UNDERWATERSTATE_LAVA;
 
         // in slime check, anywhere in slime level
-        if (m_waterType & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
+        if (m_Unit->GetLiqFlags() & 0x08 && (HeightDelta > 0.f || (HeightDelta > -2.5f && hasFlag(MOVEMENTFLAG_WATERWALKING))))
             m_underwaterState |= UNDERWATERSTATE_SLIME;
         else m_underwaterState &= ~UNDERWATERSTATE_SLIME;
 
@@ -1310,8 +1300,7 @@ void MovementInterface::setRooted(bool root)
 
 bool MovementInterface::isInAir()
 {
-    float ground = m_Unit->GetMapHeight(m_serverLocation->x, m_serverLocation->y, m_serverLocation->z, UnitPathSystem::fInfinite);
-    return (RONIN_UTIL::fuzzyGt(m_serverLocation->z, ground+0.5f) || RONIN_UTIL::fuzzyLt(m_serverLocation->z, ground-0.5f));
+    return (RONIN_UTIL::fuzzyGt(m_serverLocation->z, m_Unit->GetGroundHeight()+0.5f) || RONIN_UTIL::fuzzyLt(m_serverLocation->z, m_Unit->GetGroundHeight()-0.5f));
 }
 
 void MovementInterface::setCanFly(bool canFly)

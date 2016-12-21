@@ -409,6 +409,7 @@ public:
     virtual void OnPrePushToWorld();
     virtual void OnPushToWorld();
     virtual void RemoveFromWorld();
+    virtual void EventExploration(MapInstance *instance);
 
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }

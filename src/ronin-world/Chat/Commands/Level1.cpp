@@ -136,10 +136,13 @@ bool ChatHandler::HandleGPSCommand(const char* args, WorldSession *m_session)
     if(obj == NULL && (plr->m_selectedGo.empty() || (obj = plr->GetInRangeObject<WorldObject>(plr->m_selectedGo)) == NULL))
         obj = plr;
 
-    char buf[512];
-    snprintf((char*)buf, 512, "|cff00ff00Current Position: |cffffffffMap: |cff00ff00%u |cffffffffInst: |cff00ff00%u |cffffffffPhase: |cff00ff00%u"
-        " |cffffffff Area: |cff00ff00%u |cffffffffZone: |cff00ff00%u |cffffffffAreaFlags: |cff00ff00%u |cffffffffX: |cff00ff00%f |cffffffffY: |cff00ff00%f |cffffffffZ: |cff00ff00%f |cffffffffOrientation: |cff00ff00%f|r",
-        obj->GetMapId(), obj->GetInstanceID(), obj->GetPhaseMask(), obj->GetAreaId(), obj->GetZoneId(), obj->GetAreaFlags(), obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ(), obj->GetOrientation());
+    char buf[256];
+    snprintf((char*)buf, 256, "|cff00ff00Current Position: |cffffffffMap: |cff00ff00%u |cffffffffInst: |cff00ff00%u |cffffffffPhase: |cff00ff00%u|r", obj->GetMapId(), obj->GetInstanceID(), obj->GetPhaseMask());
+    SystemMessage(m_session, buf);
+    snprintf((char*)buf, 256, "|cffffffff WMO: |cff00ff00[%u]%s |r", obj->GetWMOId(), "");
+    SystemMessage(m_session, buf);
+
+    snprintf((char*)buf, 256, "|cffffffff Area: |cff00ff00%u |cffffffffZone: |cff00ff00%u |cffffffffAreaFlags: |cff00ff00%u |cffffffffX: |cff00ff00%f |cffffffffY: |cff00ff00%f |cffffffffZ: |cff00ff00%f |cffffffffOrientation: |cff00ff00%f|r", obj->GetAreaId(), obj->GetZoneId(), obj->GetAreaFlags(), obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ(), obj->GetOrientation());
     SystemMessage(m_session, buf);
 
     return true;

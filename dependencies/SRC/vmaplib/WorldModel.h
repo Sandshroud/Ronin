@@ -31,6 +31,7 @@ namespace VMAP
             bool GetLiquidHeight(const G3D::Vector3 &pos, float &liqHeight) const;
             G3D::uint32 GetType() const { return iType; }
             float *GetHeightStorage() { return iHeight; }
+            float GetMaxHeight() { return maxHeight; }
             G3D::uint8 *GetFlagsStorage() { return iFlags; }
             G3D::uint32 GetFileSize();
             bool writeToFile(FILE* wf);
@@ -42,6 +43,7 @@ namespace VMAP
             G3D::Vector3 iCorner;          //!< the lower corner
             G3D::uint32 iType;         //!< liquid type
             float *iHeight;                //!< (tilesX + 1)*(tilesY + 1) height values
+            float maxHeight;
             G3D::uint8 *iFlags;        //!< info if liquid tile is used
         public:
             void getPosInfo(G3D::uint32 &tilesX, G3D::uint32 &tilesY, G3D::Vector3 &corner) const;
@@ -65,6 +67,7 @@ namespace VMAP
             bool IsWithinObject(const G3D::Vector3 &pos, const ModelInstance *instance) const;
             bool GetLiquidLevel(const G3D::Vector3 &pos, float &liqHeight) const;
             G3D::uint32 GetLiquidType() const;
+            float GetLiquidMaxLevel() const;
             bool writeToFile(FILE* wf);
             bool readFromFile(FILE* rf);
             const G3D::AABox& GetBound() const { return iBound; }
@@ -91,6 +94,7 @@ namespace VMAP
             void setGroupModels(std::vector<GroupModel> &models);
             void setRootWmoID(G3D::uint32 id) { RootWMOID = id; }
             bool IntersectRay(const G3D::Ray &ray, float &distance, bool stopAtFirstHit) const;
+            bool WMOCheck(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, WMOData &data, const G3D::uint16 requiredFlags, const G3D::uint16 ignoredFlags) const;
             bool IntersectPoint(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, AreaInfo &info) const;
             bool GetLocationInfo(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, LocationInfo &info) const;
             bool writeFile(const std::string &filename);

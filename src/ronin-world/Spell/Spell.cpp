@@ -541,7 +541,7 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
                 float ang = RandomFloat(M_PI * 2);
                 t->m_dest.x = m_caster->GetPositionX() + (cosf(ang) * r);
                 t->m_dest.y = m_caster->GetPositionY() + (sinf(ang) * r);
-                t->m_dest.z = m_caster->GetMapHeight(t->m_dest.x, t->m_dest.y, m_caster->GetPositionZ() + 2.0f);
+                t->m_dest.z = 0.f;//m_caster->GetMapHeight(t->m_dest.x, t->m_dest.y, m_caster->GetPositionZ() + 2.0f);
                 t->m_targetMask = TARGET_FLAG_DEST_LOCATION;
             }
             while(sWorld.Collision && !sVMapInterface.CheckLOS(m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ(), t->m_dest.x, t->m_dest.y, t->m_dest.z));
@@ -1360,14 +1360,11 @@ uint8 Spell::CanCast(bool tolerate)
                 if ( p_caster->GetMapId() == 531 && ( m_spellInfo->Id == 25953 || m_spellInfo->Id == 26054 || m_spellInfo->Id == 26055 || m_spellInfo->Id == 26056 ) )
                     return SPELL_CANCAST_OK;
 
-                if (sVMapInterface.IsIndoor( p_caster->GetMapId(), p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ() + 2.0f ))
+                if(p_caster->HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
                     return SPELL_FAILED_NO_MOUNTS_ALLOWED;
             }
-            else if( m_spellInfo->isOutdoorOnly() )
-            {
-                if(sVMapInterface.IsIndoor( p_caster->GetMapId(),p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ() + 2.0f ) )
-                    return SPELL_FAILED_ONLY_OUTDOORS;
-            }
+            else if( m_spellInfo->isOutdoorOnly() && p_caster->HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
+                return SPELL_FAILED_ONLY_OUTDOORS;
         }
 
         if(m_spellInfo->isSpellNotAvailableInArena() || m_spellInfo->reqInBattleground())
@@ -1429,24 +1426,12 @@ uint8 Spell::CanCast(bool tolerate)
         // check for duel areas
         if( m_spellInfo->Id == 7266 )
         {
+            if(p_caster->HasAreaFlag(OBJECT_AREA_FLAG_INCITY))
+                return SPELL_FAILED_NO_DUELING;
+
             MapInstance *instance = p_caster->GetMapInstance();
             if(instance->GetdbcMap()->IsBattleGround() || instance->GetdbcMap()->IsBattleArena())
                 return SPELL_FAILED_NO_DUELING;
-
-            if(instance->CanUseCollision(p_caster))
-            {
-                if(sVMapInterface.IsIncity(p_caster->GetMapId(), p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ()))
-                    return SPELL_FAILED_NO_DUELING;
-            }
-            else
-            {
-                AreaTableEntry* at = dbcAreaTable.LookupEntry( p_caster->GetAreaId() );
-                if(at == NULL)
-                    at = dbcAreaTable.LookupEntry( p_caster->GetZoneId() );
-
-                if(at != NULL && at->AreaFlags & AREA_CITY_AREA)
-                    return SPELL_FAILED_NO_DUELING;
-            }
         }
 
         // check if spell is allowed while player is on a taxi
@@ -1748,8 +1733,8 @@ uint8 Spell::CanCast(bool tolerate)
                     {
                         posx = px + r * co;
                         posy = py + r * si;
-                        posz = map->GetWaterHeight(posx,posy, NO_WATER_HEIGHT);
-                        if(posz > map->GetLandHeight(posx,posy))//water
+                        posz = 0.f;//map->GetWaterHeight(posx,posy, NO_WATER_HEIGHT);
+                        if(posz > 0.f)//map->GetLandHeight(posx,posy))//water
                             break;
                     }
                     if(r<=10)

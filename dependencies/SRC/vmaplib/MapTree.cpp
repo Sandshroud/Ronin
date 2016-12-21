@@ -30,6 +30,21 @@ namespace VMAP
         bool hit;
     };
 
+    class WMODataCallback
+    {
+        public:
+            WMODataCallback(ModelInstance* val, WMOData &data, G3D::int32 requiredFlags, G3D::int32 ignoreFlags): prims(val), wmoData(data), reqFlags(requiredFlags), ignFlags(ignoreFlags) {}
+            void operator()(const Vector3& point, G3D::uint32 entry)
+            {
+                OUT_DEBUG("MapTree::WMODataCallback: trying to intersect '%s'", prims[entry].name.c_str());
+                prims[entry].getWMOData(point, wmoData, reqFlags, ignFlags);
+            }
+
+            ModelInstance* prims;
+            WMOData &wmoData;
+            G3D::int32 reqFlags, ignFlags;
+    };
+
     class AreaInfoCallback
     {
         public:
@@ -70,6 +85,12 @@ namespace VMAP
         //tilefilename << std::setw(2) << tileX << '_' << std::setw(2) << tileY << ".vmtile";
         tilefilename << std::setw(2) << tileY << '_' << std::setw(2) << tileX << ".vmtile";
         return tilefilename.str();
+    }
+
+    void StaticMapTree::getWMOData(const G3D::Vector3 &pos, WMOData &data, G3D::int32 requiredFlags, G3D::int32 ignoreFlags) const
+    {
+        WMODataCallback intersectionCallBack(iTreeValues, data, requiredFlags, ignoreFlags);
+        iTree.intersectPoint(pos, intersectionCallBack);
     }
 
     bool StaticMapTree::getAreaInfo(Vector3 &pos, G3D::uint32 &flags, G3D::int32 &adtId, G3D::int32 &rootId, G3D::int32 &groupId) const

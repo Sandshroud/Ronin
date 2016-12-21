@@ -306,21 +306,44 @@ namespace VMAP
         return height;
     }
 
-    bool VMapManager::getWMOId(unsigned int mapId, float x, float y, float z, G3D::uint32& wmoId) const
+    G3D::uint32 VMapManager::getWMOData(unsigned int mapId, float x, float y, float z, G3D::uint32& wmoFlags, bool &areaResult, unsigned int &adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight) const
     {
         InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree != iInstanceMapTrees.end())
         {
-            LocationInfo info;
+            // Convert to internal position(negative is overlayed)
             Vector3 pos = convertPositionToInternalRep(x, y, z);
-            if (instanceTree->second->GetLocationInfo(pos, info))
+            // Grab our WMO data
+            WMOData data;
+            instanceTree->second->getWMOData(pos, data);
+            if(areaResult = data.result)
             {
-                wmoId = info.hitModel->GetWmoID();
-                if(info.hitInstance->flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS && !(info.hitInstance->flags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS || info.hitInstance->flags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
-                    return info.hitModel->IsWithinObject(pos, info.hitInstance);
+                adtFlags = data.flags;
+                // Area data
+                adtId = data.adtId;
+                rootId = data.rootId;
+                groupId = data.groupId;
+                // Ground height
+                groundHeight = data.ground_Z;
+                if((data.hitModel->GetMogpFlags() & WMO_FLAG_HAS_WMO_LIQUID) && data.hitInstance->GetLiquidLevel(pos, data.hitModel, liquidHeight))
+                    liquidFlags = data.hitModel->GetLiquidType();
+                else if(!G3D::fuzzyEq(data.LiquidHeightSearch, -G3D::inf()))
+                {
+                    liquidHeight = data.LiquidHeightSearch;
+                    liquidFlags = data.liqTypeSearch;
+                }
+
+                if(data.hitModel->IsWithinObject(pos, data.hitInstance))
+                    wmoFlags = data.hitModel->GetMogpFlags();
+                return data.hitModel->GetWmoID();
+            }
+            else if(!G3D::fuzzyEq(data.LiquidHeightSearch, -G3D::inf()))
+            {
+                liquidHeight = data.LiquidHeightSearch;
+                liquidFlags = data.liqTypeSearch;
             }
         }
-        return false;
+        return 0;
     }
 
     bool VMapManager::getAreaInfo(unsigned int mapId, float x, float y, float& z, G3D::uint32& flags, G3D::int32& adtId, G3D::int32& rootId, G3D::int32& groupId) const
@@ -338,15 +361,15 @@ namespace VMAP
         return false;
     }
 
-    void VMapManager::GetLiquidData(G3D::uint32 mapId, float x, float y, float z, G3D::uint16 &type, float &level) const
+    void VMapManager::getLiquidData(G3D::uint32 mapId, float x, float y, float z, G3D::uint16 &typeFlags, float &level) const
     {
         InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree != iInstanceMapTrees.end())
         {
             LocationInfo info;
             Vector3 pos = convertPositionToInternalRep(x, y, z);
-            if (instanceTree->second->GetLocationInfo(pos, info) && info.hitInstance->GetLiquidLevel(pos, info, level))
-                type = info.hitModel->GetLiquidType();
+            if (instanceTree->second->GetLocationInfo(pos, info) && info.hitInstance->GetLiquidLevel(pos, info.hitModel, level))
+                typeFlags = info.hitModel->GetLiquidType();
         }
     }
 
@@ -453,10 +476,10 @@ namespace VMAP
 
     void VMapManager::LoadGameObjectModelList()
     {
-        FILE* model_list_file = fopen((vMapObjDir + VMAP::GAMEOBJECT_MODELS).c_str(), "rb");
+        FILE* model_list_file = fopen((vMapObjDir + GAMEOBJECT_MODELS).c_str(), "rb");
         if (!model_list_file)
         {
-            OUT_DEBUG("Unable to open '%s' file.", VMAP::GAMEOBJECT_MODELS);
+            OUT_DEBUG("Unable to open '%s' file.", GAMEOBJECT_MODELS);
             return;
         }
 
@@ -475,7 +498,7 @@ namespace VMAP
                 || fread(&v1, sizeof(Vector3), 1, model_list_file) != 1
                 || fread(&v2, sizeof(Vector3), 1, model_list_file) != 1)
             {
-                OUT_DEBUG("File '%s' seems to be corrupted!", VMAP::GAMEOBJECT_MODELS);
+                OUT_DEBUG("File '%s' seems to be corrupted!", GAMEOBJECT_MODELS);
                 break;
             }
 

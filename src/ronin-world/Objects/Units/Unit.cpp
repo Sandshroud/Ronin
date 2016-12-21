@@ -2756,6 +2756,11 @@ void Unit::RemoveFromWorld()
     WorldObject::RemoveFromWorld();
 }
 
+void Unit::EventExploration(MapInstance *instance)
+{
+    WorldObject::EventExploration(instance);
+}
+
 void Unit::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
     WorldObject::SetPosition(newX, newY, newZ, newOrientation);

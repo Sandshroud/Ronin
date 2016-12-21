@@ -696,7 +696,9 @@ void WorldObject::PushToWorld(MapInstance* instance)
 
     m_mapId = instance->GetMapId();
     m_instanceId = instance->GetInstanceID();
-    UpdateAreaInfo(instance);
+
+    // Call a quick exploration event with a mgr override
+    EventExploration(instance);
 
     // Set our map manager
     m_mapInstance = instance;
@@ -745,19 +747,9 @@ void WorldObject::Deactivate(uint32 reactivationTime)
     ClearInRangeObjects();
 }
 
-float WorldObject::GetMapHeight(float x, float y, float z, float maxDist)
+void WorldObject::EventExploration(MapInstance *instance)
 {
-    float retVal = z;
-    if(IsInWorld())
-    {
-        float mapHeight = sVMapInterface.GetHeight(m_mapId, m_instanceId, 0, x, y, z);
-        if(mapHeight == NO_WMO_HEIGHT)
-        {
-            if((mapHeight = m_mapInstance->GetLandHeight(x, y)) != NO_LAND_HEIGHT && (maxDist == UnitPathSystem::fInfinite || mapHeight+maxDist >= retVal))
-                retVal = mapHeight;
-        } else retVal = mapHeight;
-    }
-    return retVal;
+
 }
 
 void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
@@ -805,7 +797,7 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
 {
     bool updateMap = false;
     // Position updating is based off of 2 units of movement, either xy on 2^2 or 2diff
-    if(m_lastMapUpdatePosition.Distance2DSq(newX, newY) > 4.f || RONIN_UTIL::Diff(newZ, m_lastMapUpdatePosition.z) > 2.f)
+    if(m_lastMapUpdatePosition.DistanceSq(newX, newY, newZ) > 4.f)
         updateMap = true;
 
     m_position.ChangeCoords(newX, newY, newZ, NormAngle(newOrientation));
@@ -1646,31 +1638,61 @@ uint32 GetZoneForMap(uint32 mapid, uint32 areaId)
 
 void WorldObject::UpdateAreaInfo(MapInstance *mgr)
 {
+    m_liquidFlags = 0;
+    m_liquidHeight = NO_WATER_HEIGHT;
+    m_wmoId = m_zoneId = m_areaId = 0;
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && (mgr = GetMapInstance()) == NULL)
-    {
-        m_wmoId = m_zoneId = m_areaId = 0;
         return;
-    }
+    // Half size is used for calcs
+    float modelHalfSize = GetModelHalfZSize();
 
-    m_zoneId = m_areaId = mgr->GetAreaID(GetPositionX(), GetPositionY(), GetPositionZ());
+    // Holes are used for WMO placement
+    bool isHole = false;//mgr->GetADTIsHole(GetPositionX(), GetPositionY());
+
+    // Grab our ADT ground height before WMO checks
+    float ADTHeight = mgr->GetADTLandHeight(GetPositionX(), GetPositionY());
+
+    uint16 adtLiqType; // Grab our ADT liquid height before WMO checks
+    float ADTLiquid = mgr->GetADTWaterHeight(GetPositionX(), GetPositionY(), adtLiqType);
+
+    // Check WMO data from half of our z height on top of our position
+    sVMapInterface.GetWMOData(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ() + modelHalfSize, m_wmoId, m_areaId, m_areaFlags, m_groundHeight, m_liquidFlags, m_liquidHeight);
+    // Ground height, works pretty well
+    if(m_groundHeight == NO_WMO_HEIGHT || (m_wmoId == 0 && m_groundHeight < ADTHeight))
+        m_groundHeight = ADTHeight;
+
+    // Liquid heights, needs more work | Don't use ADT height at holes or when under ADT height | TODO: Buildings underwater that cut off ADT liquid
+    if(m_liquidHeight == NO_WMO_HEIGHT && (isHole || (m_groundHeight != ADTHeight && GetPositionZ() < ADTHeight)))
+        m_liquidFlags = 0, m_liquidHeight = NO_WATER_HEIGHT;
+    else if(m_liquidHeight == NO_WMO_HEIGHT || (m_groundHeight == ADTHeight))
+    {   // Use ADT liquid and Type
+        m_liquidFlags = adtLiqType;
+        m_liquidHeight = ADTLiquid;
+    } else if(m_liquidFlags == 0 && adtLiqType)
+        m_liquidFlags = adtLiqType; // Keep our WMO liquid and check for override type
+
+    // Check if we have an invalid area id, use base map if we do
+    if(m_areaId == 0 || m_areaId == 0xFFFF)
+        m_areaId = mgr->GetADTAreaId(m_position.x, m_position.y);
+
+    // Check if we have a forced zone for specific maps
     if(uint32 forcedZone = GetZoneForMap(mgr->GetMapId(), m_areaId))
-        m_zoneId = m_areaId = forcedZone;
-    AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId);
-    if(at != NULL && at->ZoneId) // Set our Zone on add to world!
-        m_zoneId = at->ZoneId;
+    {
+        m_zoneId = forcedZone;
+        if(m_areaId == 0)
+            m_areaId = m_zoneId;
+    } else if(AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId))
+        m_zoneId = (at && at->ZoneId) ? at->ZoneId : m_areaId; // Otherwise check zone based on areaId
 
-    if(sVMapInterface.IsInObject(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), m_wmoId))
-        m_areaFlags |= OBJECT_AREA_FLAG_INSIDE_WMO;
-    if(sVMapInterface.IsIndoor(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
-        m_areaFlags |= OBJECT_AREA_FLAG_INDOORS;
-    if(sVMapInterface.IsIncity(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ()))
-        m_areaFlags |= OBJECT_AREA_FLAG_INCITY;
+    // Generate new object area flags based on area or zone info
     if(m_zoneId || m_areaId)
     {
+        // Santuary data is precached
         if(sWorld.CheckSanctuary(GetMapId(), m_zoneId, m_areaId))
             m_areaFlags |= OBJECT_AREA_FLAG_INSANCTUARY;
 
+        // Grab our table entry to check categories and flags
         AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId), *zoneAt = dbcAreaTable.LookupEntry(m_zoneId);
         if(at != NULL || (at = zoneAt) != NULL)
         {
@@ -1680,6 +1702,8 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
                 m_areaFlags |= OBJECT_AREA_FLAG_ALLIANCE_ZONE;
             if(at->category == AREAC_HORDE_TERRITORY)
                 m_areaFlags |= OBJECT_AREA_FLAG_HORDE_ZONE;
+            if(at->AreaFlags & AREA_CITY_AREA)
+                m_areaFlags |= OBJECT_AREA_FLAG_INCITY;
             if(at->AreaFlags & AREA_PVP_ARENA)
                 m_areaFlags |= OBJECT_AREA_FLAG_ARENA_ZONE;
             // Still unsure how Vash'Jir is detected so just go based on ID for now

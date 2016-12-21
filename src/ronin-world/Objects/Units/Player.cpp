@@ -361,13 +361,16 @@ void Player::Update(uint32 msTime, uint32 diff)
     ProcessPendingItemUpdates();
 }
 
-void Player::EventExploration()
+void Player::EventExploration(MapInstance *instance)
 {
     if(m_position.x >= _maxX || m_position.x <= _minX || m_position.y >= _maxY || m_position.y <= _minY)
         return;
 
     uint32 oldZone = m_zoneId, oldArea = m_areaId;
-    UpdateAreaInfo();
+    UpdateAreaInfo(instance);
+
+    // Call virtual calldown after updating area info
+    Unit::EventExploration(instance);
 
     bool restmap = false;
     World::RestedAreaInfo* restinfo = sWorld.GetRestedMapInfo(GetMapId());
@@ -380,7 +383,7 @@ void Player::EventExploration()
         if(oldZone == 0xFFFF)
             return;
 
-        GetMapInstance()->GetStateManager().ClearWorldStates(this);
+        instance->GetStateManager().ClearWorldStates(this);
         // This must be called every update, to keep data fresh.
         EventDBCChatUpdate();
     }
@@ -392,16 +395,15 @@ void Player::EventExploration()
 
         m_playerInfo->lastZone = m_zoneId;
 
-        TRIGGER_INSTANCE_EVENT( GetMapInstance(), OnZoneChange )( this, m_zoneId, oldZone );
+        TRIGGER_INSTANCE_EVENT( instance, OnZoneChange )( this, m_zoneId, oldZone );
 
         EventDBCChatUpdate();
 
-        GetMapInstance()->GetStateManager().SendWorldStates(this);
-    } else if(m_areaId == oldArea)
-        return;
+        instance->GetStateManager().SendWorldStates(this);
 
-    if(Group *grp = GetGroup())
-        grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, this );
+        if(Group *grp = GetGroup())
+            grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, this );
+    }
 
     if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
     {
@@ -2570,9 +2572,6 @@ void Player::OnPushToWorld()
     sWorld.mInWorldPlayerCount++;
 
     Unit::OnPushToWorld();
-
-    // Update area data
-    EventExploration();
 
     // Send our auras
     m_AuraInterface.SendAuraData();

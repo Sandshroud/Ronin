@@ -132,6 +132,74 @@ bool VMapInterface::IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY)
     return isactive;
 }
 
+void VMapInterface::GetWMOData(uint32 mapId, float x, float y, float z, uint32 &wmoId, uint32 &areaId, uint16 &areaFlags, float &groundLevel, uint16 &liquidFlags, float &liquidLevel)
+{
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
+        return;
+
+    // get read lock
+    m_mapLocks[mapId]->m_lock.Acquire();
+
+    groundLevel = liquidLevel = NO_WMO_HEIGHT;
+    uint32 wmoFlags = 0, adtFlags = 0;
+    int32 adtId = 0, rootId = 0, groupId = 0;
+    bool areaRes = false;
+
+    // Grab as much WMO data as we can in a single check
+    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaRes, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel);
+
+    // We can just check for liquid data, but currently there is no real fix for caves etc so just accept any WMO with inherit data
+    if(wmoFlags & VMAP::WMO_FLAG_HAS_WMO_LIQUID)
+        areaFlags |= OBJECT_AREA_FLAG_USE_WMO_WATER;
+    else if(wmoFlags & (VMAP::WMO_FLAG_INSIDE_MASTER_WMO|VMAP::WMO_FLAG_INSIDE_SLAVE_WMO))
+        areaFlags;// |= OBJECT_AREA_FLAG_IGNORE_ADT_WATER;
+
+    // Next check if we've got any area info from our callback
+    if(areaRes)
+    {   // We precached our WMO table data, so grab that from our manager
+        WMOAreaTableEntry *WMOEntry = NULL;
+        // Set our area Id
+        if(WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupId))
+            areaId = WMOEntry->areaId;
+
+        // Indoor checks
+        if(adtFlags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS && !(adtFlags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS || adtFlags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
+            if(WMOEntry == NULL || !(WMOEntry->Flags & 0x4))
+                areaFlags |= OBJECT_AREA_FLAG_INDOORS;
+
+        // City flag checks
+        if(adtFlags & VMAP::WMO_FLAG_INSIDE_CITY_WMO
+            //&& (flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS)
+            && !(adtFlags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS))
+            areaFlags |= OBJECT_AREA_FLAG_INCITY;
+        else if(WMOEntry && (adtFlags & (VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS|VMAP::WMO_FLAG_INSIDE_SLAVE_WMO)))
+            if(AreaTableEntry* ate = dbcAreaTable.LookupEntry(WMOEntry->areaId))
+                if(ate->AreaFlags & AREA_CITY_AREA || ate->AreaFlags & AREA_CITY)
+                    areaFlags |= OBJECT_AREA_FLAG_INCITY;
+    }
+
+    // release write lock
+    m_mapLocks[mapId]->m_lock.Release();
+}
+
+float VMapInterface::GetHeight(uint32 mapId, uint32 instanceId, int32 m_phase, float x, float y, float z)
+{
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
+        return NO_WMO_HEIGHT;
+
+    // get read lock
+    m_mapLocks[mapId]->m_lock.Acquire();
+
+    // get data
+    float res = vMapMgr ? vMapMgr->getHeight(mapId, instanceId, m_phase, x, y, z, 10.0f) : NO_WMO_HEIGHT;
+
+    // release write lock
+    m_mapLocks[mapId]->m_lock.Release();
+
+    // return
+    return res;
+}
+
 bool VMapInterface::CheckLOS(uint32 mapId, uint32 instanceId, int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
@@ -165,178 +233,6 @@ bool VMapInterface::GetFirstPoint(uint32 mapId, uint32 instanceId, int32 m_phase
     m_mapLocks[mapId]->m_lock.Release();
 
     // return
-    return res;
-}
-
-float VMapInterface::GetHeight(uint32 mapId, uint32 instanceId, int32 m_phase, float x, float y, float z)
-{
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return NO_WMO_HEIGHT;
-
-    // get read lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-
-    // get data
-    float res = vMapMgr ? vMapMgr->getHeight(mapId, instanceId, m_phase, x, y, z, 10.0f) : NO_WMO_HEIGHT;
-
-    // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
-
-    // return
-    return res;
-}
-
-// DBC ids are stored in vmaps currently, so convert to terrain water flags
-// We could use DBC file, but this workaround is sufficient.
-uint16 convertWaterIDToFlags(uint16 wmoType)
-{
-    switch(wmoType)
-    {
-        // Mask these to Regular Water
-    case 1: case 5: case 9: case 13: case 17:
-    case 41: case 61: case 81: case 181:
-        return 0x01;
-        // Mask these to Ocean Water
-    case 2: case 6: case 10:
-    case 14: case 100:
-        return 0x02;
-        // Mask these to Regular Magma
-    case 3: case 7: case 11: case 15:
-    case 19: case 121: case 141:
-        return 0x04;
-        // Mask these to Regular Slime
-    case 4: case 8: case 12:
-    case 20: case 21:
-        return 0x08;
-    }
-    return 0;
-}
-
-float VMapInterface::GetWaterHeight(uint32 mapId, float x, float y, float z, uint16 &outType)
-{
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return NO_WMO_HEIGHT;
-
-    // get read lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-
-    // get data
-    uint16 waterDBCId = 0;
-    float res = NO_WMO_HEIGHT;
-    vMapMgr->GetLiquidData(mapId, x, y, z, waterDBCId, res);
-    if(waterDBCId)
-        outType = convertWaterIDToFlags(waterDBCId);
-
-    // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
-
-    // return
-    return res;
-}
-
-bool VMapInterface::IsInObject(uint32 mapId, float x, float y, float z, uint32 &wmoId)
-{
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return false;
-
-    // get read lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-
-    bool res = vMapMgr->getWMOId(mapId, x, y, z, wmoId);
-
-    // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
-
-    return res;
-}
-
-bool VMapInterface::IsIndoor(uint32 mapId, float x, float y, float z)
-{
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return false;
-
-    // get read lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-
-    bool res = false;
-    uint32 flags = 0;
-    int32 adtId = 0, rootId = 0, groupid = 0;
-    if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupid))
-    {
-        if(flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS
-            && !(flags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS)
-            && !(flags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
-        {
-            WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid);
-            if(WMOEntry == NULL || !(WMOEntry->Flags & 0x4))
-                res = true;
-        }
-    }
-
-    // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
-
-    return res;
-}
-
-bool VMapInterface::IsIncity(uint32 mapId, float x, float y, float z)
-{
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return false;
-
-    // get read lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-
-    bool res = false;
-    uint32 flags = 0;
-    int32 adtId = 0, rootId = 0, groupid = 0;
-    if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupid))
-    {
-        if(flags & VMAP::WMO_FLAG_INSIDE_CITY_WMO
-            //&& (flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS)
-            && !(flags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS))
-            res = true;
-        else if(flags & (VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS|VMAP::WMO_FLAG_INSIDE_SUB_WMO))
-        {
-            WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid);
-            if(WMOEntry != NULL)
-            {
-                AreaTableEntry* ate = dbcAreaTable.LookupEntry(WMOEntry->areaId);
-                if(ate != NULL)
-                {
-                    if(ate->AreaFlags & AREA_CITY_AREA || ate->AreaFlags & AREA_CITY)
-                        res = true;
-                }
-            }
-        }
-    }
-
-    // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
-
-    return res;
-}
-
-bool VMapInterface::GetAreaInfo(uint32 mapId, float x, float y, float z, uint16 &areaId, uint32 &flags, int32 &adtId, int32 &rootId, int32 &groupid)
-{
-    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
-        return false;
-
-    bool res = false;
-    // get read lock
-    m_mapLocks[mapId]->m_lock.Acquire();
-    if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupid))
-    {
-        if(flags & VMAP::WMO_FLAG_WMO_EXISTS)
-        {
-            res = true;
-            if(WMOAreaTableEntry * WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupid))
-                areaId = WMOEntry->areaId;
-        }
-    }
-
-    // release write lock
-    m_mapLocks[mapId]->m_lock.Release();
     return res;
 }
 

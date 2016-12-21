@@ -87,7 +87,7 @@ namespace VMAP
     // ===================== WmoLiquid ==================================
 
     WmoLiquid::WmoLiquid(G3D::uint32 width, G3D::uint32 height, const Vector3 &corner, G3D::uint32 type):
-        iTilesX(width), iTilesY(height), iCorner(corner), iType(type)
+        iTilesX(width), iTilesY(height), iCorner(corner), iType(type), maxHeight(-G3D::inf())
     {
         iHeight = new float[(width+1)*(height+1)];
         iFlags = new G3D::uint8[width*height];
@@ -119,6 +119,7 @@ namespace VMAP
             iHeight = new float[(iTilesX+1)*(iTilesY+1)];
             memcpy(iHeight, other.iHeight, (iTilesX+1)*(iTilesY+1)*sizeof(float));
         } else iHeight = 0;
+        maxHeight = other.maxHeight;
         if (other.iFlags)
         {
             iFlags = new G3D::uint8[iTilesX * iTilesY];
@@ -209,6 +210,8 @@ namespace VMAP
         G3D::uint32 size = (liquid->iTilesX + 1)*(liquid->iTilesY + 1);
         liquid->iHeight = new float[size];
         if (result && fread(liquid->iHeight, sizeof(float), size, rf) != size) result = false;
+        liquid->maxHeight = liquid->iHeight[0];
+        while(size-- > 0) liquid->maxHeight = std::max<float>(liquid->maxHeight, liquid->iHeight[size]);
         size = liquid->iTilesX * liquid->iTilesY;
         liquid->iFlags = new G3D::uint8[size];
         if (result && fread(liquid->iFlags, sizeof(G3D::uint8), size, rf) != size) result = false;
@@ -415,6 +418,13 @@ namespace VMAP
         return 0;
     }
 
+    float GroupModel::GetLiquidMaxLevel() const
+    {
+        if(iLiquid)
+            return iLiquid->GetMaxHeight();
+        return -G3D::inf();
+    }
+
     // ===================== WorldModel ==================================
 
     void WorldModel::setGroupModels(std::vector<GroupModel> &models)
@@ -448,32 +458,83 @@ namespace VMAP
         return isc.hit;
     }
 
-    class WModelAreaCallback {
+    class WModelWMOCallback {
         public:
-            WModelAreaCallback(const std::vector<GroupModel> &vals, const Vector3 &down):
-                prims(vals.begin()), hit(vals.end()), minVol(G3D::inf()), zDist(G3D::inf()), zVec(down) {}
-            std::vector<GroupModel>::const_iterator prims;
-            std::vector<GroupModel>::const_iterator hit;
-            float minVol;
+            WModelWMOCallback(const std::vector<GroupModel> &vals, const Vector3 &down):
+                prims(vals.begin()), hit(vals.end()), mstrHit(vals.end()), end(vals.end()), zDist(G3D::inf()), zVec(down) {}
+            std::vector<GroupModel>::const_iterator prims, hit, mstrHit, end;
+
             float zDist;
             Vector3 zVec;
+
             void operator()(const Vector3& point, G3D::uint32 entry)
             {
+                const GroupModel *model = &prims[entry];
                 float group_Z;
-                if (prims[entry].IsInsideObject(point, zVec, group_Z))
+                if(!model->IsInsideObject(point, zVec, group_Z))
+                    return;
+
+                if (group_Z < zDist)
                 {
-                    if (group_Z < zDist)
-                    {
-                        zDist = group_Z;
-                        hit = prims + entry;
-                    }
-                    const GroupModel &gm = prims[entry];
-                    OUT_DEBUG("%10u %8X %7.3f, %7.3f, %7.3f | %7.3f, %7.3f, %7.3f | z=%f, p_z=%f", gm.GetWmoID(), gm.GetMogpFlags(),
-                        gm.GetBound().low().x, gm.GetBound().low().y, gm.GetBound().low().z,
-                        gm.GetBound().high().x, gm.GetBound().high().y, gm.GetBound().high().z, group_Z, point.z);
+                    zDist = group_Z;
+                    hit = prims + entry;
+
+                    OUT_DEBUG("%10u %8X %7.3f, %7.3f, %7.3f | %7.3f, %7.3f, %7.3f | z=%f, p_z=%f", model->GetWmoID(), model->GetMogpFlags(),
+                        model->GetBound().low().x, model->GetBound().low().y, model->GetBound().low().z,
+                        model->GetBound().high().x, model->GetBound().high().y, model->GetBound().high().z, group_Z, point.z);
                 }
             }
     };
+
+    class WModelAreaCallback {
+        public:
+            WModelAreaCallback(const std::vector<GroupModel> &vals, const Vector3 &down):
+                prims(vals.begin()), hit(vals.end()), zDist(G3D::inf()), zVec(down) {}
+            std::vector<GroupModel>::const_iterator prims, hit;
+
+            float zDist;
+            Vector3 zVec;
+
+            void operator()(const Vector3& point, G3D::uint32 entry)
+            {
+                const GroupModel *model = &prims[entry];
+                float group_Z;
+                if(!model->IsInsideObject(point, zVec, group_Z))
+                    return;
+
+                if (group_Z < zDist)
+                {
+                    zDist = group_Z;
+                    hit = prims + entry;
+
+                    OUT_DEBUG("%10u %8X %7.3f, %7.3f, %7.3f | %7.3f, %7.3f, %7.3f | z=%f, p_z=%f", model->GetWmoID(), model->GetMogpFlags(),
+                        model->GetBound().low().x, model->GetBound().low().y, model->GetBound().low().z,
+                        model->GetBound().high().x, model->GetBound().high().y, model->GetBound().high().z, group_Z, point.z);
+                }
+            }
+    };
+
+    bool WorldModel::WMOCheck(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, WMOData &data, const G3D::uint16 requiredFlags, const G3D::uint16 ignoredFlags) const
+    {
+        if (groupModels.empty())
+            return false;
+
+        WModelWMOCallback callback(groupModels, down);
+        groupTree.intersectPoint(p, callback);
+        if (callback.hit != groupModels.end())
+        {
+            data.result = true;
+            data.rootId = RootWMOID;
+            data.groupId = callback.hit->GetWmoID();
+            data.flags = callback.hit->GetMogpFlags();
+            if (callback.mstrHit != groupModels.end())
+                data.hitModel = &(*callback.mstrHit);
+            else data.hitModel = &(*callback.hit);
+            dist = callback.zDist;
+            return true;
+        }
+        return false;
+    }
 
     bool WorldModel::IntersectPoint(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, AreaInfo &info) const
     {

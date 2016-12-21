@@ -9,6 +9,8 @@
 namespace VMAP
 {
     class WorldModel;
+    class GroupModel;
+    struct WMOData;
     struct AreaInfo;
     struct LocationInfo;
 
@@ -33,9 +35,10 @@ namespace VMAP
             ModelInstance(const ModelSpawn &spawn, WorldModel* model);
             void setUnloaded() { iModel = 0; }
             bool intersectRay(const G3D::Ray& pRay, float& pMaxDist, bool pStopAtFirstHit) const;
+            void getWMOData(const G3D::Vector3& p, WMOData &data, G3D::int32 requiredFlags, G3D::int32 ignoredFlags) const;
             void intersectPoint(const G3D::Vector3& p, AreaInfo &info) const;
             bool GetLocationInfo(const G3D::Vector3& p, LocationInfo &info) const;
-            bool GetLiquidLevel(const G3D::Vector3& p, LocationInfo &info, float &liqHeight) const;
+            bool GetLiquidLevel(const G3D::Vector3& p, const VMAP::GroupModel *model, float &liqHeight) const;
             void CalcOffsetDirection(const G3D::Vector3 pos, G3D::Vector3 &p, G3D::Vector3 &up) const;
 
         protected:

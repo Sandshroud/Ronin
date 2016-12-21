@@ -111,9 +111,9 @@ namespace VMAP
 
             bool processCommand(char *) { return false; } // for debug and extensions
 
-            bool getWMOId(unsigned int pMapId, float x, float y, float z, unsigned int &wmoId) const;
+            unsigned int getWMOData(unsigned int pMapId, float x, float y, float z, unsigned int &wmoFlags, bool &areaResult, unsigned int& adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight) const;
             bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, unsigned int& flags, int& adtId, int& rootId, int& groupId) const;
-            void GetLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &type, float &level) const;
+            void getLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &typeFlags, float &level) const;
 
             WorldModel* acquireModelInstance(std::string filename);
             void releaseModelInstance(std::string filename);

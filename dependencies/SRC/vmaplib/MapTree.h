@@ -10,6 +10,29 @@ namespace VMAP
     class GroupModel;
     class VMapManager;
 
+    struct WMOData
+    {   // Quick grab of all needed WMO info from vmap data
+        WMOData() : result(false), ground_Z(-G3D::inf()), hitInstance(NULL), hitModel(NULL), flags(0), adtId(0), rootId(0), groupId(0), liqTypeSearch(0), LiquidHeightSearch(-G3D::inf()) {}
+
+        // We have data
+        bool result;
+
+        // GroundZ
+        float ground_Z;
+
+        // Location info
+        const ModelInstance* hitInstance;
+        const GroupModel* hitModel;
+
+        // Area data
+        G3D::uint32 flags;
+        G3D::int32 adtId, rootId, groupId;
+
+        // Liquid data
+        G3D::uint16 liqTypeSearch;
+        float LiquidHeightSearch;
+    };
+
     struct LocationInfo
     {
         LocationInfo(): hitInstance(0), hitModel(0), ground_Z(-G3D::inf()) {}
@@ -52,7 +75,8 @@ namespace VMAP
             bool isInLineOfSight(const G3D::Vector3& pos1, const G3D::Vector3& pos2) const;
             bool getObjectHitPos(const G3D::Vector3& pos1, const G3D::Vector3& pos2, G3D::Vector3& pResultHitPos, float pModifyDist) const;
             float getHeight(const G3D::Vector3& pPos, float maxSearchDist) const;
-            G3D::uint32 GetVmapFlags(G3D::Vector3& pos);
+
+            void getWMOData(const G3D::Vector3 &pos, WMOData &data, G3D::int32 requiredFlags = 0, G3D::int32 ignoreFlags = 0) const;
             bool getAreaInfo(G3D::Vector3 &pos, G3D::uint32 &flags, G3D::int32 &adtId, G3D::int32 &rootId, G3D::int32 &groupId) const;
             bool GetLocationInfo(const G3D::Vector3 &pos, LocationInfo &info) const;
 

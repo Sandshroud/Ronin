@@ -2070,7 +2070,7 @@ bool ChatHandler::HandleCollisionTestIndoor(const char * args, WorldSession * m_
             if (plr->GetMapInstance()->CanUseCollision(plr))
             {
                 const LocationVector & loc = plr->GetPosition();
-                bool res = sVMapInterface.IsIndoor(plr->GetMapId(), loc.x, loc.y, loc.z + 2.0f);
+                bool res = false;//sVMapInterface.IsIndoor(plr->GetMapId(), loc.x, loc.y, loc.z + 2.0f);
                 SystemMessage(m_session, "Result was: %s.", res ? "indoors" : "outside");
             } else SystemMessage(m_session, "Collision is not available here.");
         } else SystemMessage(m_session, "Ronin was does not have collision enabled.");
@@ -2120,9 +2120,7 @@ bool ChatHandler::HandleCollisionGetHeight(const char * args, WorldSession * m_s
     if(plr == NULL)
         return true;
 
-    SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetMapInstance()->GetLandHeight(plr->GetPositionX(), plr->GetPositionY()), plr->GetMapInstance()->GetBaseMap()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY()));
-    SystemMessage(m_session, "CResults: Curr pos: %f; Water: %f; Collide: %f", plr->GetMapHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()), plr->GetMapInstance()->GetWaterHeight(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()),
-        sVMapInterface.GetHeight(plr->GetMapId(), plr->GetInstanceID(), plr->GetPhaseMask(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ()));
+    SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetGroundHeight(), plr->GetLiqHeight());
     return true;
 }
 

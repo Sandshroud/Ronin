@@ -303,17 +303,9 @@ public:
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
 
     // Terrain Functions
-    void GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType, bool forceVmapData = false);
-    float GetLandHeight(float x, float y);
-    uint8 GetWalkableState(float x, float y);
-    uint16 GetAreaID(float x, float y, float z = 0.0f);
-    float GetWaterHeight(float x, float y, float z)
-    {
-        uint16 waterType = 0;
-        float res = NO_WATER_HEIGHT;
-        GetWaterData(x, y, z, res, waterType);
-        return res;
-    }
+    uint16 GetADTAreaId(float x, float y);
+    float GetADTLandHeight(float x, float y);
+    float GetADTWaterHeight(float x, float y, uint16 &outType);
 
     RONIN_INLINE uint32 GetMapId() { return _mapId; }
     void AddForcedCell(MapCell * c, uint32 range = 1);

@@ -415,7 +415,7 @@ uint8 TerrainMgr::GetWaterType(float x, float y)
     return Liquid;
 }
 
-float TerrainMgr::GetWaterHeight(float x, float y, float z)
+float TerrainMgr::GetWaterHeight(float x, float y)
 {
     if(!AreCoordinatesValid(x, y))
         return NO_WATER_HEIGHT;
@@ -442,7 +442,7 @@ uint8 TerrainMgr::GetWalkableState(float x, float y)
     return 1;
 }
 
-uint16 TerrainMgr::GetAreaID(float x, float y, float z)
+uint16 TerrainMgr::GetAreaID(float x, float y)
 {
     if(!AreCoordinatesValid(x, y))
         return 0xFFFF;

@@ -80,10 +80,10 @@ public:
        apart from the water function which will return '-500000.0'.
       */
     float  GetLandHeight(float x, float y);
-    float  GetWaterHeight(float x, float y, float z = NO_WATER_HEIGHT);
+    float  GetWaterHeight(float x, float y);
     uint8  GetWaterType(float x, float y);
     uint8  GetWalkableState(float x, float y);
-    uint16 GetAreaID(float x, float y, float z);
+    uint16 GetAreaID(float x, float y);
     bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID);
 
 private:

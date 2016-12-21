@@ -36,6 +36,39 @@ namespace VMAP
         return hit;
     }
 
+    void ModelInstance::getWMOData(const G3D::Vector3& p, WMOData &data, G3D::int32 requiredFlags, G3D::int32 ignoredFlags) const
+    {
+        if (!iModel)
+        {
+            OUT_DEBUG("<object not loaded>");
+            return;
+        }
+
+        // M2 files don't contain area info, only WMO files
+        if (flags & MOD_M2)
+            return;
+        if (!iBound.contains(p))
+            return;
+        // child bounds are defined in object space:
+        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
+        Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
+        float zDist;
+        if (iModel->WMOCheck(pModel, zDirModel, zDist, data, requiredFlags, ignoredFlags))
+        {
+            Vector3 modelGround = pModel + zDist * zDirModel;
+            // Transform back to world space. Note that:
+            // Mat * vec == vec * Mat.transpose()
+            // and for rotation matrices: Mat.inverse() == Mat.transpose()
+            float world_Z = ((modelGround * iInvRot) * iScale + iPos).z;
+            if (data.ground_Z < world_Z)
+            {
+                data.adtId = adtId;
+                data.hitInstance = this;
+                data.ground_Z = world_Z;
+            }
+        }
+    }
+
     void ModelInstance::intersectPoint(const G3D::Vector3& p, AreaInfo &info) const
     {
         if (!iModel)
@@ -102,13 +135,13 @@ namespace VMAP
         return false;
     }
 
-    bool ModelInstance::GetLiquidLevel(const G3D::Vector3& p, LocationInfo &info, float &liqHeight) const
+    bool ModelInstance::GetLiquidLevel(const G3D::Vector3& p, const VMAP::GroupModel *model, float &liqHeight) const
     {
         // child bounds are defined in object space:
         Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
         //Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
-        if (info.hitModel->GetLiquidLevel(pModel, zDist))
+        if (model->GetLiquidLevel(pModel, zDist))
         {
             // calculate world height (zDist in model coords):
             // assume WMO not tilted (wouldn't make much sense anyway)

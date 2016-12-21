@@ -596,6 +596,7 @@ public:
     virtual void Destruct();
 
     virtual void RemoveFromWorld();
+    virtual void EventExploration(MapInstance *instance);
 
     virtual bool IsPlayer() { return true; }
 
@@ -603,7 +604,6 @@ public:
     virtual void Reactivate() {}
 
     void Update( uint32 msTime, uint32 diff );
-    void EventExploration();
 
     virtual bool IsInWorld() { return m_mapInstance != NULL && Object::IsInWorld(); }
 

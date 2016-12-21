@@ -91,16 +91,18 @@ enum OBJECT_UPDATE_FLAGS
 
 enum ObjectAreaFlags : uint16
 {
-    OBJECT_AREA_FLAG_NONE           = 0x0000,
-    OBJECT_AREA_FLAG_INSIDE_WMO     = 0x0001,
-    OBJECT_AREA_FLAG_INDOORS        = 0x0002,
-    OBJECT_AREA_FLAG_INCITY         = 0x0004,
-    OBJECT_AREA_FLAG_INSANCTUARY    = 0x0008,
-    OBJECT_AREA_FLAG_CONTESTED      = 0x0010,
-    OBJECT_AREA_FLAG_ALLIANCE_ZONE  = 0x0020,
-    OBJECT_AREA_FLAG_HORDE_ZONE     = 0x0040,
-    OBJECT_AREA_FLAG_ARENA_ZONE     = 0x0080,
-    OBJECT_AREA_FLAG_UNDERWATER_AREA= 0x0100,
+    OBJECT_AREA_FLAG_NONE               = 0x0000,
+    OBJECT_AREA_FLAG_INDOORS            = 0x0001,
+    OBJECT_AREA_FLAG_INCITY             = 0x0002,
+    OBJECT_AREA_FLAG_INSANCTUARY        = 0x0004,
+    OBJECT_AREA_FLAG_CONTESTED          = 0x0008,
+    OBJECT_AREA_FLAG_ALLIANCE_ZONE      = 0x0010,
+    OBJECT_AREA_FLAG_HORDE_ZONE         = 0x0020,
+    OBJECT_AREA_FLAG_ARENA_ZONE         = 0x0040,
+    OBJECT_AREA_FLAG_UNDERWATER_AREA    = 0x0080,
+
+    OBJECT_AREA_FLAG_IGNORE_ADT_WATER   = 0x0100,
+    OBJECT_AREA_FLAG_USE_WMO_WATER      = 0x0200,
 };
 
 enum ObjectInactiveFlags
@@ -317,6 +319,7 @@ public:
     //! True if object exists in world
     virtual bool IsInWorld() { return m_mapInstance != NULL; }
     virtual void RemoveFromWorld();
+    virtual void EventExploration(MapInstance *instance);
 
     virtual bool CanReactivate() { return true; }
     virtual void Reactivate() = 0;
@@ -325,6 +328,7 @@ public:
     bool IsActivated() { return (m_inactiveFlags & OBJECT_INACTIVE_FLAG_INACTIVE) == 0; }
     bool hasInactiveFlag(uint16 flag) { return m_inactiveFlags & flag; }
 
+    virtual float GetModelHalfZSize() { return 0.5f; }
     virtual float getViewDistanceMod() { return 1.f; }
     virtual uint32 getEventID() { return 0; }
     virtual uint32 getConditionID() { return 0; }
@@ -342,7 +346,6 @@ public:
     virtual void SetPosition( float newX, float newY, float newZ, float newOrientation );
     virtual void SetPosition( const LocationVector & v) { SetPosition(v.x, v.y, v.z, v.o); }
 
-    float GetMapHeight(float x, float y, float z, float maxDist = 10.f);
     int32 DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras = false);
 
     // Field values
@@ -382,6 +385,7 @@ public:
     RONIN_INLINE const uint32 GetMapId( ) const { return m_mapId; }
 
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
+    RONIN_INLINE const uint32& GetWMOId( ) const { return m_wmoId; }
     RONIN_INLINE const uint32& GetAreaId( ) const { return m_areaId; }
     RONIN_INLINE const uint32& GetZoneId( ) const { return m_zoneId; }
     RONIN_INLINE void SetLastMovementZone(uint32 zone) { m_lastMovementZone = zone; }
@@ -591,11 +595,16 @@ public:
     void PlaySoundToSet(uint32 sound_entry);
     void EventSpellHit(Spell* pSpell);
 
-    // Area flags
-    bool HasAreaFlag(uint16 areaFlag) { return (m_areaFlags & areaFlag); };
-    uint16 const GetAreaFlags() { return m_areaFlags; };
-
     uint16 GetPhaseMask() { return m_phaseMask; }
+
+    // Area flags
+    bool HasAreaFlag(uint16 areaFlag) { return (m_areaFlags & areaFlag); }
+    uint16 const GetAreaFlags() { return m_areaFlags; }
+
+    float const GetGroundHeight() { return m_groundHeight; }
+
+    uint16 const GetLiqFlags() { return m_liquidFlags; }
+    float const GetLiqHeight() { return m_liquidHeight; }
 
 protected:
     void _Create( uint32 mapid, float x, float y, float z, float ang);
@@ -613,6 +622,12 @@ protected:
     uint16 m_phaseMask;
     //! Area Flags.
     uint16 m_areaFlags;
+    //! Ground Height.
+    float m_groundHeight;
+    //! Liquid Flags.
+    uint16 m_liquidFlags;
+    //! Liquid Height.
+    float m_liquidHeight;
     //! Object deactivation
     uint16 m_inactiveFlags;
     //! Continent/map id.

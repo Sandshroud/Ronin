@@ -158,7 +158,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o, bool pointO
         }
 
         bool ignoreTerrainHeight = m_Unit->canFly();
-        float terrainHeight = m_Unit->GetMapInstance()->GetLandHeight(srcPoint.pos.x, srcPoint.pos.y), targetTHeight = m_Unit->GetMapInstance()->GetLandHeight(_destX, _destY), posToAdd = 0.f;
+        float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = terrainHeight/*m_Unit->GetMapInstance()->GetLandHeight(_destX, _destY)*/, posToAdd = 0.f;
         if(ignoreTerrainHeight == false)
             posToAdd = ((z-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
         else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
@@ -174,7 +174,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o, bool pointO
             float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
             if(ignoreTerrainHeight == false)
             {
-                terrainHeight = m_Unit->GetMapHeight(px, py, std::max<float>(srcPoint.pos.z, z));
+                terrainHeight = terrainHeight/*m_Unit->GetMapHeight(px, py, std::max<float>(srcPoint.pos.z, z))*/;
                 if(targetZ < terrainHeight)
                     targetZ = terrainHeight;
             }

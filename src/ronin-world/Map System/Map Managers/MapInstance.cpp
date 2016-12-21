@@ -236,7 +236,8 @@ void MapInstance::PushObject(WorldObject* obj)
     objCell->AddObject(obj);
 
     obj->SetMapCell(objCell);
-     //Add to the mapmanager's object list
+
+    //Add to the mapmanager's object list
     if(plObj)
     {
         m_PlayerStorage.insert(std::make_pair(plObj->GetGUID(), plObj));
@@ -478,11 +479,12 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     if( obj->GetMapInstance() != this )
         return;
 
-    Player* plObj;
     WorldObject* curObj = NULL;
+    Player *plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL;
+
     // Update our zone and area data
-    if(plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL)
-        plObj->EventExploration();
+    obj->EventExploration(this);
+
     if(Group *grp = plObj ? plObj->GetGroup() : NULL)
         grp->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, plObj );
 
@@ -516,6 +518,9 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 }
             }
         }
+
+        if(Group *grp = plObj ? plObj->GetGroup() : NULL)
+            grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, plObj );
     }
     obj->SetLastMovementZone(currZone);
 
@@ -1092,43 +1097,20 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
     }
 }
 
-void MapInstance::GetWaterData(float x, float y, float z, float &outHeight, uint16 &outType, bool forceVmapData)
+uint16 MapInstance::GetADTAreaId(float x, float y)
 {
-    if(forceVmapData)
-    {
-        outHeight = sVMapInterface.GetWaterHeight(_mapId, x, y, z, outType);
-        if(outHeight == NO_WMO_HEIGHT)
-        {   // Clear our data
-            outHeight = NO_WATER_HEIGHT;
-            outType = 0;
-        }
-        return;
-    }
-
-    uint16 vwaterType = 0, mapWaterType = GetBaseMap()->GetWaterType(x, y);
-    float mapWaterheight = GetBaseMap()->GetWaterHeight(x, y, z);
-    float vmapWaterHeight = sVMapInterface.GetWaterHeight(GetMapId(), x, y, z, vwaterType);
-    if(!(mapWaterType & 0x10) && vwaterType && vmapWaterHeight != NO_WMO_HEIGHT)
-    { outHeight = vmapWaterHeight; outType = vwaterType; }
-    else { outHeight = mapWaterheight; outType = mapWaterType; }
+    return GetBaseMap()->GetAreaID(x, y);
 }
 
-float MapInstance::GetLandHeight(float x, float y)
+float MapInstance::GetADTLandHeight(float x, float y)
 {
     return GetBaseMap()->GetLandHeight(x, y);
 }
 
-uint8 MapInstance::GetWalkableState(float x, float y)
+float MapInstance::GetADTWaterHeight(float x, float y, uint16 &outType)
 {
-    return GetBaseMap()->GetWalkableState(x, y);
-}
-
-uint16 MapInstance::GetAreaID(float x, float y, float z)
-{
-    uint16 areaId = GetBaseMap()->GetAreaID(x, y, z), wmoAID = 0;
-    uint32 wmoFlags = 0; int32 adtId = 0, rootId = 0, groupId = 0;
-    sVMapInterface.GetAreaInfo(GetMapId(), x, y, z, wmoAID, wmoFlags, adtId, rootId, groupId);
-    return wmoAID ? wmoAID : areaId;
+    outType = GetBaseMap()->GetWaterType(x, y);
+    return GetBaseMap()->GetWaterHeight(x, y);
 }
 
 void MapInstance::AddForcedCell(MapCell * c, uint32 range)
