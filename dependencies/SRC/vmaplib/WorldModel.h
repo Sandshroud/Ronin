@@ -78,7 +78,8 @@ namespace VMAP
             void setMeshData(std::vector<G3D::Vector3> &vert, std::vector<MeshTriangle> &tri);
             void setLiquidData(WmoLiquid*& liquid) { iLiquid = liquid; liquid = NULL; }
             bool IntersectRay(const G3D::Ray &ray, float &distance, bool stopAtFirstHit) const;
-            bool IsInsideObject(const G3D::Vector3 &pos, const G3D::Vector3 &down, float &z_dist) const;
+            bool IsInsideMesh(const G3D::Vector3 &pos, float &dist, WMOData *data) const;
+            bool IsInsideObject(const G3D::Vector3 &pos, float &z_dist, WMOData *data = NULL) const;
             bool IsWithinObject(const G3D::Vector3 &pos, const ModelInstance *instance) const;
             bool GetLiquidLevel(const G3D::Vector3 &pos, float &liqHeight) const;
             G3D::uint32 GetLiquidType() const;
@@ -86,9 +87,11 @@ namespace VMAP
             bool writeToFile(FILE* wf);
             bool readFromFile(FILE* rf);
             const G3D::AABox& GetBound() const { return iBound; }
+            void GetMeshBound(G3D::AABox &box) { return box.set(meshTree.getLow(), meshTree.getHigh()); }
             G3D::uint32 GetMogpFlags() const { return iMogpFlags; }
             G3D::uint32 GetWmoID() const { return iGroupWMOID; }
         protected:
+
             G3D::AABox iBound;
             G3D::uint32 iMogpFlags;// 0x8 outdor; 0x2000 indoor
             G3D::uint32 iGroupWMOID;
@@ -96,6 +99,7 @@ namespace VMAP
             std::vector<MeshTriangle> triangles;
             BIH meshTree;
             WmoLiquid* iLiquid;
+
         public:
             void getMeshData(std::vector<G3D::Vector3> &vertices, std::vector<MeshTriangle> &triangles, WmoLiquid* &liquid);
     };
@@ -109,11 +113,23 @@ namespace VMAP
             void setGroupModels(std::vector<GroupModel> &models);
             void setRootWmoID(G3D::uint32 id) { RootWMOID = id; }
             bool IntersectRay(const G3D::Ray &ray, float &distance, bool stopAtFirstHit) const;
-            bool WMOCheck(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, WMOData &data, const G3D::uint16 requiredFlags, const G3D::uint16 ignoredFlags) const;
-            bool IntersectPoint(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, AreaInfo &info) const;
-            bool GetLocationInfo(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, LocationInfo &info) const;
+
+            bool ZCheck(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, WMOData &data) const;
+            bool WMOCheck(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, WMOData &data, const G3D::uint16 requiredFlags, const G3D::uint16 ignoredFlags) const;
+            bool IntersectPoint(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, AreaInfo &info) const;
+            bool GetLocationInfo(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, LocationInfo &info) const;
+
             bool writeFile(const std::string &filename);
             bool readFile(const std::string &filename);
+
+            void GetTreeBound(G3D::AABox &outBound)
+            {
+                groupTree.getBounds(outBound);
+                if(outBound.volume())
+                    return;
+                groupTree.getMergeBounds(outBound);
+            }
+
         protected:
             G3D::uint32 RootWMOID;
             std::vector<GroupModel> groupModels;

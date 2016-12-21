@@ -240,9 +240,9 @@ class BIH
         }
 
         template<typename IsectCallback>
-        void intersectPoint(const G3D::Vector3 &p, IsectCallback& intersectCallback) const
+        void intersectPoint(const G3D::Vector3 &p, const G3D::AABox &preparedBounds, IsectCallback& intersectCallback) const
         {
-            if (!bounds.contains(p))
+            if(!preparedBounds.contains(p))
                 return;
 
             StackNode stack[MAX_STACK_SIZE];
@@ -320,10 +320,22 @@ class BIH
         bool writeToFile(FILE* wf) const;
         bool readFromFile(FILE* rf);
 
+        void mergeBound(const G3D::AABox &bound);
+        void getBounds(G3D::AABox &outBound) const
+        {
+            outBound.set(bounds.low(), bounds.high());
+        }
+        void getMergeBounds(G3D::AABox &outBound) const
+        {
+            outBound.set(mergeBounds.low(), mergeBounds.high());
+        }
+        const G3D::Vector3 getLow() { return bounds.low(); }
+        const G3D::Vector3 getHigh() { return bounds.high(); }
+
     protected:
         std::vector<G3D::uint32> tree;
         std::vector<G3D::uint32> objects;
-        G3D::AABox bounds;
+        G3D::AABox bounds, mergeBounds;
 
         struct buildData
         {

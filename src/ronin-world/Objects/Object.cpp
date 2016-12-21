@@ -812,17 +812,13 @@ void WorldObject::OnFieldUpdated(uint16 index)
 
 void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrientation )
 {
-    bool updateMap = false;
-    // Position updating is based off of 2 units of movement, either xy on 2^2 or 2diff
-    if(m_lastMapUpdatePosition.DistanceSq(newX, newY, newZ) > 4.f)
-        updateMap = true;
+    float dist = m_position.DistanceSq(newX, newY, newZ);
 
     m_position.ChangeCoords(newX, newY, newZ, NormAngle(newOrientation));
-    if (IsInWorld() && updateMap)
-    {
-        m_lastMapUpdatePosition = m_position;
-        m_mapInstance->ObjectLocationChange(this);
-    }
+    if(!IsInWorld() || RONIN_UTIL::fuzzyEq(dist, 0.0f))
+        return;
+
+    m_mapInstance->ObjectLocationChange(this);
 }
 
 void WorldObject::DestroyForInrange(bool anim)
@@ -1661,8 +1657,6 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && (mgr = GetMapInstance()) == NULL)
         return;
-    // Half size is used for calcs
-    float modelHalfSize = GetModelHalfZSize();
 
     // Holes are used for WMO placement
     bool isHole = false;//mgr->GetADTIsHole(GetPositionX(), GetPositionY());
@@ -1673,8 +1667,8 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
     uint16 adtLiqType; // Grab our ADT liquid height before WMO checks
     float ADTLiquid = mgr->GetADTWaterHeight(GetPositionX(), GetPositionY(), adtLiqType);
 
-    // Check WMO data from half of our z height on top of our position
-    sVMapInterface.GetWMOData(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ() + modelHalfSize, m_wmoId, m_areaId, m_areaFlags, m_groundHeight, m_liquidFlags, m_liquidHeight);
+    // Check WMO data from our position
+    sVMapInterface.GetWMOData(mgr, GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), m_wmoId, m_areaId, m_areaFlags, m_groundHeight, m_liquidFlags, m_liquidHeight);
     // Ground height, works pretty well
     if(m_groundHeight == NO_WMO_HEIGHT || (m_wmoId == 0 && m_groundHeight < ADTHeight))
         m_groundHeight = ADTHeight;

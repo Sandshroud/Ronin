@@ -66,6 +66,7 @@ namespace VMAP
             OUT_DETAIL("Error reading ModelSpawn!");
             return false;
         }
+
         spawn.name = std::string(nameBuff, nameLen);
         return true;
     }

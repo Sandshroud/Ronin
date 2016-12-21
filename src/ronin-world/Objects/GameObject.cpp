@@ -611,7 +611,7 @@ void GameObject::_LoadQuests()
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
 Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, Unit* u_caster, uint8 Slot)
 {
-    Creature* p = GetMapInstance()->CreateCreature(guardian_entry);
+    Creature* p = GetMapInstance()->CreateCreature(WoWGuid(), guardian_entry);
     if(p == NULL)
     {
         sLog.outDebug("Warning : Missing summon creature template %u !",guardian_entry);

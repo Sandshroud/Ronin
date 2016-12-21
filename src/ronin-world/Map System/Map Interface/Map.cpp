@@ -58,7 +58,7 @@ void Map::_InitializeTerrain(bool continent)
     _terrain->LoadVMapTerrain();
 
     // Load all the terrain from this map
-    if(sWorld.ServerPreloading == 0)
+    if(sWorld.ServerPreloading >= 1)
         _terrain->LoadAllTerrain();
 }
 

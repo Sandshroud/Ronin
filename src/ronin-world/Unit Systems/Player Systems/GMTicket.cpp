@@ -177,9 +177,7 @@ void WorldSession::HandleGMTicketGetTicketOpcode(WorldPacket & recv_data)
 void WorldSession::HandleGMTicketSystemStatusOpcode( WorldPacket & recv_data )
 {
     WorldPacket data(SMSG_GMTICKET_SYSTEMSTATUS, 4);
-    sWorld.gmList_lock.AcquireReadLock();
-    data << uint32(sWorld.gmList.empty() ? 0 : 1);
-    sWorld.gmList_lock.ReleaseReadLock();
+    data << uint32(0);
     SendPacket(&data);
 }
 

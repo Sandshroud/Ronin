@@ -24,24 +24,26 @@ namespace VMAP
     class ModelInstance;
     class GroupModel;
     class VMapManager;
+    class DataPointCallback;
 
     struct WMOData
     {   // Quick grab of all needed WMO info from vmap data
-        WMOData() : result(false), ground_Z(-G3D::inf()), hitInstance(NULL), hitModel(NULL), flags(0), adtId(0), rootId(0), groupId(0), liqTypeSearch(0), LiquidHeightSearch(-G3D::inf()) {}
+        WMOData() : groundResult(false), hitResult(false), ground_CalcZ(-G3D::inf()), offset_z(-G3D::inf()), hitInstance(NULL), hitModel(NULL), flags(0), adtId(0), rootId(0), groupId(0), liqTypeSearch(0), LiquidHeightSearch(-G3D::inf()) {}
 
         // We have data
-        bool result;
+        bool groundResult, hitResult;
 
         // GroundZ
-        float ground_Z;
+        float ground_CalcZ;
 
         // Location info
         const ModelInstance* hitInstance;
         const GroupModel* hitModel;
+        float offset_z;
 
         // Area data
         G3D::uint32 flags;
-        G3D::int32 adtId, rootId, groupId;
+        G3D::int32 wmoId, adtId, rootId, groupId;
 
         // Liquid data
         G3D::uint16 liqTypeSearch;
@@ -64,6 +66,7 @@ namespace VMAP
         private:
             G3D::uint32 iMapID;
             BIH iTree;
+            G3D::AABox iTreeBounds;
             ModelInstance* iTreeValues; // the tree entries
             G3D::uint32 iNTreeValues;
 

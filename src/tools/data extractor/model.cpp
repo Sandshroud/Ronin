@@ -122,7 +122,7 @@ bool Model::ConvertToVMAPModel(const char * outfilename)
 
 Vec3D fixCoordSystem(Vec3D v)
 {
-    return Vec3D(v.x, v.z, -v.y);
+    return Vec3D(-v.x, v.z, -v.y);
 }
 
 Vec3D fixCoordSystem2(Vec3D v)
@@ -164,7 +164,7 @@ ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID
     spawn.ID = id;
     spawn.iPos = pos;
     spawn.iRot = rot;
-    spawn.iScale = 1.0f;
+    spawn.iScale = sc;
     spawn.iBound = G3D::AABox::zero();
     spawn.name = ModelInstName;
 

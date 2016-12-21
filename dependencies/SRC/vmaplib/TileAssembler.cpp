@@ -44,9 +44,7 @@ namespace VMAP
 
     Vector3 ModelPosition::transform(const Vector3& pIn) const
     {
-        Vector3 out = pIn * iScale;
-        out = iRotation * out;
-        return(out);
+        return Vector3(iPos + ((pIn * iRotation) * iScale));
     }
 
     //=================================================================
@@ -71,12 +69,10 @@ namespace VMAP
         for (entry = spawnMap->begin(); entry != spawnMap->end(); ++entry)
         {
             // M2 models don't have a bound set in WDT/ADT placement data, i still think they're not used for LoS at all on retail
-            if (entry->second.flags & MOD_M2)
-            {
-                if (!calculateTransformedBound(entry->second))
-                    break;
-            }
-            else if (entry->second.flags & MOD_WORLDSPAWN) // WMO maps and terrain maps use different origin, so we need to adapt :/
+            if (entry->second.flags & MOD_M2 && !calculateTransformedBound(entry->second))
+                continue;
+
+            if (entry->second.flags & MOD_WORLDSPAWN) // WMO maps and terrain maps use different origin, so we need to adapt :/
             {
                 /// @todo remove extractor hack and uncomment below line:
                 //entry->second.iPos += Vector3(533.33333f*32, 533.33333f*32, 0.f);
@@ -229,6 +225,7 @@ namespace VMAP
         modelFilename.append(spawn.name);
 
         ModelPosition modelPosition;
+        modelPosition.iPos = spawn.iPos;
         modelPosition.iDir = spawn.iRot;
         modelPosition.iScale = spawn.iScale;
         modelPosition.init();
@@ -260,11 +257,12 @@ namespace VMAP
                 G3D::Vector3 v = modelPosition.transform(vertices[i]);
 
                 if (boundEmpty)
-                    modelBound = G3D::AABox(v, v), boundEmpty=false;
+                    modelBound.set(v, v), boundEmpty=false;
                 else modelBound.merge(v);
             }
         }
-        spawn.iBound = modelBound + spawn.iPos;
+
+        spawn.iBound.set(modelBound.low(), modelBound.high());
         spawn.flags |= MOD_HAS_BOUND;
         return true;
     }

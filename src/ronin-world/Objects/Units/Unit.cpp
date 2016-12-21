@@ -2998,7 +2998,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
     float x = v.x +(3*(cosf(m_followAngle)));
     float y = v.y +(3*(sinf(m_followAngle)));
 
-    if(Creature* p = GetMapInstance()->CreateCreature(guardian_entry))
+    if(Creature* p = GetMapInstance()->CreateCreature(WoWGuid(), guardian_entry))
     {
         p->Load(GetMapId(), x, y, v.z, angle, GetMapInstance()->iInstanceMode);
         p->SetInstanceID(GetMapInstance()->GetInstanceID());

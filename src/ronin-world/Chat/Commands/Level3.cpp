@@ -1418,7 +1418,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
         return true;
     }
 
-    Creature* p = plr->GetMapInstance()->CreateCreature(entry);
+    Creature* p = plr->GetMapInstance()->CreateCreature(WoWGuid(), entry);
     if(p == NULL)
     {
         RedSystemMessage(m_session, "Could not create spawn.");

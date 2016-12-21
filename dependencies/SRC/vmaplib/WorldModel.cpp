@@ -36,7 +36,6 @@ namespace VMAP
         static const float EPS = 1e-5f;
 
         // See RTR2 ch. 13.7 for the algorithm.
-
         const Vector3 e1 = points[tri.idx1] - points[tri.idx0];
         const Vector3 e2 = points[tri.idx2] - points[tri.idx0];
         const Vector3 p(ray.direction().cross(e2));
@@ -230,9 +229,8 @@ namespace VMAP
         size = liquid->iTilesX * liquid->iTilesY;
         liquid->iFlags = new G3D::uint8[size];
         if (result && fread(liquid->iFlags, sizeof(G3D::uint8), size, rf) != size) result = false;
-        if (!result)
-            delete liquid;
-        out = liquid;
+        if (!result) delete liquid;
+        else out = liquid;
         return result;
     }
 
@@ -363,6 +361,13 @@ namespace VMAP
             OUT_DEBUG("GroupModel::readFile error while reading %s", error.c_str());
             return false;
         }
+
+        G3D::AABox iMeshBound;
+        meshTree.getBounds(iMeshBound);
+        if(iMeshBound.volume() == 0.f)
+            meshTree.getMergeBounds(iMeshBound);
+        if(iMeshBound.volume())
+            iBound.merge(iMeshBound);
         return true;
     }
 
@@ -389,20 +394,59 @@ namespace VMAP
         GModelRayCallback callback(triangles, vertices);
         meshTree.intersectRay(ray, callback, distance, stopAtFirstHit);
         return callback.hit;
-    } 
+    }
 
-    bool GroupModel::IsInsideObject(const Vector3 &pos, const Vector3 &down, float &z_dist) const
+    bool GroupModel::IsInsideMesh(const G3D::Vector3 &pos, float &dist, WMOData *data) const
+    {
+        float z_dist;
+        bool ret = false;
+        G3D::AABox boundBox;
+        Vector3 xyPos = pos;
+        for(auto it = triangles.begin(); it != triangles.end(); it++)
+        {
+            // Create our triangle
+            G3D::Triangle triangle(vertices[(*it).idx0], vertices[(*it).idx1], vertices[(*it).idx2]);
+
+            // Create a boundbox from our triangle data
+            triangle.getBounds(boundBox);
+            // Fit our z height into our triangle
+            xyPos.z = boundBox.low().z;
+
+            // Check bounding of our triangle
+            if(!boundBox.contains(xyPos))
+                continue;
+            // Limit height above us to a single unit
+            if(boundBox.low().z > pos.z+1.f)
+                continue;
+
+            ret = true;
+
+            float dx1 = xyPos.x - triangle.vertex(0).x, dy1 = xyPos.y - triangle.vertex(0).y, dx2 = xyPos.x - triangle.vertex(1).x, dy2 = xyPos.y - triangle.vertex(1).y, dx3 = xyPos.x - triangle.vertex(2).x, dy3 = xyPos.y - triangle.vertex(2).y;
+            float dist1 = (dx1 * dx1) + (dy1 * dy1), dist2 = (dx2 * dx2) + (dy2 * dy2), dist3 = (dx3 * dx3) + (dy3 * dy3), totalDist = dist1 + dist2 + dist3;
+            xyPos.z = ((triangle.vertex(0).z * (dist1/totalDist)) + (triangle.vertex(1).z * (dist2/totalDist)) + (triangle.vertex(2).z * (dist3/totalDist)));
+
+            float z_dist = pos.z - xyPos.z;
+            if(dist > z_dist)
+                dist = z_dist;
+        }
+
+        return ret;
+    }
+
+    bool GroupModel::IsInsideObject(const Vector3 &pos, float &z_dist, WMOData *data) const
     {
         if (triangles.empty() || !iBound.contains(pos))
             return false;
-        GModelRayCallback callback(triangles, vertices);
-        Vector3 rPos = pos - 0.1f * down;
+
+        G3D::Vector3 dir = Vector3(0.f, 0.f, -1.f);
+        Vector3 rPos = pos - 0.1f * dir;
         float dist = G3D::inf();
-        G3D::Ray ray(rPos, down);
-        bool hit = IntersectRay(ray, dist, false);
-        if (hit)
-            z_dist = dist - 0.1f;
-        return hit;
+        G3D::Ray ray(rPos, dir.direction());
+        if(IntersectRay(ray, dist, false) == false)
+            return false;
+
+        z_dist = dist - 0.1f;
+        return true;
     }
 
     bool GroupModel::IsWithinObject(const G3D::Vector3 &pos, const ModelInstance *instance) const
@@ -412,7 +456,6 @@ namespace VMAP
         Vector3 p, up; // We are checking up instead of down
         instance->CalcOffsetDirection(pos, p, up);
 
-        GModelRayCallback callback(triangles, vertices);
         Vector3 rPos = p - 0.1f * up;
         float dist = G3D::inf();
         G3D::Ray ray(rPos, up);
@@ -475,18 +518,17 @@ namespace VMAP
 
     class WModelWMOCallback {
         public:
-            WModelWMOCallback(const std::vector<GroupModel> &vals, const Vector3 &down):
-                prims(vals.begin()), hit(vals.end()), mstrHit(vals.end()), end(vals.end()), zDist(G3D::inf()), zVec(down) {}
+            WModelWMOCallback(const std::vector<GroupModel> &vals, WMOData *wmoData):
+                prims(vals.begin()), hit(vals.end()), mstrHit(vals.end()), end(vals.end()), zDist(G3D::inf()), data(wmoData) {}
             std::vector<GroupModel>::const_iterator prims, hit, mstrHit, end;
 
             float zDist;
-            Vector3 zVec;
-
+            WMOData *data;
             void operator()(const Vector3& point, G3D::uint32 entry)
             {
+                float group_Z = 0.f;
                 const GroupModel *model = &prims[entry];
-                float group_Z;
-                if(!model->IsInsideObject(point, zVec, group_Z))
+                if(!model->IsInsideObject(point, group_Z, data))
                     return;
 
                 if (group_Z < zDist)
@@ -503,20 +545,18 @@ namespace VMAP
 
     class WModelAreaCallback {
         public:
-            WModelAreaCallback(const std::vector<GroupModel> &vals, const Vector3 &down):
-                prims(vals.begin()), hit(vals.end()), zDist(G3D::inf()), zVec(down) {}
+            WModelAreaCallback(const std::vector<GroupModel> &vals):
+                prims(vals.begin()), hit(vals.end()), zDist(G3D::inf()) {}
             std::vector<GroupModel>::const_iterator prims, hit;
 
             float zDist;
-            Vector3 zVec;
-
             void operator()(const Vector3& point, G3D::uint32 entry)
             {
-                const GroupModel *model = &prims[entry];
                 float group_Z;
-                if(!model->IsInsideObject(point, zVec, group_Z))
+                const GroupModel *model = &prims[entry];
+                if(!model->IsInsideObject(point, group_Z))
                     return;
-
+ 
                 if (group_Z < zDist)
                 {
                     zDist = group_Z;
@@ -529,16 +569,31 @@ namespace VMAP
             }
     };
 
-    bool WorldModel::WMOCheck(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, WMOData &data, const G3D::uint16 requiredFlags, const G3D::uint16 ignoredFlags) const
+    bool WorldModel::ZCheck(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, WMOData &data) const
     {
         if (groupModels.empty())
             return false;
 
-        WModelWMOCallback callback(groupModels, down);
-        groupTree.intersectPoint(p, callback);
+        WModelWMOCallback callback(groupModels, &data);
+        groupTree.intersectPoint(p, preparedBox, callback);
         if (callback.hit != groupModels.end())
         {
-            data.result = true;
+            dist = callback.zDist;
+            return true;
+        }
+        return false;
+    }
+
+    bool WorldModel::WMOCheck(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, WMOData &data, const G3D::uint16 requiredFlags, const G3D::uint16 ignoredFlags) const
+    {
+        if (groupModels.empty())
+            return false;
+
+        WModelWMOCallback callback(groupModels, NULL);
+        groupTree.intersectPoint(p, preparedBox, callback);
+        if (callback.hit != groupModels.end())
+        {
+            data.hitResult = true;
             data.rootId = RootWMOID;
             data.groupId = callback.hit->GetWmoID();
             data.flags = callback.hit->GetMogpFlags();
@@ -551,13 +606,13 @@ namespace VMAP
         return false;
     }
 
-    bool WorldModel::IntersectPoint(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, AreaInfo &info) const
+    bool WorldModel::IntersectPoint(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, AreaInfo &info) const
     {
         if (groupModels.empty())
             return false;
 
-        WModelAreaCallback callback(groupModels, down);
-        groupTree.intersectPoint(p, callback);
+        WModelAreaCallback callback(groupModels);
+        groupTree.intersectPoint(p, preparedBox, callback);
         if (callback.hit != groupModels.end())
         {
             info.rootId = RootWMOID;
@@ -570,13 +625,13 @@ namespace VMAP
         return false;
     }
 
-    bool WorldModel::GetLocationInfo(const G3D::Vector3 &p, const G3D::Vector3 &down, float &dist, LocationInfo &info) const
+    bool WorldModel::GetLocationInfo(const G3D::Vector3 &p, const G3D::AABox &preparedBox, float &dist, LocationInfo &info) const
     {
         if (groupModels.empty())
             return false;
 
-        WModelAreaCallback callback(groupModels, down);
-        groupTree.intersectPoint(p, callback);
+        WModelAreaCallback callback(groupModels);
+        groupTree.intersectPoint(p, preparedBox, callback);
         if (callback.hit != groupModels.end())
         {
             info.hitModel = &(*callback.hit);
@@ -666,6 +721,15 @@ namespace VMAP
         {
             OUT_DEBUG("WorldModel::readFile error while reading %s", error.c_str());
             return false;
+        }
+
+        for (G3D::uint32 i=0; i<count; ++i)
+        {
+            G3D::AABox bound = groupModels[i].GetBound();
+            if(bound.volume() == 0.f)
+                groupModels[i].GetMeshBound(bound);
+            if(bound.volume())
+                groupTree.mergeBound(bound);
         }
         return true;
     }

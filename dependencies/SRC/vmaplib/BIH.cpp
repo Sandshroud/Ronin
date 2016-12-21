@@ -298,6 +298,13 @@ bool BIH::readFromFile(FILE *rf)
     return true;
 }
 
+void BIH::mergeBound(const G3D::AABox &bound)
+{
+    if(mergeBounds.volume() == 0.f)
+        mergeBounds.set(bound.low(), bound.high());
+    else mergeBounds.merge(bound);
+}
+
 void BIH::BuildStats::updateLeaf(int depth, int n)
 {
     numLeaves++;

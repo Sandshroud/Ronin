@@ -318,9 +318,9 @@ bool ChatHandler::HandleSaveCommand(const char* args, WorldSession *m_session)
 
 bool ChatHandler::HandleGMListCommand(const char* args, WorldSession *m_session)
 {
-    WorldSession *gm_session;
+    //sWorld.SendGMList(m_session);
+    /*WorldSession *gm_session;
     SessionSet::iterator itr;
-
     sWorld.gmList_lock.AcquireReadLock();
     bool first = true;
     for (itr = sWorld.gmList.begin(); itr != sWorld.gmList.end();)
@@ -336,7 +336,7 @@ bool ChatHandler::HandleGMListCommand(const char* args, WorldSession *m_session)
     }
     sWorld.gmList_lock.ReleaseReadLock();
     if(first)
-        SystemMessage(m_session, "There are no GMs currently logged in on this server.");
+        SystemMessage(m_session, "There are no GMs currently logged in on this server.");*/
 
     return true;
 }

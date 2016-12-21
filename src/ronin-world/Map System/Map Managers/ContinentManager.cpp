@@ -110,7 +110,7 @@ bool ContinentManager::run()
     m_continent = NULL;
 
     // Unload all terrain
-    if(sWorld.ServerPreloading)
+    if(sWorld.ServerPreloading >= 1)
         m_mapData->UnloadAllTerrain(true);
     sLog.Debug("MapInstance", "Map %u shut down. (%s)", m_mapId, m_mapData->GetName());
     return true;

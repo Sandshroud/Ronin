@@ -370,10 +370,6 @@ public:
 
 class WorldSocket;
 
-// Slow for remove in middle, oh well, wont get done much.
-typedef std::list<WorldSocket*> QueueSet;
-typedef std::set<WorldSession*> SessionSet;
-
 class SERVER_DECL World : public ThreadContext, public Singleton<World>
 {
 public:
@@ -398,12 +394,10 @@ public:
 
     WorldSession* FindSession(uint32 id);
     WorldSession* FindSessionByName(const char *);
-    void AddSession(WorldSession *s);
+    void AddSession(WorldSession *s, bool fromAuth);
     void RemoveSession(uint32 id);
-
-    void AddGlobalSession(WorldSession *GlobalSession);
-    void RemoveGlobalSession(WorldSession *GlobalSession);
-    void DeleteGlobalSession(WorldSession *GlobalSession, bool destruct = true);
+    void DeleteSession(WorldSession *s);
+    void AddGlobalSession(WorldSession *s);
 
     Mutex m_compressionLock;
     std::deque<ByteBuffer*> m_compressionBuffers;
@@ -571,8 +565,6 @@ public:
     bool IsPvPRealm, SendMovieOnJoin;
     int32 FunServerMall, LogoutDelay;
     uint32 expansionUpdateTime;
-    SessionSet gmList;
-    RWLock gmList_lock;
 
     void DeleteObject(WorldObject* obj);
 
@@ -617,20 +609,21 @@ public:
 protected:
     void UpdateServerTimers(uint32 diff);
 
-private:
     //! Timers
+private:
+    typedef std::list<WorldSocket*> QueueSet;
+    typedef std::set<WorldSession *> SessionSet;
     typedef std::map<uint32, WorldSession*> SessionMap;
+
     SessionMap m_sessions;
-    RWLock m_sessionlock;
+    SessionSet m_globalSessions, m_gmSessions, m_sessionGarbageCollector;
+    Mutex m_sessionLock;
 
     // Push to world queue
     Mutex m_worldPushLock;
     std::map<WorldSession*, std::pair<WoWGuid, uint32> > m_worldPushQueue;
 
 protected:
-    Mutex SessionsMutex;//FOR GLOBAL !
-    SessionSet GlobalSessions;
-
     float regen_values[MAX_RATES];
 
     uint32 m_playerLimit;

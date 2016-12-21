@@ -214,13 +214,13 @@ void WorldManager::LoadMapTileData(TaskList & tl)
     sLog.Notice("WorldManager", "Preloading map tile data");
     for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
     {
-        if(!itr->second->IsContinent())
-        {
-            if(true == true)
-                continue;
-        }
-
-        tl.AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_LoadTileData, itr->second)));
+        if(itr->second->IsBattleArena() || itr->second->IsBattleGround())
+            ;//sInstanceMgr.LoadTileData(itr->second);
+        else if(itr->second->IsRaid())
+            ;//sRaidMgr.LoadTileData(itr->second);
+        else if(itr->second->IsDungeon())
+            ;//sInstanceMgr.LoadTileData(itr->second);
+        else tl.AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_LoadTileData, itr->second)));
     }
 }
 

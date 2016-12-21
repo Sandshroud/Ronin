@@ -105,13 +105,13 @@ namespace VMAP
     void StaticMapTree::getWMOData(const G3D::Vector3 &pos, WMOData &data, G3D::int32 requiredFlags, G3D::int32 ignoreFlags) const
     {
         WMODataCallback intersectionCallBack(iTreeValues, data, requiredFlags, ignoreFlags);
-        iTree.intersectPoint(pos, intersectionCallBack);
+        iTree.intersectPoint(pos, iTreeBounds, intersectionCallBack);
     }
 
     bool StaticMapTree::getAreaInfo(Vector3 &pos, G3D::uint32 &flags, G3D::int32 &adtId, G3D::int32 &rootId, G3D::int32 &groupId) const
     {
         AreaInfoCallback intersectionCallBack(iTreeValues);
-        iTree.intersectPoint(pos, intersectionCallBack);
+        iTree.intersectPoint(pos, iTreeBounds, intersectionCallBack);
         if (intersectionCallBack.aInfo.result)
         {
             flags = intersectionCallBack.aInfo.flags;
@@ -127,7 +127,7 @@ namespace VMAP
     bool StaticMapTree::GetLocationInfo(const Vector3 &pos, LocationInfo &info) const
     {
         LocationInfoCallback intersectionCallBack(iTreeValues, info);
-        iTree.intersectPoint(pos, intersectionCallBack);
+        iTree.intersectPoint(pos, iTreeBounds, intersectionCallBack);
         return intersectionCallBack.result;
     }
 
@@ -324,6 +324,10 @@ namespace VMAP
             OUT_ERROR("StaticMapTree::InitMap() : failed reading data!");
             return false;
         }
+
+        iTree.getBounds(iTreeBounds);
+        if(iTreeBounds.volume() == 0.f)
+            iTree.getMergeBounds(iTreeBounds);
         return true;
     }
 

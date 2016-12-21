@@ -149,7 +149,7 @@ bool VMapInterface::IsActiveTile(uint32 mapId, uint32 tileX, uint32 tileY)
     return isactive;
 }
 
-void VMapInterface::GetWMOData(uint32 mapId, float x, float y, float z, uint32 &wmoId, uint32 &areaId, uint16 &areaFlags, float &groundLevel, uint16 &liquidFlags, float &liquidLevel)
+void VMapInterface::GetWMOData(MapInstance *instance, uint32 mapId, float x, float y, float z, uint32 &wmoId, uint32 &areaId, uint16 &areaFlags, float &groundLevel, uint16 &liquidFlags, float &liquidLevel)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
         return;
@@ -163,7 +163,7 @@ void VMapInterface::GetWMOData(uint32 mapId, float x, float y, float z, uint32 &
     bool areaRes = false;
 
     // Grab as much WMO data as we can in a single check
-    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaRes, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel);
+    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaRes, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel, NULL);
 
     // We can just check for liquid data, but currently there is no real fix for caves etc so just accept any WMO with inherit data
     if(wmoFlags & VMAP::WMO_FLAG_HAS_WMO_LIQUID)

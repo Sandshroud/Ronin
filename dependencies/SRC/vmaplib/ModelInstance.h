@@ -59,6 +59,7 @@ namespace VMAP
         protected:
             G3D::Matrix3 iInvRot;
             float iInvScale;
+            G3D::AABox iModelBound;
             WorldModel* iModel;
         public:
             WorldModel* getWorldModel();

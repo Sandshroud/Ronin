@@ -28,7 +28,8 @@ namespace VMAP
 {
     ModelInstance::ModelInstance(const ModelSpawn &spawn, WorldModel* model): ModelSpawn(spawn), iModel(model)
     {
-        iInvRot = G3D::Matrix3::fromEulerAnglesZYX(G3D::pi()*iRot.y/180.f, G3D::pi()*iRot.x/180.f, G3D::pi()*iRot.z/180.f).inverse();
+        iInvRot = G3D::Matrix3::fromEulerAnglesZYX(G3D::pi()*iRot.y/180.f, G3D::pi()*(iRot.x)/180.f, G3D::pi()*iRot.z/180.f).inverse();
+        iModel->GetTreeBound(iModelBound);
         iInvScale = 1.f/iScale;
     }
 
@@ -59,27 +60,50 @@ namespace VMAP
             return;
         }
 
-        // M2 files don't contain area info, only WMO files
-        if (flags & MOD_M2)
-            return;
+        // Our bounds or our submodel bound box
         if (!iBound.contains(p))
             return;
-        // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
+
+        // Rotate our position
+        G3D::Vector3 offset = (iInvRot * (p - iPos)) * iInvScale;
         float zDist;
-        if (iModel->WMOCheck(pModel, zDirModel, zDist, data, requiredFlags, ignoredFlags))
+        if (flags & MOD_M2)
+        {   // Only grab height data here
+            if(iModel->ZCheck(offset, iModelBound, zDist, data))
+            {
+                Vector3 modelGround = offset + (G3D::Vector3(0.f, 0.f, -1.f) * zDist);
+                // Transform back to world space. Note that:
+                // Mat * vec == vec * Mat.transpose()
+                // and for rotation matrices: Mat.inverse() == Mat.transpose()
+                float world_Z = ((modelGround * iInvRot) * iScale + iPos).z;
+                if (data.ground_CalcZ < world_Z)
+                {
+                    data.groundResult = true;
+                    data.ground_CalcZ = world_Z + 0.1f;
+                }
+            }
+            return;
+        }
+
+        if (iModel->WMOCheck(offset, iModelBound, zDist, data, requiredFlags, ignoredFlags))
         {
-            Vector3 modelGround = pModel + zDist * zDirModel;
+            Vector3 modelGround = offset + (G3D::Vector3(0.f, 0.f, -1.f) * zDist);
             // Transform back to world space. Note that:
             // Mat * vec == vec * Mat.transpose()
             // and for rotation matrices: Mat.inverse() == Mat.transpose()
             float world_Z = ((modelGround * iInvRot) * iScale + iPos).z;
-            if (data.ground_Z < world_Z)
+            if (data.ground_CalcZ < world_Z)
             {
+                data.groundResult = true;
+                data.ground_CalcZ = world_Z + 0.1f;
+            }
+
+            if (data.offset_z < world_Z)
+            {
+                data.hitResult = true;
                 data.adtId = adtId;
                 data.hitInstance = this;
-                data.ground_Z = world_Z;
+                data.offset_z = world_Z;
             }
         }
     }
@@ -97,13 +121,11 @@ namespace VMAP
             return;
         if (!iBound.contains(p))
             return;
-        // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
-        if (iModel->IntersectPoint(pModel, zDirModel, zDist, info))
+        G3D::Vector3 offset = (iInvRot * (p - iPos)) * iInvScale;
+        if (iModel->IntersectPoint(p, iModelBound, zDist, info))
         {
-            Vector3 modelGround = pModel + zDist * zDirModel;
+            Vector3 modelGround = offset + (G3D::Vector3(0.f, 0.f, -1.f) * zDist);
             // Transform back to world space. Note that:
             // Mat * vec == vec * Mat.transpose()
             // and for rotation matrices: Mat.inverse() == Mat.transpose()
@@ -129,13 +151,11 @@ namespace VMAP
             return false;
         if (!iBound.contains(p))
             return false;
-        // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
-        if (iModel->GetLocationInfo(pModel, zDirModel, zDist, info))
+        G3D::Vector3 offset = (iInvRot * (p - iPos)) * iInvScale;
+        if (iModel->GetLocationInfo(offset, iModelBound, zDist, info))
         {
-            Vector3 modelGround = pModel + zDist * zDirModel;
+            Vector3 modelGround = offset + (G3D::Vector3(0.f, 0.f, -1.f) * zDist);
             // Transform back to world space. Note that:
             // Mat * vec == vec * Mat.transpose()
             // and for rotation matrices: Mat.inverse() == Mat.transpose()
@@ -152,11 +172,9 @@ namespace VMAP
 
     bool ModelInstance::GetLiquidLevel(const G3D::Vector3& p, const VMAP::GroupModel *model, float &liqHeight) const
     {
-        // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        //Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
-        if (model->GetLiquidLevel(pModel, zDist))
+        G3D::Vector3 offset = (iInvRot * (p - iPos)) * iInvScale;
+        if (model->GetLiquidLevel(offset, zDist))
         {
             // calculate world height (zDist in model coords):
             // assume WMO not tilted (wouldn't make much sense anyway)

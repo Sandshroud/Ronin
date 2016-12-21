@@ -663,7 +663,7 @@ protected:
     //! Current object faction
     FactionTemplateEntry *m_factionTemplate;
     // Current map location
-    LocationVector m_position, m_spawnLocation, m_lastMapUpdatePosition;
+    LocationVector m_position, m_spawnLocation;
 
     //! Set of Objects in range.
     InRangeSet m_inRangeSet;

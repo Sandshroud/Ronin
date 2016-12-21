@@ -55,7 +55,7 @@ public:
     bool ActivateMap(uint32 mapId, FILE *mapFile);
     void DeactivateMap(uint32 mapId);
 
-    void GetWMOData(uint32 mapId, float x, float y, float z, uint32 &wmoId, uint32 &areaId, uint16 &areaFlags, float &groundLevel, uint16 &liquidFlags, float &liquidLevel);
+    void GetWMOData(MapInstance *instance, uint32 mapId, float x, float y, float z, uint32 &wmoId, uint32 &areaId, uint16 &areaFlags, float &groundLevel, uint16 &liquidFlags, float &liquidLevel);
 
     float GetHeight(uint32 mapId, uint32 instanceId, int32 m_phase, float x, float y, float z);
     bool CheckLOS(uint32 mapId, uint32 instanceId, int32 m_phase, float x1, float y1, float z1, float x2, float y2, float z2);

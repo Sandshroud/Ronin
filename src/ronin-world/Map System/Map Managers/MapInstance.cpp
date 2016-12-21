@@ -1456,7 +1456,7 @@ void MapInstance::_PerformSessionUpdates()
         if(MapSession->GetPlayer() == NULL)
         {
             MapSessions.erase(it2);
-            delete MapSession;
+            sWorld.DeleteSession(MapSession);
             continue;
         }
 
@@ -1469,9 +1469,9 @@ void MapInstance::_PerformSessionUpdates()
 
         if(int result = MapSession->Update(m_instanceID))//session or socket deleted?
         {
-            if(result == 1)//socket don't exist anymore, delete from both world- and map-sessions.
-                sWorld.DeleteGlobalSession(MapSession);
             MapSessions.erase(it2);
+            if(result == 1)//socket don't exist anymore, delete from both world- and map-sessions.
+                sWorld.DeleteSession(MapSession);
         }
     }
 }

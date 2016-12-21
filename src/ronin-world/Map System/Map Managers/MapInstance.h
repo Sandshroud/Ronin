@@ -83,8 +83,12 @@ public:
 
     void Cleanup()
     {
-        delete [] mPoolLastUpdateStack;
-        delete [] mPoolStack;
+        if(mPoolLastUpdateStack)
+            delete [] mPoolLastUpdateStack;
+        mPoolLastUpdateStack = NULL;
+        if(mPoolStack)
+            delete [] mPoolStack;
+        mPoolStack = NULL;
     }
 
     // Update our object stack, this includes inactivity timers

@@ -126,7 +126,7 @@ namespace VMAP
 
             bool processCommand(char *) { return false; } // for debug and extensions
 
-            unsigned int getWMOData(unsigned int pMapId, float x, float y, float z, unsigned int &wmoFlags, bool &areaResult, unsigned int& adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight) const;
+            unsigned int getWMOData(unsigned int pMapId, float x, float y, float z, unsigned int &wmoFlags, bool &areaResult, unsigned int& adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight, DataPointCallback* callback) const;
             bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, unsigned int& flags, int& adtId, int& rootId, int& groupId) const;
             void getLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &typeFlags, float &level) const;
 
