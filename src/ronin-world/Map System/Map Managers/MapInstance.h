@@ -68,7 +68,7 @@ public: // Defined type
 #endif
 
 public:
-    StoragePool() : mPoolCounter(0), mPoolAddCounter(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
+    StoragePool() : m_updating(false), mPoolCounter(0), mPoolAddCounter(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
 
     void Initialize(uint32 poolSize)
     {
@@ -113,6 +113,7 @@ public:
 
         if(!targetPool->empty())
         {
+            m_updating = true;
             poolIterator = targetPool->begin();
             while(poolIterator != targetPool->end())
             {
@@ -123,6 +124,7 @@ public:
                     ptr->InactiveUpdate(msTime, diff);
                 else ptr->Update(msTime, diff);
             }
+            m_updating = false;
         }
     }
 
@@ -159,17 +161,17 @@ public:
         if((POOL_FIND(itr, mPool, obj)) != mPool.end())
         {
             // check iterator
-            if( poolIterator == itr )
+            if( m_updating && poolIterator == itr )
                 poolIterator = mPool.erase(itr);
             else mPool.erase(itr);
         }
 
         if(mPoolStack && poolId != 0xFF)
         {
-            if((POOL_FIND(itr, mPool, obj)) != mPoolStack[poolId].end())
+            if((POOL_FIND(itr, mPoolStack[poolId], obj)) != mPoolStack[poolId].end())
             {
                 // check iterator
-                if( poolIterator == itr )
+                if( m_updating && poolIterator == itr )
                     poolIterator = mPoolStack[poolId].erase(itr);
                 else mPoolStack[poolId].erase(itr);
             }
@@ -181,6 +183,7 @@ public:
 
 private:
 
+    bool m_updating;
     PoolSet mPool, *mPoolStack;
     typename PoolSet::iterator poolIterator;
     uint32 mPoolCounter, mPoolAddCounter, mPoolSize, *mPoolLastUpdateStack;

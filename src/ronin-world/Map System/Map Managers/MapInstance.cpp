@@ -229,15 +229,35 @@ void MapInstance::PushObject(WorldObject* obj)
     ASSERT(objCell);
 
     uint32 count = 0, newCell = 0, startX = cx, startY = cy, endX = startX, endY = startY, minX = cx ? cx-1 : 0, maxX = (cx < _sizeY-1 ? cx+1 : _sizeY-1), minY = cy ? cy-1 : 0, maxY = (cy < _sizeY-1 ? cy+1 : _sizeY-1);
-    static float quartCell = _cellSize/4.f;
-    if((newCell = GetPosX(mx + quartCell)) != startX)
-        startX = newCell;
-    else if((newCell = GetPosX(mx - quartCell)) != endX)
-        endX = newCell;
-    if((newCell = GetPosY(my + quartCell)) != startY)
-        startY = newCell;
-    else if((newCell = GetPosY(my - quartCell)) != endY)
-        endY = newCell;
+    // Note that blizzard uses a range check as well as a block check, but we're just using our cell blocks because we want the cycles
+    if(plObj)
+    {   // Players can see all 9 cells they are a part of
+        startX = minX;
+        startY = minY;
+        endX = maxX;
+        endY = maxY;
+        if(false)//sWorld.EnableHighRangeGameobjectVisibility)
+        {   // Up the visible range of gameobjects to the surrounding 25 cells
+            minX -= 2;
+            minY -= 2;
+            maxX += 2;
+            maxY += 2;
+        }
+    }
+    else
+    {   // Cut down on actual creature range by limiting to a 1.25 cell range
+        uint32 newCell;
+        static float quartCell = _cellSize/4.f;
+        if((newCell = GetPosX(mx + quartCell)) != startX)
+            startX = newCell;
+        else if((newCell = GetPosX(mx - quartCell)) != endX)
+            endX = newCell;
+        if((newCell = GetPosY(my + quartCell)) != startY)
+            startY = newCell;
+        else if((newCell = GetPosY(my - quartCell)) != endY)
+            endY = newCell;
+    }
+
     if(plObj && (count = plObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj)))
     {
         sLog.Debug("MapInstance","Creating player %llu for himself.", obj->GetGUID().raw());
@@ -361,6 +381,10 @@ void MapInstance::PushObject(WorldObject* obj)
     //////////////////////
     // Preloading maps will do inrange update after cell loading
     if(m_mapPreloading)
+        return;
+
+    // We don't want to build inrange maps for deactivated objects
+    if(obj->IsActiveObject() && !obj->IsActivated())
         return;
 
     UpdateInrangeSetOnCells(obj, startX, endX, startY, endY, minX, maxX, minY, maxY);
