@@ -821,7 +821,7 @@ void World::SendAdministratorMessage(WorldPacket *packet)
 {
     m_sessionLock.Acquire();
     Player *plrTarget = NULL;
-    for(SessionSet::iterator itr = m_globalSessions.begin(); itr != m_globalSessions.end() || bServerShutdown; itr++)
+    for(SessionSet::iterator itr = m_globalSessions.begin(); itr != m_globalSessions.end(); itr++)
         if((*itr)->CanUseCommand('z') && (plrTarget = (*itr)->GetPlayer()))
             plrTarget->PushPacket(packet);
     m_sessionLock.Release();
@@ -830,7 +830,7 @@ void World::SendAdministratorMessage(WorldPacket *packet)
 void World::SendGamemasterMessage(WorldPacket *packet)
 {
     m_sessionLock.Acquire();
-    for(SessionSet::iterator itr = m_globalSessions.begin(); itr != m_globalSessions.end() || bServerShutdown; itr++)
+    for(SessionSet::iterator itr = m_globalSessions.begin(); itr != m_globalSessions.end(); itr++)
         if(Player *plrTarget = (*itr)->GetPlayer())
             plrTarget->PushPacket(packet);
     m_sessionLock.Release();
@@ -851,7 +851,7 @@ void World::UpdateSessions(uint32 diff)
     int result;
     WorldSession *global;
     m_sessionLock.Acquire();
-    for(SessionSet::iterator itr = m_globalSessions.begin(); itr != m_globalSessions.end() || bServerShutdown;)
+    for(SessionSet::iterator itr = m_globalSessions.begin(); itr != m_globalSessions.end() && !bServerShutdown;)
     {
         global = (*itr);
         ++itr;
