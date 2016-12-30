@@ -200,22 +200,8 @@ MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector
     return NULL;
 }
 
-void MapCell::FillObjectSets(WorldObject *obj, std::set<WorldObject*> &set, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess, bool limitedPool)
+void MapCell::FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::set<WorldObject*> &objs, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess)
 {
-    if(limitedPool && !obj->IsPlayer())
-    {
-        // Non player limited pool means check our players against our phase mask to see if we can interact
-        for(auto itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
-        {
-            uint16 plrPhaseMask = (*itr)->GetPhaseMask();
-            if(plrPhaseMask & 0x8000 || plrPhaseMask & phaseMask)
-                set.insert((*itr));
-        }
-
-        // No need to do anything else
-        return;
-    }
-
     Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
     // Check active conditions and map conditions to see what we have here
     for(std::vector<uint32>::iterator itr = conditionAccess.begin(); itr != conditionAccess.end(); itr++)
@@ -223,8 +209,16 @@ void MapCell::FillObjectSets(WorldObject *obj, std::set<WorldObject*> &set, uint
         if((iter = m_conditionStorage.find(*itr)) == m_conditionStorage.end() || iter->second->isEmpty())
             continue;
         for(MapCell::CellObjectSet::iterator itr2 = iter->second->GetObjectSet()->begin(); itr2 != iter->second->GetObjectSet()->end(); itr2++)
-            if(limitedPool == false || (*itr2)->IsGameObject())
-                set.insert(*itr2);
+        {
+            if(obj == *itr2)
+                continue;
+            if((*itr2)->IsActiveObject() && !(*itr2)->IsActivated())
+                continue;
+
+            guids.insert((*itr2)->GetGUID());
+            if(!obj->IsInRangeSet(*itr2))
+                objs.insert(*itr2);
+        }
     }
 
     // Check active events or event access to see what we have here
@@ -233,8 +227,16 @@ void MapCell::FillObjectSets(WorldObject *obj, std::set<WorldObject*> &set, uint
         if((iter = m_eventStorage.find(*itr)) == m_eventStorage.end() || iter->second->isEmpty())
             continue;
         for(MapCell::CellObjectSet::iterator itr2 = iter->second->GetObjectSet()->begin(); itr2 != iter->second->GetObjectSet()->end(); itr2++)
-            if(limitedPool == false || (*itr2)->IsGameObject())
-                set.insert(*itr2);
+        {
+            if(obj == *itr2)
+                continue;
+            if((*itr2)->IsActiveObject() && !(*itr2)->IsActivated())
+                continue;
+
+            guids.insert((*itr2)->GetGUID());
+            if(!obj->IsInRangeSet(*itr2))
+                objs.insert(*itr2);
+        }
     }
 
     // We're parsing based on bits directly, not on masked 32bit values, if we're capped return false here
@@ -243,14 +245,30 @@ void MapCell::FillObjectSets(WorldObject *obj, std::set<WorldObject*> &set, uint
         if((phaseMask & (((uint32)1) << iter->first)) == 0 || iter->second->isEmpty())
             continue;
         for(MapCell::CellObjectSet::iterator itr = iter->second->GetObjectSet()->begin(); itr != iter->second->GetObjectSet()->end(); itr++)
-            if(limitedPool == false || (*itr)->IsGameObject())
-                set.insert(*itr);
+        {
+            if(obj == *itr)
+                continue;
+            if((*itr)->IsActiveObject() && !(*itr)->IsActivated())
+                continue;
+
+            guids.insert((*itr)->GetGUID());
+            if(!obj->IsInRangeSet(*itr))
+                objs.insert(*itr);
+        }
     }
 
     // Check anything leftover in all other subphases
     for(MapCell::CellObjectSet::iterator itr = m_objectSet.begin(); itr != m_objectSet.end(); itr++)
-        if(limitedPool == false || (*itr)->IsGameObject())
-            set.insert(*itr);
+    {
+        if(obj == *itr)
+            continue;
+        if((*itr)->IsActiveObject() && !(*itr)->IsActivated())
+            continue;
+
+        guids.insert((*itr)->GetGUID());
+        if(!obj->IsInRangeSet(*itr))
+            objs.insert(*itr);
+    }
 }
 
 void MapCell::SetActivity(bool state)

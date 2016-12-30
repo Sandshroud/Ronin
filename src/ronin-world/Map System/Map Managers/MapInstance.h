@@ -91,6 +91,8 @@ public:
         mPoolStack = NULL;
     }
 
+    uint32 getCounter() { return mPoolCounter; }
+
     // Update our object stack, this includes inactivity timers
     void Update(uint32 msTime, uint32 pDiff)
     {
@@ -318,7 +320,7 @@ public:
     virtual void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
     void ChangeFarsightLocation(Player* plr, float X, float Y, bool apply);
-    bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
+    static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
 
     //! Mark object as updated
     bool UpdateQueued(WorldObject *obj);
@@ -356,6 +358,7 @@ public:
     void _PerformObjectUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff);
+    void _PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformSessionUpdates();
     void _PerformPendingUpdates();
 
@@ -398,20 +401,22 @@ protected:
     uint32 _mapId;
 
     // Storage for processing inrange updates
+    WorldObject::InRangeSet m_inRangeProcessed;
     WorldObject::InRangeObjSet m_inRangeStorage;
+    std::set<WoWGuid> m_processedRangeUpdates;
 
     // In this zone, we always show these objects
     Loki::AssocVector<WorldObject*, uint32> m_zoneFullRangeObjects, m_areaFullRangeObjects;
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_fullRangeObjectsByZone, m_fullRangeObjectsByArea;
 
     bool _CellActive(uint32 x, uint32 y);
-    void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell, bool playerOnly);
+    void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
 
     bool ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
 public:
-    void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY, uint32 minX, uint32 maxX, uint32 minY, uint32 maxY);
+    void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
     bool IsPreloading() { return m_mapPreloading; }
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
@@ -437,6 +442,7 @@ public:
     StoragePool<Creature> mCreaturePool;
     StoragePool<GameObject> mGameObjectPool;
     StoragePool<DynamicObject> mDynamicObjectPool;
+    StoragePool<UnitPathSystem> mUnitPathPool;
 
     // Storage pool setup for projectile spells
     uint32 projectileSpellUpdateTime[2];

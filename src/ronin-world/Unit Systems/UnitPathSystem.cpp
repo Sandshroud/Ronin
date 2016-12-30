@@ -3,7 +3,7 @@
 
 float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
-UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f)
+UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_autoPath(false), _waypointPath(NULL), m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0), pathPoolId(0xFF)
 {
 
 }
@@ -13,60 +13,125 @@ UnitPathSystem::~UnitPathSystem()
     _CleanupPath();
 }
 
-bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff)
+bool UnitPathSystem::IsActiveObject()
 {
-    if(_destX == fInfinite && _destY == fInfinite)
-        return true;
+    return m_Unit->IsActiveObject();
+}
 
-    if(uint32 timeWalked = msTime-m_pathStartTime)
+bool UnitPathSystem::IsActivated()
+{
+    return m_Unit->IsActivated();
+}
+
+void UnitPathSystem::InactiveUpdate(uint32 msTime, uint32 uiDiff)
+{
+    // Dunno, we don't need to process this atm
+}
+
+bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
+{
+    // If it's the same mstime(same world tick), return
+    if(m_lastMSTimeUpdate == msTime)
+        return false;
+
+    // Update ms timer
+    m_lastMSTimeUpdate = msTime;
+
+    // Calculate our new position if we have a destination
+    if(hasDestination())
     {
-        if(timeWalked >= m_pathLength || m_movementPoints.empty())
+        if(uint32 timeWalked = msTime-m_pathStartTime)
         {
-            m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
-            _CleanupPath();
-            return true;
-        }
-
-        MovementPoint *lastPoint = &srcPoint, *nextPoint = m_movementPoints.front();
-        if(timeWalked >= nextPoint->timeStamp && m_movementPoints.size() != 1)
-        {
-            lastPoint = nextPoint;
-            while(m_movementPoints.size() >= 2)
+            if(timeWalked >= m_pathLength || m_movementPoints.empty())
             {
-                if((nextPoint = m_movementPoints.at(1))->timeStamp >= timeWalked)
+                m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
+                _CleanupPath();
+            }
+            else
+            {
+                // Move towards destination, but only update our position if we're updating this cycle
+                if(fromMovement)
                 {
-                    if(nextPoint->timeStamp == timeWalked)
-                    {   // 
-                        m_Unit->GetMovementInterface()->MoveClientPosition(nextPoint->pos.x, nextPoint->pos.y, nextPoint->pos.z, m_Unit->GetOrientation());
-                        return false;
-                    }
-                    break;
-                }
+                    MovementPoint *lastPoint = &srcPoint, *nextPoint = m_movementPoints.front();
+                    if(timeWalked >= nextPoint->timeStamp && m_movementPoints.size() != 1)
+                    {
+                        lastPoint = nextPoint;
+                        while(m_movementPoints.size() >= 2)
+                        {
+                            if((nextPoint = m_movementPoints.at(1))->timeStamp >= timeWalked)
+                            {
+                                if(nextPoint->timeStamp == timeWalked)
+                                {   // 
+                                    m_Unit->GetMovementInterface()->MoveClientPosition(nextPoint->pos.x, nextPoint->pos.y, nextPoint->pos.z, m_Unit->GetOrientation());
+                                    return false;
+                                }
+                                break;
+                            }
 
-                // Remove the last point since we don't need it
-                m_movementPoints.pop_front();
-                delete lastPoint;
-                // Get the new last point
-                lastPoint = nextPoint;
-                nextPoint = NULL;
+                            // Remove the last point since we don't need it
+                            m_movementPoints.pop_front();
+                            delete lastPoint;
+                            // Get the new last point
+                            lastPoint = nextPoint;
+                            nextPoint = NULL;
+                        }
+                    }
+
+                    if(nextPoint == NULL) // No next point means we've cleared up our movement path
+                    {
+                        m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
+                        _CleanupPath();
+                        return true;
+                    }
+
+                    // Calculate the time percentage of movement between our two points that we've moved so far
+                    uint32 moveDiff = nextPoint->timeStamp-lastPoint->timeStamp, moveDiff2 = timeWalked-lastPoint->timeStamp, timeLeft = moveDiff-moveDiff2;
+                    float x = lastPoint->pos.x, y = lastPoint->pos.y, z = lastPoint->pos.z, x2 = nextPoint->pos.x, y2 = nextPoint->pos.y, z2 = nextPoint->pos.z;
+                    float p = float(timeLeft)/float(moveDiff), px = x2-((x2-x)*p), py = y2-((y2-y)*p), pz = z2-((z2-z)*p);
+                    // Update unit client position, post update heartbeat will reset unit position for us
+                    m_Unit->GetMovementInterface()->MoveClientPosition(px, py, pz, m_Unit->calcAngle(px, py, x2, y2));
+                }
+                return false;
             }
         }
-
-        if(nextPoint == NULL) // No next point means we've cleared up our movement path
-        {
-            m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
-            _CleanupPath();
-            return true;
-        }
-
-        // Calculate the time percentage of movement between our two points that we've moved so far
-        uint32 moveDiff = nextPoint->timeStamp-lastPoint->timeStamp, moveDiff2 = timeWalked-lastPoint->timeStamp, timeLeft = moveDiff-moveDiff2;
-        float x = lastPoint->pos.x, y = lastPoint->pos.y, z = lastPoint->pos.z, x2 = nextPoint->pos.x, y2 = nextPoint->pos.y, z2 = nextPoint->pos.z;
-        float p = float(timeLeft)/float(moveDiff), px = x2-((x2-x)*p), py = y2-((y2-y)*p), pz = z2-((z2-z)*p);
-        // Update unit client position, post update heartbeat will reset unit position for us
-        m_Unit->GetMovementInterface()->MoveClientPosition(px, py, pz, m_Unit->calcAngle(px, py, x2, y2));
     }
-    return false;
+
+    if(m_autoPath)
+    {   //Process next steps of path
+        if(_waypointPath && !_waypointPath->empty())
+        {
+            if(pathIterator == _waypointPath->end() || ++pathIterator == _waypointPath->end())
+                pathIterator = _waypointPath->begin();
+
+            CreatureWaypoint *point = pathIterator->second;
+            switch(point->moveType)
+            {
+            case 0: SetSpeed(MOVE_SPEED_WALK); break;
+            case 1: SetSpeed(MOVE_SPEED_RUN); break;
+            case 2: SetSpeed(MOVE_SPEED_FLIGHT); break;
+            }
+
+            MoveToPoint(point->x, point->y, point->z, point->o);
+            m_pendingAutoPathDelay = point->delay;
+        }
+    }
+
+    return true;
+}
+
+void UnitPathSystem::EnterEvade()
+{
+    m_autoPath = false;
+
+}
+
+void UnitPathSystem::SetAutoPath(WaypointStorage *storage)
+{
+    if(storage == NULL || storage->empty())
+        return;
+
+    m_autoPath = true;
+    pathIterator = (_waypointPath = storage)->end();
 }
 
 bool UnitPathSystem::hasDestination() { return !(_destX == fInfinite && _destY == fInfinite); }
@@ -103,34 +168,10 @@ void UnitPathSystem::_CleanupPath()
     }
 }
 
-void UnitPathSystem::MoveToPoint(float x, float y, float z, float o, bool pointOverride)
+void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 {
     if((_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
         return;
-
-    uint32 timeNeededToFinishBackups = 0;
-    std::vector<MovementPoint> m_backupPoints;
-    if(pointOverride == false && !m_movementPoints.empty())
-    {
-        uint32 timeWalked = getMSTime()-m_pathStartTime;
-        if(timeWalked < m_pathLength)
-        {   // TODO: We only really need the target point and the time it takes to get there
-            for(size_t i = 0; i < m_movementPoints.size(); i++)
-            {
-                if(timeWalked >= m_movementPoints[i]->timeStamp)
-                    continue;
-
-                // Create a new temporary point for reinsertion
-                MovementPoint point(*m_movementPoints[i]);
-                // Save our position
-                point.pos = m_movementPoints[i]->pos;
-                // New timestamp
-                timeNeededToFinishBackups = (point.timeStamp = m_movementPoints[i]->timeStamp-timeWalked);
-                // store
-                m_backupPoints.push_back(point);
-            }
-        }
-    }
 
     // Clean up any existing paths
     _CleanupPath();
@@ -149,14 +190,6 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o, bool pointO
         MovementPoint *lastPoint = &srcPoint; // Store our starting position
         m_pathLength = (dist/speed)*1000.f;
 
-        if(m_backupPoints.size())
-        {
-            m_pathLength += timeNeededToFinishBackups;
-            for(std::vector<MovementPoint>::iterator itr = m_backupPoints.begin(); itr != m_backupPoints.end(); itr++)
-                m_movementPoints.push_back(new MovementPoint((*itr).timeStamp, (*itr).pos.x, (*itr).pos.y, (*itr).pos.z));
-            m_backupPoints.clear();
-        }
-
         bool ignoreTerrainHeight = m_Unit->canFly();
         float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = terrainHeight/*m_Unit->GetMapInstance()->GetLandHeight(_destX, _destY)*/, posToAdd = 0.f;
         if(ignoreTerrainHeight == false)
@@ -164,7 +197,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o, bool pointO
         else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
 
         float lastCalcPoint = lastPoint->pos.z;// Path calculation
-        uint32 timeToMove = timeNeededToFinishBackups;
+        uint32 timeToMove = 0;
         while((m_pathLength-timeToMove) > 500)
         {
             timeToMove += 500;
@@ -219,7 +252,7 @@ void UnitPathSystem::BroadcastMovementPacket()
         uint32 counter = 0;
         size_t counterPos = data.wpos();
         data << uint32(0); // movement point counter
-        for(uint32 i = 1; i < m_movementPoints.size(); i++)
+        for(uint32 i = 0; i < m_movementPoints.size(); i++)
         {
             if(MovementPoint *path = m_movementPoints[i])
             {

@@ -120,6 +120,16 @@ public:
     void ParseMapDBC();
     void LoadSpawnData();
     void LoadMapTileData(TaskList & tl);
+    void _CreateMap(MapEntry *map);
+
+    void ContinentUnloaded(uint32 mapId);
+    bool ContinentManagerExists(uint32 mapId) { return m_continentManagement.find(mapId) != m_continentManagement.end(); }
+    ContinentManager *GetContinentManager(uint32 mapId)
+    {
+        if(ContinentManagerExists(mapId))
+            return m_continentManagement.at(mapId);
+        return NULL;
+    }
 
     uint8 ValidateMapId(uint32 mapId);
     uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid);
@@ -253,15 +263,6 @@ public:
     // this only frees the instance pointer, not the mapmgr itself
     void DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid);
 
-    bool ContinentManagerExists(uint32 mapId) { return m_continentManagement.find(mapId) != m_continentManagement.end(); }
-    ContinentManager *GetContinentManager(uint32 mapId)
-    {
-        if(ContinentManagerExists(mapId))
-            return m_continentManagement.at(mapId);
-        return NULL;
-    }
-
-    void _CreateMap(MapEntry *map);
     void _LoadInstances();
     bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 

@@ -88,6 +88,10 @@ bool ContinentManager::run()
         m_continent->_PerformObjectUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+        // Perform all path updates in sequence
+        m_continent->_PerformUnitPathUpdates(mstime, diff);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Perform all session updates in sequence
         m_continent->_PerformSessionUpdates();
         if(!SetThreadState(THREADSTATE_BUSY))
@@ -104,8 +108,12 @@ bool ContinentManager::run()
         Delay(std::max<int32>(5, MapInstanceUpdatePeriod-(getMSTime()-lastUpdate)));
         counter++;
     }while(true);
-
     sLog.Notice("ContinentManager", "Cleaning up continent %u (%s)", m_mapId, m_mapData->GetName());
+
+    // Remove us from content map
+    sWorldMgr.ContinentUnloaded(m_mapId);
+
+    // Clean up continent map instance
     m_continent->Destruct();
     m_continent = NULL;
 

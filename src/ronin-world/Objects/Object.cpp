@@ -717,6 +717,9 @@ void WorldObject::PushToWorld(MapInstance* instance)
     // Call a quick exploration event with a mgr override
     EventExploration(instance);
 
+    // Call area update
+    UpdateAreaInfo(instance);
+
     // Set our map manager
     m_mapInstance = instance;
 
@@ -865,13 +868,11 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     {
         if(Player *plr = GetInRangeObject<Player>(*itr))
         {
-            if(plr->GetSession() == NULL)
-                continue;
             if(myteam_only && plr->GetTeam() != myTeam)
                 continue;
             if(maxRange > 1.f && plr->GetDistanceSq(this) > range)
                 continue;
-            plr->GetSession()->SendPacket(data);
+            plr->PushPacket(data);
         }
     }
 }

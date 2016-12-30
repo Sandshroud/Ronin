@@ -1056,7 +1056,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     }
 
     // Push our waypoints through to AI
-    m_aiInterface.SetWaypoints(m_spawn ? &m_spawn->m_waypointData : NULL);
+    m_movementInterface.GetPath()->SetAutoPath(m_spawn ? &m_spawn->m_waypointData : NULL);
 }
 
 void Creature::RemoveLimboState(Unit* healer)

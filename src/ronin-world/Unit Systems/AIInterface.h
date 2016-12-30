@@ -50,7 +50,6 @@ public:
 
     // Post creation initialization call
     void Init();
-    void SetWaypoints(WaypointStorage *waypoints);
 
     // Update
     void Update(uint32 msTime, uint32 p_time);
@@ -62,23 +61,15 @@ public:
     void OnTakeDamage(Unit *attacker, uint32 damage);
 
     bool FindTarget();
-    void FindNextPoint();
 
     AI_State GetAIState() { return m_AIState; }
-
-    uint32 m_pendingWaitTimer;
 
 protected:
     AI_State m_AIState;
     uint32 m_AISeed;
     uint32 m_AIFlags;
 
-    uint32 m_waypointWaitTimer;
     void _HandleCombatAI();
-
-protected:
-    WaypointStorage *m_waypointMap;
-    WaypointStorage::iterator waypointIterator;
 
 private:
     Creature* m_Creature;

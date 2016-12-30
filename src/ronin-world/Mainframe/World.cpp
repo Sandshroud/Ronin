@@ -1007,12 +1007,22 @@ void World::UpdateQueuedSessions(uint32 diff)
             PlayerInfo *info = objmgr.GetPlayerInfo(sessItr->second.first);
             WorldSession *sess = sessItr->first;
             m_worldPushQueue.erase(sessItr);
-            if(info == NULL || (*itr).first)
+            // If we lost our player info, cancel the login and disconnect
+            if(info == NULL)
             {
                 sess->Disconnect();
                 continue;
             }
 
+            // If we failed to enter world, kick back to login screen
+            if((*itr).first)
+            {
+                uint8 error = CHAR_LOGIN_NO_WORLD;
+                sess->OutPacket(SMSG_CHARACTER_LOGIN_FAILED, 1, &error);
+                continue;
+            }
+
+            // Push us to our login proc
             sess->PlayerLoginProc(info);
         }
         m_worldPushLock.Release();

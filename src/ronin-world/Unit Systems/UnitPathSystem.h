@@ -40,7 +40,17 @@ public: // Class functions
     UnitPathSystem(Unit *unit);
     ~UnitPathSystem();
 
-    bool Update(uint32 msTime, uint32 uiDiff);
+    bool IsActiveObject();
+    bool IsActivated();
+
+    void InactiveUpdate(uint32 msTime, uint32 uiDiff);
+    bool Update(uint32 msTime, uint32 uiDiff, bool fromMovement = false);
+
+    void EnterEvade();
+    void SetAutoPath(WaypointStorage *storage);
+
+    void EnableAutoPath() { m_autoPath = true; }
+    void DisableAutoPath() { m_autoPath = false; }
 
     bool hasDestination();
     bool closeToDestination(uint32 msTime);
@@ -49,11 +59,14 @@ public: // Class functions
 
     void SetSpeed(MovementSpeedTypes speedType);
 
+    uint8 getPathPool() { return pathPoolId; }
+    void setPathPool(uint8 poolId) { pathPoolId = poolId; }
+
 private:
     void _CleanupPath();
 
 public:
-    void MoveToPoint(float x, float y, float z, float o = fInfinite, bool pointOverride = false);
+    void MoveToPoint(float x, float y, float z, float o = fInfinite);
     void StopMoving();
 
     void BroadcastMovementPacket();
@@ -61,6 +74,11 @@ public:
 
 private:
     Unit *m_Unit;
+    bool m_autoPath;
+
+    WaypointStorage *_waypointPath;
+    WaypointStorage::iterator pathIterator;
+    uint32 m_pendingAutoPathDelay;
 
     MovementSpeedTypes _moveSpeed;
 
@@ -70,4 +88,7 @@ private:
     float _destX, _destY, _destZ, _destO;
 
     std::deque<MovementPoint*> m_movementPoints;
+
+    uint32 m_lastMSTimeUpdate, m_lastPositionUpdate;
+    uint8 pathPoolId;
 };

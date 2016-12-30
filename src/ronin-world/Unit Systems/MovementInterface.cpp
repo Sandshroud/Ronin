@@ -401,7 +401,7 @@ void MovementInterface::Update(uint32 msTime, uint32 uiDiff)
         return;
 
     // If path update returns true, it means we have no current path
-    if (m_path.Update(msTime, uiDiff) && m_movementState)
+    if (m_path.Update(msTime, uiDiff, true) && m_movementState)
     {   // We have a clean path and a unit state, generate next target location
         if(int moveMask = RONIN_UTIL::getRBitOffset(m_movementState))
         {

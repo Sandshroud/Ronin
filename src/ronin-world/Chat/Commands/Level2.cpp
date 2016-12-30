@@ -897,7 +897,6 @@ bool ChatHandler::HandleNpcComeCommand(const char* args, WorldSession* m_session
         return true;
     }
 
-    unit->GetAIInterface()->m_pendingWaitTimer = 30000;
     unit->MoveTo(m_session->GetPlayer()->GetPositionX(), m_session->GetPlayer()->GetPositionY(), m_session->GetPlayer()->GetPositionZ(), m_session->GetPlayer()->GetOrientation());
     return true;
 }

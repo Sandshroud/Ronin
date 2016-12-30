@@ -224,6 +224,34 @@ void WorldManager::LoadMapTileData(TaskList & tl)
     }
 }
 
+void WorldManager::_CreateMap(MapEntry *mapEntry)
+{
+    m_mapLock.Acquire();
+    Map *map = NULL;
+    if(m_maps.find(mapEntry->MapID) == m_maps.end())
+        m_maps.insert(std::make_pair(mapEntry->MapID, map = new Map(mapEntry, mapEntry->name)));
+    else map = m_maps.at(mapEntry->MapID);
+    m_mapLock.Release();
+
+    if(mapEntry->IsContinent())
+        _InitializeContinent(mapEntry, map);
+    else if(mapEntry->IsBattleGround() || mapEntry->IsBattleArena())
+        _InitializeBattleGround(mapEntry, map);
+    else if(mapEntry->IsRaid() || mapEntry->IsDungeon())
+        _InitializeInstance(mapEntry, map);
+    else { m_mapLock.Acquire(); m_maps.erase(mapEntry->MapID); delete map; m_mapLock.Release(); }
+}
+
+void WorldManager::ContinentUnloaded(uint32 mapId)
+{
+    mapLoadLock.Acquire();
+    // Make sure we're not marked as loading
+    m_loadingMaps.erase(mapId);
+    mapLoadLock.Release();
+    // Store the manager in the worldManager thread
+    m_continentManagement.erase(mapId);
+}
+
 uint8 WorldManager::ValidateMapId(uint32 mapId)
 {
     if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
@@ -235,7 +263,8 @@ uint8 WorldManager::ValidateMapId(uint32 mapId)
         if(mgr->GetContinent()->IsPreloading())
             return 2;
         return 0;
-    }
+    } else if(m_loadedMaps.at(mapId)->IsContinent())
+        return 1;
 
     return (m_maps.find(mapId) == m_maps.end()) ? 1 : 0;
 }
@@ -374,24 +403,6 @@ MapInstance *WorldManager::GetInstance(WorldObject* obj)
     else if(MapInstance *instance = sInstanceMgr.GetInstanceForObject(obj))
         return instance;
     return NULL;
-}
-
-void WorldManager::_CreateMap(MapEntry *mapEntry)
-{
-    m_mapLock.Acquire();
-    Map *map = NULL;
-    if(m_maps.find(mapEntry->MapID) == m_maps.end())
-        m_maps.insert(std::make_pair(mapEntry->MapID, map = new Map(mapEntry, mapEntry->name)));
-    else map = m_maps.at(mapEntry->MapID);
-    m_mapLock.Release();
-
-    if(mapEntry->IsContinent())
-        _InitializeContinent(mapEntry, map);
-    else if(mapEntry->IsBattleGround() || mapEntry->IsBattleArena())
-        _InitializeBattleGround(mapEntry, map);
-    else if(mapEntry->IsRaid() || mapEntry->IsDungeon())
-        _InitializeInstance(mapEntry, map);
-    else { m_mapLock.Acquire(); m_maps.erase(mapEntry->MapID); delete map; m_mapLock.Release(); }
 }
 
 void WorldManager::BuildXMLStats(char * m_file)
