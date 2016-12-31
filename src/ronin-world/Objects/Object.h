@@ -464,6 +464,8 @@ public:
     {
         if( obj == NULL || !needStoreInRangeObject(obj->GetTypeId()))
             return;
+        if(m_inRangeSet.find(obj->GetGUID()) != m_inRangeSet.end())
+            return;
 
         m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));
         m_inRangeSet.insert(obj->GetGUID());

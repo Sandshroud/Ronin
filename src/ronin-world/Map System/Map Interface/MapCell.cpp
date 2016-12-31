@@ -48,6 +48,7 @@ void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 
 void MapCell::AddObject(WorldObject* obj)
 {
+    m_fullSet.push_back(obj);
     if(obj->IsPlayer())
     {
         m_objectSet.push_back(obj);
@@ -105,6 +106,9 @@ void MapCellObjectStorage::AddObject(WorldObject *obj)
 void MapCell::RemoveObject(WorldObject* obj)
 {
     MapCell::CellObjectSet::iterator itr;
+    if((itr = std::find(m_fullSet.begin(), m_fullSet.end(), obj)) != m_fullSet.end())
+        m_fullSet.erase(itr);
+
     if(obj->IsPlayer())
     {
         if((itr = std::find(m_objectSet.begin(), m_objectSet.end(), obj)) != m_objectSet.end())
@@ -154,50 +158,6 @@ void MapCellObjectStorage::RemoveObject(WorldObject *obj)
     MapCell::CellObjectSet::iterator itr;
     if((itr = std::find(m_objectSet.begin(), m_objectSet.end(), obj)) != m_objectSet.end())
         m_objectSet.erase(itr);
-}
-
-MapCell::CellObjectSet *MapCell::GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &conditionAccess, std::vector<uint32> &eventAccess, bool &handledAllPhases)
-{
-    // Check the full phase mask to see what's in it
-    if(handledAllPhases == false && !m_objectSet.empty())
-    {
-        handledAllPhases = true;
-        return &m_objectSet;
-    }
-
-    Loki::AssocVector<uint8, MapCellObjectStorage*>::iterator iter;
-    // Check active conditions and map conditions to see what we have here
-    while(!m_conditionStorage.empty() && !conditionAccess.empty())
-    {
-        uint32 eventId = *conditionAccess.begin();
-        conditionAccess.erase(conditionAccess.begin());
-        if((iter = m_conditionStorage.find(eventId)) != m_conditionStorage.end())
-            return iter->second->GetObjectSet();
-    }
-
-    // Check active events or event access to see what we have here
-    while(!m_eventStorage.empty() && !eventAccess.empty())
-    {
-        uint32 eventId = *eventAccess.begin();
-        eventAccess.erase(eventAccess.begin());
-        if((iter = m_eventStorage.find(eventId)) != m_eventStorage.end())
-            return iter->second->GetObjectSet();
-    }
-
-    // We're parsing based on bits directly, not on masked 32bit values, if we're capped return false here
-    uint8 phaseBit; MapCellObjectStorage *phaseStorage = NULL;
-    while(true)
-    {
-        phaseBit = RONIN_UTIL::FirstBitValue<uint16>(phaseMask);
-        if(phaseBit == 0xFF)
-            return false;
-
-        phaseMask &= ~(1<<phaseBit);
-        if((iter = m_phaseStorage.find(phaseBit)) == m_phaseStorage.end() || iter->second->isEmpty())
-            continue;
-        return iter->second->GetObjectSet();
-    }
-    return NULL;
 }
 
 void MapCell::FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::set<WorldObject*> &objs, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess)
@@ -269,6 +229,12 @@ void MapCell::FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::se
         if(!obj->IsInRangeSet(*itr))
             objs.insert(*itr);
     }
+}
+
+void MapCell::ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback)
+{
+    for(MapCell::CellObjectSet::iterator itr = m_fullSet.begin(); itr != m_fullSet.end(); itr++)
+        (*callback)(obj, (*itr)->GetGUID());
 }
 
 void MapCell::SetActivity(bool state)
@@ -353,11 +319,11 @@ void MapCell::UnloadCellData(bool preDestruction)
     if( preDestruction || !_unloadpending )
         m_phaseStorage.clear();
 
-    if(m_objectSet.size())
+    if(m_fullSet.size())
     {
+        std::set<WorldObject*> deletionSet;
         //This time it's simpler! We just remove everything :)
-        MapCell::CellObjectSet set(m_objectSet);
-        for(MapCell::CellObjectSet::iterator itr = set.begin(); itr != set.end(); itr++)
+        for(MapCell::CellObjectSet::iterator itr = m_fullSet.begin(); itr != m_fullSet.end(); itr++)
         {
             WorldObject *obj = (*itr);
             if(obj == NULL)
@@ -375,9 +341,16 @@ void MapCell::UnloadCellData(bool preDestruction)
             if( obj->IsInWorld())
                 obj->RemoveFromWorld();
 
+            deletionSet.insert(obj);
+        }
+        m_fullSet.clear();
+
+        while(deletionSet.size())
+        {
+            WorldObject *obj = *deletionSet.begin();
+            deletionSet.erase(deletionSet.begin());
             obj->Destruct();
         }
-        m_objectSet.clear();
     }
 
     // Start calldown for cell map unloading

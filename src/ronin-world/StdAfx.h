@@ -139,6 +139,7 @@ extern size_t __line__;
 
 #include "AIInterface.h"
 #include "AuraInterface.h"
+#include "UnitCellManager.h"
 #include "UnitPathSystem.h"
 #include "MovementInterface.h"
 #include "StatSystem.h"

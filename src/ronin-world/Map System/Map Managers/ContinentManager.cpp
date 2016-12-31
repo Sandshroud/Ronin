@@ -72,6 +72,10 @@ bool ContinentManager::run()
         m_continent->_PerformDelayedSpellUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+        // Perform all unit path updates in sequence
+        m_continent->_PerformUnitPathUpdates(mstime, diff);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Perform all player updates in sequence
         m_continent->_PerformPlayerUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
@@ -86,10 +90,6 @@ bool ContinentManager::run()
             break;
         // Perform all object updates in sequence
         m_continent->_PerformObjectUpdates(mstime, diff);
-        if(!SetThreadState(THREADSTATE_BUSY))
-            break;
-        // Perform all path updates in sequence
-        m_continent->_PerformUnitPathUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all session updates in sequence

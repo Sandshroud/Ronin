@@ -32,7 +32,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 {
     // If it's the same mstime(same world tick), return
     if(m_lastMSTimeUpdate == msTime)
-        return false;
+        return !hasDestination();
 
     // Update ms timer
     m_lastMSTimeUpdate = msTime;
@@ -93,7 +93,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
                 }
                 return false;
             }
-        }
+        } else return false;
     }
 
     if(m_autoPath)
@@ -177,7 +177,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     _CleanupPath();
 
     m_pathCounter++;
-    m_pathStartTime = getMSTime();
+    m_lastMSTimeUpdate = m_pathStartTime = getMSTime();
     m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
 
     _destX = x, _destY = y, _destZ = z, _destO = o;
@@ -285,7 +285,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr)
     uint32 counter = 0;
     size_t counterPos = data.wpos();
     data << uint32(0); // movement point counter
-    for(uint32 i = 1; i < m_movementPoints.size(); i++)
+    for(uint32 i = 0; i < m_movementPoints.size(); i++)
     {
         if(MovementPoint *path = m_movementPoints[i])
         {

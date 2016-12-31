@@ -24,7 +24,7 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this))
+MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)), _removalCallback(this)
 {
     m_mapPreloading = false;
     iInstanceMode = 0;
@@ -370,7 +370,9 @@ void MapInstance::PushObject(WorldObject* obj)
     if(obj->IsActiveObject() && !obj->IsActivated())
         return;
 
-    UpdateInrangeSetOnCells(obj, minX, maxX, minY, maxY);
+    if(!obj->IsUnit()) // Call data for us alone instead of using cell manager
+        UpdateCellData(obj, objCell->GetPositionX(), objCell->GetPositionY(), true);
+    else castPtr<Unit>(obj)->GetCellManager()->SetCurrentCell(this, objCell->GetPositionX(), objCell->GetPositionY(), 2);
 }
 
 void MapInstance::RemoveObject(WorldObject* obj)
@@ -665,248 +667,220 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             }
         }
 
-        MapCell *pOldCell = obj->GetMapCell(), *objCell = NULL;
+        // Grab our cell data from position
         float fposX = obj->GetPositionX(), fposY = obj->GetPositionY();
-        uint32 cellX = GetPosX(fposX), cellY = GetPosY(fposY);
-        if(cellX < _sizeX && cellY < _sizeY)
+        uint16 cellX = GetPosX(fposX), cellY = GetPosY(fposY);
+        if(cellX >= _sizeX || cellY >= _sizeY)
+            return; // No data outside parameters
+
+        // Update our cell activity real quick
+        if(plObj) UpdateCellActivity(cellX, cellY, 2);
+
+        // Grab our new cell and store our old cell pointer
+        MapCell *objCell = GetCell(cellX, cellY), *pOldCell = obj->GetMapCell();
+        if (objCell == NULL && (objCell = Create(cellX,cellY)))
+            objCell->Init(cellX, cellY, _mapId, this);
+
+        if(objCell != pOldCell)
         {
-            objCell = GetCell(cellX, cellY);
-            if (!objCell)
+            // Remove us from old cell
+            if(pOldCell)
+                pOldCell->RemoveObject(obj);
+
+            obj->SetMapCell(objCell);
+            // Process new cell
+            if(objCell)
             {
-                objCell = Create(cellX,cellY);
-                objCell->Init(cellX, cellY, _mapId, this);
+                // Add us to our cell
+                objCell->AddObject(obj);
+
+                // Non player objects need area info for current cell
+                if(!obj->IsPlayer())
+                    obj->UpdateAreaInfo(this);
+
+                if(!obj->IsUnit()) // Call data for us alone instead of using cell manager
+                    UpdateCellData(obj, cellX, cellY, true);
+                else castPtr<Unit>(obj)->GetCellManager()->SetCurrentCell(this, cellX, cellY, 2);
             }
+        }
+    }
+}
 
-            //////////////////////////////////////
-            // Update in-range set for new objects
-            //////////////////////////////////////
-            bool fullCellProcessing = false;
-            int32 minX = cellX ? cellX-1 : 0, maxX = (cellX < _sizeY-1 ? cellX+1 : _sizeY-1), minY = cellY ? cellY-1 : 0, maxY = (cellY < _sizeY-1 ? cellY+1 : _sizeY-1);
-            if(ObjectMovingCells(obj, pOldCell, objCell) || plObj)
-            {
-                ///////////////////////////////////////
-                // Update in-range data for old objects
-                ///////////////////////////////////////
-                if(!obj->HasInRangeObjects())
-                    UpdateInrangeSetOnCells(obj, minX, maxX, minY, maxY);
-                else if(m_zoneFullRangeObjects.find(obj) == m_zoneFullRangeObjects.end() && m_areaFullRangeObjects.find(obj) == m_areaFullRangeObjects.end())
-                {
-                    Player* plObj2;
-                    float distSq = 0.f;
-                    uint32 posX, posY, count;
-                    uint16 phaseMask = obj->GetPhaseMask();
-                    bool cansee, isvisible, handledAllPhases = false;
-                    std::vector<uint32> conditionAccess, eventAccess;
+bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, bool priority)
+{
+    // Check our cell status
+    MapCell *objCell = GetCell(cellX, cellY);
+    if(objCell == NULL && priority == false)
+        return false;
+    else if(objCell == NULL && (objCell = Create(cellX, cellY)))
+        objCell->Init(cellX, cellY, _mapId, this);
 
-                    // Pushing through active events, todo: conditions
-                    sWorld.GetActiveEvents(eventAccess);
-                    if(plObj && plObj->hasGMTag() && plObj->getGMSight() == 1)
-                        eventAccess.push_back(plObj->getGMEventSight());
+    uint32 count = 0;
+    float distSq = 0.f;
+    bool cansee, isvisible;
+    WorldObject *curObj = NULL;
+    uint16 phaseMask = obj->GetPhaseMask();
+    std::vector<uint32> conditionAccess, eventAccess;
+    Player *plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL, *plObj2 = NULL;
 
-                    // Process through our cell list
-                    objCell->FillObjectSets(obj, m_inRangeProcessed, m_inRangeStorage, phaseMask, conditionAccess, eventAccess);
-                    for (posX = minX; posX <= maxX; posX++ )
-                    {
-                        for (posY = minY; posY <= maxY; posY++ )
-                        {
-                            // Already processed our current cell
-                            if(posX == cellX && posY == cellY)
-                                continue;
-                            if ((objCell = GetCell(posX, posY)) == NULL)
-                                continue;
+    // Pushing through active events, todo: conditions
+    sWorld.GetActiveEvents(eventAccess);
+    if(plObj && plObj->hasGMTag() && plObj->getGMSight() == 1)
+        eventAccess.push_back(plObj->getGMEventSight());
 
-                            objCell->FillObjectSets(obj, m_inRangeProcessed, m_inRangeStorage, phaseMask, conditionAccess, eventAccess);
-                        }
-                    }
+    // Process through our cell list
+    objCell->FillObjectSets(obj, m_inRangeProcessed, m_inRangeStorage, phaseMask, conditionAccess, eventAccess);
 
-                    WorldObject::InRangeObjSet toRemove;
-                    m_processedRangeUpdates.insert(obj->GetGUID());
-                    for(WorldObject::InRangeHashMap::iterator itr = obj->GetInRangeMapBegin(); itr != obj->GetInRangeMapEnd(); itr++)
-                    {
-                        if((curObj = itr->second) == NULL)
-                            continue;
+    // Check our already processed objects to see if we need to remove anything
+    for(auto itr = m_inRangeProcessed.begin(); itr != m_inRangeProcessed.end(); itr++)
+    {
+        if((curObj = obj->GetInRangeObject(*itr)) == NULL)
+            continue;
 
-                        // Check if we're still in our processing queue to avoid removal
-                        if(m_inRangeProcessed.find(itr->first) != m_inRangeProcessed.end())
-                        {
-                            if(IsInRange(MaxViewDistance, obj, curObj, distSq))
-                            {
-                                if(m_processedRangeUpdates.find(curObj->GetGUID()) != m_processedRangeUpdates.end())
-                                    continue;
+        // Check if we're in range and get our distance while we do
+        if(!IsInRange(MaxViewDistance, obj, curObj, distSq))
+        {   // Remove us if we're not in range
+            if( obj->IsPlayer() )
+                castPtr<Player>(obj)->RemoveIfVisible(curObj);
 
-                                // Check visiblility
-                                if( curObj->IsPlayer() )
-                                    UpdateObjectVisibility(castPtr<Player>(curObj), obj);
+            obj->RemoveInRangeObject(curObj);
+            continue;
+        }
 
-                                // Check our virtual callups for inrange shenanigans
-                                obj->UpdateInRangeObject(curObj);
-                                curObj->UpdateInRangeObject(obj);
+        // Check our virtual callups for inrange shenanigans
+        obj->UpdateInRangeObject(curObj);
 
-                                // Check unit trigger range mapping
-                                if(obj->IsUnit())
-                                    curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
-                                if(curObj->IsUnit())
-                                    obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
+        // Check unit trigger range mapping
+        if(curObj->IsUnit())
+            obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
 
-                                if( plObj )
-                                    UpdateObjectVisibility(plObj, curObj);
-                                continue;
-                            }
-                        }
+        if( plObj )
+            UpdateObjectVisibility(plObj, curObj);
+    }
+    // Clear our processed set here
+    m_inRangeProcessed.clear();
 
-                        // Avoid removal of full range objects
-                        Loki::AssocVector<WorldObject*, uint32>::iterator fullrange_itr;
-                        if((fullrange_itr = m_zoneFullRangeObjects.find(curObj)) != m_zoneFullRangeObjects.end())
-                            if(fullrange_itr->second == obj->GetZoneId())
-                                continue;
-                        if((fullrange_itr = m_areaFullRangeObjects.find(curObj)) != m_areaFullRangeObjects.end())
-                            if(fullrange_itr->second == obj->GetAreaId())
-                                continue;
+    // Update inrange mapping based on storage
+    for(WorldObject::InRangeObjSet::iterator itr = m_inRangeStorage.begin(); itr != m_inRangeStorage.end(); itr++)
+    {
+        curObj = (*itr);
+        if(!IsInRange(MaxViewDistance, obj, *itr, distSq))
+            continue;
 
-                        // We cannot remove our current transport from inrange set
-                        if(obj->IsUnit() && castPtr<Unit>(obj)->GetTransportGuid())
-                            if(curObj->GetGUID() == castPtr<Unit>(obj)->GetTransportGuid())
-                                continue;
-                        toRemove.insert(curObj);
-                    }
-                    // Clear our processed set here
-                    m_inRangeProcessed.clear();
+        // WorldObject in range, add to set
+        obj->AddInRangeObject( curObj );
+        curObj->AddInRangeObject( obj );
 
-                    for(WorldObject::InRangeObjSet::iterator itr = m_inRangeStorage.begin(); itr != m_inRangeStorage.end(); itr++)
-                    {
-                        curObj = (*itr);
-                        if(!IsInRange(MaxViewDistance, obj, *itr, distSq))
-                            continue;
+        if( (plObj2 = curObj->IsPlayer() ? castPtr<Player>(curObj) : NULL ) && plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
+        {
+            plObj2->AddVisibleObject(obj);
+            if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                plObj2->PushUpdateBlock(&m_createBuffer, count);
+            m_createBuffer.clear();
+        }
 
-                        // WorldObject in range, add to set
-                        obj->AddInRangeObject( curObj );
-                        curObj->AddInRangeObject( obj );
+        if( plObj != NULL && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
+        {
+            plObj->AddVisibleObject( curObj );
+            if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                plObj->PushUpdateBlock(&m_createBuffer, count);
+            m_createBuffer.clear();
+        }
 
-                        if( curObj->IsPlayer() )
-                        {
-                            plObj2 = castPtr<Player>( curObj );
-                            if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
-                            {
-                                plObj2->AddVisibleObject(obj);
-                                if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
-                                    plObj2->PushUpdateBlock(&m_createBuffer, count);
-                                m_createBuffer.clear();
-                            }
-                        }
+        // Check unit trigger range mapping
+        if(obj->IsUnit())
+            curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
+        if(curObj->IsUnit())
+            obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
+    }
+    m_inRangeStorage.clear();
+    return true;
+}
 
-                        if( plObj != NULL )
-                        {
-                            if( plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
-                            {
-                                plObj->AddVisibleObject( curObj );
-                                if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                                    plObj->PushUpdateBlock(&m_createBuffer, count);
-                                m_createBuffer.clear();
-                            }
-                        }
+void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WoWGuid guid)
+{
+    WorldObject *curObj = NULL;
+    if((curObj = obj->GetInRangeObject(guid)) == NULL)
+        return;
+    if(_instance->IsFullRangeObject(curObj))
+        return;
 
-                        if(!(obj->IsUnit() || curObj->IsUnit()))
-                            continue;
+    if( obj->IsPlayer() )
+        castPtr<Player>(obj)->RemoveIfVisible(curObj);
+    if( curObj->IsPlayer() )
+        castPtr<Player>( curObj )->RemoveIfVisible(obj);
 
-                        // Check unit trigger range mapping
-                        if(obj->IsUnit())
-                            curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
-                        if(curObj->IsUnit())
-                            obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
-                    }
-                    m_inRangeStorage.clear();
+    curObj->RemoveInRangeObject(obj);
+    obj->RemoveInRangeObject(curObj);
+}
 
-                    for(WorldObject::InRangeObjSet::iterator itr = toRemove.begin(); itr != toRemove.end(); itr++)
-                    {
-                        if((curObj = (*itr)) == NULL)
-                            continue;
+void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set)
+{
+    if(IsFullRangeObject(Obj))
+        return;
 
-                        if( obj->IsPlayer() )
-                            castPtr<Player>(obj)->RemoveIfVisible(curObj);
-
-                        if( curObj->IsPlayer() )
-                            castPtr<Player>( curObj )->RemoveIfVisible(obj);
-
-                        curObj->RemoveInRangeObject(obj);
-                        obj->RemoveInRangeObject(curObj);
-                    }
-                }
-            }
-            else if(plObj == NULL)
-            {
-                float distSq = 0.f;
-                m_processedRangeUpdates.insert(obj->GetGUID());
-                size_t inRangeSize = obj->GetInRangeUnitCount();
-                for(WorldObject::InRangeArray::iterator itr = obj->GetInRangeUnitSetBegin(); itr != obj->GetInRangeUnitSetEnd(); itr++)
-                {
-                    if((curObj = obj->GetInRangeObject(*itr)) == NULL)
-                        continue;
-                    if(m_processedRangeUpdates.find(curObj->GetGUID()) != m_processedRangeUpdates.end())
-                        continue;
-                    if(!IsInRange(MaxViewDistance, obj, curObj, distSq))
-                        continue;
-
-                    // Check visiblility
-                    if( curObj->IsPlayer() )
-                        UpdateObjectVisibility(castPtr<Player>(curObj), obj);
-
-                    // Check our virtual callups for inrange shenanigans
-                    obj->UpdateInRangeObject(curObj);
-                    curObj->UpdateInRangeObject(obj);
-
-                    // Check unit trigger range mapping
-                    if(obj->IsUnit())
-                        curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
-                    if(curObj->IsUnit())
-                        obj->CheckTriggerRange(castPtr<Unit>(curObj), distSq);
-
-                    if( plObj )
-                        UpdateObjectVisibility(plObj, curObj);
-                }
-            }
-        } else ObjectMovingCells(obj, pOldCell, objCell);
+    for(auto itr = set.begin(); itr != set.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = UnitCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessSetRemovals(Obj, &_removalCallback);
     }
 }
 
 void MapInstance::UpdateInrangeSetOnCells(WorldObject *obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY)
 {
-    Player *pl = obj->IsPlayer() ? castPtr<Player>(obj) : NULL;
+    Player *plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL;
+    std::vector<uint32> conditionAccess, eventAccess;
+    sWorld.GetActiveEvents(eventAccess);
+    if(plObj && plObj->hasGMTag() && plObj->getGMSight() == 1)
+        eventAccess.push_back(plObj->getGMEventSight());
+
+    uint16 phaseMask = obj->GetPhaseMask(), count = 0;
+    float distSq = 0.f;
+
     for (uint32 posX = startX; posX <= endX; posX++ )
         for (uint32 posY = startY; posY <= endY; posY++ )
             if (MapCell *cell = GetCell(posX, posY))
-                UpdateInRangeSet(obj, pl, cell);
+                cell->FillObjectSets(obj, m_inRangeProcessed, m_inRangeStorage, phaseMask, conditionAccess, eventAccess);
+    m_inRangeProcessed.clear();
 
-}
-
-bool MapInstance::ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell)
-{
-    if(newCell == NULL && oldCell == NULL)
-        return false;
-
-    // If object moved cell
-    if (newCell != oldCell)
+    for(WorldObject::InRangeObjSet::iterator itr = m_inRangeStorage.begin(); itr != m_inRangeStorage.end(); itr++)
     {
-        if(oldCell) oldCell->RemoveObject(obj);
-        if(newCell) newCell->AddObject(obj);
-        obj->SetMapCell(newCell);
+        WorldObject *curObj = *itr;
+        if( curObj == NULL || curObj == obj )
+            continue;
 
-        if(!obj->IsPlayer())
-            obj->UpdateAreaInfo(this);
-        else if(newCell)
+        // Add if we are not ourself and range == 0 or distance is withing range.
+        if (!IsInRange(MaxViewDistance, obj, curObj, distSq))
+            continue;
+
+        if( obj->IsInRangeSet( curObj ) )
+            continue;
+        // WorldObject in range, add to set
+        obj->AddInRangeObject( curObj );
+        curObj->AddInRangeObject( obj );
+
+        if( curObj->IsPlayer() )
         {
-            // if player we need to update cell activity
-            // radius = 2 is used in order to update both
-            // old and new cells
-            uint32 cellX = newCell->GetPositionX(), cellY = newCell->GetPositionY();
-            // have to unlock/lock here to avoid a deadlock situation.
-            UpdateCellActivity(cellX, cellY, 2);
-            // only do the second check if theres -/+ 2 difference
-            if( oldCell != NULL && ((abs((int)cellX - (int)oldCell->GetPositionX()) > 2) || (abs((int)cellY - (int)oldCell->GetPositionY()) > 2)))
-                UpdateCellActivity( oldCell->GetPositionX(), oldCell->GetPositionY(), 2 );
+            Player *plObj2 = castPtr<Player>( curObj );
+            if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
+            {
+                plObj2->AddVisibleObject(obj);
+                if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
+                    plObj2->PushUpdateBlock(&m_createBuffer, count);
+                m_createBuffer.clear();
+            }
         }
-        return true;
+
+        if( plObj && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
+        {
+            plObj->AddVisibleObject( curObj );
+            if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
+                plObj->PushUpdateBlock(&m_createBuffer, count);
+            m_createBuffer.clear();
+        }
     }
-    return false;
+    m_inRangeStorage.clear();
 }
 
 void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
@@ -926,108 +900,6 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
         if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
             plObj->PushUpdateBlock(&m_createBuffer, count);
         m_createBuffer.clear();
-    }
-}
-
-void MapInstance::UpdateInRangeSet( WorldObject* obj, Player* plObj, MapCell* cell )
-{
-    if( cell == NULL )
-        return;
-
-    std::vector<uint32> conditionAccess, eventAccess;
-    sWorld.GetActiveEvents(eventAccess);
-    if(plObj && plObj->hasGMTag() && plObj->getGMSight() == 1)
-        eventAccess.push_back(plObj->getGMEventSight());
-
-    bool handledAllPhases = false;
-    MapCell::CellObjectSet *objectSet;
-    uint16 phaseMask = obj->GetPhaseMask(), count = 0;
-    float distSq = 0.f;
-    while(objectSet = cell->GetNextObjectSet(phaseMask, conditionAccess, eventAccess, handledAllPhases))
-    {
-        for(MapCell::CellObjectSet::iterator itr = objectSet->begin(); itr != objectSet->end(); itr++)
-        {
-            WorldObject *curObj = *itr;
-            if( curObj == NULL || curObj == obj )
-                continue;
-
-            // Add if we are not ourself and range == 0 or distance is withing range.
-            if (!IsInRange(MaxViewDistance, obj, curObj, distSq))
-                continue;
-
-            if( !obj->IsInRangeSet( curObj ) )
-            {
-                // WorldObject in range, add to set
-                obj->AddInRangeObject( curObj );
-                curObj->AddInRangeObject( obj );
-
-                if( curObj->IsPlayer() )
-                {
-                    Player *plObj2 = castPtr<Player>( curObj );
-                    if( plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
-                    {
-                        plObj2->AddVisibleObject(obj);
-                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
-                            plObj2->PushUpdateBlock(&m_createBuffer, count);
-                        m_createBuffer.clear();
-                    }
-                }
-
-                if( plObj && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
-                {
-                    plObj->AddVisibleObject( curObj );
-                    if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                        plObj->PushUpdateBlock(&m_createBuffer, count);
-                    m_createBuffer.clear();
-                }
-            }
-            else
-            {
-                // Check visiblility
-                if( curObj->IsPlayer() )
-                {
-                    Player *plObj2 = castPtr<Player>( curObj );
-                    WorldObject::InRangeObjSet::iterator itr;
-                    bool cansee = plObj2->CanSee(obj), isvisible = plObj2->GetVisibility(obj, &itr);
-                    if(!cansee && isvisible)
-                    {
-                        plObj2->PushOutOfRange(obj->GetGUID());
-                        plObj2->RemoveVisibleObject(itr);
-                    }
-                    else if(cansee && !isvisible)
-                    {
-                        plObj2->AddVisibleObject(obj);
-                        if(count = obj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj2))
-                            plObj2->PushUpdateBlock(&m_createBuffer, count);
-                        m_createBuffer.clear();
-                    }
-                }
-
-                if( plObj )
-                {
-                    WorldObject::InRangeObjSet::iterator itr;
-                    bool cansee = plObj->CanSee( curObj ), isvisible = plObj->GetVisibility( curObj, &itr );
-                    if(!cansee && isvisible)
-                    {
-                        plObj->PushOutOfRange( curObj->GetGUID() );
-                        plObj->RemoveVisibleObject( itr );
-                    }
-                    else if(cansee && !isvisible)
-                    {
-                        plObj->AddVisibleObject( curObj );
-                        if(count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                            plObj->PushUpdateBlock(&m_createBuffer, count);
-                        m_createBuffer.clear();
-                    }
-                }
-            }
-
-            // Triggered range mapping
-            if(obj->IsUnit())
-                curObj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
-            if(curObj->IsUnit())
-                obj->CheckTriggerRange(castPtr<Unit>(obj), distSq);
-        }
     }
 }
 
@@ -1185,6 +1057,15 @@ void MapInstance::RemoveForcedCell(MapCell * c, uint32 range)
 {
     c->SetPermanentActivity(false);
     UpdateCellActivity(c->GetPositionX(), c->GetPositionY(), range);
+}
+
+bool MapInstance::IsFullRangeObject(WorldObject *obj)
+{
+    if(m_zoneFullRangeObjects.find(obj) != m_zoneFullRangeObjects.end())
+        return true;
+    if(m_areaFullRangeObjects.find(obj) != m_areaFullRangeObjects.end())
+        return true;
+    return false;
 }
 
 bool MapInstance::_CellActive(uint32 x, uint32 y)
@@ -1604,8 +1485,6 @@ void MapInstance::_PerformPendingUpdates()
         ChangeObjectLocation(obj);
     }
     _movedObjects.clear();
-    // Clear our range update processing set too
-    m_processedRangeUpdates.clear();
 
     Player* plyr;
     // generate pending a9packets and send to clients.

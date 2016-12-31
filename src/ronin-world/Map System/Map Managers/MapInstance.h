@@ -45,7 +45,8 @@ enum ObjectActiveState
     OBJECT_STATE_ACTIVE   = 2,
 };
 
-static const uint32 MaxViewDistance = 38000;
+// Keep in mind, squared size of a cell is around 4350, we only parse two cells around so max attainable view distance is around 18000([cell size * 2] ^ 2), so we scale to 2 cells away or 40K (([cell size * 3] ^ 2)) and cut down to inbetween, 28-35K
+static const uint32 MaxViewDistance = 28000;
 
 #define MAX_TRANSPORTERS_PER_MAP 25
 #define RESERVE_EXPAND_SIZE 1024
@@ -189,6 +190,16 @@ private:
     PoolSet mPool, *mPoolStack;
     typename PoolSet::iterator poolIterator;
     uint32 mPoolCounter, mPoolAddCounter, mPoolSize, *mPoolLastUpdateStack;
+};
+
+class MapInstanceObjectRemovalCallback : public ObjectRemovalCallback
+{
+public:
+    MapInstanceObjectRemovalCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WoWGuid guid);
+
+private:
+    MapInstance *_instance;
 };
 
 /// Map instance class for processing different map instances(duh)
@@ -403,19 +414,25 @@ protected:
     // Storage for processing inrange updates
     WorldObject::InRangeSet m_inRangeProcessed;
     WorldObject::InRangeObjSet m_inRangeStorage;
-    std::set<WoWGuid> m_processedRangeUpdates;
 
     // In this zone, we always show these objects
     Loki::AssocVector<WorldObject*, uint32> m_zoneFullRangeObjects, m_areaFullRangeObjects;
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_fullRangeObjectsByZone, m_fullRangeObjectsByArea;
 
-    bool _CellActive(uint32 x, uint32 y);
-    void UpdateInRangeSet(WorldObject* obj, Player* plObj, MapCell* cell);
+    friend class MapInstanceObjectRemovalCallback;
+    bool IsFullRangeObject(WorldObject *obj);
+    MapInstanceObjectRemovalCallback _removalCallback;
 
-    bool ObjectMovingCells(WorldObject *obj, MapCell *oldCell, MapCell *newCell);
+    bool _CellActive(uint32 x, uint32 y);
+
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
+    friend class UnitCellManager;
+    bool UpdateCellData(WorldObject *Obj, uint32 cellX, uint32 cellY, bool priority);
+    void RemoveCellData(WorldObject *Obj, std::set<uint32> &set);
+
 public:
+    // This function is only used at preloading, and only to add new inrange objects
     void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
 
     bool IsPreloading() { return m_mapPreloading; }

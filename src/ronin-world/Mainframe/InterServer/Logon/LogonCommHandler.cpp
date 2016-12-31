@@ -123,7 +123,6 @@ void LogonCommHandler::Connect()
     if(ReConCounter >= 10)
     { // Attempt to connect 5 times, if not able to, shut down.
         sWorld.QueueShutdown(5, SERVER_SHUTDOWN_TYPE_SHUTDOWN);
-        bServerShutdown = true;
         return;
     }
 

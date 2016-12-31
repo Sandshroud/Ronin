@@ -32,6 +32,8 @@ class Map;
 
 class MapCellObjectStorage;
 
+class ObjectRemovalCallback { public: virtual void operator()(WorldObject *obj, WoWGuid guid) = 0; };
+
 class SERVER_DECL MapCell
 {
     friend class CellHandler<MapCell>;
@@ -50,8 +52,8 @@ public:
     bool HasPlayers(uint16 phaseMask = 0xFFFF);
 
     // Iterating through different phases of sets
-    MapCell::CellObjectSet *GetNextObjectSet(uint16 &phaseMask, std::vector<uint32> &conditionAccess, std::vector<uint32> &eventAccess, bool &handledAllPhases);
     void FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::set<WorldObject*> &objs, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess);
+    void ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback);
 
     //State Related
     void SetActivity(bool state);
@@ -86,7 +88,7 @@ private:
     MapInstance* _instance;
     Map *_mapData;
 
-    MapCell::CellObjectSet m_objectSet, m_playerSet;
+    MapCell::CellObjectSet m_fullSet, m_objectSet, m_playerSet;
     Loki::AssocVector<uint8, MapCellObjectStorage*> m_phaseStorage, m_eventStorage, m_conditionStorage;
 };
 
