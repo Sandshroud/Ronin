@@ -682,7 +682,7 @@ void World::UpdateServerTimers(uint32 diff)
     {
         sLog.Notice("World", "Sending heroic instance reset warning...");
         sWorldMgr.SendHeroicResetWarning();
-        m_heroicReset = true;
+        m_heroicWarning = true;
     }
     else if(m_gameTime >= 32400 && m_gameTime < 34200 && m_heroicReset == false)
     {
