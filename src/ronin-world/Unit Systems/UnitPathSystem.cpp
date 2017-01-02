@@ -204,19 +204,22 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
 
     _destX = x, _destY = y, _destZ = z, _destO = o;
-    float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
 
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y))
         sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, x, y, z, true);
     else
     {
+        MapInstance *instance = m_Unit->GetMapInstance();
+        float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
+
         MovementPoint *lastPoint = &srcPoint; // Store our starting position
         m_pathLength = (dist/speed)*1000.f;
 
         bool ignoreTerrainHeight = m_Unit->canFly();
-        float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = terrainHeight/*m_Unit->GetMapInstance()->GetLandHeight(_destX, _destY)*/, posToAdd = 0.f;
-        if(ignoreTerrainHeight == false)
-            posToAdd = ((z-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
+        float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
+        float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ), posToAdd = 0.f;
+        if(ignoreTerrainHeight)
+            posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
         else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
 
         float lastCalcPoint = lastPoint->pos.z;// Path calculation
@@ -226,14 +229,10 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
             timeToMove += 500;
             lastCalcPoint += posToAdd;
 
-            float targetZ = lastCalcPoint;
             float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
-            if(ignoreTerrainHeight == false)
-            {
-                terrainHeight = terrainHeight/*m_Unit->GetMapHeight(px, py, std::max<float>(srcPoint.pos.z, z))*/;
-                if(targetZ < terrainHeight)
-                    targetZ = terrainHeight;
-            }
+            float targetZ = instance->GetWalkableHeight(m_Unit, px, py, maxZ);
+            if(ignoreTerrainHeight && lastCalcPoint > targetZ)
+                targetZ = lastCalcPoint;
 
             m_movementPoints.push_back(lastPoint = new MovementPoint(timeToMove, px, py, targetZ));
         }

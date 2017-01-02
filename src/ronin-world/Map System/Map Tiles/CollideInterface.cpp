@@ -199,6 +199,27 @@ void VMapInterface::GetWMOData(MapInstance *instance, uint32 mapId, float x, flo
     m_mapLocks[mapId]->m_lock.Release();
 }
 
+void VMapInterface::GetWalkableHeight(MapInstance *instance, uint32 mapId, float x, float y, float z, uint32 &wmoId, float &groundLevel, float &liquidLevel)
+{
+    if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
+        return;
+
+    // get read lock
+    m_mapLocks[mapId]->m_lock.Acquire();
+
+    groundLevel = liquidLevel = NO_WMO_HEIGHT;
+    uint16 liquidFlags = 0;
+    uint32 wmoFlags = 0, adtFlags = 0;
+    int32 adtId = 0, rootId = 0, groupId = 0;
+    bool areaRes = false;
+
+    // Grab as much WMO data as we can in a single check
+    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaRes, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel, NULL);
+
+    // release write lock
+    m_mapLocks[mapId]->m_lock.Release();
+}
+
 float VMapInterface::GetHeight(uint32 mapId, uint32 instanceId, int32 m_phase, float x, float y, float z)
 {
     if( vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())

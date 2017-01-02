@@ -481,8 +481,7 @@ void MapInstance::RemoveObject(WorldObject* obj)
     }
 
     if(!bServerShutdown)
-    {
-        // Remove object from all objects 'seeing' him
+    {   // Remove object from all objects 'seeing' him
         WorldObject::InRangeHashMap inrangeObjects(*obj->GetInRangeMap());
         for (WorldObject::InRangeHashMap::iterator iter = inrangeObjects.begin(); iter != inrangeObjects.end(); iter++)
         {
@@ -742,8 +741,11 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
         {   // Remove us if we're not in range
             if( obj->IsPlayer() )
                 castPtr<Player>(obj)->RemoveIfVisible(curObj);
+            if( curObj->IsPlayer() )
+                castPtr<Player>( curObj )->RemoveIfVisible(obj);
 
             obj->RemoveInRangeObject(curObj);
+            curObj->RemoveInRangeObject(obj);
             continue;
         }
 
@@ -1029,6 +1031,45 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
             }
         }
     }
+}
+
+float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z)
+{
+    uint32 wmoID;
+    float groundHeight = NO_WMO_HEIGHT, liquidHeight = NO_WATER_HEIGHT;
+    // Holes are used for WMO placement
+    bool isHole = false;//mgr->GetADTIsHole(x, y);
+    // Grab our ADT ground height before WMO checks
+    float ADTHeight = GetADTLandHeight(x, y);
+    uint16 adtLiqType; // Grab our ADT liquid height before WMO checks
+    float ADTLiquid = GetADTWaterHeight(x, y, adtLiqType);
+    // Grab our wmo height values
+    sVMapInterface.GetWalkableHeight(this, _mapId, x, y, z, wmoID, groundHeight, liquidHeight);
+    // Ground height, works pretty well
+    if(groundHeight == NO_WMO_HEIGHT || (wmoID == 0 && groundHeight < ADTHeight))
+        groundHeight = ADTHeight;
+
+    // Liquid heights, needs more work | Don't use ADT height at holes or when under ADT height | TODO: Buildings underwater that cut off ADT liquid
+    if(liquidHeight == NO_WMO_HEIGHT && (isHole || (groundHeight != ADTHeight && z < ADTHeight)))
+        liquidHeight = NO_WATER_HEIGHT;
+    else if(liquidHeight == NO_WMO_HEIGHT || (groundHeight == ADTHeight))
+        liquidHeight = ADTLiquid;
+
+    if(liquidHeight != NO_WATER_HEIGHT)
+    {   // We have liquid height
+        if(obj->IsUnit() && castPtr<Unit>(obj)->canSwim())
+        {
+            if(z >= groundHeight)
+            {
+                if(z < liquidHeight)
+                    return z; // We can return our z height
+                return liquidHeight;
+            }
+            return groundHeight;
+        }
+    }
+
+    return groundHeight;
 }
 
 uint16 MapInstance::GetADTAreaId(float x, float y)

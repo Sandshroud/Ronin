@@ -137,7 +137,7 @@ void Spell::HandleTargetNoObject()
     float dist = 3;
     float newx = m_caster->GetPositionX() + cosf(m_caster->GetOrientation()) * dist;
     float newy = m_caster->GetPositionY() + sinf(m_caster->GetOrientation()) * dist;
-    float newz = 0.f;//m_caster->GetMapHeight(newx, newy, m_caster->GetPositionZ());
+    float newz = m_caster->GetMapInstance()->GetWalkableHeight(m_caster, newx, newy, m_caster->GetPositionZ());
 
     //if not in line of sight, or too far away we summon inside caster
     if(fabs(newz - m_caster->GetPositionZ()) > 10 || !sVMapInterface.CheckLOS(m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2, newx, newy, newz + 2))

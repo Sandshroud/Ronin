@@ -375,7 +375,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
 
     v.x += xSubtractX ? -1.5f : 1.5f;
     v.y += xSubtractY ? -1.5f : 1.5f;
-    v.z = 0.f;//u_caster->GetMapHeight(v.x, v.y, v.z + 2);
+    v.z = u_caster->GetMapInstance()->GetWalkableHeight(u_caster, v.x, v.y, v.z + 2.f);
 
     Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
     if(s == NULL)
