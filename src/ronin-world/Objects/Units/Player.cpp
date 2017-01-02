@@ -6488,6 +6488,8 @@ PlayerInfo::PlayerInfo(WoWGuid _guid)
     charName = "UNKNOWN";
     charRace = charClass = 0;
     charTeam = lastDeathState = 0;
+    charAppearance = charAppearance2 = 0;
+    charAppearance3 = charCustomizeFlags = 0;
     lastInstanceID = lastMapID = 0;
     lastPositionX = lastPositionY = lastPositionZ = lastOrientation = 0.f;
     lastOnline = 0; lastZone = lastLevel = 0;

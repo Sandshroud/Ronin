@@ -27,8 +27,7 @@ void UnitCellManager::OnRemoveFromWorld()
     _delayedCells[1].clear();
 }
 
-#define MAX_PRIORITY_CELL_UPDATES 4
-#define MAX_LOW_PRIORITY_CELL_UPDATES 2
+#define MAX_CELL_UPDATES 4
 
 void UnitCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
 {
@@ -40,12 +39,9 @@ void UnitCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff
 
         _processedCells.insert(_makeCell(pair.first, pair.second));
         instance->UpdateCellData(m_Unit, pair.first, pair.second, true);
-        if(++count >= MAX_PRIORITY_CELL_UPDATES)
+        if(++count >= MAX_CELL_UPDATES)
             return;
     }
-
-    if(count >= MAX_LOW_PRIORITY_CELL_UPDATES)
-        return;
 
     while(!_delayedCells[1].empty())
     {
@@ -54,14 +50,11 @@ void UnitCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff
 
         _processedCells.insert(_makeCell(pair.first, pair.second));
         instance->UpdateCellData(m_Unit, pair.first, pair.second, false);
-        if(++count >= MAX_LOW_PRIORITY_CELL_UPDATES)
+        if(++count >= MAX_CELL_UPDATES)
             return;
     }
 
     // We have no more cells to process, so queue some priority updates
-    if(count != 0)
-        return;
-
     uint16 lowX = _currX >= 1 ? _currX-1 : 0,
         lowY = _currY >= 1 ? _currY-1 : 0,
         highX = std::min<uint16>(_currX+1, _sizeX-1),

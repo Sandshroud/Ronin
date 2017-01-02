@@ -43,7 +43,7 @@ bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_s
                     pPlayer->GetSession()->SystemMessage("Your character has had a force rename set, you will be prompted to rename your character at next login in conformance with server rules.");
                 }
 
-                CharacterDatabase.WaitExecute("UPDATE character_data SET forced_rename_pending = 1 WHERE guid = %u", guid);
+                CharacterDatabase.WaitExecute("UPDATE character_data SET customizeFlags = customizeFlags|0x01 WHERE guid = %u", guid);
                 ++uCount;
             }
 
@@ -503,11 +503,8 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
     PlayerInfo * pi = objmgr.GetPlayerInfo(guid);
     if(pi == NULL)
         return;
-
-    QueryResult * result = CharacterDatabase.Query("SELECT forced_rename_pending FROM character_data WHERE guid = %u AND acct = %u", guid.getLow(), _accountId);
-    if(result == NULL)
+    if(!(pi->charCustomizeFlags & 0x01))
         return;
-    delete result;
 
     // Check name for rule violation.
     const char * szName=name.c_str();
@@ -533,7 +530,7 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
         }
     }
 
-    if(result = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str()))
+    if(QueryResult *result = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str()))
     {
         if(result->Fetch()[0].GetUInt32() > 0)
         {
@@ -562,9 +559,10 @@ void WorldSession::HandleCharRenameOpcode(WorldPacket & recv_data)
 
     sWorld.LogPlayer(this, "a rename was pending. Renamed character %s (GUID: %u) to %s.", pi->charName.c_str(), pi->charGuid.getLow(), name.c_str());
     pi->charName = name;
+    pi->charCustomizeFlags &= ~0x01;
 
     // If we're here, the name is okay.
-    CharacterDatabase.Query("UPDATE character_data SET name = \'%s\',  forced_rename_pending  = 0 WHERE guid = %u AND acct = %u", name.c_str(), guid.getLow(), _accountId);
+    CharacterDatabase.Query("UPDATE character_data SET name = '%s', customizeFlags = '%u' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), pi->charCustomizeFlags, guid.getLow());
 
     data << uint8(0) << guid << name;
     SendPacket(&data);

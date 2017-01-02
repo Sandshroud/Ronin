@@ -78,7 +78,7 @@ private:
 
     WaypointStorage *_waypointPath;
     WaypointStorage::iterator pathIterator;
-    uint32 m_pendingAutoPathDelay;
+    uint32 m_autoPathDelay, m_pendingAutoPathDelay;
 
     MovementSpeedTypes _moveSpeed;
 
