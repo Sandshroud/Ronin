@@ -31,7 +31,7 @@ void UnitPathSystem::InactiveUpdate(uint32 msTime, uint32 uiDiff)
 bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 {
     // If it's the same mstime(same world tick), return
-    if(m_lastMSTimeUpdate == msTime)
+    if(m_lastMSTimeUpdate >= msTime)
         return !hasDestination();
 
     // Update ms timer

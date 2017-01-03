@@ -462,9 +462,7 @@ public:
     RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeSet.find(pObj->GetGUID()) != m_inRangeSet.end(); }
     RONIN_INLINE void AddInRangeObject(WorldObject* obj)
     {
-        if( obj == NULL || !needStoreInRangeObject(obj->GetTypeId()))
-            return;
-        if(m_inRangeSet.find(obj->GetGUID()) != m_inRangeSet.end())
+        if( obj == NULL || m_inRangeSet.find(obj->GetGUID()) != m_inRangeSet.end())
             return;
 
         m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));
@@ -472,16 +470,15 @@ public:
         OnAddInRangeObject(obj);
     }
 
-    RONIN_INLINE bool RemoveInRangeObject( WorldObject* obj )
+    RONIN_INLINE void RemoveInRangeObject( WorldObject* obj )
     {
         ASSERT(obj);
         OnRemoveInRangeObject(obj);
         m_inRangeSet.erase(obj->GetGUID());
         m_inRangeObjects.erase(obj->GetGUID());
-        return true;
     }
 
-    RONIN_INLINE WorldObject *GetInRangeObject(WoWGuid guid)
+    WorldObject *GetInRangeObject(WoWGuid guid)
     {
         if(m_objGuid == guid)
             return this;
@@ -491,7 +488,7 @@ public:
         return NULL;
     }
 
-    template<typename T> RONIN_INLINE T *GetInRangeObject(WoWGuid guid)
+    template<typename T> T *GetInRangeObject(WoWGuid guid)
     {
         WorldObject *obj = NULL;
         if((obj = GetInRangeObject(guid)) && obj->IsType<T>())
@@ -499,30 +496,7 @@ public:
         return NULL;
     }
 
-    // Inrange cutdowns
-    RONIN_INLINE bool needStoreInRangeObject(uint8 objectType)
-    {
-        switch(objectType)
-        {
-        case TYPEID_OBJECT:
-        case TYPEID_ITEM:
-        case TYPEID_CONTAINER:
-            return false;
-        case TYPEID_GAMEOBJECT:
-        case TYPEID_DYNAMICOBJECT:
-            return IsUnit();
-        case TYPEID_CORPSE:
-            return IsPlayer();
-        case TYPEID_AREATRIGGER:
-            return false;
-        }
-        return true;
-    }
-
-    RONIN_INLINE bool HasInRangeObjects() { return !m_inRangeObjects.empty(); }
-    RONIN_INLINE bool HasInRangePlayers() { return !m_inRangePlayers.empty(); }
-
-    RONIN_INLINE virtual void OnAddInRangeObject( WorldObject* pObj )
+    virtual void OnAddInRangeObject( WorldObject* pObj )
     {
         WoWGuid guid = pObj->GetGUID();
         if(pObj->IsGameObject() || pObj->IsDynamicObj())
@@ -535,7 +509,7 @@ public:
         }
     }
 
-    RONIN_INLINE virtual void OnRemoveInRangeObject( WorldObject* pObj )
+    virtual void OnRemoveInRangeObject( WorldObject* pObj )
     {
         InRangeArray::iterator itr;
         WoWGuid guid = pObj->GetGUID();
@@ -564,6 +538,9 @@ public:
         m_inRangePlayers.clear();
         m_inRangeUnits.clear();
     }
+
+    RONIN_INLINE bool HasInRangeObjects() { return !m_inRangeObjects.empty(); }
+    RONIN_INLINE bool HasInRangePlayers() { return !m_inRangePlayers.empty(); }
 
     RONIN_INLINE size_t GetInRangeCount() { return m_inRangeObjects.size(); }
     RONIN_INLINE size_t GetInRangeUnitCount() { return m_inRangeUnits.size(); }

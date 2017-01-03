@@ -166,7 +166,7 @@ void Creature::Update(uint32 msTime, uint32 uiDiff)
     {
         if(m_despawnTimer > uiDiff)
             m_despawnTimer -= uiDiff;
-        else Despawn(UF_CORPSE);
+        else Despawn(_creatureData->respawnTime);
     }
 
     m_aiInterface.Update(msTime, uiDiff);

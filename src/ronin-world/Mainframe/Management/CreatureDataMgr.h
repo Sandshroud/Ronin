@@ -5,6 +5,7 @@ enum CreatureDataExtraFlags : uint16
 {
     CREATURE_DATA_EX_FLAGS_NONE         = 0x0000,
     CREATURE_DATA_EX_FLAG_TRAINING_DUMMY= 0x4000,
+    CREATURE_DATA_EX_FLAG_WORLD_TRIGGER = 0x8000,
 };
 
 enum TrainerServiceType

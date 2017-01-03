@@ -290,6 +290,7 @@ public:
     uint32 getCreatureType() { return _creatureData->type; }
     bool isCritter() { return _creatureData->type == UT_CRITTER; }
     bool isTrainingDummy() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_TRAINING_DUMMY; }
+    bool isWorldTrigger() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_WORLD_TRIGGER; }
 
     float GetAggroRange();
 

@@ -95,6 +95,8 @@ void CreatureDataManager::LoadFromDB()
         ctrData->extraFlags = CREATURE_DATA_EX_FLAGS_NONE;
         if(RONIN_UTIL::FindXinYString("Training Dummy", ctrData->GetFullName()))
             ctrData->extraFlags = CREATURE_DATA_EX_FLAG_TRAINING_DUMMY;
+        if(RONIN_UTIL::FindXinYString("World", ctrData->GetFullName()) && RONIN_UTIL::FindXinYString("Trigger", ctrData->GetFullName()))
+            ctrData->extraFlags = CREATURE_DATA_EX_FLAG_WORLD_TRIGGER;
 
         m_creatureData.insert(std::make_pair(ctrData->entry, ctrData));
     }while(result->NextRow());

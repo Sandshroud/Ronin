@@ -762,7 +762,10 @@ void WorldObject::Deactivate(uint32 reactivationTime)
     else m_objDeactivationTimer = 0;
 
     DestroyForInrange(IsGameObject());
-    for(InRangeHashMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); itr++)
+    // If we're a unit, clear our managed cells
+    if(IsUnit()) castPtr<Unit>(this)->GetCellManager()->OnRemoveFromWorld();
+    // Remove us from our inrange objects etc
+    for(WorldObject::InRangeHashMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); itr++)
         itr->second->RemoveInRangeObject(this);
     ClearInRangeObjects();
 }
@@ -861,7 +864,10 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
     {
         if(bToSelf) castPtr<Player>(this)->PushPacket(data);
         myTeam = castPtr<Player>(this)->GetTeam();
-    }
+    } else if(IsUnit()) myTeam = castPtr<Unit>(this)->GetTeam();
+
+    if(!HasInRangePlayers())
+        return;
 
     float range = maxRange*maxRange;
     for(InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
@@ -957,7 +963,7 @@ float WorldObject::calcRadAngle( float Position1X, float Position1Y, float Posit
     else angle = atan(dy/dx);
 
     // Return
-    return float(angle);
+    return NormAngle(float(angle));
 }
 
 float WorldObject::getEasyAngle( float angle )

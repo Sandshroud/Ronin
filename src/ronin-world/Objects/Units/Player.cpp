@@ -3511,6 +3511,13 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
                 // Invisibility - Detection of Units
                 if(uObj->IsInvisible() && m_invisDetect[uObj->m_invisFlag] < 1) // can't see invisible without proper detection
                     return hasGMTag(); // GM can see invisible units
+
+                Creature *cObj = NULL;
+                if(obj->IsCreature() && (cObj = castPtr<Creature>(obj)))
+                {
+                    if(cObj->isWorldTrigger())
+                        return false;//hasGMTag();
+                }
                 return true;
             }
         //------------------------------------------------------------------
