@@ -21,7 +21,7 @@
 
 #include "StdAfx.h"
 
-Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this), m_cellManager(this), m_unitTeam(TEAM_NONE)
+Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this), m_unitTeam(TEAM_NONE)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
     m_objType = TYPEID_UNIT;
@@ -182,9 +182,6 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
     }
 
     m_movementInterface.Update(msTime, uiDiff);
-
-    // Update our internal cell processor
-    m_cellManager.Update(GetMapInstance(), msTime, uiDiff);
 }
 
 void Unit::OnAuraModChanged(uint32 modType)
@@ -2774,8 +2771,6 @@ void Unit::RemoveFromWorld()
     }
 
     WorldObject::RemoveFromWorld();
-
-    m_cellManager.OnRemoveFromWorld();
 }
 
 void Unit::EventExploration(MapInstance *instance)

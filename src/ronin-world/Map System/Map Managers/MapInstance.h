@@ -196,7 +196,7 @@ class MapInstanceObjectRemovalCallback : public ObjectRemovalCallback
 {
 public:
     MapInstanceObjectRemovalCallback(MapInstance *instance) : _instance(instance) {}
-    void operator()(WorldObject *obj, WoWGuid guid);
+    void operator()(WorldObject *obj, WoWGuid guid, bool forced);
 
 private:
     MapInstance *_instance;
@@ -430,9 +430,9 @@ protected:
 
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
-    friend class UnitCellManager;
+    friend class ObjectCellManager;
     bool UpdateCellData(WorldObject *Obj, uint32 cellX, uint32 cellY, bool priority);
-    void RemoveCellData(WorldObject *Obj, std::set<uint32> &set);
+    void RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool forced);
 
 public:
     // This function is only used at preloading, and only to add new inrange objects

@@ -413,8 +413,11 @@ void WorldSession::HandleCharCreateOpcode( WorldPacket & recv_data )
     pNewChar->Destruct();
 
     uint8 newIndex = m_charData.size()+1; // Add new character data
+    for(auto itr = m_charData.begin(); itr != m_charData.end(); itr++)
+        newIndex = std::max<uint8>(newIndex, itr->first+1);
+
     m_charData.insert(std::make_pair(newIndex, pn));
-    CharacterDatabase.Execute("INSERT INTO account_characters VALUES('%u', '%u', '%u');", GetAccountId(), pn->charGuid, newIndex);
+    CharacterDatabase.Execute("INSERT INTO account_characters VALUES('%u', '%u', '%u');", GetAccountId(), pn->charGuid.getLow(), newIndex);
 
     // CHAR_CREATE_SUCCESS
     data << uint8(CHAR_CREATE_SUCCESS);

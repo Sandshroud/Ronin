@@ -231,10 +231,10 @@ void MapCell::FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::se
     }
 }
 
-void MapCell::ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback)
+void MapCell::ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback, bool forced)
 {
     for(MapCell::CellObjectSet::iterator itr = m_fullSet.begin(); itr != m_fullSet.end(); itr++)
-        (*callback)(obj, (*itr)->GetGUID());
+        (*callback)(obj, (*itr)->GetGUID(), forced);
 }
 
 void MapCell::SetActivity(bool state)

@@ -2150,6 +2150,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGu
         }
         levelup = true;
 
+        SetUInt32Value(PLAYER_NEXT_LEVEL_XP, nextlevelxp);
         if(level >= GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
             break;
     }

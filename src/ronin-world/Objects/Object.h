@@ -150,8 +150,7 @@ class ByteBuffer;
 class WorldSession;
 class MapCell;
 class MapInstance;
-
-#pragma pack(PRAGMA_PACK)
+class ObjectCellManager;
 
 //===============================================
 //  Object
@@ -307,6 +306,34 @@ private:
 //===============================================
 //===============================================
 //===============================================
+class ObjectCellManager
+{
+public:
+    ObjectCellManager(WorldObject *obj) : _object(obj), _currX(0xFFFF), _currY(0xFFFF) {}
+    ~ObjectCellManager() {}
+
+    void ClearInRangeObjects(MapInstance *instance);
+    void PostRemoveFromWorld();
+
+    void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
+    void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
+    void ActivityFromCell(uint16 cellX, uint16 cellY) { _activityCells.insert(_makeCell(cellX, cellY)); }
+
+private:
+    friend class MapInstance;
+    static uint32 _makeCell(uint16 x, uint16 y) { return (((uint32)x)<<16) | ((uint32)y); }
+    static std::pair<uint16, uint16> unPack(uint32 cellId) { return std::make_pair(((uint16)(cellId>>16)), ((uint16)(cellId & 0x0000FFFF))); }
+
+    uint16 _currX, _currY, _lowX, _lowY, _highX, _highY;
+    // Stack 0 is higher priority, stack 1 is lower priority
+    std::set<uint32> _delayedCells[2], _processedCells, _activityCells;
+
+    WorldObject *_object;
+};
+
+//===============================================
+//===============================================
+//===============================================
 class SERVER_DECL WorldObject : public Object
 {
 public:
@@ -327,8 +354,8 @@ public:
     virtual void Init();
     virtual void Destruct();
 
-    virtual void Update(uint32 msTime, uint32 diff);
-    void InactiveUpdate(uint32 msTime, uint32 diff);
+    virtual void Update(uint32 msTime, uint32 uiDiff);
+    void InactiveUpdate(uint32 msTime, uint32 uiDiff);
 
     virtual bool IsObject() { return true; }
     virtual bool IsActiveObject() { return false; }
@@ -530,6 +557,9 @@ public:
     // For when we're remapping an object that's already in our set
     RONIN_INLINE virtual void UpdateInRangeObject(WorldObject *obj) { }
 
+    // Stress function, use as last resort
+    void RemoveFromInRangeObjects();
+
     RONIN_INLINE virtual void ClearInRangeObjects()
     {
         m_inRangeSet.clear();
@@ -562,6 +592,8 @@ public:
     RONIN_INLINE InRangeHashMap::iterator GetInRangeMapBegin() { return m_inRangeObjects.begin(); }
     RONIN_INLINE InRangeHashMap::iterator GetInRangeMapEnd() { return m_inRangeObjects.end(); }
     RONIN_INLINE InRangeHashMap::iterator FindInRangeMap(WorldObject * obj) { ASSERT(obj); return m_inRangeObjects.find(obj->GetGUID()); }
+
+    ObjectCellManager *GetCellManager() { return &m_cellManager; }
 
     void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false,float maxRange=-1.f);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
@@ -649,10 +681,11 @@ protected:
     InRangeHashMap m_inRangeObjects;
     InRangeArray m_inRangeUnits, m_inRangePlayers, m_inRangeGameObjects;
 
+    //! Inrange cell management
+    ObjectCellManager m_cellManager;
+
 public:
     bool IsInLineOfSight(WorldObject* pObj);
     bool IsInLineOfSight(float x, float y, float z);
     int32 GetSpellBaseCost(SpellEntry *sp);
 };
-
-#pragma pack(PRAGMA_POP)

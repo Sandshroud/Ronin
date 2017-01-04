@@ -1149,13 +1149,17 @@ void WorldSession::LoadCharacterData()
     charDataLock.Acquire();
     m_charData.clear();
 
+    uint8 indexMax;
+    std::set<uint32> reorderGuids;
     do
     {
         Field *fields = res->Fetch();
         uint8 index = fields[0].GetUInt8();
+        indexMax = std::max<uint8>(indexMax, index+1);
         if(m_charData.find(index) != m_charData.end())
         {
-            sLog.outDebug("Account %u has dual indexed characters for index %u", index);
+            sLog.outDebug("Account %u has dual indexed characters for index %u, pushing to back", index);
+            reorderGuids.insert(fields[1].GetUInt32());
             continue;
         }
 
@@ -1165,6 +1169,20 @@ void WorldSession::LoadCharacterData()
 
         m_charData.insert(std::make_pair(index, info));
     }while(res->NextRow());
+
+    while(!reorderGuids.empty())
+    {
+        uint32 guid = *reorderGuids.begin();
+        reorderGuids.erase(reorderGuids.begin());
+
+        PlayerInfo *info = objmgr.GetPlayerInfo(guid);
+        if(info == NULL && (info = objmgr.LoadPlayerInfo(guid)) == NULL)
+            continue;
+
+        CharacterDatabase.Execute("UPDATE account_characters SET orderId = '%u' WHERE guid = '%u'", indexMax, guid);
+        m_charData.insert(std::make_pair(indexMax++, info));
+    }
+
     charDataLock.Release();
     delete res;
 }

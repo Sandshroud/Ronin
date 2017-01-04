@@ -583,9 +583,179 @@ void Object::ClearLoot()
 }
 
 //===============================================
+// Object Cell Management functions
+//===============================================
+#define MAX_CELL_UPDATES 4
+
+void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
+{
+    _currX = _currY = 0;
+    std::set<uint32> preProcessed;
+    preProcessed.insert(_activityCells.begin(), _activityCells.end());
+    _activityCells.clear();
+    preProcessed.insert(_processedCells.begin(), _processedCells.end());
+    _processedCells.clear();
+    _delayedCells[0].clear();
+    _delayedCells[1].clear();
+
+    if(instance)
+        instance->RemoveCellData(_object, preProcessed, true);
+    else _object->RemoveFromInRangeObjects();
+}
+
+void ObjectCellManager::PostRemoveFromWorld()
+{
+    _currX = _currY = 0;
+    _processedCells.clear();
+    _delayedCells[0].clear();
+    _delayedCells[1].clear();
+}
+
+void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
+{
+    uint32 count = 0;
+    while(!_delayedCells[0].empty())
+    {
+        std::pair<uint16, uint16> pair = unPack(*_delayedCells[0].begin());
+        _delayedCells[0].erase(_delayedCells[0].begin());
+
+        _processedCells.insert(_makeCell(pair.first, pair.second));
+        instance->UpdateCellData(_object, pair.first, pair.second, true);
+        if(++count >= MAX_CELL_UPDATES)
+            return;
+    }
+
+    while(!_delayedCells[1].empty())
+    {
+        std::pair<uint16, uint16> pair = unPack(*_delayedCells[1].begin());
+        _delayedCells[1].erase(_delayedCells[1].begin());
+
+        _processedCells.insert(_makeCell(pair.first, pair.second));
+        instance->UpdateCellData(_object, pair.first, pair.second, false);
+        if(++count >= MAX_CELL_UPDATES)
+            return;
+    }
+
+    // We have no more cells to process, so queue some priority updates
+    uint16 lowX = _currX >= 1 ? _currX-1 : 0,
+        lowY = _currY >= 1 ? _currY-1 : 0,
+        highX = std::min<uint16>(_currX+1, _sizeX-1),
+        highY = std::min<uint16>(_currY+1, _sizeY-1);
+    for(uint16 x = lowX; x <= highX; x++)
+    {
+        for(uint16 y = lowY; y <= highY; y++)
+        {
+            if(x == _currX && y == _currY)
+                continue;
+
+            _delayedCells[0].insert(_makeCell(x, y));
+        }
+    }
+}
+
+void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
+{
+    _currX = newX;
+    _currY = newY;
+
+    // Remove any pending cell handling
+    _delayedCells[0].clear();
+    _delayedCells[1].clear();
+
+    std::set<uint32> preProcessed, preActivityCell;
+    // Push old processed data to preProcessed group
+    preProcessed.insert(_processedCells.begin(), _processedCells.end());
+    _processedCells.clear();
+    // Push old activity cells to our previous activity set
+    preActivityCell.insert(_activityCells.begin(), _activityCells.end());
+    _activityCells.clear();
+    // Push current cell to proccessed, we'll handle it in this function
+    _processedCells.insert(_makeCell(_currX, _currY));
+
+    if(cellRange)
+    {   // Fill priority cells from a range of 1
+        _lowX = _currX >= 1 ? _currX-1 : 0;
+        _lowY = _currY >= 1 ? _currY-1 : 0;
+        _highX = std::min<uint16>(_currX+1, _sizeX-1);
+        _highY = std::min<uint16>(_currY+1, _sizeY-1);
+        for(uint16 x = _lowX; x <= _highX; x++)
+        {
+            for(uint16 y = _lowY; y <= _highY; y++)
+            {
+                uint32 cellId = _makeCell(x, y);
+
+                // Readd any concurrent activity cells
+                if(preActivityCell.find(cellId) != preActivityCell.end())
+                    _activityCells.insert(cellId);
+
+                // Check to see if we're a preprocessed cell
+                if(preProcessed.find(cellId) != preProcessed.end())
+                {
+                    _processedCells.insert(cellId);
+                    preProcessed.erase(cellId);
+                    continue;
+                }
+
+                // Skip processed cells(current usually)
+                if(_processedCells.find(cellId) != _processedCells.end())
+                    continue;
+
+                // Add as a priority delayed cell
+                _delayedCells[0].insert(cellId);
+            }
+        }
+
+        // Process non priority cell bounding
+        if(cellRange > 1)
+        {   // Calculate our new bounds based on range
+            _lowX = _currX >= cellRange ? _currX-cellRange : 0;
+            _lowY = _currY >= cellRange ? _currY-cellRange : 0;
+            _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
+            _highY = std::min<uint16>(_currY+cellRange, _sizeY-1);
+
+            for(uint16 x = _lowX; x <= _highX; x++)
+            {
+                for(uint16 y = _lowY; y <= _highY; y++)
+                {
+                    uint32 cellId = _makeCell(x, y);
+
+                    // Readd any concurrent activity cells
+                    if(preActivityCell.find(cellId) != preActivityCell.end())
+                        _activityCells.insert(cellId);
+
+                    // Check to see if we're a preprocessed cell
+                    if(preProcessed.find(cellId) != preProcessed.end())
+                    {
+                        _processedCells.insert(cellId);
+                        preProcessed.erase(cellId);
+                        continue;
+                    }
+
+                    // Skip processed cells(current usually)
+                    if(_processedCells.find(cellId) != _processedCells.end())
+                        continue;
+
+                    // Add as a low priority delayed cell
+                    _delayedCells[1].insert(cellId);
+                }
+            }
+        }
+    }
+
+    // Update for our current cell here, other cell updates will occur in WorldObject::Update
+    instance->UpdateCellData(_object, _currX, _currY, true);
+
+    // Push our activity cells into our removal queue as well
+    preProcessed.insert(preActivityCell.begin(), preActivityCell.end());
+
+    // Push calls to remove cell data
+    instance->RemoveCellData(_object, preProcessed, false);
+}
+
+//===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
+WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_cellManager(this), m_position(0,0,0,0)
 {
     m_mapId = -1;
     m_wmoId = m_zoneId = m_areaId = 0;
@@ -641,32 +811,35 @@ void WorldObject::Destruct()
     Object::Destruct();
 }
 
-void WorldObject::Update(uint32 msTime, uint32 diff)
+void WorldObject::Update(uint32 msTime, uint32 uiDiff)
 {
-    Object::Update(msTime, diff);
+    Object::Update(msTime, uiDiff);
+
+    // Update our internal cell processor
+    m_cellManager.Update(GetMapInstance(), msTime, uiDiff);
 }
 
-void WorldObject::InactiveUpdate(uint32 msTime, uint32 diff)
+void WorldObject::InactiveUpdate(uint32 msTime, uint32 uiDiff)
 {
     if((m_inactiveFlags & OBJECT_INACTIVE_FLAG_INACTIVE) == 0)
         return;
 
     if(m_inactiveFlags & OBJECT_INACTIVE_FLAG_DESPAWNED)
     {
-        if(m_objDeactivationTimer <= diff)
+        if(m_objDeactivationTimer <= uiDiff)
             m_inactiveFlags &= ~OBJECT_INACTIVE_FLAG_DESPAWNED;
         else
         {
-            m_objDeactivationTimer -= diff;
+            m_objDeactivationTimer -= uiDiff;
             return;
         }
     }
 
     if(m_inactiveFlags & OBJECT_INACTIVE_FLAG_EVENTS)
     {
-        if(m_objDeactivationTimer > diff)
+        if(m_objDeactivationTimer > uiDiff)
         {
-            m_objDeactivationTimer -= diff;
+            m_objDeactivationTimer -= uiDiff;
             return;
         }
         else if(!sWorld.HasActiveEvents(this))
@@ -676,9 +849,9 @@ void WorldObject::InactiveUpdate(uint32 msTime, uint32 diff)
         } else m_objDeactivationTimer = 0;
     }
 
-    if(m_objDeactivationTimer > diff)
+    if(m_objDeactivationTimer > uiDiff)
     {
-        m_objDeactivationTimer -= diff;
+        m_objDeactivationTimer -= uiDiff;
         return;
     }
 
@@ -749,6 +922,8 @@ void WorldObject::RemoveFromWorld()
 
     // Set Object out of world
     Object::SetInWorld(false);
+
+    m_cellManager.PostRemoveFromWorld();
 }
 
 void WorldObject::Deactivate(uint32 reactivationTime)
@@ -761,13 +936,13 @@ void WorldObject::Deactivate(uint32 reactivationTime)
         m_objDeactivationTimer = reactivationTime;
     else m_objDeactivationTimer = 0;
 
+    if(!IsInWorld())
+        return;
+
     DestroyForInrange(IsGameObject());
-    // If we're a unit, clear our managed cells
-    if(IsUnit()) castPtr<Unit>(this)->GetCellManager()->OnRemoveFromWorld();
-    // Remove us from our inrange objects etc
-    for(WorldObject::InRangeHashMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); itr++)
-        itr->second->RemoveInRangeObject(this);
-    ClearInRangeObjects();
+
+    // clear our managed cells
+    GetCellManager()->ClearInRangeObjects(m_mapInstance);
 }
 
 void WorldObject::EventExploration(MapInstance *instance)
@@ -833,6 +1008,31 @@ void WorldObject::DestroyForInrange(bool anim)
     data << GetGUID();
     data << uint8(anim ? 1 : 0);
     SendMessageToSet(&data, false);
+}
+
+void WorldObject::RemoveFromInRangeObjects()
+{
+    // Remove object from all objects 'seeing' him
+    WorldObject::InRangeHashMap inrangeObjects(*GetInRangeMap());
+    for (WorldObject::InRangeHashMap::iterator iter = inrangeObjects.begin(); iter != inrangeObjects.end(); iter++)
+    {
+        if(WorldObject *wObj = iter->second)
+        {
+            if(wObj->IsPlayer())
+            {
+                if(Player *plr = castPtr<Player>(wObj))
+                {
+                    if( plr->IsVisible( this ) && plr->GetTransportGuid() != GetGUID())
+                        plr->PushOutOfRange(GetGUID());
+                    DestroyForPlayer(plr, IsGameObject());
+                }
+            }
+            wObj->RemoveInRangeObject(this);
+        }
+    }
+
+    // Clear object's in-range set
+    ClearInRangeObjects();
 }
 
 void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self)
@@ -1388,16 +1588,12 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                             plr->GiveGroupXP( pVictim, plr );
                             //TODO: pet xp if player in group
                         }
-                        else
+                        else if( uint32 xp = CalculateXpToGive( pVictim, plr ) )
                         {
-                            uint32 xp = CalculateXpToGive( pVictim, plr );
-                            if( xp > 0 )
-                            {
-                                if(plr->MobXPGainRate)
-                                    xp += (xp*(plr->MobXPGainRate/100));
+                            if(plr->MobXPGainRate)
+                                xp += (xp*(plr->MobXPGainRate/100));
 
-                                plr->GiveXP( xp, victimGuid, true, false);
-                            }
+                            plr->GiveXP( xp, victimGuid, true, false);
                         }
                     }
 

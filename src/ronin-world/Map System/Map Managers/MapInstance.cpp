@@ -370,9 +370,7 @@ void MapInstance::PushObject(WorldObject* obj)
     if(obj->IsActiveObject() && !obj->IsActivated())
         return;
 
-    if(!obj->IsUnit()) // Call data for us alone instead of using cell manager
-        UpdateCellData(obj, objCell->GetPositionX(), objCell->GetPositionY(), true);
-    else castPtr<Unit>(obj)->GetCellManager()->SetCurrentCell(this, objCell->GetPositionX(), objCell->GetPositionY(), 2);
+    obj->GetCellManager()->SetCurrentCell(this, objCell->GetPositionX(), objCell->GetPositionY(), 2);
 }
 
 void MapInstance::RemoveObject(WorldObject* obj)
@@ -480,29 +478,8 @@ void MapInstance::RemoveObject(WorldObject* obj)
         obj->SetMapCell(NULL);
     }
 
-    if(!bServerShutdown)
-    {   // Remove object from all objects 'seeing' him
-        WorldObject::InRangeHashMap inrangeObjects(*obj->GetInRangeMap());
-        for (WorldObject::InRangeHashMap::iterator iter = inrangeObjects.begin(); iter != inrangeObjects.end(); iter++)
-        {
-            if(WorldObject *wObj = iter->second)
-            {
-                if(wObj->IsPlayer())
-                {
-                    if(Player *plr = castPtr<Player>(wObj))
-                    {
-                        if( plr->IsVisible( obj ) && plr->GetTransportGuid() != obj->GetGUID())
-                            plr->PushOutOfRange(obj->GetGUID());
-                        obj->DestroyForPlayer(plr, obj->IsGameObject());
-                    }
-                }
-                wObj->RemoveInRangeObject(obj);
-            }
-        }
-    }
-
     // Clear object's in-range set
-    obj->ClearInRangeObjects();
+    obj->GetCellManager()->ClearInRangeObjects(this);
 }
 
 void MapInstance::ChangeObjectLocation( WorldObject* obj )
@@ -697,9 +674,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 if(!obj->IsPlayer())
                     obj->UpdateAreaInfo(this);
 
-                if(!obj->IsUnit()) // Call data for us alone instead of using cell manager
-                    UpdateCellData(obj, cellX, cellY, true);
-                else castPtr<Unit>(obj)->GetCellManager()->SetCurrentCell(this, cellX, cellY, 2);
+                obj->GetCellManager()->SetCurrentCell(this, cellX, cellY, 2);
             }
         }
     }
@@ -773,6 +748,9 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
         obj->AddInRangeObject( curObj );
         curObj->AddInRangeObject( obj );
 
+        // Mark our target as having activity from this cell
+        curObj->GetCellManager()->ActivityFromCell(cellX, cellY);
+
         if( (plObj2 = curObj->IsPlayer() ? castPtr<Player>(curObj) : NULL ) && plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
         {
             plObj2->AddVisibleObject(obj);
@@ -799,12 +777,12 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
     return true;
 }
 
-void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WoWGuid guid)
+void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WoWGuid guid, bool forced)
 {
     WorldObject *curObj = NULL;
     if((curObj = obj->GetInRangeObject(guid)) == NULL)
         return;
-    if(_instance->IsFullRangeObject(curObj))
+    if(!forced && _instance->IsFullRangeObject(curObj))
         return;
 
     if( obj->IsPlayer() )
@@ -816,16 +794,16 @@ void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WoWGuid guid
     obj->RemoveInRangeObject(curObj);
 }
 
-void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set)
+void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool forced)
 {
-    if(IsFullRangeObject(Obj))
+    if(!forced && IsFullRangeObject(Obj))
         return;
 
     for(auto itr = set.begin(); itr != set.end(); itr++)
     {
-        std::pair<uint16, uint16> cellPair = UnitCellManager::unPack(*itr);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessSetRemovals(Obj, &_removalCallback);
+            cell->ProcessSetRemovals(Obj, &_removalCallback, forced);
     }
 }
 

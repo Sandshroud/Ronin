@@ -920,8 +920,6 @@ public:
 
     WoWGuid GetTransportGuid() { return m_movementInterface.GetTransportGuid(); }
 
-    UnitCellManager *GetCellManager() { return &m_cellManager; }
-
 public:
     virtual void OnAuraModChanged(uint32 modType);
     void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
@@ -972,7 +970,6 @@ public:
 
 protected:
     MovementInterface m_movementInterface;
-    UnitCellManager m_cellManager;
 
 public:
     void _UpdateSpells(uint32 time);

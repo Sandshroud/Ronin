@@ -32,7 +32,7 @@ class Map;
 
 class MapCellObjectStorage;
 
-class ObjectRemovalCallback { public: virtual void operator()(WorldObject *obj, WoWGuid guid) = 0; };
+class ObjectRemovalCallback { public: virtual void operator()(WorldObject *obj, WoWGuid guid, bool forced) = 0; };
 
 class SERVER_DECL MapCell
 {
@@ -53,7 +53,7 @@ public:
 
     // Iterating through different phases of sets
     void FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::set<WorldObject*> &objs, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess);
-    void ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback);
+    void ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback, bool forced);
 
     //State Related
     void SetActivity(bool state);
