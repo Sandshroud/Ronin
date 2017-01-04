@@ -601,6 +601,8 @@ void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
     if(instance)
         instance->RemoveCellData(_object, preProcessed, true);
     else _object->RemoveFromInRangeObjects();
+    if(_object->GetInRangeCount())
+        assert(false);
 }
 
 void ObjectCellManager::PostRemoveFromWorld()
@@ -662,6 +664,10 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
     _delayedCells[0].clear();
     _delayedCells[1].clear();
 
+    // If our instance is null, then it's part of preloading
+    if(instance == NULL)
+        return;
+
     std::set<uint32> preProcessed, preActivityCell;
     // Push old processed data to preProcessed group
     preProcessed.insert(_processedCells.begin(), _processedCells.end());
@@ -686,7 +692,10 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
 
                 // Readd any concurrent activity cells
                 if(preActivityCell.find(cellId) != preActivityCell.end())
+                {
                     _activityCells.insert(cellId);
+                    preActivityCell.erase(cellId);
+                }
 
                 // Check to see if we're a preprocessed cell
                 if(preProcessed.find(cellId) != preProcessed.end())
@@ -721,7 +730,10 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
 
                     // Readd any concurrent activity cells
                     if(preActivityCell.find(cellId) != preActivityCell.end())
+                    {
                         _activityCells.insert(cellId);
+                        preActivityCell.erase(cellId);
+                    }
 
                     // Check to see if we're a preprocessed cell
                     if(preProcessed.find(cellId) != preProcessed.end())
@@ -817,6 +829,8 @@ void WorldObject::Update(uint32 msTime, uint32 uiDiff)
 
     // Update our internal cell processor
     m_cellManager.Update(GetMapInstance(), msTime, uiDiff);
+    if(GetInRangePlayerCount() && GetMapInstance()->GetPlayerCount() == 0)
+        ASSERT(false);
 }
 
 void WorldObject::InactiveUpdate(uint32 msTime, uint32 uiDiff)

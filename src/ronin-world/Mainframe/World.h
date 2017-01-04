@@ -395,6 +395,7 @@ public:
     WorldSession* FindSession(uint32 id);
     WorldSession* FindSessionByName(const char *);
     void AddSession(WorldSession *s, bool fromAuth);
+    void SilentRemoveSession(WorldSession *s);
     void RemoveSession(uint32 id);
     void DeleteSession(WorldSession *s);
     void AddGlobalSession(WorldSession *s);

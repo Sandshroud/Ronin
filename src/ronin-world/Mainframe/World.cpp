@@ -274,6 +274,17 @@ WorldSession* World::FindSession(uint32 id)
     return ret;
 }
 
+void World::SilentRemoveSession(WorldSession *s)
+{
+    m_sessionLock.Acquire();
+    SessionMap::iterator itr;
+    if((itr = m_sessions.find(s->GetAccountId())) != m_sessions.end() && itr->second == s)
+        m_sessions.erase(itr);
+    m_globalSessions.erase(s);
+    m_gmSessions.erase(s);
+    m_sessionLock.Release();
+}
+
 void World::RemoveSession(uint32 id)
 {
     m_sessionLock.Acquire();

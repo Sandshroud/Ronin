@@ -338,7 +338,9 @@ void WorldSession::LogoutPlayer()
 
         // We have to transfer to our global sessions
         SetEventInstanceId(-1);
-        sWorld.AddGlobalSession(this);
+        // Readd us to global session if we're still connected
+        if(_socket && _socket->IsConnected())
+            sWorld.AddGlobalSession(this);
 
         // send to gms
         if(!bServerShutdown && HasGMPermissions() )

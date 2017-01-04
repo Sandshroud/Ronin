@@ -317,6 +317,7 @@ public:
 
     void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
     void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
+    void AddProcessedCell(uint16 cellX, uint16 cellY) { _processedCells.insert(_makeCell(cellX, cellY)); }
     void ActivityFromCell(uint16 cellX, uint16 cellY) { _activityCells.insert(_makeCell(cellX, cellY)); }
 
 private:

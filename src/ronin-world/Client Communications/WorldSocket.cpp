@@ -328,10 +328,11 @@ void WorldSocket::InformationRetreiveCallback(WorldPacket & recvData, uint32 req
         // Disconnect the target player from the session
         session->Disconnect();
 
-        if(session->GetPlayer()) // clear the logout timer so he times out straight away
-            session->LogoutPlayer();
-
-        sWorld.RemoveSession(session->GetAccountId());
+        if(session->GetPlayer()) // Set our logout timer to 1 to queue a logout on session update
+        {
+            session->SetLogoutTimer(1);
+            sWorld.SilentRemoveSession(session);
+        } else sWorld.RemoveSession(AccountID);
     }
 
     Sha1Hash sha;
