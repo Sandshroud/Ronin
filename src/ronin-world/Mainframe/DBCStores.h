@@ -1654,6 +1654,16 @@ struct WorldMapOverlayEntry
     uint32 AreaTableID[4];
 };
 
+struct WorldMapAreaOverlayEntry
+{
+    uint32 entry;
+    uint32 mapId;
+    uint32 areaId;
+    const char *areaName;
+    float bBoxY[2], bBoxX[2];
+    int32 virtualMapId;
+};
+
 struct WorldSafeLocsEntry
 {
     uint32 ID;                                           // 0
@@ -1846,6 +1856,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(VehicleEntry, dbcVehicle);
 DBC_STORAGE_EXTERN_DBC_MACRO(VehicleSeatEntry, dbcVehicleSeat);
 DBC_STORAGE_EXTERN_DBC_MACRO(WMOAreaTableEntry, dbcWMOAreaTable);
 DBC_STORAGE_EXTERN_DBC_MACRO(WorldMapOverlayEntry, dbcWorldMapOverlay);
+DBC_STORAGE_EXTERN_DBC_MACRO(WorldMapAreaOverlayEntry, dbcWorldAreaOverlay);
 DBC_STORAGE_EXTERN_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
 
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRating);

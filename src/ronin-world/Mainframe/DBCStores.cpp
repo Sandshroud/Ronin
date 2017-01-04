@@ -27,13 +27,13 @@ initialiseSingleton(DBCLoader);
 #define DECLARE_CLASS_INTERNAL_DB2_MACRO(EntryClass, DeclaredClass) SERVER_DECL DBStorage<EntryClass, DB2<EntryClass>> DeclaredClass
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AchievementEntry, dbcAchievement);
-static const char *achievementFormat = "nuuussuuxuxxuu";
+static const char *achievementFormat = "uuuussuuxuxxuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AchievementCriteriaEntry, dbcAchievementCriteria);
-static const char *achievementcriteriaFormat = "niiiliixxsiiiiixxxxxxxx";
+static const char *achievementcriteriaFormat = "iiiiliixxsiiiiixxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AreaGroupEntry, dbcAreaGroup);
-static const char *areagroupFormat = "niiiiiii";
+static const char *areagroupFormat = "iiiiiiii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(AreaTableEntry, dbcAreaTable);
 static const char *areatableFormat = "uuuuuxxxxxusuuuuuxxxxxxxxx";
@@ -48,7 +48,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(BankSlotPriceEntry, dbcBankSlotPrices);
 static const char *bankslotpriceformat = "uu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(BarberShopStyleEntry, dbcBarberShopStyle);
-static const char *barbershopstyleFormat = "nusxxuuu";
+static const char *barbershopstyleFormat = "iusxxuuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(BattleMasterListEntry, dbcBattleMasterList);
 static const char *battlemasterlistFormat = "uiiiiiiiiuxsuuuuuuuu";
@@ -87,7 +87,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(CreatureSpellDataEntry, dbcCreatureSpellData);
 static const char *creaturespelldataFormat = "uuuuuxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(CurrencyTypeEntry, dbcCurrencyType);
-static const char *currencytypeFormat = "nisxxiiiiix";
+static const char *currencytypeFormat = "iisxxiiiiix";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(DestructibleModelDataEntry, dbcDestructibleModelData);
 static const char *destructiblemodeldataFormat = "uuxxxuxxxxuxxxxuxxxxuxxx";
@@ -154,7 +154,7 @@ DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemExtendedCostEntry, dbcItemExtendedCost);
 static const char *itemextendedcostFormat = "uxxuuuuuuuuuuuuxuuuuuuuuuuxxuxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemLimitCategoryEntry, dbcItemLimitCategory);
-static const char *itemlimitcategoryFormat = "nxuu";
+static const char *itemlimitcategoryFormat = "ixuu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemRandomPropertiesEntry, dbcItemRandomProperties);
 static const char *itemrandompropertiesFormat = "uxuuuuus";
@@ -322,13 +322,16 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(VehicleSeatEntry, dbcVehicleSeat);
 static const char *vehicleseatFormat = "uuiffffffffffiiiiiifffffffiiifffiiiiiiiffuuuiuxxxxxxxxxxxxxxxxxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WMOAreaTableEntry, dbcWMOAreaTable);
-static const char *wmoareatableFormat="niiixxxxxiixxxx";
+static const char *wmoareatableFormat="iiiixxxxxiixxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldMapOverlayEntry, dbcWorldMapOverlay);
 static const char *worldmapoverlayFormat="uxuuuuxxxxxxxxx";
 
+DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldMapAreaOverlayEntry, dbcWorldAreaOverlay);
+static const char *worldareaoverlayFormat="iinsffffixxxxx";
+
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
-static const char *worldsafeLocationsFormat="nifffx";
+static const char *worldsafeLocationsFormat="iifffx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRating);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcBarberShopPrices);
@@ -528,6 +531,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/VehicleSeat.dbc", datapath), vehicleseatFormat, dbcVehicleSeat);
     ADD_LOAD_DB(format("%s/WMOAreaTable.dbc", datapath), wmoareatableFormat, dbcWMOAreaTable);
     ADD_LOAD_DB(format("%s/WorldMapOverlay.dbc", datapath), worldmapoverlayFormat, dbcWorldMapOverlay);
+    ADD_LOAD_DB(format("%s/WorldMapArea.dbc", datapath), worldareaoverlayFormat, dbcWorldAreaOverlay);
     ADD_LOAD_DB(format("%s/WorldSafeLocs.dbc", datapath), worldsafeLocationsFormat, dbcWorldSafeLocs);
 
     ADD_LOAD_DB(format("%s/gtBarberShopCostBase.dbc", datapath), gtFloatFormat, dbcBarberShopPrices);
@@ -646,6 +650,7 @@ void DBCLoader::UnloadAllDBCFiles()
     dbcVehicleSeat.Unload();
     dbcWMOAreaTable.Unload();
     dbcWorldMapOverlay.Unload();
+    dbcWorldAreaOverlay.Unload();
     dbcWorldSafeLocs.Unload();
     dbcBarberShopPrices.Unload();
     dbcMeleeCrit.Unload();
