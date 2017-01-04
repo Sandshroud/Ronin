@@ -142,6 +142,7 @@ public:
             T *block = new T();
             memset(block, 0, blockSize);
 
+            uint32 entry = 0xFFFFFFFF;
             uint32 c = 0, stringCount = 0;
             uint8 *dest_ptr = (uint8*)block;
             const char * t = CFormat;
@@ -182,6 +183,16 @@ public:
                         *((uint32*)dest_ptr) = val;
                         dest_ptr += 4;
                     }break;
+                case 'n':
+                    {
+                        uint32 val;
+                        fread(&val, 4, 1, f);
+                        // Set our destination point
+                        *((uint32*)dest_ptr) = val;
+                        dest_ptr += 4;
+                        // If we're a n value, this is our new entry index
+                        entry = val;
+                    }break;
                 default:
                     {
                         uint32 val;
@@ -198,6 +209,7 @@ public:
                         }
                         else
                         {
+                            // Set our destination point
                             *((uint32*)dest_ptr) = val;
                             dest_ptr += 4;
                         }
@@ -206,8 +218,9 @@ public:
                 ++t;
             }
 
-            /* all the time the first field in the dbc is our unique entry */
-            uint32 entry = *((uint32*)block);
+            // If entry wasn't set by now, set it
+            if(entry == 0xFFFFFFFF)
+                entry = *((uint32*)block);
             if(entry > m_max) m_max = entry;
             m_blocks.insert(std::make_pair(i, block));
             m_entries.insert(std::make_pair(entry, block));
