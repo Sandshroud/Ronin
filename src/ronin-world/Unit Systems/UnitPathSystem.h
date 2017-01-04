@@ -29,6 +29,7 @@ struct MovementPoint
     MovementPoint(uint32 time, float x, float y, float z) : pos(x, y, z), timeStamp(time) {}
     Position pos;
     uint32 timeStamp;
+    float orientationOverride;
 };
 
 class UnitPathSystem
@@ -84,7 +85,7 @@ private:
 
     uint32 m_pathCounter, m_pathStartTime, m_pathLength;
 
-    MovementPoint srcPoint;
+    MovementPoint srcPoint, lastUpdatePoint;
     float _destX, _destY, _destZ, _destO;
 
     std::deque<MovementPoint*> m_movementPoints;

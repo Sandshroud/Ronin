@@ -32,7 +32,14 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 {
     // If it's the same mstime(same world tick), return
     if(m_lastMSTimeUpdate >= msTime)
-        return !hasDestination();
+    {
+        if(fromMovement && hasDestination()) // Update our current position to our previously calculated update point
+        {   // Note that only movement cares what our return value is
+            m_Unit->GetMovementInterface()->MoveClientPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z, lastUpdatePoint.orientationOverride);
+            return false;
+        }
+        return true;
+    }
 
     // Update ms timer
     m_lastMSTimeUpdate = msTime;
@@ -54,48 +61,51 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
         }
         else
         {
-            // Move towards destination, but only update our position if we're updating this cycle
-            if(fromMovement)
+            // Move towards destination
+            MovementPoint *lastPoint = &srcPoint, *nextPoint = m_movementPoints.front();
+            if(timeWalked >= nextPoint->timeStamp && m_movementPoints.size() != 1)
             {
-                MovementPoint *lastPoint = &srcPoint, *nextPoint = m_movementPoints.front();
-                if(timeWalked >= nextPoint->timeStamp && m_movementPoints.size() != 1)
+                lastPoint = nextPoint;
+                while(m_movementPoints.size() >= 2)
                 {
-                    lastPoint = nextPoint;
-                    while(m_movementPoints.size() >= 2)
+                    if((nextPoint = m_movementPoints.at(1))->timeStamp >= timeWalked)
                     {
-                        if((nextPoint = m_movementPoints.at(1))->timeStamp >= timeWalked)
-                        {
-                            if(nextPoint->timeStamp == timeWalked)
-                            {   // 
-                                m_Unit->GetMovementInterface()->MoveClientPosition(nextPoint->pos.x, nextPoint->pos.y, nextPoint->pos.z, m_Unit->GetOrientation());
-                                return false;
-                            }
-                            break;
+                        if(nextPoint->timeStamp == timeWalked)
+                        {   // 
+                            m_Unit->GetMovementInterface()->MoveClientPosition(nextPoint->pos.x, nextPoint->pos.y, nextPoint->pos.z, m_Unit->GetOrientation());
+                            return false;
                         }
-
-                        // Remove the last point since we don't need it
-                        m_movementPoints.pop_front();
-                        delete lastPoint;
-                        // Get the new last point
-                        lastPoint = nextPoint;
-                        nextPoint = NULL;
+                        break;
                     }
-                }
 
-                if(nextPoint == NULL) // No next point means we've cleared up our movement path
-                {
-                    m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
-                    _CleanupPath();
-                    return true;
+                    // Remove the last point since we don't need it
+                    m_movementPoints.pop_front();
+                    delete lastPoint;
+                    // Get the new last point
+                    lastPoint = nextPoint;
+                    nextPoint = NULL;
                 }
-
-                // Calculate the time percentage of movement between our two points that we've moved so far
-                uint32 moveDiff = nextPoint->timeStamp-lastPoint->timeStamp, moveDiff2 = timeWalked-lastPoint->timeStamp, timeLeft = moveDiff-moveDiff2;
-                float x = lastPoint->pos.x, y = lastPoint->pos.y, z = lastPoint->pos.z, x2 = nextPoint->pos.x, y2 = nextPoint->pos.y, z2 = nextPoint->pos.z;
-                float p = float(timeLeft)/float(moveDiff), px = x2-((x2-x)*p), py = y2-((y2-y)*p), pz = z2-((z2-z)*p);
-                // Update unit client position, post update heartbeat will reset unit position for us
-                m_Unit->GetMovementInterface()->MoveClientPosition(px, py, pz, m_Unit->calcRadAngle(px, py, x2, y2));
             }
+
+            if(nextPoint == NULL) // No next point means we've cleared up our movement path
+            {
+                m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
+                _CleanupPath();
+                return true;
+            }
+
+            // Calculate the time percentage of movement between our two points that we've moved so far
+            uint32 moveDiff = nextPoint->timeStamp-lastPoint->timeStamp, moveDiff2 = timeWalked-lastPoint->timeStamp, timeLeft = moveDiff-moveDiff2;
+            float p = float(timeLeft)/float(moveDiff), x = lastPoint->pos.x, y = lastPoint->pos.y, z = lastPoint->pos.z, x2 = nextPoint->pos.x, y2 = nextPoint->pos.y, z2 = nextPoint->pos.z;
+            // Update our last update point
+            lastUpdatePoint.timeStamp = timeWalked;
+            lastUpdatePoint.pos.x = x2-((x2-x)*p);
+            lastUpdatePoint.pos.y = y2-((y2-y)*p);
+            lastUpdatePoint.pos.z = z2-((z2-z)*p);
+            lastUpdatePoint.orientationOverride = m_Unit->calcRadAngle(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, x2, y2);
+            // If we're from our movement interface, then pop to our new position
+            if(fromMovement) // Update unit client position, post update heartbeat will reset unit position for us
+                m_Unit->GetMovementInterface()->MoveClientPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z, lastUpdatePoint.orientationOverride);
             return false;
         }
     }
@@ -203,6 +213,10 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     m_lastMSTimeUpdate = m_pathStartTime = getMSTime();
     m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
 
+    // Set our last update point data to our source with no move time
+    lastUpdatePoint.timeStamp = 0;
+    m_Unit->GetPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+
     _destX = x, _destY = y, _destZ = z, _destO = o;
 
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y))
@@ -259,7 +273,7 @@ void UnitPathSystem::BroadcastMovementPacket()
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
-    data.appendvector(m_Unit->GetPosition(), false);
+    data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
     // If we are at our destination, or have no destination, broadcast a stop packet
     if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite))
         data << uint32(0) << uint8(1);
@@ -290,19 +304,18 @@ void UnitPathSystem::BroadcastMovementPacket()
 
 void UnitPathSystem::SendMovementPacket(Player *plr)
 {
-    uint32 moveTime = getMSTime()-m_pathStartTime;
-    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (moveTime >= m_pathLength))
+    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
         return;
 
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
-    data.appendvector(m_Unit->GetPosition(), false);
+    data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
     data << uint32(m_pathCounter);
     if(_destO == fInfinite) data << uint8(0);
     else data << uint8(4) << float( _destO );
     data << uint32(0x00400000);
-    data << uint32(m_pathLength - moveTime);
+    data << uint32(m_pathLength - lastUpdatePoint.timeStamp);
 
     uint32 counter = 0;
     size_t counterPos = data.wpos();
@@ -311,7 +324,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr)
     {
         if(MovementPoint *path = m_movementPoints[i])
         {
-            if(path->timeStamp <= moveTime)
+            if(path->timeStamp <= lastUpdatePoint.timeStamp)
                 continue;
 
             data << path->pos.x << path->pos.y << path->pos.z;
