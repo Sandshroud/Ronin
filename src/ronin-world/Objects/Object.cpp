@@ -692,26 +692,30 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
             _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
             _highY = std::min<uint16>(_currY+cellRange, _sizeY-1);
 
-            for(uint16 x = _lowX; x <= _highX; x++)
+            // Only add extra cells if we're a player
+            if(_object->IsPlayer())
             {
-                for(uint16 y = _lowY; y <= _highY; y++)
+                for(uint16 x = _lowX; x <= _highX; x++)
                 {
-                    uint32 cellId = _makeCell(x, y);
-
-                    // Check to see if we're a preprocessed cell
-                    if(preProcessed.find(cellId) != preProcessed.end())
+                    for(uint16 y = _lowY; y <= _highY; y++)
                     {
-                        _processedCells.insert(cellId);
-                        preProcessed.erase(cellId);
-                        continue;
+                        uint32 cellId = _makeCell(x, y);
+
+                        // Check to see if we're a preprocessed cell
+                        if(preProcessed.find(cellId) != preProcessed.end())
+                        {
+                            _processedCells.insert(cellId);
+                            preProcessed.erase(cellId);
+                            continue;
+                        }
+
+                        // Skip processed cells(current usually)
+                        if(_processedCells.find(cellId) != _processedCells.end())
+                            continue;
+
+                        // Add as a low priority delayed cell
+                        _delayedCells[1].insert(cellId);
                     }
-
-                    // Skip processed cells(current usually)
-                    if(_processedCells.find(cellId) != _processedCells.end())
-                        continue;
-
-                    // Add as a low priority delayed cell
-                    _delayedCells[1].insert(cellId);
                 }
             }
         }
