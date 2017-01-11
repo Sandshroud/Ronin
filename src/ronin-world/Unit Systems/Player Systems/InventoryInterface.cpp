@@ -246,7 +246,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
                 item->SetItemInWorld(true);
                 ByteBuffer buf(2500);
                 if(uint32 count = item->BuildCreateUpdateBlockForPlayer( &buf, m_pOwner ))
-                    m_pOwner->PushUpdateBlock(&buf, count);
+                    m_pOwner->PushUpdateBlock(m_pOwner->GetMapId(), &buf, count);
             }
             m_pOwner->SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (slot*2), item->GetGUID());
         } else return ADD_ITEM_RESULT_ERROR;

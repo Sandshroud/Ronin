@@ -2812,7 +2812,7 @@ void Unit::UpdateVisibility()
                     plr->AddVisibleObject(pObj);
                     if(count = pObj->BuildCreateUpdateBlockForPlayer( &buffer, plr ))
                     {
-                        plr->PushUpdateBlock(&buffer, count);
+                        plr->PushUpdateBlock(m_mapId, &buffer, count);
                         buffer.clear();
                     }
                 }
@@ -2831,7 +2831,7 @@ void Unit::UpdateVisibility()
                         pl->AddVisibleObject(plr);
                         if(count = plr->BuildCreateUpdateBlockForPlayer( &buffer, pl ))
                         {
-                            pl->PushUpdateBlock(&buffer, count);
+                            pl->PushUpdateBlock(m_mapId, &buffer, count);
                             buffer.clear();
                         }
                     }
@@ -2861,7 +2861,7 @@ void Unit::UpdateVisibility()
                     plr->AddVisibleObject(this);
                     if(count = BuildCreateUpdateBlockForPlayer(&buffer, plr))
                     {
-                        plr->PushUpdateBlock(&buffer, count);
+                        plr->PushUpdateBlock(m_mapId, &buffer, count);
                         buffer.clear();
                     }
                 }
@@ -3551,12 +3551,7 @@ void Unit::EventResetRedirectThreat()
 
 uint32 Unit::GetCreatureType()
 {
-    if(IsCreature())
-    {
-        if(CreatureData * ci = castPtr<Creature>(this)->GetCreatureData())
-            return ci->type;
-    }
-    else if(IsPlayer())
+    if(IsPlayer())
     {
         Player *plr = castPtr<Player>(this);
         if(plr->GetShapeShift())

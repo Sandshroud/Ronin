@@ -1149,14 +1149,14 @@ public:
     RONIN_INLINE void RemoveVisibleObject(WorldObject* pObj) { m_visibleObjects.erase(pObj); }
     RONIN_INLINE void RemoveVisibleObject(InRangeObjSet::iterator itr) { m_visibleObjects.erase(itr); }
     RONIN_INLINE InRangeObjSet::iterator FindVisible(WorldObject* obj) { return m_visibleObjects.find(obj); }
-    RONIN_INLINE void RemoveIfVisible(WorldObject* obj)
+    RONIN_INLINE void RemoveIfVisible(uint16 mapId, WorldObject* obj)
     {
         InRangeObjSet::iterator itr = m_visibleObjects.find(obj);
         if(itr == m_visibleObjects.end())
             return;
 
         m_visibleObjects.erase(obj);
-        PushOutOfRange(obj->GetGUID());
+        PushOutOfRange(mapId, obj->GetGUID());
     }
 
     RONIN_INLINE bool GetVisibility(WorldObject* obj, InRangeObjSet::iterator *itr)
@@ -1211,9 +1211,9 @@ public:
     PlayerCooldownMap GetCooldownMap(uint8 index = COOLDOWN_TYPE_SPELL) { return m_cooldownMap[index]; };
     bool SpellHasCooldown(uint32 spellid) { return (m_cooldownMap[COOLDOWN_TYPE_SPELL].find(spellid) != m_cooldownMap[COOLDOWN_TYPE_SPELL].end()); };
 
-    void PushOutOfRange(WoWGuid guid);
-    void PushUpdateBlock(ByteBuffer *data, uint32 updatecount);
-    void PopPendingUpdates();
+    void PushOutOfRange(uint16 mapId, WoWGuid guid);
+    void PushUpdateBlock(uint16 mapId, ByteBuffer *data, uint32 updatecount);
+    void PopPendingUpdates(uint16 mapId);
 
     void SendProficiency(bool armorProficiency);
     uint32 GetArmorProficiency() { return m_armorProficiency; }

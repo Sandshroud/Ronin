@@ -430,7 +430,9 @@ bool World::SetInitialWorldSettings()
 
     if( !dbcResult)
     {
+        tl.kill();
         sLog.LargeErrorMessage(LARGERRORMESSAGE_ERROR, "One or more of the DBC files are missing.", "These are absolutely necessary for the server to function.", "The server will not start without them.", NULL);
+        tl.waitForThreadsToExit();
         return false;
     }
 
@@ -709,7 +711,7 @@ void World::UpdateServerTimers(uint32 diff)
     //sWorldEvents.Update(1900+m_currentTimeData.tm_year, 1+m_currentTimeData.tm_mon, m_currentTimeData.tm_mday, 1+m_currentTimeData.tm_wday, m_currentTimeData.tm_hour);
 }
 
-void World::GetActiveEvents(std::vector<uint32> &activeEvents)
+void World::GetActiveEvents(std::set<uint32> &activeEvents)
 {
 
 }

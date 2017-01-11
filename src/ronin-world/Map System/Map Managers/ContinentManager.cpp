@@ -64,6 +64,10 @@ bool ContinentManager::run()
         // Update our collision system via singular map system
         sVMapInterface.UpdateSingleMap(m_mapId, diff);
 
+        // Process all pending removals in sequence
+        m_continent->_PerformPlayerRemovals();
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Process all pending inputs in sequence
         m_continent->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))
@@ -92,8 +96,20 @@ bool ContinentManager::run()
         m_continent->_PerformObjectUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+        // Perform all movement updates in sequence without player data
+        m_continent->_PerformMovementUpdates(false);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Perform all session updates in sequence
         m_continent->_PerformSessionUpdates();
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
+        // Perform all movement updates in sequence with player data
+        m_continent->_PerformMovementUpdates(true);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
+        // Process secondary pending removals in sequence
+        m_continent->_PerformPlayerRemovals();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all pending object updates in sequence

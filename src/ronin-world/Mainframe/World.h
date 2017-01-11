@@ -389,7 +389,7 @@ public:
      */
     void Rehash(bool load);
 
-    void GetActiveEvents(std::vector<uint32> &activeEvents);
+    void GetActiveEvents(std::set<uint32> &activeEvents);
     bool HasActiveEvents(WorldObject *obj);
 
     WorldSession* FindSession(uint32 id);

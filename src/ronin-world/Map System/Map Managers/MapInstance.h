@@ -69,17 +69,23 @@ public: // Defined type
 #endif
 
 public:
-    StoragePool() : m_updating(false), mPoolCounter(0), mPoolAddCounter(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
+    StoragePool() : m_updating(false), mPoolCounter(0), mPoolAddCounter(0), mFullPoolSize(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
 
     void Initialize(uint32 poolSize)
     {
-        mPoolSize = poolSize;
+        mFullPoolSize = mPoolSize = poolSize;
         poolIterator = mPool.end();
         mPoolCounter = mPoolAddCounter = 0;
-        if(mPoolSize == 1) // Don't initialize the single stack
+        if(mFullPoolSize == 1) // Don't initialize the single stack
             return;
-        mPoolLastUpdateStack = new uint32[mPoolSize];
-        mPoolStack = new PoolSet[mPoolSize];
+        mPoolLastUpdateStack = new uint32[mFullPoolSize];
+        mPoolStack = new PoolSet[mFullPoolSize];
+    }
+
+    void PreservePools(uint32 preserveSize)
+    {
+        ASSERT(preserveSize < mPoolSize);
+        mPoolSize -= preserveSize;
     }
 
     void Cleanup()
@@ -105,7 +111,7 @@ public:
         else
         {
             // Select our next pool to update in the sequence
-            if(++mPoolCounter == mPoolSize)
+            if(++mPoolCounter == mFullPoolSize)
                 mPoolCounter = 0;
             // Recalculate the diff from the last time we updated this pool
             diff = msTime - mPoolLastUpdateStack[mPoolCounter];
@@ -138,20 +144,22 @@ public:
             return;
 
         // Times have to be reset for our pools so we don't have massive differences from currentms-0
-        for(uint32 i = 0; i < mPoolSize; i++)
+        for(uint32 i = 0; i < mFullPoolSize; i++)
             mPoolLastUpdateStack[i] = msTime;
     }
 
     // Add our object to the stack, return value is a pool identifier
-    uint8 Add(T *obj)
+    uint8 Add(T *obj, uint8 forcedPool = 0)
     {
         uint8 pool = 0xFF;
         POOL_ADD(mPool, obj);
         if(mPoolStack)
         {
-            pool = mPoolAddCounter++;
+            if((pool = forcedPool) == 0 || pool >= mFullPoolSize)
+                pool = mPoolAddCounter++;
             if(mPoolAddCounter == mPoolSize)
                 mPoolAddCounter = 0;
+
             POOL_ADD(mPoolStack[pool], obj);
         }
         return pool;
@@ -189,7 +197,19 @@ private:
     bool m_updating;
     PoolSet mPool, *mPoolStack;
     typename PoolSet::iterator poolIterator;
-    uint32 mPoolCounter, mPoolAddCounter, mPoolSize, *mPoolLastUpdateStack;
+    uint32 mPoolCounter, mPoolAddCounter, mFullPoolSize, mPoolSize, *mPoolLastUpdateStack;
+};
+
+class MapInstanceObjectProcessCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceObjectProcessCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void SetCell(uint32 cellX, uint32 cellY) { _cellX = cellX; _cellY = cellY; }
+
+private:
+    MapInstance *_instance;
+    uint32 _cellX, _cellY;
 };
 
 class MapInstanceObjectRemovalCallback : public ObjectRemovalCallback
@@ -331,7 +351,10 @@ public:
     virtual void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
     void ChangeFarsightLocation(Player* plr, float X, float Y, bool apply);
+
+    static bool canObjectsInteract(WorldObject *obj, WorldObject *curObj);
     static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
+    static bool InZRange(float fRange, WorldObject* obj, WorldObject* currentobj);
 
     //! Mark object as updated
     bool UpdateQueued(WorldObject *obj);
@@ -373,8 +396,10 @@ public:
     void _PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff);
+    void _PerformMovementUpdates(bool includePlayers);
     void _PerformSessionUpdates();
     void _PerformPendingUpdates();
+    void _PerformPlayerRemovals();
 
     void EventCorpseDespawn(uint64 guid);
 
@@ -414,18 +439,21 @@ protected:
     //! Objects that exist on map
     uint32 _mapId;
 
-    // Storage for processing inrange updates
-    WorldObject::InRangeSet m_inRangeProcessed;
-    WorldObject::InRangeObjSet m_inRangeStorage;
+    //! Active conditions
+    std::set<uint32> m_activeConditions;
 
     // In this zone, we always show these objects
     Loki::AssocVector<WorldObject*, uint32> m_zoneFullRangeObjects, m_areaFullRangeObjects;
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_fullRangeObjectsByZone, m_fullRangeObjectsByArea;
 
-    friend class MapInstanceObjectRemovalCallback;
     bool IsFullRangeObject(WorldObject *obj);
+    friend class MapInstanceObjectRemovalCallback;
     MapInstanceObjectRemovalCallback _removalCallback;
 
+    friend class MapInstanceObjectProcessCallback;
+    MapInstanceObjectProcessCallback _processCallback;
+
+    MapCell *GetCellOrInit(uint32 x, uint32 y, bool priority);
     bool _CellActive(uint32 x, uint32 y);
 
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
@@ -441,6 +469,9 @@ public:
     bool IsPreloading() { return m_mapPreloading; }
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
     bool IsContinent() { return pdbcMap ? pdbcMap->IsContinent() : true; }
+
+    uint8 GetPoolOverrideForZone(uint32 zoneId);
+
 protected:
     /* Map Information */
     MapEntry* pdbcMap;
@@ -449,7 +480,7 @@ protected:
     /* Update System */
     Mutex m_updateMutex;
     ObjectSet _updates, _movedObjects;
-    PlayerSet _processQueue;
+    PlayerSet _processQueue, _movedPlayers;
 
     /* Sessions */
     SessionSet MapSessions;

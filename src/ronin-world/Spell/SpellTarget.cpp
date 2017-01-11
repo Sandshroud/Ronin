@@ -402,7 +402,7 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
 
 void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+    /*for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
         if(GameObject* go = m_caster->GetInRangeObject<GameObject>(*itr))
         {
@@ -415,7 +415,7 @@ void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r,
                     return;
             }
         }
-    }
+    }*/
 }
 
 // returns Guid of lowest percentage health friendly party or raid target within sqrt('dist') yards

@@ -289,7 +289,7 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
 {
     float r = range*range;
 
-    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+    /*for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
         if(GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr))
         {
@@ -297,7 +297,7 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
                 continue;
             _AddTarget(gObj, i);
         }
-    }
+    }*/
 }
 
 uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
@@ -1508,7 +1508,7 @@ uint8 Spell::CanCast(bool tolerate)
         {
             float focusRange;
             bool found = false;
-            for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
+            /*for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
             {
                 GameObject *target = p_caster->GetInRangeObject<GameObject>(*itr);
                 if(target == NULL || target->GetType() != GAMEOBJECT_TYPE_SPELL_FOCUS)
@@ -1536,7 +1536,7 @@ uint8 Spell::CanCast(bool tolerate)
                     found = true;
                     break;
                 }
-            }
+            }*/
 
             if(!found)
                 return SPELL_FAILED_REQUIRES_SPELL_FOCUS;
@@ -2128,7 +2128,7 @@ void Spell::DamageGosAround(uint32 i)
     float r = GetRadius(i);
     r *= r;
     LocationVector target = ((m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION) ? m_targets.m_dest : ((m_targets.m_targetMask & TARGET_FLAG_SOURCE_LOCATION) ? m_targets.m_src : m_caster->GetPosition()));
-    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr )
+    /*for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); ++itr )
     {
         if(GameObject *gObj = m_caster->GetInRangeObject<GameObject>(*itr))
         {
@@ -2136,7 +2136,7 @@ void Spell::DamageGosAround(uint32 i)
                 continue;
             gObj->TakeDamage(damage,m_caster,m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL,spell_id);
         }
-    }
+    }*/
 }
 
 bool Spell::UseMissileDelay()

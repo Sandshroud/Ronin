@@ -108,6 +108,8 @@ public:
             {
                 if(CFormat[i] == 'p' || CFormat[i] == 'b')
                     forSize += 1;
+                else if(CFormat[i] == 'h' || CFormat[i] == 'P')
+                    forSize += 2;
                 else if(CFormat[i] == 'l')
                     forSize += 8;
                 else forSize += 4;
@@ -162,6 +164,10 @@ public:
                     {
                         fseek(f, 4, SEEK_CUR);
                     }break;
+                case 'P': // Padding, byte skip
+                    {
+                        fseek(f, 2, SEEK_CUR);
+                    }break;
                 case 'p': // Padding, byte skip
                     {
                         fseek(f, 1, SEEK_CUR);
@@ -170,6 +176,13 @@ public:
                     {
                         uint8 val;
                         fread(&val, 1, 1, f);
+                        *dest_ptr = val;
+                        dest_ptr++;
+                    }break;
+                case 'h':
+                    {
+                        uint16 val;
+                        fread(&val, 2, 1, f);
                         *dest_ptr = val;
                         dest_ptr++;
                     }break;

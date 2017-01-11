@@ -528,7 +528,7 @@ void Player::ProcessImmediateItemUpdate(Item *item)
 
     ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
     if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
-        PushUpdateBlock(&buff, count);
+        PushUpdateBlock(m_mapId, &buff, count);
     buff.clear();
     m_mapInstance->PushToProcessed(this);
 }
@@ -544,7 +544,7 @@ void Player::ProcessPendingItemUpdates()
         Item *item = *m_pendingUpdates.begin();
         m_pendingUpdates.erase(m_pendingUpdates.begin());
         if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
-            PushUpdateBlock(&buff, count);
+            PushUpdateBlock(m_mapId, &buff, count);
         buff.clear();
     }
     m_mapInstance->PushToProcessed(this);
@@ -2607,7 +2607,7 @@ void Player::OnPushToWorld()
 
     if(GetTaxiState())
     {
-        PopPendingUpdates(); // Create HAS to be sent before this!
+        PopPendingUpdates(m_mapId); // Create HAS to be sent before this!
         TaxiStart(GetTaxiPath(), m_taxiData->ModelId, m_taxiData->TravelTime);
     } else m_mapInstance->PushToProcessed(this);
 }
@@ -4191,22 +4191,22 @@ void Player::Reset_ToLevel1()
 void Player::UpdateNearbyGameObjects()
 {
     ByteBuffer buff(500);
-    for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
+    /*for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
     {
         if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
         {
             Gobj->SetUpdateField(OBJECT_FIELD_GUID);
             Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
             if(int count = Gobj->BuildValuesUpdateBlockForPlayer(&buff, UF_FLAGMASK_PUBLIC))
-                PushUpdateBlock(&buff, count);
+                PushUpdateBlock(m_mapId, &buff, count);
             buff.clear();
         }
-    }
+    }*/
 }
 
 void Player::UpdateNearbyQuestGivers()
 {
-    for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
+    /*for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
     {
         if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
         {
@@ -4221,7 +4221,7 @@ void Player::UpdateNearbyQuestGivers()
                 }
             }
         }
-    }
+    }*/
 
     for(WorldObject::InRangeArray::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr )
     {
@@ -4761,12 +4761,12 @@ void Player::ResetAllCooldowns()
     ClearCooldownsOnLines(skilllines, 0);
 }
 
-void Player::PushOutOfRange(WoWGuid guid)
+void Player::PushOutOfRange(uint16 mapId, WoWGuid guid)
 {
     _bufferS.Acquire();
     // Set data size for limiting update blocks to 4Kb
     if( (guid.pLen() + m_OutOfRangeIds.size()) >= 0x1000 )
-        PopPendingUpdates();
+        PopPendingUpdates(mapId);
 
     ++m_OutOfRangeIdCount;
     m_OutOfRangeIds << guid.asPacked();
@@ -4780,7 +4780,7 @@ void Player::PushOutOfRange(WoWGuid guid)
     _bufferS.Release();
 }
 
-void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
+void Player::PushUpdateBlock(uint16 mapId, ByteBuffer *data, uint32 updatecount)
 {
     // Cause lazy
     if(updatecount == 0)
@@ -4791,7 +4791,7 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
 
     // Set data size for limiting update blocks to 45Kb
     if( (data->size() + m_updateDataBuff.size()) >= 0xAFFF )
-        PopPendingUpdates();
+        PopPendingUpdates(mapId);
 
     m_updateDataCount += updatecount;
     m_updateDataBuff.append(data->contents(), data->size());
@@ -4806,7 +4806,7 @@ void Player::PushUpdateBlock(ByteBuffer *data, uint32 updatecount)
     _bufferS.Release();
 }
 
-void Player::PopPendingUpdates()
+void Player::PopPendingUpdates(uint16 mapId)
 {
     if(m_session == NULL)
         return;
@@ -4815,7 +4815,7 @@ void Player::PopPendingUpdates()
     if(m_updateDataCount || m_OutOfRangeIdCount)
     {
         WorldPacket data(SMSG_UPDATE_OBJECT, 2 + 4 + (m_OutOfRangeIdCount ? 1 + 4 + m_OutOfRangeIds.size() : 0) + m_updateDataBuff.size());
-        data << uint16(m_mapId) << uint32(m_updateDataCount + (m_OutOfRangeIdCount ? 1 : 0));
+        data << uint16(mapId) << uint32(m_updateDataCount + (m_OutOfRangeIdCount ? 1 : 0));
         if(m_OutOfRangeIdCount)
         {
             data << uint8(UPDATETYPE_OUT_OF_RANGE_OBJECTS);

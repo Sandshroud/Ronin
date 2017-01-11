@@ -243,10 +243,11 @@ public:
     virtual void OnAuraModChanged(uint32 modType);
 
     virtual void OnAddInRangeObject(WorldObject *pObj);
+    virtual void UpdateInRangeObject(WorldObject *pObj, float distSq);
     virtual void OnRemoveInRangeObject(WorldObject *pObj);
-    virtual void CheckTriggerRange(Unit *uObj, float distSq);
-    virtual void UpdateInRangeObject(WorldObject *pObj);
     virtual void ClearInRangeObjects();
+
+    bool ShouldProcessObject(WorldObject *pObj);
 
     const char* GetName()
     {
@@ -287,8 +288,10 @@ public:
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
 
     // Creature data based functions
-    uint32 getCreatureType() { return _creatureData->type; }
+    uint32 GetCreatureType() { return _creatureData->type; }
+    bool isBeast() { return _creatureData->type == UT_BEAST; }
     bool isCritter() { return _creatureData->type == UT_CRITTER; }
+    bool isFodderSpawn() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_FODDER_SPAWN; }
     bool isTrainingDummy() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_TRAINING_DUMMY; }
     bool isWorldTrigger() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_WORLD_TRIGGER; }
 

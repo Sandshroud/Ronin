@@ -1431,6 +1431,20 @@ struct SpellItemEnchantEntry
     //uint32 unk2;
 };
 
+struct SpellItemEnchantConditionEntry
+{
+    uint32 Id;
+    uint8 gemColor[3];
+    // uint8 padding[5];
+    // uint32 operand[5];
+    uint8 compare[3];
+    // uint8 padding[2];
+    uint8 compareColor[3];
+    // uint16 padding[2];
+    uint32 count[3];
+    // uint32 unk[4];
+};
+
 struct SpellRadiusEntry
 {
     uint32 ID;
@@ -1834,6 +1848,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(SpellEffectEntry, dbcSpellEffect);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellEquippedItemsEntry, dbcSpellEquippedItems);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellInterruptsEntry, dbcSpellInterrupts);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellItemEnchantEntry, dbcSpellItemEnchant);
+DBC_STORAGE_EXTERN_DBC_MACRO(SpellItemEnchantConditionEntry, dbcSpellItemEnchantCondition);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellLevelsEntry, dbcSpellLevels);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellPowerEntry, dbcSpellPower);
 DBC_STORAGE_EXTERN_DBC_MACRO(SpellRadiusEntry, dbcSpellRadius);

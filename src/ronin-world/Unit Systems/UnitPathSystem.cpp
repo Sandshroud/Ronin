@@ -199,6 +199,9 @@ void UnitPathSystem::_CleanupPath()
         m_movementPoints.pop_front();
         delete point;
     }
+
+    lastUpdatePoint.timeStamp = 0; // Clean up our last update point
+    lastUpdatePoint.pos.x = lastUpdatePoint.pos.y = lastUpdatePoint.pos.z = fInfinite;
 }
 
 void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)

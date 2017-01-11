@@ -84,6 +84,21 @@ void AIInterface::Update(uint32 msTime, uint32 p_time)
     }
 }
 
+void AIInterface::OnAddInRangeObject(WorldObject *obj, bool isHostile)
+{
+
+}
+
+void AIInterface::UpdateInRangeObject(WorldObject *obj, bool isHostile)
+{
+
+}
+
+void AIInterface::OnRemoveInRangeObject(WorldObject *obj)
+{
+    m_hostileMap.erase(obj->GetGUID());
+}
+
 void AIInterface::OnAttackStop()
 {
     m_targetGuid.Clean();
@@ -135,24 +150,24 @@ bool AIInterface::FindTarget()
 {
     if(m_AIFlags & AI_FLAG_DISABLED)
         return false;
-    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || !m_Creature->HasInrangeHostiles())
+    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || m_hostileMap.empty())
         return false;
 
     Unit *target = NULL;
     float baseAggro = m_Creature->GetAggroRange(), targetDist = 0.f;
 
     // Begin iterating through our inrange units
-    for(WorldObject::InRangeUnitSet::iterator itr = m_Creature->GetInRangeHostileSetBegin(); itr != m_Creature->GetInRangeHostileSetEnd(); itr++)
+    for(Loki::AssocVector<WoWGuid, float>::iterator itr = m_hostileMap.begin(); itr != m_hostileMap.end(); itr++)
     {
-        Unit *unitTarget = (*itr);
-        if(unitTarget->isDead()) // Cut down on checks by skipping dead creatures
+        Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(itr->first);
+        if(unitTarget == NULL || unitTarget->isDead()) // Cut down on checks by skipping dead creatures
             continue;
-        float dist = m_Creature->GetDistanceSq(unitTarget);
+        // Check our aggro range against our saved range
         float aggroRange = unitTarget->ModDetectedRange(m_Creature, baseAggro);
         aggroRange *= aggroRange; // Distance is squared so square our range
-        if(dist >= MAX_COMBAT_MOVEMENT_DIST || dist >= aggroRange)
+        if(itr->second >= aggroRange)
             continue;
-        if(target && targetDist <= dist)
+        if(target && targetDist <= itr->second)
             continue;
         if(!sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
             continue;
@@ -161,7 +176,7 @@ bool AIInterface::FindTarget()
             continue;
 
         target = unitTarget;
-        targetDist = dist;
+        targetDist = itr->second;
     }
 
     if(target)

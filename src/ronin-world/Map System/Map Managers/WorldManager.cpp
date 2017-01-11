@@ -561,6 +561,8 @@ void WorldManager::ProcessPreSpawnLoadTables()
         { "world_data_creature_events", "UPDATE %s AS T INNER JOIN world_data_creature_events AS S ON (T.guid = S.guid) SET T.eventId = S.event;" },
         // Condition data is held as multiple tables by different teams, so we have a list to go through
         { "world_data_creature_pools", "UPDATE %s AS T INNER JOIN world_data_creature_pools AS S ON (T.guid = S.guid) SET T.conditionId = S.pool_entry;" },
+        // Force disable specific creatures if our disable table exists, helps clean up heavily spawned garbage
+        { "world_data_creature_disable", "UPDATE %s SET conditionId = '2147483647' WHERE entry IN(SELECT entry FROM world_data_creature_disable);" },
         // End
         { NULL, NULL }
     };

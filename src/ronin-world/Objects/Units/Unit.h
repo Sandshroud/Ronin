@@ -908,7 +908,7 @@ public:
     void Teleport(float x, float y, float z, float o);
     void SetRedirectThreat(Unit *target, float amount, uint32 Duaration);
     void EventResetRedirectThreat();
-    uint32 GetCreatureType();
+    virtual uint32 GetCreatureType();
 
 public:
     MovementInterface *GetMovementInterface() { return &m_movementInterface; }

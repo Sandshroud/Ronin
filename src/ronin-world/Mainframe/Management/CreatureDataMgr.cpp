@@ -16,6 +16,8 @@ static const char * tableColumns = "maleName, femaleName, subname, iconName, fla
     "rangedattacktime, item1, item2, item3, respawntime, armor, holyresist, fireresist, natureresist, frostresist, shadowresist, arcaneresist, "
     "combatReach, boundingRadius, money, invisibilityType, walkSpeed, runSpeed, flySpeed, auraimmune_flag, vehicle_entry, spellclickid, canmove, battlemastertype, auras";
 
+bool checkFodderStatus(uint32 entry);
+
 void CreatureDataManager::LoadFromDB()
 {
     QueryResult *result = WorldDatabase.Query("SELECT creature_names.entry, %s FROM creature_names INNER JOIN creature_proto ON creature_names.entry = creature_proto.entry", tableColumns);
@@ -93,10 +95,12 @@ void CreatureDataManager::LoadFromDB()
         }
 
         ctrData->extraFlags = CREATURE_DATA_EX_FLAGS_NONE;
+        if(checkFodderStatus(ctrData->entry))
+            ctrData->extraFlags |= CREATURE_DATA_EX_FLAG_FODDER_SPAWN;
         if(RONIN_UTIL::FindXinYString("Training Dummy", ctrData->GetFullName()))
-            ctrData->extraFlags = CREATURE_DATA_EX_FLAG_TRAINING_DUMMY;
+            ctrData->extraFlags |= CREATURE_DATA_EX_FLAG_TRAINING_DUMMY;
         if(RONIN_UTIL::FindXinYString("World", ctrData->GetFullName()) && RONIN_UTIL::FindXinYString("Trigger", ctrData->GetFullName()))
-            ctrData->extraFlags = CREATURE_DATA_EX_FLAG_WORLD_TRIGGER;
+            ctrData->extraFlags |= CREATURE_DATA_EX_FLAG_WORLD_TRIGGER;
 
         m_creatureData.insert(std::make_pair(ctrData->entry, ctrData));
     }while(result->NextRow());
@@ -143,4 +147,52 @@ void CreatureDataManager::LoadCreatureSpells()
 void CreatureDataManager::Reload()
 {
 
+}
+
+// Helps with culling down inrange processing
+bool checkFodderStatus(uint32 entry)
+{
+    switch(entry)
+    {
+        // Spawned for an event, meant to be destroyed by cannon fire
+    case 46711: // Stonevault Ruffian
+    case 46712: // Stonevault Goon
+        // Quest: The Final Voyage of the Brashtide
+    case 43717: // Brashtide Crewman
+        // Quest: The Endless Flow
+    case 44329: // Stickbone Berserker
+        // Quest: Assault on Dreadmaul Rock
+    case 48414: // Blackrock Invader
+    case 48432: // Blackrock Invader
+        // Quest: Rundown
+    case 40174: // Fleeing Zin'jatar Fathom-Stalker
+        // Quest: First Degree Mortar
+    case 6196: // Spitelash Myrmidon
+        // Quest: Rider on the Storm
+    case 35506: // Nijel's Point Defender
+        return true;
+        // Disabled spawns that exist due to required range data
+    case 32782: // Noblegarden Bunny Waypoint
+    case 40708: // Falling Boulder Animation
+    case 45485: // Necropolis Flowers
+    case 45365: // Drakgor Fire Bunny
+    case 46849: // Firebeard's Patrol Fire Bunny
+        return true;
+        // True fodder to disable non player processing
+    case 40280: // Swarming Serpent
+    case 41249: // Azsh'ir Soldier
+    case 41916: // Underlight Nibbler
+    case 41357: // Rockpool Murloc
+    case 42057: // Kvaldir Bonesnapper
+    case 44331: // Andorhal Deathguard
+    case 44332: // Andorhal Defender
+    case 46384: // Crazed Gnome
+    case 47203: // Creeper Egg
+    case 48629: // Schnottz Infantryman
+    case 48713: // Schnottz Infantryman
+    case 49124: // Highbank Marksman
+    case 50540: // Obsidian Hatchling
+        return true;
+    default: return false;
+    }
 }

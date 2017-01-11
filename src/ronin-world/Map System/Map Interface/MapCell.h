@@ -32,6 +32,7 @@ class Map;
 
 class MapCellObjectStorage;
 
+class ObjectProcessCallback { public: virtual void operator()(WorldObject *obj, WorldObject *curObj) = 0; };
 class ObjectRemovalCallback { public: virtual void operator()(WorldObject *obj, WoWGuid guid, bool forced) = 0; };
 
 class SERVER_DECL MapCell
@@ -44,7 +45,7 @@ public:
     typedef std::vector<WorldObject*> CellObjectSet;
 
     //Init
-    void Init(uint32 x, uint32 y, uint32 mapid, MapInstance* mapmgr);
+    void Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance);
 
     //WorldObject Managing
     void AddObject(WorldObject* obj);
@@ -52,7 +53,7 @@ public:
     bool HasPlayers(uint16 phaseMask = 0xFFFF);
 
     // Iterating through different phases of sets
-    void FillObjectSets(WorldObject *obj, std::set<WoWGuid> &guids, std::set<WorldObject*> &objs, uint16 phaseMask, std::vector<uint32> conditionAccess, std::vector<uint32> eventAccess);
+    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback);
     void ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback, bool forced);
 
     //State Related
@@ -88,30 +89,5 @@ private:
     MapInstance* _instance;
     Map *_mapData;
 
-    MapCell::CellObjectSet m_fullSet, m_objectSet, m_playerSet;
-    Loki::AssocVector<uint8, MapCellObjectStorage*> m_phaseStorage, m_eventStorage, m_conditionStorage;
-};
-
-class MapCellObjectStorage
-{
-    MapCell::CellObjectSet m_objectSet;
-public:
-    MapCellObjectStorage(uint32 identifier) : m_identifier(identifier) {}
-    ~MapCellObjectStorage() { m_objectSet.clear(); }
-
-    void AddObject(WorldObject *obj);
-    void RemoveObject(WorldObject *obj);
-
-    MapCell::CellObjectSet *GetObjectSet() { return &m_objectSet; }
-    void UnloadCellData(bool pendingUnload, bool preDestruction);
-
-    bool isEmpty() { return m_objectSet.empty(); }
-    MapCell::CellObjectSet::iterator begin() { return m_objectSet.begin(); }
-    MapCell::CellObjectSet::iterator end() { return m_objectSet.end(); }
-    RONIN_INLINE uint32 GetObjectCount() { return m_objectSet.size(); }
-
-    uint8 GetIdentifier() { return m_identifier; }
-
-private:
-    uint8 m_identifier;
+    MapCell::CellObjectSet m_objectSet, m_playerSet;
 };

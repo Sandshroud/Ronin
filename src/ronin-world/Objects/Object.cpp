@@ -590,24 +590,18 @@ void Object::ClearLoot()
 void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
 {
     _currX = _currY = 0;
-    std::set<uint32> preProcessed;
-    preProcessed.insert(_activityCells.begin(), _activityCells.end());
-    _activityCells.clear();
-    preProcessed.insert(_processedCells.begin(), _processedCells.end());
+    _lowX = _lowY = _highX = _highY = 0;
     _processedCells.clear();
     _delayedCells[0].clear();
     _delayedCells[1].clear();
 
-    if(instance)
-        instance->RemoveCellData(_object, preProcessed, true);
-    else _object->RemoveFromInRangeObjects();
-    if(_object->GetInRangeCount())
-        assert(false);
+    _object->RemoveFromInRangeObjects(instance->GetMapId());
 }
 
 void ObjectCellManager::PostRemoveFromWorld()
 {
     _currX = _currY = 0;
+    _lowX = _lowY = _highX = _highY = 0;
     _processedCells.clear();
     _delayedCells[0].clear();
     _delayedCells[1].clear();
@@ -637,22 +631,6 @@ void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
         if(++count >= MAX_CELL_UPDATES)
             return;
     }
-
-    // We have no more cells to process, so queue some priority updates
-    uint16 lowX = _currX >= 1 ? _currX-1 : 0,
-        lowY = _currY >= 1 ? _currY-1 : 0,
-        highX = std::min<uint16>(_currX+1, _sizeX-1),
-        highY = std::min<uint16>(_currY+1, _sizeY-1);
-    for(uint16 x = lowX; x <= highX; x++)
-    {
-        for(uint16 y = lowY; y <= highY; y++)
-        {
-            if(x == _currX && y == _currY)
-                continue;
-
-            _delayedCells[0].insert(_makeCell(x, y));
-        }
-    }
 }
 
 void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
@@ -664,17 +642,16 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
     _delayedCells[0].clear();
     _delayedCells[1].clear();
 
-    // If our instance is null, then it's part of preloading
-    if(instance == NULL)
-        return;
-
-    std::set<uint32> preProcessed, preActivityCell;
+    std::set<uint32> preProcessed;
     // Push old processed data to preProcessed group
-    preProcessed.insert(_processedCells.begin(), _processedCells.end());
+    if(_lowX != _highX && _lowY != _highY)
+    {
+        for(uint16 x = _lowX; x <= _highX; x++)
+            for(uint16 y = _lowY; y <= _highY; y++)
+                preProcessed.insert(_makeCell(x, y));
+    }
+    // Clear old processed cells
     _processedCells.clear();
-    // Push old activity cells to our previous activity set
-    preActivityCell.insert(_activityCells.begin(), _activityCells.end());
-    _activityCells.clear();
     // Push current cell to proccessed, we'll handle it in this function
     _processedCells.insert(_makeCell(_currX, _currY));
 
@@ -689,13 +666,6 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
             for(uint16 y = _lowY; y <= _highY; y++)
             {
                 uint32 cellId = _makeCell(x, y);
-
-                // Readd any concurrent activity cells
-                if(preActivityCell.find(cellId) != preActivityCell.end())
-                {
-                    _activityCells.insert(cellId);
-                    preActivityCell.erase(cellId);
-                }
 
                 // Check to see if we're a preprocessed cell
                 if(preProcessed.find(cellId) != preProcessed.end())
@@ -728,13 +698,6 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
                 {
                     uint32 cellId = _makeCell(x, y);
 
-                    // Readd any concurrent activity cells
-                    if(preActivityCell.find(cellId) != preActivityCell.end())
-                    {
-                        _activityCells.insert(cellId);
-                        preActivityCell.erase(cellId);
-                    }
-
                     // Check to see if we're a preprocessed cell
                     if(preProcessed.find(cellId) != preProcessed.end())
                     {
@@ -754,12 +717,19 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
         }
     }
 
+    // If our instance is null, then it's part of preloading
+    if(instance == NULL)
+    {   // Set the data as processed
+        _processedCells.insert(_delayedCells[0].begin(), _delayedCells[0].end());
+        _processedCells.insert(_delayedCells[1].begin(), _delayedCells[1].end());
+        // empty the tables
+        _delayedCells[0].clear();
+        _delayedCells[1].clear();
+        return;
+    }
+
     // Update for our current cell here, other cell updates will occur in WorldObject::Update
     instance->UpdateCellData(_object, _currX, _currY, true);
-
-    // Push our activity cells into our removal queue as well
-    preProcessed.insert(preActivityCell.begin(), preActivityCell.end());
-
     // Push calls to remove cell data
     instance->RemoveCellData(_object, preProcessed, false);
 }
@@ -1024,7 +994,7 @@ void WorldObject::DestroyForInrange(bool anim)
     SendMessageToSet(&data, false);
 }
 
-void WorldObject::RemoveFromInRangeObjects()
+void WorldObject::RemoveFromInRangeObjects(uint16 mapId)
 {
     // Remove object from all objects 'seeing' him
     WorldObject::InRangeHashMap inrangeObjects(*GetInRangeMap());
@@ -1037,7 +1007,7 @@ void WorldObject::RemoveFromInRangeObjects()
                 if(Player *plr = castPtr<Player>(wObj))
                 {
                     if( plr->IsVisible( this ) && plr->GetTransportGuid() != GetGUID())
-                        plr->PushOutOfRange(GetGUID());
+                        plr->PushOutOfRange(mapId, GetGUID());
                     DestroyForPlayer(plr, IsGameObject());
                 }
             }
@@ -1546,7 +1516,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 plr->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_VICTORIOUS );
             }
 
-            AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE, honorOrXPGain ? 1 : 0, pVictim->GetTypeId(), pVictim->IsCreature() ? castPtr<Creature>(pVictim)->getCreatureType() : 0);
+            AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE, honorOrXPGain ? 1 : 0, pVictim->GetTypeId(), pVictim->IsCreature() ? castPtr<Creature>(pVictim)->GetCreatureType() : 0);
         }
         /* -------------------------------- HONOR + BATTLEGROUND CHECKS END------------------------ */
 

@@ -261,6 +261,9 @@ static const char *spellinterruptFormat = "uuxuxu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellItemEnchantEntry, dbcSpellItemEnchant);
 static const char *spellitemenchantFormat = "uxuuuuuuxxxuuusuuuuuuxx";
 
+DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellItemEnchantConditionEntry, dbcSpellItemEnchantCondition);
+static const char *spellitemenchantconditionFormat = "ubbbpppppxxxxxbbbppbbbPPuuuxxxx";
+
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellLevelsEntry, dbcSpellLevels);
 static const char *spelllevelFormat = "uuuu";
 
@@ -509,6 +512,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/SpellEquippedItems.dbc", datapath), spellequippeditemFormat, dbcSpellEquippedItems);
     ADD_LOAD_DB(format("%s/SpellInterrupts.dbc", datapath), spellinterruptFormat, dbcSpellInterrupts);
     ADD_LOAD_DB(format("%s/SpellItemEnchantment.dbc", datapath), spellitemenchantFormat, dbcSpellItemEnchant);
+    ADD_LOAD_DB(format("%s/SpellItemEnchantmentCondition.dbc", datapath), spellitemenchantconditionFormat, dbcSpellItemEnchantCondition);
     ADD_LOAD_DB(format("%s/SpellLevels.dbc", datapath), spelllevelFormat, dbcSpellLevels);
     ADD_LOAD_DB(format("%s/SpellPower.dbc", datapath), spellpowerFormat, dbcSpellPower);
     ADD_LOAD_DB(format("%s/SpellRadius.dbc", datapath), spellradiusFormat, dbcSpellRadius);

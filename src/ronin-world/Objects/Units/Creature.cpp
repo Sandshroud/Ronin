@@ -222,13 +222,18 @@ float Creature::GetAggroRange()
 
 void Creature::OnAddInRangeObject(WorldObject *pObj)
 {
-    if(pObj->IsUnit() && sFactionSystem.isHostile(this, pObj))
+    bool hostile = false;
+    if(pObj->IsUnit() && (hostile = sFactionSystem.isHostile(this, pObj)))
+    {
         m_inRangeHostiles.insert(castPtr<Unit>(pObj));
+        m_aiInterface.OnAddInRangeObject(pObj, hostile);
+    }
     Unit::OnAddInRangeObject(pObj);
 }
 
 void Creature::OnRemoveInRangeObject(WorldObject *pObj)
 {
+    m_aiInterface.OnRemoveInRangeObject(pObj);
     if(pObj->GetGUID() == m_attackTarget)
         m_aiInterface.OnAttackStop();
 
@@ -240,12 +245,7 @@ void Creature::OnRemoveInRangeObject(WorldObject *pObj)
     }
 }
 
-void Creature::CheckTriggerRange(Unit *uObj, float distSq)
-{
-
-}
-
-void Creature::UpdateInRangeObject(WorldObject *pObj)
+void Creature::UpdateInRangeObject(WorldObject *pObj, float distSq)
 {
     if(!pObj->IsUnit())
         return;
@@ -256,12 +256,43 @@ void Creature::UpdateInRangeObject(WorldObject *pObj)
         m_inRangeHostiles.erase(uObj);
     else if(m_inRangeHostiles.find(uObj) == m_inRangeHostiles.end())
         m_inRangeHostiles.insert(uObj);
+
+    m_aiInterface.UpdateInRangeObject(uObj, isHostile);
 }
 
 void Creature::ClearInRangeObjects()
 {
     m_inRangeHostiles.clear();
     Unit::ClearInRangeObjects();
+}
+
+bool Creature::ShouldProcessObject(WorldObject *pObj)
+{
+    if(isCritter() || isTrainingDummy())
+        return false;
+    if(pObj->IsCreature())
+    {
+        Creature *cObj = castPtr<Creature>(pObj);
+        if(cObj->isTrainingDummy())
+            return false;
+        if(isFodderSpawn() || cObj->isFodderSpawn())
+            return false;
+        if(cObj->isCritter() && GetCreatureType() == UT_BEAST)
+            return true;
+
+        return true;
+        // Don't worry about processing inrange factions
+        if(pObj->GetFactionID() == GetFactionID())
+            return false;
+        // Guards process inrange objects
+        if(m_isGuard || cObj->m_isGuard)
+            return true;
+        /*if(m_script && m_script->CanProcessCreatures())
+            return true;*/
+        // Creatures stop here
+        return false;
+    }
+    return true;
 }
 
 void Creature::UpdateLootAnimation(Player* Looter)
