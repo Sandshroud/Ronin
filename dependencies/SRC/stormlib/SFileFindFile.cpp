@@ -39,6 +39,41 @@ static TMPQSearch * IsValidSearchHandle(HANDLE hFind)
     return NULL;
 }
 
+bool WildcardSubCheck(const char *szString, const char *szWildCard)
+{
+    bool multi = false;
+    size_t wildcardLen = strlen(szWildCard);
+    for(size_t i = 0; i < wildcardLen; i++)
+        multi |= (szWildCard[i] == ',' && (i+1 < wildcardLen && szWildCard[i+1] == '*'));
+
+    if(multi == false)
+        return CheckWildCard(szString, szWildCard);
+
+    size_t index = 0;
+    while(index < wildcardLen)
+    {
+        if(szWildCard[index] == ',' || szWildCard[index] == '*')
+        {
+            index++;
+            continue;
+        }
+
+        size_t i = 0;
+        char *szBuffer = new char[wildcardLen+1];
+        memset(szBuffer, 0, wildcardLen+1);
+        for(; i < wildcardLen; i++)
+        {
+            szBuffer[i] = szWildCard[index++];
+            if(index == wildcardLen || szWildCard[index] == ',')
+                break;
+        }
+
+        if(CheckWildCard(szString, szBuffer))
+            return true;
+    }
+    return false;
+}
+
 bool CheckWildCard(const char * szString, const char * szWildCard)
 {
     const char * szWildCardPtr;
@@ -71,7 +106,7 @@ bool CheckWildCard(const char * szString, const char * szWildCard)
 
                 if(AsciiToUpperTable[szWildCardPtr[0]] == AsciiToUpperTable[szString[0]])
                 {
-                    if(CheckWildCard(szString, szWildCardPtr))
+                    if(WildcardSubCheck(szString, szWildCardPtr))
                         return true;
                 }
             }
