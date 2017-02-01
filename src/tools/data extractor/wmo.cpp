@@ -246,6 +246,17 @@ bool WMOGroup::open(HANDLE mpqarchive)
     return true;
 }
 
+bool isCollidable(uint16 flag)
+{
+    if(flag & WMO_MATERIAL_COLLISION)
+        return true;
+    if((flag & WMO_MATERIAL_RENDER) && !(flag & WMO_MATERIAL_DETAIL))
+        return true;
+    // Collide hit sounds pretty obvious..
+    if(flag & WMO_MATERIAL_COLLIDE_HIT);
+    return false;
+}
+
 int WMOGroup::ConvertToVMAPGroupWmo(FILE *output, WMORoot *rootWMO, bool preciseVectorData)
 {
     fwrite(&mogpFlags,sizeof(uint32),1,output);
@@ -254,25 +265,26 @@ int WMOGroup::ConvertToVMAPGroupWmo(FILE *output, WMORoot *rootWMO, bool precise
     fwrite(bbcorn1, sizeof(float), 3, output);
     fwrite(bbcorn2, sizeof(float), 3, output);
     fwrite(&liquflags,sizeof(uint32),1,output);
-    int nColTriangles = 0;
+
+    //-------GRP-------------------------------------
+    static char GRP[] = "GRP ";
+    fwrite(GRP,1,4,output);
+
+    int nColTriangles = 0, k = 0;
+
+    //-------MOBA------------------------------------
+    int moba_batch = moba_size/12;
+    MobaEx = new int[moba_batch*4];
+    for(int i=8; i<moba_size; i+=12)
+        MobaEx[k++] = MOBA[i];
+    int moba_size_grp = moba_batch*4+4;
+    fwrite(&moba_size_grp,4,1,output);
+    fwrite(&moba_batch,4,1,output);
+    fwrite(MobaEx,4,k,output);
+    delete [] MobaEx;
+    //-------INDX------------------------------------
     if (preciseVectorData)
     {
-        char GRP[] = "GRP ";
-        fwrite(GRP,1,4,output);
-
-        int k = 0;
-        int moba_batch = moba_size/12;
-        MobaEx = new int[moba_batch*4];
-        for(int i=8; i<moba_size; i+=12)
-        {
-            MobaEx[k++] = MOBA[i];
-        }
-        int moba_size_grp = moba_batch*4+4;
-        fwrite(&moba_size_grp,4,1,output);
-        fwrite(&moba_batch,4,1,output);
-        fwrite(MobaEx,4,k,output);
-        delete [] MobaEx;
-
         uint32 nIdexes = nTriangles * 3;
 
         if(fwrite("INDX",4, 1, output) != 1)
@@ -329,33 +341,16 @@ int WMOGroup::ConvertToVMAPGroupWmo(FILE *output, WMORoot *rootWMO, bool precise
     }
     else
     {
-        char GRP[] = "GRP ";
-        fwrite(GRP,1,4,output);
-        int k = 0;
-        int moba_batch = moba_size/12;
-        MobaEx = new int[moba_batch*4];
-        for(int i=8; i<moba_size; i+=12)
-        {
-            MobaEx[k++] = MOBA[i];
-        }
-
-        int moba_size_grp = moba_batch*4+4;
-        fwrite(&moba_size_grp,4,1,output);
-        fwrite(&moba_batch,4,1,output);
-        fwrite(MobaEx,4,k,output);
-        delete [] MobaEx;
-
-        //-------INDX------------------------------------
         //-------MOPY--------
         MoviEx = new uint16[nTriangles*3]; // "worst case" size...
         int *IndexRenum = new int[nVertices];
         memset(IndexRenum, 0xFF, nVertices*sizeof(int));
         for (int i=0; i<nTriangles; ++i)
         {
-            // Skip no collision triangles
-            if (MOPY[2*i]&WMO_MATERIAL_NO_COLLISION ||
-              !(MOPY[2*i]&(WMO_MATERIAL_HINT|WMO_MATERIAL_COLLIDE_HIT)) )
+            uint16 flag = ((uint16)MOPY[2*i]) | (((uint16)MOPY[2*i+1])<<8);
+            if(!isCollidable(flag))
                 continue;
+
             // Use this triangle
             for (int j=0; j<3; ++j)
             {

@@ -85,7 +85,7 @@ uint16 *LiqType = 0;
 uint32 map_count;
 char output_path[128]=".";
 char input_path[1024]=".";
-bool preciseVectorData = true;
+bool preciseVectorData = false;
 
 // Constants
 
@@ -291,22 +291,52 @@ bool ReadLiquidTypeTableDBC()
     return true;
 }
 
-bool ExtractWmo()
+bool skipModel(std::string fullName)
+{
+    // Generic usually points to PVP objects or more doodads
+    if(fullName.find("\\generic\\") != std::string::npos)
+        return false;
+    if(fullName.find("\\Generic\\") != std::string::npos)
+        return false;
+    if(fullName.find("\\GENERIC\\") != std::string::npos)
+        return false;
+    // Extract goober entities
+    if(fullName.find("\\goober\\") != std::string::npos)
+        return false;
+    if(fullName.find("\\Goober\\") != std::string::npos)
+        return false;
+    if(fullName.find("\\GOOBER\\") != std::string::npos)
+        return false;
+    // Doodads need to be extracted
+    if(fullName.find("doodad") != std::string::npos)
+        return false;
+    if(fullName.find("Doodad") != std::string::npos)
+        return false;
+    if(fullName.find("DOODAD") != std::string::npos)
+        return false;
+    return true;
+}
+
+bool ExtractBuildings()
 {
     SFILE_FIND_DATA data;
-    if (HANDLE find = SFileFindFirstFile(WorldMpq, "*.wmo", &data, NULL))
+    if (HANDLE find = SFileFindFirstFile(WorldMpq, "*.wmo,*.m2", &data, NULL))
     {
-        bool success = false;
+        bool success = true;
         do
         {
             std::string str = data.cFileName, str2 = data.szPlainName;
             str2.resize(50, ' '); printf("Processing %s\r", str2.c_str());
-            success |= ExtractSingleWmo(WorldMpq, str);
+            if(str2.find(".m2") != std::string::npos || str2.find(".M2") != std::string::npos)
+            {
+                if(skipModel(str) == false) // Only extract doodads
+                    ExtractSingleModel(str);
+            } else success = ExtractSingleWmo(WorldMpq, str);
         } while (success && SFileFindNextFile(find, &data));
         SFileFindClose(find);
         if(success)
         {
-            printf("\nExtract wmo complete (No (fatal) errors)\n\n");
+            printf("Extract buildings complete (No fatal errors)\r\n\n");
             return true;
         }
     }
@@ -529,7 +559,7 @@ int main(int argc, char ** argv)
 
     // extract data
     if (success && !hasBuildings)
-        if(!(success = ExtractWmo()))
+        if(!(success = ExtractBuildings()))
             rename(szWorkDirWmo, szWorkDirFailed);
 
     if(success)
@@ -620,9 +650,12 @@ bool CreateCustomDBCFiles()
             if (modelitr == modelInfoEntries.end())
                 continue;
 
-            updateStr.append(".");
-            printf("Building%s %10s\r", updateStr.c_str(), "");
-            if(!(na%10)) updateStr.clear();
+            if(!(na%10))
+            {
+                updateStr.append(".");
+                printf("Building%s %10s\r", updateStr.c_str(), "");
+                if(!(na%100)) updateStr.clear();
+            }
 
             DisplayBounding* BoundingInfo = new DisplayBounding();
 
