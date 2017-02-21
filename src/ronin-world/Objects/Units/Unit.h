@@ -563,14 +563,9 @@ public:
 
     RONIN_INLINE float GetSize() { return GetFloatValue(OBJECT_FIELD_SCALE_X) * GetFloatValue(UNIT_FIELD_BOUNDINGRADIUS); }
 
-    void CastSpell(Unit* Target, uint32 SpellID, bool triggered, uint32 forcedCastTime = 0);
-    void CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forcedCastTime = 0);
-    void CastSpell(uint64 targetGuid, uint32 SpellID, bool triggered, uint32 forcedCastTime = 0);
-    void CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered, uint32 forcedCastTime = 0);
-    uint8 CastSpellAoF(float x,float y,float z,SpellEntry* Sp, bool triggered, uint32 forcedCastTime = 0);
-    void EventCastSpell(Unit* Target, SpellEntry * Sp);
+    bool isCasting() { return m_spellInterface.IsCasting(); }
+    SpellInterface *GetSpellInterface() { return &m_spellInterface; }
 
-    bool isCasting();
     bool IsInInstance();
     virtual void RegenerateHealth(bool inCombat) = 0;
     virtual void RegeneratePower(bool isinterrupted) {};
@@ -647,8 +642,6 @@ public:
     ********/
 
     float CalculateLevelPenalty(SpellEntry* sp);
-    void CastSpell(Spell* pSpell);
-    void InterruptCurrentSpell();
 
     //caller is the caster
     int32 GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effIndex, int32 base_dmg, bool healing);
@@ -750,13 +743,6 @@ public:
     // Full HP/MP checks
     RONIN_INLINE bool isFullHealth() { return m_uint32Values[UNIT_FIELD_HEALTH] == m_uint32Values[UNIT_FIELD_MAXHEALTH]; }
 
-    //In-Range
-    virtual void OnRemoveInRangeObject(WorldObject* pObj);
-
-    RONIN_INLINE Spell* GetCurrentSpell() { return m_currentSpell; }
-    RONIN_INLINE void SetCurrentSpell(Spell* cSpell) { m_currentSpell = cSpell; }
-    RONIN_INLINE void ClearCurrentSpell(Spell *cSpell) { if(m_currentSpell == cSpell) m_currentSpell = NULL; }
-
     void PlaySpellVisual(uint64 target, uint32 spellVisual);
     void SendPlaySpellVisualKit(uint32 id, uint32 unkParam);
 
@@ -810,8 +796,6 @@ public:
 
     void SetInCombat(Unit *unit, uint32 timerOverride = 5000);
     bool IsInCombat() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT); }
-
-    void EventCancelSpell(Spell* ptr);
 
     /////////////////////////////////////////////////////// Unit properties ///////////////////////////////////////////////////
 
@@ -962,8 +946,6 @@ public:
     bool m_noInterrupt;
     bool disarmed, disarmedShield;
 
-    SpellEntry * pLastSpell;
-
     WoWGuid m_killer;
     bool m_instanceInCombat;
     uint32 m_combatStopTimer;
@@ -972,8 +954,6 @@ protected:
     MovementInterface m_movementInterface;
 
 public:
-    void _UpdateSpells(uint32 time);
-
     uint32 m_H_regenTimer, m_P_regenTimer, m_p_DelayTimer;
     uint32 m_state;      // flags for keeping track of some states
 
@@ -986,8 +966,7 @@ public:
     /// Combat
     DeathState m_deathState;
 
-    // Spell currently casting
-    Spell* m_currentSpell;
+    SpellInterface m_spellInterface;
 
     // Quest emote
     uint8 m_emoteState;

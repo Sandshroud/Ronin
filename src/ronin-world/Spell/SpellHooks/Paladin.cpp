@@ -14,7 +14,7 @@ bool PaladinBlessingApplicator(SpellEntry *sp, uint32 effIndex, WorldObject *cas
         GroupMembersSet::iterator itr;
         for(uint8 i = 0; i < grp->GetSubGroupCount(); i++)
             for(itr = grp->GetSubGroup(i)->GetGroupMembersBegin(); itr != grp->GetSubGroup(i)->GetGroupMembersEnd(); itr++)
-                if((*itr)->m_loggedInPlayer && caster->IsInRangeSet((*itr)->m_loggedInPlayer))
+                if((*itr)->m_loggedInPlayer && false)//caster->IsInRangeSet((*itr)->m_loggedInPlayer))
                     caster->CastSpell((*itr)->m_loggedInPlayer, triggerSpell, true);
         grp->Unlock();
     } else if(target->IsUnit())
@@ -37,7 +37,7 @@ bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, WorldObject *
             sealTrigger = dbcSpell.LookupEntry(31804);
 
         if(sealTrigger && sealTrigger != sp)
-            unitCaster->CastSpell(unitTarget, sealTrigger, true);
+            unitCaster->GetSpellInterface()->TriggerSpell(sealTrigger, unitTarget);
     }
     return true;
 }

@@ -135,7 +135,7 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
     float r = range * range;
     WorldObject *wObj = NULL;
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -167,7 +167,7 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
 
         if(m_spellInfo->MaxTargets && m_effectTargetMaps[i].size() >= m_spellInfo->MaxTargets)
             break;
-    }
+    }*/
 }
 
 void Spell::FillAllTargetsInArea(LocationVector & location,uint32 ind)
@@ -189,7 +189,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
     std::vector<WorldObject*> ChainTargetContainer;
     bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -215,7 +215,7 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
                 placeholder++;
             }
         } else ChainTargetContainer.push_back(wObj);
-    }
+    }*/
 
     if(m_spellInfo->MaxTargets)
     {
@@ -254,7 +254,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
     WorldObject *wObj = NULL;
     bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     Unit * u_caster = m_caster->IsUnit() ? castPtr<Unit>(m_caster) : (m_caster->IsGameObject() ? castPtr<GameObject>(m_caster)->GetSummoner() : nullptr);
-    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -281,7 +281,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
             if( m_spellInfo->MaxTargets && m_effectTargetMaps[i].size() >= m_spellInfo->MaxTargets )
                 break;
         }
-    }
+    }*/
 }
 
 /// We fill all the gameobject targets in the area
@@ -314,7 +314,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
     }
 
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
-    for( WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
+    /*for( WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
         Unit *unit = m_caster->GetInRangeObject<Unit>(*itr);
         if(!unit->isAlive())
@@ -328,7 +328,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
         if(_DidHit(unit) != SPELL_DID_HIT_SUCCESS)
             continue;
         return unit->GetGUID();
-    }
+    }*/
     return 0;
 }
 
@@ -346,7 +346,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
     }
 
     float srcx = m_caster->GetPositionX(), srcy = m_caster->GetPositionY(), srcz = m_caster->GetPositionZ();
-    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
+    /*for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
     {
         Unit *unit = m_caster->GetInRangeObject<Unit>(*itr);
         if(!unit->isAlive())
@@ -360,7 +360,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
         if(_DidHit(unit) != SPELL_DID_HIT_SUCCESS)
             continue;
         return unit->GetGUID();
-    }
+    }*/
     return 0;
 }
 
@@ -672,7 +672,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 
     // instant cast(or triggered) and not channeling
     if( m_caster->IsUnit() && ( m_castTime > 0 || m_spellInfo->IsSpellChannelSpell() ) && !m_triggeredSpell  )
-        castPtr<Unit>(m_caster)->CastSpell( this );
+        castPtr<Unit>(m_caster)->GetSpellInterface()->ProcessSpell( this );
     else cast( false );
 
     return ccr;
@@ -840,7 +840,7 @@ void Spell::cast(bool check)
         // If we have a single spell target and it's not us, set our channel focus to that
         if(m_fullTargetMap.size() == 1 && m_spellInfo->isChannelTrackTarget())
             unitCaster->SetChannelSpellTargetGUID(m_fullTargetMap.begin()->first);
-        unitCaster->SetCurrentSpell(this);
+        unitCaster->GetSpellInterface()->ProcessSpell(this);
         return;
     }
     else if(m_missileSpeed > 0.f)
@@ -1135,7 +1135,7 @@ void Spell::finish()
         castPtr<Player>(m_caster)->SetSummonedObject(NULL);
 
     if(m_caster->IsUnit())
-        castPtr<Unit>(m_caster)->ClearCurrentSpell(this);
+        castPtr<Unit>(m_caster)->GetSpellInterface()->FinishSpell(this);
 
     if(m_caster->IsPlayer())
     {
@@ -1265,7 +1265,7 @@ bool Spell::IsBinary(SpellEntry * sp)
 
 uint8 Spell::CanCast(bool tolerate)
 {
-    if( castPtr<Unit>(m_caster) && castPtr<Unit>(m_caster)->GetCurrentSpell() != NULL && castPtr<Unit>(m_caster)->GetCurrentSpell() != this )
+    //if( castPtr<Unit>(m_caster) && castPtr<Unit>(m_caster)->GetCurrentSpell() != NULL && castPtr<Unit>(m_caster)->GetCurrentSpell() != this )
         return SPELL_FAILED_SPELL_IN_PROGRESS;
 
     /* Spells for the zombie event */
@@ -1491,13 +1491,13 @@ uint8 Spell::CanCast(bool tolerate)
         if( ( m_spellInfo->NameHash == SPELL_HASH_CANNIBALIZE || m_spellInfo->Id == 46584 ))
         {
             bool check = false;
-            for(WorldObject::InRangeArray::iterator i = p_caster->GetInRangeUnitSetBegin(); i != p_caster->GetInRangeUnitSetEnd(); i++)
+/*            for(WorldObject::InRangeArray::iterator i = p_caster->GetInRangeUnitSetBegin(); i != p_caster->GetInRangeUnitSetEnd(); i++)
             {
                 Unit *target = p_caster->GetInRangeObject<Unit>(*i);
                 if(p_caster->GetDistance2dSq(target) <= 25)
                     if( target->isDead() )
                         check = true;
-            }
+            }*/
 
             if(check == false)
                 return SPELL_FAILED_NO_EDIBLE_CORPSES;
@@ -1876,7 +1876,7 @@ uint8 Spell::CanCast(bool tolerate)
 
         if(castPtr<Unit>(m_caster)->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT) > 0)
         {
-            SpellEntry * t_spellInfo = (castPtr<Unit>(m_caster)->GetCurrentSpell() ? castPtr<Unit>(m_caster)->GetCurrentSpell()->m_spellInfo : NULL);
+            SpellEntry * t_spellInfo = castPtr<Unit>(m_caster)->GetSpellInterface()->GetCurrentSpellProto();
 
             if(!t_spellInfo || !m_triggeredSpell)
                 return SPELL_FAILED_SPELL_IN_PROGRESS;

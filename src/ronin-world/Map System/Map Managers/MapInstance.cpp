@@ -24,7 +24,8 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)), _processCallback(this), _removalCallback(this)
+MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
+_processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastObjectUpdateCallback(this)
 {
     m_mapPreloading = false;
     iInstanceMode = 0;
@@ -55,11 +56,13 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandle
     mDynamicObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 : 1);
     mUnitPathPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 : 1);
 
-    // Specific zones are heavy laggers and updated separately
-    //if(_mapId == 530) mCreaturePool.PreservePools(2);
-
     projectileSpellUpdateTime[0] = projectileSpellUpdateTime[1] = 0;
     projectileSpellIndex[0] = projectileSpellIndex[1] = 0;
+}
+
+MapInstance::~MapInstance()
+{
+
 }
 
 void MapInstance::Preload()
@@ -151,9 +154,17 @@ void MapInstance::Destruct()
     delete this;
 }
 
-MapInstance::~MapInstance()
+WorldObject *MapInstance::GetInRangeObject(ObjectCellManager *manager, WoWGuid guid)
 {
-
+    if(m_objectCells.find(guid) == m_objectCells.end())
+        return NULL;
+    uint32 cellId = m_objectCells.at(guid);
+    if(!manager->hasCell(cellId))
+        return NULL;
+    std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+    if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+        return cell->FindObject(guid);
+    return NULL;
 }
 
 void MapInstance::EventPushObjectToSelf(WorldObject *obj)
@@ -168,7 +179,7 @@ void MapInstance::PushObject(WorldObject* obj)
     /////////////
     ASSERT(obj);
 
-    obj->ClearInRangeObjects();
+    obj->GetCellManager()->ClearInRangeObjects(this);
 
     Player* plObj = NULL;
     if(obj->IsPlayer())
@@ -191,6 +202,7 @@ void MapInstance::PushObject(WorldObject* obj)
             sLog.Debug("MapInstance","Player being pushed when already stored in world");
             return;
         }
+        plObj->ClearInRangeObjects();
     }
 
     ///////////////////////
@@ -365,6 +377,7 @@ void MapInstance::PushObject(WorldObject* obj)
     // Skip cell loading for preloading maps or inactive objects
     bool skipCellLoad = m_mapPreloading || (obj->IsActiveObject() && !obj->IsActivated());
     obj->GetCellManager()->SetCurrentCell(skipCellLoad ? NULL : this, objCell->GetPositionX(), objCell->GetPositionY(), 2);
+    m_objectCells[obj->GetGUID()] = ObjectCellManager::_makeCell(cx, cy);
 }
 
 void MapInstance::RemoveObject(WorldObject* obj)
@@ -377,6 +390,7 @@ void MapInstance::RemoveObject(WorldObject* obj)
     ASSERT(obj->GetMapId() == _mapId);
 
     m_poolLock.Acquire();
+    m_objectCells.erase(obj->GetGUID());
     switch(obj->GetTypeId())
     {
     case TYPEID_UNIT:
@@ -480,6 +494,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     if(Group *grp = plObj ? plObj->GetGroup() : NULL)
         grp->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, plObj );
 
+    /*
     ////////////////////////////////////////
     // Update in-range data for zone objects
     ////////////////////////////////////////
@@ -569,14 +584,11 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
             }
         }
     }
-    obj->SetLastMovementArea(currArea);
+    obj->SetLastMovementArea(currArea);*/
 
     // Check if we're moving to a new map
     if(obj->GetMapInstance() != this)
     {
-        if(!obj->HasInRangeObjects())
-            return;
-
         // Clear our inrange objects on our maps cells
         obj->GetCellManager()->ClearInRangeObjects(this);
     }
@@ -617,7 +629,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         if(plObj) UpdateCellActivity(cellX, cellY, 2);
 
         // Grab our new cell and store our old cell pointer
-        MapCell *objCell = GetCellOrInit(cellX, cellY, true), *pOldCell = obj->GetMapCell();
+        MapCell *objCell = GetCellOrInit(cellX, cellY, plObj ? true : false, true), *pOldCell = obj->GetMapCell();
         if(objCell != pOldCell)
         {
             // Remove us from old cell
@@ -635,64 +647,54 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
 
             // Set our cellId
             obj->GetCellManager()->SetCurrentCell(this, cellX, cellY, 2);
-        } //else obj->GetCellManager()->ReprocessObjects(this);
+            m_objectCells[obj->GetGUID()] = ObjectCellManager::_makeCell(cellX, cellY);
+        }
     }
 }
 
 void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject *curObj)
 {
     Player *plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL, *plObj2 = curObj->IsPlayer() ? castPtr<Player>(curObj) : NULL;
-    if(!obj->IsInRangeSet(curObj))
+    if( plObj2 && _instance->canObjectsInteract(plObj2, obj) && plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
     {
-        // WorldObject in range, add to set
-        obj->AddInRangeObject( curObj );
-        curObj->AddInRangeObject( obj );
+        plObj2->AddVisibleObject(obj);
+        if(uint32 count = obj->BuildCreateUpdateBlockForPlayer(&_instance->m_createBuffer, plObj2))
+            plObj2->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
+        _instance->m_createBuffer.clear();
+    }
 
-        if( plObj2 && _instance->canObjectsInteract(plObj2, obj) && plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
-        {
-            plObj2->AddVisibleObject(obj);
-            if(uint32 count = obj->BuildCreateUpdateBlockForPlayer(&_instance->m_createBuffer, plObj2))
-                plObj2->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
-            _instance->m_createBuffer.clear();
-        }
-
-        if( plObj != NULL && _instance->canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
-        {
-            plObj->AddVisibleObject( curObj );
-            if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &_instance->m_createBuffer, plObj ))
-                plObj->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
-            _instance->m_createBuffer.clear();
-        }
+    if( plObj != NULL && _instance->canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
+    {
+        plObj->AddVisibleObject( curObj );
+        if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &_instance->m_createBuffer, plObj ))
+            plObj->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
+        _instance->m_createBuffer.clear();
     }
 }
 
-bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, bool priority)
+bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, bool playerObj, bool priority)
 {
     // Check our cell status
-    MapCell *objCell = GetCellOrInit(cellX, cellY, priority);
+    MapCell *objCell = GetCellOrInit(cellX, cellY, playerObj, priority);
     if(objCell == NULL)
         return false;
 
+    _processCallback.Lock();
     _processCallback.SetCell(cellX, cellY);
     objCell->ProcessObjectSets(obj, &_processCallback);
+    _processCallback.Unlock();
     return true;
 }
 
-void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WoWGuid guid, bool forced)
+void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WorldObject *curObj)
 {
-    WorldObject *curObj = NULL;
-    if((curObj = obj->GetInRangeObject(guid)) == NULL || obj == curObj)
-        return;
-    if(!forced && _instance->IsFullRangeObject(curObj))
+    if(obj == curObj || (!_forced && _instance->IsFullRangeObject(curObj)))
         return;
 
     if( obj->IsPlayer() )
         castPtr<Player>(obj)->RemoveIfVisible(_instance->GetMapId(), curObj);
     if( curObj->IsPlayer() )
         castPtr<Player>( curObj )->RemoveIfVisible(_instance->GetMapId(), obj);
-
-    curObj->RemoveInRangeObject(obj);
-    obj->RemoveInRangeObject(curObj);
 }
 
 void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool forced)
@@ -700,29 +702,15 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     if(!forced && IsFullRangeObject(Obj))
         return;
 
+    _removalCallback.Lock();
+    _removalCallback.setForced(forced);
     for(auto itr = set.begin(); itr != set.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessSetRemovals(Obj, &_removalCallback, forced);
+            cell->ProcessObjectSets(Obj, &_removalCallback, forced);
     }
-}
-
-void MapInstance::UpdateInrangeSetOnCells(WorldObject *obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY)
-{
-    Player *plObj = obj->IsPlayer() ? castPtr<Player>(obj) : NULL;
-    for (uint32 posX = startX; posX <= endX; posX++ )
-    {
-        for (uint32 posY = startY; posY <= endY; posY++ )
-        {
-            obj->GetCellManager()->AddProcessedCell(posX, posY);
-            if (MapCell *cell = GetCell(posX, posY))
-            {
-                _processCallback.SetCell(posX, posY);
-                cell->ProcessObjectSets(obj, &_processCallback);
-            }
-        }
-    }
+    _removalCallback.Unlock();
 }
 
 uint8 MapInstance::GetPoolOverrideForZone(uint32 zoneId)
@@ -752,7 +740,7 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
 {
     ASSERT(plObj && curObj);
 
-    WorldObject::InRangeObjSet::iterator itr;
+    std::set<WoWGuid>::iterator itr;
     bool cansee = canObjectsInteract(plObj, curObj) && plObj->CanSee(curObj), isvisible = plObj->GetVisibility(curObj, &itr);
     if(!cansee && isvisible)
     {
@@ -770,87 +758,72 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
 
 void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
 {
-    if(m_mapPreloading = (areamask == 0))
-        sLog.Info("MapInstance", "Updating all cells for map %03u, server might lag.", _mapId);
-
-    uint32 loadCount = 0;
-    for( uint32 x = 0; x < _sizeX; x++ )
+    if(apply && areamask == 0)
     {
-        for( uint32 y = 0; y < _sizeY; y++ )
+        m_mapPreloading = true;
+        sLog.Info("MapInstance", "Updating all cells for map %03u, server might lag.", _mapId);
+        for(SpawnsMap::iterator itr = _map->GetSpawnsMapBegin(); itr != _map->GetSpawnsMapEnd(); itr++)
         {
-            if(areamask)
+            MapCell *cellInfo = GetCell(itr->first.first, itr->first.second);
+            if( cellInfo == NULL )
+            {   // Cell doesn't exist, create it.
+                cellInfo = Create( itr->first.first, itr->first.second );
+                cellInfo->Init( itr->first.first, itr->first.second, _mapId, this );
+            } else if(cellInfo && cellInfo->IsLoaded())
+                continue;
+
+            cellInfo->SetActivity(true);
+            cellInfo->LoadCellData(&itr->second);
+            AddForcedCell(cellInfo, 0);
+        }
+        sLog.Success("MapInstance", "Cell preload for map %03u finished", _mapId);
+        m_mapPreloading = false;
+    }
+    else
+    {
+        uint32 loadCount = 0;
+        for( uint32 x = 0; x < _sizeX; x++ )
+        {
+            for( uint32 y = 0; y < _sizeY; y++ )
             {
-                uint16 areaId;
-                if(!GetBaseMap()->CellHasAreaID(x, y, areaId))
-                    continue;
+                if(areamask)
+                {
+                    uint16 areaId;
+                    if(!GetBaseMap()->CellHasAreaID(x, y, areaId))
+                        continue;
 
-                AreaTableEntry* at = dbcAreaTable.LookupEntry( areaId );
-                if(at == NULL || (at->ZoneId != areamask && at->AreaId != areamask))
-                    continue;
-            }
-
-            MapCell *cellInfo = GetCell( x , y );
-            if(apply)
-            {
-                CellSpawns *spawns = _map->GetSpawnsList( x , y );
-                if(spawns == NULL)
-                    continue;
-
-                if( cellInfo == NULL )
-                {   // Cell doesn't exist, create it.
-                    cellInfo = Create( x , y );
-                    cellInfo->Init( x , y , _mapId , this );
-                    sLog.Debug("MapInstance","Created cell [%u,%u] on map %u (instance %u)." , x , y , _mapId , m_instanceID );
+                    AreaTableEntry* at = dbcAreaTable.LookupEntry( areaId );
+                    if(at == NULL || (at->ZoneId != areamask && at->AreaId != areamask))
+                        continue;
                 }
 
-                if (cellInfo->IsLoaded())
-                    continue;
+                MapCell *cellInfo = GetCell( x , y );
+                if(apply)
+                {
+                    CellSpawns *spawns = _map->GetSpawnsList( x , y );
+                    if(spawns == NULL)
+                        continue;
 
-                cellInfo->SetActivity(true);
-                loadCount += cellInfo->LoadCellData( spawns );
-                AddForcedCell(cellInfo, 0);
-            } else if(cellInfo != NULL)
-                RemoveForcedCell(cellInfo);
+                    if( cellInfo == NULL )
+                    {   // Cell doesn't exist, create it.
+                        cellInfo = Create( x , y );
+                        cellInfo->Init( x , y , _mapId , this );
+                        sLog.Debug("MapInstance","Created cell [%u,%u] on map %u (instance %u)." , x , y , _mapId , m_instanceID );
+                    }
+
+                    if (cellInfo->IsLoaded())
+                        continue;
+
+                    cellInfo->SetActivity(true);
+                    loadCount += cellInfo->LoadCellData( spawns );
+                    AddForcedCell(cellInfo, 0);
+                } else if(cellInfo != NULL)
+                    RemoveForcedCell(cellInfo);
+            }
         }
+
+        sLog.Success("MapInstance", "Cell update for map %03u finished with %u objLoad calls", _mapId, loadCount);
     }
-
-    if(m_mapPreloading == false)
-        return;
-    sLog.Success("MapInstance", "Cell update for map %03u finished with %u objLoad calls", _mapId, loadCount);
-    sLog.Info("MapInstance", "Object Inrange update started for map %03u", _mapId);
-
-    m_poolLock.Acquire();
-    for(StoragePool<Creature>::PoolSet::iterator itr = mCreaturePool.begin(); itr != mCreaturePool.end();)
-    {
-        Creature* ptr = *itr;
-        ++itr;
-
-        // We don't want to build inrange maps for deactivated objects
-        if(ptr->IsActiveObject() && !ptr->IsActivated())
-            continue;
-
-        uint32 startX = GetPosX(ptr->GetPositionX()), startY = GetPosY(ptr->GetPositionY());
-        uint32 minX = startX ? startX-1 : 0, maxX = (startX < _sizeY-1 ? startX+1 : _sizeY-1), minY = startY ? startY-1 : 0, maxY = (startY < _sizeY-1 ? startY+1 : _sizeY-1);
-        UpdateInrangeSetOnCells(ptr, minX, maxX, minY, maxY);
-    }
-
-    for(StoragePool<GameObject>::PoolSet::iterator itr = mGameObjectPool.begin(); itr != mGameObjectPool.end();)
-    {
-        GameObject* ptr = *itr;
-        ++itr;
-
-        // We don't want to build inrange maps for deactivated objects
-        if(ptr->IsActiveObject() && !ptr->IsActivated())
-            continue;
-
-        uint32 startX = GetPosX(ptr->GetPositionX()), startY = GetPosY(ptr->GetPositionY());
-        uint32 minX = startX ? startX-1 : 0, maxX = (startX < _sizeY-1 ? startX+1 : _sizeY-1), minY = startY ? startY-1 : 0, maxY = (startY < _sizeY-1 ? startY+1 : _sizeY-1);
-        UpdateInrangeSetOnCells(ptr, minX, maxX, minY, maxY);
-    }
-    m_poolLock.Release();
-
-    sLog.Success("MapInstance", "Object Inrange update for map %03u completed", _mapId);
-    m_mapPreloading = false;
 }
 
 void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
@@ -972,10 +945,10 @@ bool MapInstance::IsFullRangeObject(WorldObject *obj)
     return false;
 }
 
-MapCell *MapInstance::GetCellOrInit(uint32 x, uint32 y, bool priority)
+MapCell *MapInstance::GetCellOrInit(uint32 x, uint32 y, bool shouldInit, bool priority)
 {
     MapCell *mapCell = GetCell(x, y);
-    if(mapCell != NULL)
+    if(mapCell != NULL || shouldInit == false)
         return mapCell;
 
     CellSpawns *spawns = _map->GetSpawnsList( x , y );
@@ -1015,6 +988,177 @@ bool MapInstance::_CellActive(uint32 x, uint32 y)
     return false;
 }
 
+void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{   // Should work here
+    Unit *unitTarget = curObj->IsUnit() ? castPtr<Unit>(curObj) : NULL;
+    if(unitTarget == NULL || unitTarget->isDead()) // Cut down on checks by skipping dead creatures
+        return;
+
+    float distance = obj->GetDistanceSq(unitTarget);
+    // Check our aggro range against our saved range
+    float aggroRange = unitTarget->ModDetectedRange(castPtr<Unit>(obj), _range);
+    aggroRange *= aggroRange; // Distance is squared so square our range
+    if(distance >= aggroRange)
+        return;
+    if(_result && _resultDist <= distance)
+        return;
+    if(!sFactionSystem.isHostile(castPtr<Unit>(obj), unitTarget))
+        return;
+    // LOS is a big system hit so do it last
+    if(!obj->IsInLineOfSight(unitTarget))
+        return;
+
+    _result = unitTarget;
+    _resultDist = distance;
+}
+
+Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask)
+{
+    _inRangeTargetCallback.Lock();
+    _inRangeTargetCallback.ResetData(range);
+    ctr->GetCellManager()->CreateCellRange(&_InRangeTargetCellVector, range);
+    for(auto itr = _InRangeTargetCellVector.begin(); itr != _InRangeTargetCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(ctr, &_inRangeTargetCallback, typeMask);
+    }
+    Unit *Result = _inRangeTargetCallback.GetResult();
+    _InRangeTargetCellVector.clear();
+    _inRangeTargetCallback.Unlock();
+    return Result;
+}
+
+void MapInstanceBroadcastMessageCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{
+    float range = 0.f;
+    Player *playerObj = castPtr<Player>(curObj);
+    if(_range > 1.f && !_instance->IsInRange(_range, obj, curObj, range))
+        return;
+    if(_myTeam && playerObj->GetTeam() != _teamId)
+        return;
+
+    if(_message)
+        playerObj->PushPacket(_message, true);
+    else if(WorldSession *session = playerObj->GetSession())
+        session->OutPacket(_opcode, _dataLen, _dataStream);
+}
+
+void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, const void *data, float range)
+{
+    _broadcastMessageCallback.Lock();
+    _broadcastMessageCallback.ResetData(range, opcodeId, Len, data, false, 0);
+    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageCellVector, range);
+    for(auto itr = _BroadcastMessageCellVector.begin(); itr != _BroadcastMessageCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &_broadcastMessageCallback, TYPEMASK_TYPE_PLAYER);
+    }
+    _BroadcastMessageCellVector.clear();
+    _broadcastMessageCallback.Unlock();
+}
+
+void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float range, bool myTeam, uint32 teamId)
+{
+    _broadcastMessageCallback.Lock();
+    _broadcastMessageCallback.ResetData(range, data, myTeam, teamId);
+    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageCellVector, range);
+    for(auto itr = _BroadcastMessageCellVector.begin(); itr != _BroadcastMessageCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &_broadcastMessageCallback, TYPEMASK_TYPE_PLAYER);
+    }
+    _BroadcastMessageCellVector.clear();
+    _broadcastMessageCallback.Unlock();
+}
+
+void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{
+    Player *plrTarget = curObj->IsPlayer() ? castPtr<Player>(curObj) : NULL;
+    if(plrTarget == NULL || !plrTarget->IsVisible(obj))
+        return; // Make sure that the target player can see us.
+
+    uint32 targetFlag = obj->GetUpdateFlag(plrTarget);
+    if(targetFlag & UF_FLAG_PARTY_MEMBER)
+    {
+        if(partyCount == 0xFFFFFFFF)
+            return;
+        if(_partyUpdate == NULL)
+        {
+            ByteBuffer *updateBuff = _instance->GetUpdateBuffer();
+            if((partyCount = obj->BuildValuesUpdateBlockForPlayer(updateBuff, UF_FLAGMASK_PARTY_MEMBER)) == 0)
+            {
+                partyCount = 0xFFFFFFFF;
+                updateBuff->clear();
+                return;
+            }
+
+            _partyUpdate = new ByteBuffer(updateBuff->size());
+            _partyUpdate->append(updateBuff->contents(), updateBuff->size());
+            updateBuff->clear();
+        }
+
+        plrTarget->PushUpdateBlock(_instance->GetMapId(), _partyUpdate, partyCount);
+    }
+    else if(targetFlag & UF_FLAG_OWNER)
+    {
+        if(petCount == 0xFFFFFFFF)
+            return;
+        if(_petUpdate == NULL)
+        {
+            ByteBuffer *updateBuff = _instance->GetUpdateBuffer();
+            if((petCount = obj->BuildValuesUpdateBlockForPlayer(updateBuff, UF_FLAGMASK_OWN_PET)) == 0)
+            {
+                petCount = 0xFFFFFFFF;
+                updateBuff->clear();
+                return;
+            }
+
+            _petUpdate = new ByteBuffer(updateBuff->size());
+            _petUpdate->append(updateBuff->contents(), updateBuff->size());
+            updateBuff->clear();
+        }
+
+        plrTarget->PushUpdateBlock(_instance->GetMapId(), _petUpdate, petCount);
+    }
+    else if(publicCount != 0xFFFFFFFF)
+    {
+        if(_publicUpdate == NULL)
+        {
+            ByteBuffer *updateBuff = _instance->GetUpdateBuffer();
+            if((publicCount = obj->BuildValuesUpdateBlockForPlayer(updateBuff, UF_FLAGMASK_PUBLIC)) == 0)
+            {
+                publicCount = 0xFFFFFFFF;
+                updateBuff->clear();
+                return;
+            }
+
+            _publicUpdate = new ByteBuffer(updateBuff->size());
+            _publicUpdate->append(updateBuff->contents(), updateBuff->size());
+            updateBuff->clear();
+        }
+
+        plrTarget->PushUpdateBlock(_instance->GetMapId(), _publicUpdate, publicCount);
+    }
+}
+
+void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
+{
+    _broadcastObjectUpdateCallback.Lock();
+    obj->GetCellManager()->FillCellRange(&_BroadcastObjectUpdateCellVector);
+    for(auto itr = _BroadcastObjectUpdateCellVector.begin(); itr != _BroadcastObjectUpdateCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &_broadcastObjectUpdateCallback, TYPEMASK_TYPE_PLAYER);
+    }
+    _BroadcastObjectUpdateCellVector.clear();
+    _broadcastObjectUpdateCallback.cleanup();
+    _broadcastObjectUpdateCallback.Unlock();
+}
+
 bool MapInstance::UpdateQueued(WorldObject *obj)
 {
     bool res = false;
@@ -1027,10 +1171,6 @@ bool MapInstance::UpdateQueued(WorldObject *obj)
 
 void MapInstance::ObjectUpdated(WorldObject *obj)
 {
-    // Only process object update calls if we're a player or have players inrange
-    if(!(obj->IsPlayer() || obj->HasInRangePlayers()))
-        return;
-
     m_updateMutex.Acquire();
     if(_updates.find(obj) == _updates.end())
         _updates.insert(obj);
@@ -1403,38 +1543,7 @@ void MapInstance::_PerformPendingUpdates()
         }
 
         wObj->OnUpdateProcess();
-        if(wObj->HasInRangePlayers())
-        {
-            // build the update
-            count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PUBLIC);
-            for(WorldObject::InRangeArray::iterator itr = wObj->GetInRangePlayerSetBegin(); itr != wObj->GetInRangePlayerSetEnd();)
-            {
-                Player *plrTarget = wObj->GetInRangeObject<Player>(*itr);
-                ++itr;
-                if(plrTarget == NULL || !plrTarget->IsVisible(wObj))
-                    continue; // Make sure that the target player can see us.
-                uint32 targetFlag = wObj->GetUpdateFlag(plrTarget);
-                if(targetFlag & UF_FLAG_PARTY_MEMBER)
-                    m_partyTargets.insert(plrTarget);
-                else if(targetFlag & UF_FLAG_OWNER)
-                    m_petTargets.insert(plrTarget);
-                else if(count > 0 && m_updateBuffer.size())
-                    plrTarget->PushUpdateBlock(_mapId, &m_updateBuffer, count);
-            }
-            m_updateBuffer.clear();
-
-            if(m_partyTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_PARTY_MEMBER)))
-                for(PlayerSet::iterator itr = m_partyTargets.begin(); itr != m_partyTargets.end(); itr++)
-                    (*itr)->PushUpdateBlock( _mapId, &m_updateBuffer, count );
-            m_updateBuffer.clear();
-            m_partyTargets.clear();
-
-            if(m_petTargets.size() && (count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_OWN_PET)))
-                for(PlayerSet::iterator itr = m_petTargets.begin(); itr != m_petTargets.end(); itr++)
-                    (*itr)->PushUpdateBlock( _mapId, &m_updateBuffer, count );
-            m_updateBuffer.clear();
-            m_petTargets.clear();
-        }
+        BroadcastObjectUpdate(wObj);
         wObj->ClearUpdateMask();
     }
     _updates.clear();

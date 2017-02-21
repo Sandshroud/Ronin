@@ -235,7 +235,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
         AddTarget(i, TargetType, m_caster);
 
     WorldObject *wObj = NULL;
-    for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
+    /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
             continue;
@@ -244,7 +244,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
         if(wObj->GetDistanceSq(source) > range)
             continue;
         AddTarget(i, TargetType, wObj);
-    }
+    }*/
 }
 
 void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets)
@@ -259,7 +259,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
     AddTarget(i, TargetType, p);
 
     float range = radius*radius;
-    WorldObject::InRangeArray::iterator itr;
+    /*WorldObject::InRangeArray::iterator itr;
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
         Player *target = u->GetInRangeObject<Player>(*itr);
@@ -271,7 +271,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
             continue;
 
         AddTarget(i, TargetType, target);
-    }
+    }*/
 }
 
 void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets, bool partylimit)
@@ -286,7 +286,7 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
     AddTarget(i, TargetType, p);
 
     float range = radius*radius;
-    WorldObject::InRangeArray::iterator itr;
+    /*WorldObject::InRangeArray::iterator itr;
     for(itr = u->GetInRangePlayerSetBegin(); itr != u->GetInRangePlayerSetEnd(); itr++)
     {
         Player *target = u->GetInRangeObject<Player>(*itr);
@@ -298,7 +298,7 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
             continue;
 
         AddTarget(i, TargetType, target);
-    }
+    }*/
 }
 
 void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
@@ -347,7 +347,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     if(jumps <= 1 || m_effectTargetMaps[i].size() == 0) //1 because we've added the first target, 0 size if spell is resisted
         return;
 
-    WorldObject::InRangeArray::iterator itr;
+    /*WorldObject::InRangeArray::iterator itr;
     for(itr = firstTarget->GetInRangeUnitSetBegin(); itr != firstTarget->GetInRangeUnitSetEnd(); itr++)
     {
         Unit *target = m_caster->GetInRangeObject<Unit>(*itr);
@@ -375,12 +375,12 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
             if(m_effectTargetMaps[i].size() == oldsize || m_effectTargetMaps[i].size() >= jumps) //either out of jumps or a resist
                 return;
         }
-    }
+    }*/
 }
 
 void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
-    WorldObject::InRangeArray::iterator itr;
+    /*WorldObject::InRangeArray::iterator itr;
     for(itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
     {
         Unit *target = m_caster->GetInRangeObject<Unit>(*itr);
@@ -397,7 +397,7 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
         }
         if(maxtargets != 0 && m_effectTargetMaps[i].size() >= maxtargets)
             return;
-    }
+    }*/
 }
 
 void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)

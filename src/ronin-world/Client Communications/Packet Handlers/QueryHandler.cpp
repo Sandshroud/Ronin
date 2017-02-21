@@ -412,16 +412,6 @@ void WorldSession::HandleInrangeQuestgiverQuery(WorldPacket & recv_data)
     uint32 count = 0;
     WorldPacket data(SMSG_QUESTGIVER_STATUS_MULTIPLE, 1000);
     data << count;
-    for(WorldObject::InRangeArray::iterator itr = _player->GetInRangeUnitSetBegin(); itr != _player->GetInRangeUnitSetEnd(); itr++ )
-    {
-        Creature* pCreature = _player->GetInRangeObject<Creature>(*itr);
-        if( pCreature && pCreature->isQuestGiver() )
-        {
-            data << pCreature->GetGUID();
-            data << sQuestMgr.CalcStatus(pCreature, GetPlayer());
-            ++count;
-        }
-    }
 
     data.put<uint32>(0, count);
     SendPacket(&data);

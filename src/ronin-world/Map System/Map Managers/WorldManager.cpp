@@ -36,7 +36,7 @@ void WorldManager::Destruct()
     m_maps.clear();
     for(std::map<uint32, CellSpawns>::iterator itr = m_SpawnStorageMap.begin(); itr != m_SpawnStorageMap.end(); itr++)
     {
-        for(CreatureSpawnList::iterator i = itr->second.CreatureSpawns.begin(); i != itr->second.CreatureSpawns.end(); i++)
+        for(CreatureSpawnArray::iterator i = itr->second.CreatureSpawns.begin(); i != itr->second.CreatureSpawns.end(); i++)
         {
             for(WaypointStorage::iterator itr = (*i)->m_waypointData.begin(); itr != (*i)->m_waypointData.end(); itr++)
                 delete itr->second;
@@ -44,7 +44,7 @@ void WorldManager::Destruct()
             delete (*i);
         }
         itr->second.CreatureSpawns.clear();
-        for(GameObjectSpawnList::iterator i = itr->second.GameObjectSpawns.begin(); i != itr->second.GameObjectSpawns.end(); i++)
+        for(GameObjectSpawnArray::iterator i = itr->second.GameObjectSpawns.begin(); i != itr->second.GameObjectSpawns.end(); i++)
             delete (*i);
         itr->second.GameObjectSpawns.clear();
     }

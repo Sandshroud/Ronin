@@ -242,13 +242,6 @@ public:
     virtual void UpdateFieldValues();
     virtual void OnAuraModChanged(uint32 modType);
 
-    virtual void OnAddInRangeObject(WorldObject *pObj);
-    virtual void UpdateInRangeObject(WorldObject *pObj, float distSq);
-    virtual void OnRemoveInRangeObject(WorldObject *pObj);
-    virtual void ClearInRangeObjects();
-
-    bool ShouldProcessObject(WorldObject *pObj);
-
     const char* GetName()
     {
         if(getGender() && !_creatureData->femaleName.empty())
@@ -299,11 +292,6 @@ public:
 
     RONIN_INLINE uint8 GetCreaturePool() { return m_creaturePool; }
     RONIN_INLINE void AssignCreaturePool(uint8 pool) { m_creaturePool = pool; }
-
-    RONIN_INLINE bool HasInrangeHostiles() { return !m_inRangeHostiles.empty(); }
-    RONIN_INLINE size_t GetInRangeHostileCount() { return m_inRangeHostiles.size(); }
-    RONIN_INLINE WorldObject::InRangeUnitSet::iterator GetInRangeHostileSetBegin() { return m_inRangeHostiles.begin(); }
-    RONIN_INLINE WorldObject::InRangeUnitSet::iterator GetInRangeHostileSetEnd() { return m_inRangeHostiles.end(); }
 
     void Respawn(bool addrespawnevent, bool free_guid);
 
@@ -514,8 +502,6 @@ public:
     /// Pet
     uint32 m_enslaveCount;
     uint32 m_enslaveSpell;
-
-    WorldObject::InRangeUnitSet m_inRangeHostiles;
 
     //CreatureScript *m_script;
 

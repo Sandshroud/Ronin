@@ -397,7 +397,7 @@ void MovementInterface::Update(uint32 msTime, uint32 uiDiff)
         m_pendingDataTimer -= uiDiff;
     else HandlePendingMoveData(false);
 
-    if(m_Unit->isCasting() && m_Unit->GetCurrentSpell()->GetSpellProto()->isSpellInterruptOnMovement())
+    if(m_Unit->isCasting() && m_Unit->GetSpellInterface()->GetCurrentSpellProto()->isSpellInterruptOnMovement())
         return;
 
     // If path update returns true, it means we have no current path
@@ -1276,7 +1276,8 @@ void MovementInterface::OnTaxiEnd()
 
 void MovementInterface::OnRelocate(LocationVector destination)
 {
-
+    m_isFalling = false;
+    m_fallPointZ = 0.f;
 }
 
 void MovementInterface::setRooted(bool root)

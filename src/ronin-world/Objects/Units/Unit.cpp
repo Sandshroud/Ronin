@@ -21,7 +21,7 @@
 
 #include "StdAfx.h"
 
-Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this), m_unitTeam(TEAM_NONE)
+Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_AuraInterface(this), m_movementInterface(this), m_spellInterface(this), m_unitTeam(TEAM_NONE)
 {
     SetTypeFlags(TYPEMASK_TYPE_UNIT);
     m_objType = TYPEID_UNIT;
@@ -37,7 +37,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
 
     m_state = 0;
     m_deathState = ALIVE;
-    m_currentSpell = NULL;
 
     m_silenced = 0;
     disarmed = false;
@@ -68,8 +67,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_attackUpdateTimer = 0;
     m_emoteState = 0;
     m_oldEmote = 0;
-
-    pLastSpell = 0;
 
     m_p_DelayTimer = 0;
 
@@ -113,9 +110,7 @@ void Unit::Destruct()
     if (IsInWorld())
         RemoveFromWorld();
 
-    if(m_currentSpell)
-        m_currentSpell->cancel();
-
+    m_spellInterface.Cleanup();
     m_DummyAuras.clear();
 
     Loki::AssocVector<uint32, onAuraRemove*>::iterator itr;
@@ -131,9 +126,13 @@ void Unit::Destruct()
 void Unit::Update(uint32 msTime, uint32 uiDiff)
 {
     WorldObject::Update(msTime, uiDiff);
+    // Update our delayed field values
     UpdateFieldValues();
 
-    _UpdateSpells( uiDiff );
+    // Update spell interface(delayed, casting, channel etc)
+    m_spellInterface.Update(msTime, uiDiff);
+
+    // Update aura triggers and modifiers
     m_AuraInterface.Update(uiDiff);
     if(isDead())
         return;
@@ -1445,11 +1444,6 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
     }
 }
 
-bool Unit::isCasting()
-{
-    return (m_currentSpell != NULL);
-}
-
 bool Unit::IsInInstance()
 {
     if(m_mapInstance && m_mapInstance->IsInstance())
@@ -2146,9 +2140,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     if(realdamage)
     {
         DealDamage(pVictim, realdamage, 0, targetEvent, 0);
-
-        if(pVictim->GetCurrentSpell())
-            pVictim->GetCurrentSpell()->AddTime(0);
+        pVictim->GetSpellInterface()->PushbackCast(0);
     }
     else
     {
@@ -2276,11 +2268,7 @@ void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
     if (!GetOnMeleeSpell() || attackType == OFFHAND)
         Strike( target, attackType, NULL, 0, false, false, true);
     else if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
-    {
-        SpellCastTargets targets(target->GetGUID());
-        if(Spell *spell = new Spell(this, spellInfo, GetOnMeleeSpellCN() ))
-            spell->prepare( &targets, true);
-    }
+        m_spellInterface.TriggerSpell(spellInfo, target, GetOnMeleeSpellCN());
     ClearNextMeleeSpell();
 }
 
@@ -2316,18 +2304,6 @@ void Unit::smsg_AttackStop(WoWGuid victimGuid)
     data << victimGuid.asPacked();
     data << uint32(0);
     SendMessageToSet(&data, IsPlayer());
-}
-
-void Unit::_UpdateSpells( uint32 time )
-{
-    if(m_currentSpell != NULL)
-        m_currentSpell->Update(time);
-}
-
-void Unit::CastSpell( Spell* pSpell )
-{
-    m_currentSpell = pSpell;
-    pLastSpell = pSpell->GetSpellProto();
 }
 
 int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effIndex, int32 base_dmg, bool healing)
@@ -2442,12 +2418,6 @@ float Unit::CalculateLevelPenalty(SpellEntry* sp)
     return float((100.0f - LvlPenalty) * LvlFactor / 100.0f);
 }
 
-void Unit::InterruptCurrentSpell()
-{
-    if(m_currentSpell)
-        m_currentSpell->cancel();
-}
-
 void Unit::DeMorph()
 {
     // hope it solves it :)
@@ -2497,20 +2467,6 @@ void Unit::SendChatMessage(uint8 type, uint32 lang, const char *msg)
     WorldPacket data;
     sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, name, msg, "", 0);
     SendMessageToSet(&data, true);
-}
-
-void Unit::OnRemoveInRangeObject(WorldObject* pObj)
-{
-    if(pObj->GetGUID() == m_attackTarget)
-        EventAttackStop();
-
-    if(pObj->IsUnit())
-    {
-        Unit* pUnit = castPtr<Unit>(pObj);
-        if(pObj->GetGUID() == GetUInt64Value(UNIT_FIELD_CHARM))
-            if(m_currentSpell) m_currentSpell->cancel();
-    }
-    WorldObject::OnRemoveInRangeObject(pObj);
 }
 
 //Events
@@ -2634,60 +2590,6 @@ void Unit::EventSummonPetExpire()
     }*/
 }
 
-void Unit::CastSpell(Unit* Target, SpellEntry* Sp, bool triggered, uint32 forcedCastTime)
-{
-    if( Sp == NULL )
-        return;
-
-    Spell* newSpell = new Spell(this, Sp);
-    SpellCastTargets targets(Target ? Target->GetGUID() : 0);
-    if(Target == NULL) newSpell->GenerateTargets(&targets);
-    newSpell->prepare(&targets, triggered);
-}
-
-void Unit::CastSpell(Unit* Target, uint32 SpellID, bool triggered, uint32 forcedCastTime)
-{
-    SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
-    if(ent == 0)
-        return;
-
-    CastSpell(Target, ent, triggered, forcedCastTime);
-}
-
-void Unit::CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered, uint32 forcedCastTime)
-{
-    if( Sp == NULL )
-        return;
-
-    SpellCastTargets targets(targetGuid);
-    if(Spell* newSpell = new Spell(this, Sp))
-        newSpell->prepare(&targets, triggered);
-}
-
-void Unit::CastSpell(uint64 targetGuid, uint32 SpellID, bool triggered, uint32 forcedCastTime)
-{
-    SpellEntry * ent = dbcSpell.LookupEntry(SpellID);
-    if(ent == 0)
-        return;
-
-    CastSpell(targetGuid, ent, triggered, forcedCastTime);
-}
-
-uint8 Unit::CastSpellAoF(float x,float y,float z,SpellEntry* Sp, bool triggered, uint32 forcedCastTime)
-{
-    if(Sp && (!(IsStunned() || IsPacified() || !isAlive() || m_silenced)))
-    {
-        if(Spell* newSpell = new Spell(this, Sp))
-        {
-            SpellCastTargets targets;
-            targets.m_dest.ChangeCoords(x, y, z);
-            targets.m_targetMask = TARGET_FLAG_DEST_LOCATION;
-            return newSpell->prepare(&targets, triggered);
-        }
-    }
-    return SPELL_FAILED_ERROR;
-}
-
 void Unit::PlaySpellVisual(uint64 target, uint32 spellVisual)
 {
     WorldPacket data(SMSG_PLAY_SPELL_VISUAL, 12);
@@ -2743,19 +2645,6 @@ void Unit::RemoveFromWorld()
 {
     SummonExpireAll(false);
 
-    for(WorldObject::InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
-    {
-        if(Player *plr = GetInRangeObject<Player>(*itr))
-        {
-            if(plr->GetSelection() == GetGUID())
-            {
-                plr->smsg_AttackStop(this);
-                plr->SetSelection(0);
-                plr->SetUInt64Value(UNIT_FIELD_TARGET, 0);
-            }
-        }
-    }
-
     // Trigger our movement interface's removal signal
     m_movementInterface.OnRemoveFromWorld();
 
@@ -2764,11 +2653,7 @@ void Unit::RemoveFromWorld()
     m_AuraInterface.RemoveAllAurasWithSpEffect(SPELL_EFFECT_APPLY_AREA_AURA_FRIEND);
     m_AuraInterface.RemoveAllAurasWithSpEffect(SPELL_EFFECT_APPLY_AREA_AURA_ENEMY);
 
-    if(m_currentSpell != NULL)
-    {
-        m_currentSpell->cancel();
-        m_currentSpell = NULL;
-    }
+    m_spellInterface.OnRemoveFromWorld();
 
     WorldObject::RemoveFromWorld();
 }
@@ -2795,79 +2680,7 @@ bool Unit::IsDazed()
 
 void Unit::UpdateVisibility()
 {
-    uint32 count;
-    ByteBuffer buffer(2500);
-    bool can_see, is_visible;
-    WorldObject::InRangeObjSet::iterator itr, it3;
-    if( GetTypeId() == TYPEID_PLAYER )
-    {
-        Player *plr = castPtr<Player>(this), *pl = NULL;
-        for( WorldObject::InRangeHashMap::iterator itr = m_inRangeObjects.begin(); itr != m_inRangeObjects.end(); ++itr)
-        {
-            if(WorldObject *pObj = itr->second)
-            {
-                can_see = plr->CanSee(pObj), is_visible = plr->GetVisibility(pObj, &it3);
-                if(can_see && !is_visible)
-                {
-                    plr->AddVisibleObject(pObj);
-                    if(count = pObj->BuildCreateUpdateBlockForPlayer( &buffer, plr ))
-                    {
-                        plr->PushUpdateBlock(m_mapId, &buffer, count);
-                        buffer.clear();
-                    }
-                }
-                else if(!can_see && is_visible)
-                {
-                    pObj->DestroyForPlayer(plr);
-                    plr->RemoveVisibleObject(it3);
-                }
 
-                if( pObj->IsPlayer() )
-                {
-                    pl = castPtr<Player>( pObj );
-                    can_see = pl->CanSee( plr ), is_visible = pl->GetVisibility( plr, &it3 );
-                    if( can_see && !is_visible )
-                    {
-                        pl->AddVisibleObject(plr);
-                        if(count = plr->BuildCreateUpdateBlockForPlayer( &buffer, pl ))
-                        {
-                            pl->PushUpdateBlock(m_mapId, &buffer, count);
-                            buffer.clear();
-                        }
-                    }
-                    else if(!can_see && is_visible)
-                    {
-                        plr->DestroyForPlayer(pl);
-                        pl->RemoveVisibleObject(it3);
-                    }
-                }
-            }
-        }
-    }
-    else            // For units we can save a lot of work
-    {
-        for(WorldObject::InRangeArray::iterator it2 = GetInRangeUnitSetBegin(); it2 != GetInRangeUnitSetEnd(); it2++)
-        {
-            if(Player *plr = GetInRangeObject<Player>(*it2))
-            {
-                can_see = plr->CanSee(this), is_visible = plr->GetVisibility(this, &itr);
-                if(!can_see && is_visible)
-                {
-                    DestroyForPlayer(plr);
-                    plr->RemoveVisibleObject(itr);
-                }
-                else if(can_see && !is_visible)
-                {
-                    plr->AddVisibleObject(this);
-                    if(count = BuildCreateUpdateBlockForPlayer(&buffer, plr))
-                    {
-                        plr->PushUpdateBlock(m_mapId, &buffer, count);
-                        buffer.clear();
-                    }
-                }
-            }
-        }
-    }
 }
 
 void Unit::InitVehicleKit(uint32 vehicleKitId)
@@ -2974,13 +2787,6 @@ int32 Unit::CalculateRangedAttackPower()
     if(totalap >= 0)
         return float2int32(totalap);
     return 0;
-}
-
-void Unit::EventCastSpell(Unit* Target, SpellEntry * Sp)
-{
-    SpellCastTargets targets(Target->GetGUID());
-    if(Spell* pSpell = new Spell(this, Sp))
-        pSpell->prepare(&targets, true);
 }
 
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
@@ -3167,14 +2973,6 @@ void Unit::SetInCombat(Unit *unit, uint32 timerOverride)
     unit->SetInCombat(NULL, timerOverride);
 }
 
-void Unit::EventCancelSpell(Spell* ptr)
-{
-    if(ptr != NULL)
-        ptr->cancel();
-    if(ptr == m_currentSpell)
-        m_currentSpell = NULL;
-}
-
 void Unit::EventModelChange()
 {
     //TODO: if has mount, grab mount model and add the z value of attachment 0
@@ -3264,18 +3062,19 @@ void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
     if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
     {
         bool apply = true;
-        if (itr->second->deleted == true)
+        SpellEntry *sp = dbcSpell.LookupEntry(itr->second->spell);
+        if (itr->second->deleted == true || sp == NULL || itr->second->spell == NULL)
+            return;
+        if(itr->second->self == false && m_target == NULL)
             return;
 
         if (itr->second->chance != 100)
             apply = RandomUInt(100) < itr->second->chance;
-        if (apply)
-        {
-            if (itr->second->self)
-                CastSpell(castPtr<Unit>(this), itr->second->spell, true);
-            else if (m_target)
-                m_target->CastSpell(m_target, itr->second->spell, true);
-        }
+        if (apply == false)
+            return;
+
+        // Trigger the aura spell
+        GetSpellInterface()->TriggerSpell(sp, itr->second->self ? this : m_target);
     }
 }
 

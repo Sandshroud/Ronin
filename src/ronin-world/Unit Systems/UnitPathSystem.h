@@ -67,14 +67,17 @@ private:
     void _CleanupPath();
 
 public:
+    void SetFollowTarget(Unit *target, float distance);
     void MoveToPoint(float x, float y, float z, float o = fInfinite);
+    void UpdateOrientation(Unit *unitTarget);
+    void SetOrientation(float orientation);
     void StopMoving();
 
     void BroadcastMovementPacket();
     void SendMovementPacket(Player *plr);
 
 private:
-    Unit *m_Unit;
+    Unit *m_Unit, *m_followTarget;
     bool m_autoPath;
 
     WaypointStorage *_waypointPath;

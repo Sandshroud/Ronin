@@ -364,9 +364,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                 {
                     Player *target = NULL;
                     SendChatPacket(&broadcast, 1, pos, lang, this);
-                    for(WorldObject::InRangeArray::iterator itr = _player->GetInRangeUnitSetBegin(); itr != _player->GetInRangeUnitSetEnd(); itr++)
-                        if((target = _player->GetInRangeObject<Player>(*itr)) && target->GetDistanceSq(_player) < 1600)
-                            target->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                    _player->GetMapInstance()->SendChatMessageToCellPlayers(_player, &broadcast, 1, 1, pos, lang, this);
                     if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[say] %s: %s", _player->GetName(), message.c_str());
                 } break;
             case CHAT_MSG_PARTY:

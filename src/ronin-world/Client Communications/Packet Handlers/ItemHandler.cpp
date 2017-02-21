@@ -710,7 +710,7 @@ void WorldSession::HandleSellItemOpcode( WorldPacket & recv_data )
     recv_data >> amount;
 
     if(_player->isCasting())
-        _player->InterruptCurrentSpell();
+        _player->GetSpellInterface()->CleanupCurrentSpell();
 
     // Check if item exists
     if(!itemguid)

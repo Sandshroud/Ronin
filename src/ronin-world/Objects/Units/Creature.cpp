@@ -220,81 +220,6 @@ float Creature::GetAggroRange()
     return baseAggro;
 }
 
-void Creature::OnAddInRangeObject(WorldObject *pObj)
-{
-    bool hostile = false;
-    if(pObj->IsUnit() && (hostile = sFactionSystem.isHostile(this, pObj)))
-    {
-        m_inRangeHostiles.insert(castPtr<Unit>(pObj));
-        m_aiInterface.OnAddInRangeObject(pObj, hostile);
-    }
-    Unit::OnAddInRangeObject(pObj);
-}
-
-void Creature::OnRemoveInRangeObject(WorldObject *pObj)
-{
-    m_aiInterface.OnRemoveInRangeObject(pObj);
-    if(pObj->GetGUID() == m_attackTarget)
-        m_aiInterface.OnAttackStop();
-
-    Unit::OnRemoveInRangeObject(pObj);
-    if(pObj->IsUnit())
-    {
-        WorldObject::InRangeArray::iterator itr;
-        m_inRangeHostiles.erase(castPtr<Unit>(pObj));
-    }
-}
-
-void Creature::UpdateInRangeObject(WorldObject *pObj, float distSq)
-{
-    if(!pObj->IsUnit())
-        return;
-
-    Unit *uObj = castPtr<Unit>(pObj);
-    bool isHostile = sFactionSystem.isHostile(this, pObj);
-    if(isHostile == false)
-        m_inRangeHostiles.erase(uObj);
-    else if(m_inRangeHostiles.find(uObj) == m_inRangeHostiles.end())
-        m_inRangeHostiles.insert(uObj);
-
-    m_aiInterface.UpdateInRangeObject(uObj, isHostile);
-}
-
-void Creature::ClearInRangeObjects()
-{
-    m_inRangeHostiles.clear();
-    Unit::ClearInRangeObjects();
-}
-
-bool Creature::ShouldProcessObject(WorldObject *pObj)
-{
-    if(isCritter() || isTrainingDummy())
-        return false;
-    if(pObj->IsCreature())
-    {
-        Creature *cObj = castPtr<Creature>(pObj);
-        if(cObj->isTrainingDummy())
-            return false;
-        if(isFodderSpawn() || cObj->isFodderSpawn())
-            return false;
-        if(cObj->isCritter() && GetCreatureType() == UT_BEAST)
-            return true;
-
-        return true;
-        // Don't worry about processing inrange factions
-        if(pObj->GetFactionID() == GetFactionID())
-            return false;
-        // Guards process inrange objects
-        if(m_isGuard || cObj->m_isGuard)
-            return true;
-        /*if(m_script && m_script->CanProcessCreatures())
-            return true;*/
-        // Creatures stop here
-        return false;
-    }
-    return true;
-}
-
 void Creature::UpdateLootAnimation(Player* Looter)
 {
 
@@ -334,7 +259,7 @@ void Creature::Tag(Player* plr)
 
 void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
 {
-    if(!hasStateFlag(UF_ATTACKING) || (isCasting() && GetCurrentSpell()->GetSpellProto()->isSpellAttackInterrupting()))
+    if(!hasStateFlag(UF_ATTACKING) || (isCasting() && m_spellInterface.GetCurrentSpellProto()->isSpellAttackInterrupting()))
         return;
 
     // Handle our creature spell casting
@@ -594,9 +519,8 @@ void Creature::SetDeathState(DeathState s)
         if(m_enslaveSpell)
             RemoveEnslave();
 
-        if(Spell *currentSpell = m_currentSpell)
-            currentSpell->cancel();
-        m_currentSpell = NULL;
+        if(isCasting())
+            GetSpellInterface()->CleanupCurrentSpell();
 
         if (_creatureData->rank == ELITE_WORLDBOSS || _creatureData->flags & CREATURE_FLAGS1_BOSS)
             m_despawnTimer = TIME_CREATURE_REMOVE_BOSSCORPSE;
@@ -626,7 +550,7 @@ void Creature::OnPushToWorld()
     Unit::OnPushToWorld();
     for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
         if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
-            CastSpell(this, sp, true);
+            m_spellInterface.TriggerSpell(sp, this);
 }
 
 void Creature::BuildTrainerData(WorldPacket *data, Player *plr)

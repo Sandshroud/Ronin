@@ -114,7 +114,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
         {
             if(CellSpawns *c = unitInstance->GetBaseMap()->GetSpawnsList(cellx, celly))
             {
-                for(CreatureSpawnList::iterator itr = c->CreatureSpawns.begin(); itr != c->CreatureSpawns.end();)
+                for(CreatureSpawnArray::iterator itr = c->CreatureSpawns.begin(); itr != c->CreatureSpawns.end();)
                 {
                     if(*itr == unit->GetSpawn())
                     {
@@ -346,24 +346,7 @@ bool ChatHandler::HandleCastSpellCommand(const char* args, WorldSession *m_sessi
 
 bool ChatHandler::HandleMonsterCastCommand(const char * args, WorldSession * m_session)
 {
-    Unit* crt = getSelectedCreature(m_session, false);
-    if(crt == NULL)
-    {
-        RedSystemMessage(m_session, "Please select a creature before using this command.");
-        return true;
-    }
-
-    uint32 spellId = (uint32)atoi(args);
-    if(spellId == 0)
-        spellId = GetSpellIDFromLink( args );
-
-    SpellEntry * tmpsp = dbcSpell.LookupEntry(spellId);
-    if(tmpsp == NULL)
-        return false;
-
-    crt->CastSpell(reinterpret_cast<Unit*>(NULL), tmpsp, false);
-    sWorld.LogGM(m_session, "Used npc cast command on %s", crt->GetName());
-    return true;
+    return false;
 }
 
 bool ChatHandler::HandleNPCEquipCommand(const char * args, WorldSession * m_session)
@@ -588,7 +571,7 @@ bool ChatHandler::HandleGODelete(const char *args, WorldSession *m_session)
         if(cellx < _sizeX && celly < _sizeY)
         {
             foundonmap = false;
-            GameObjectSpawnList::iterator itr;
+            GameObjectSpawnArray::iterator itr;
             ASSERT(GObj->GetMapInstance()->GetBaseMap() != NULL)
             CellSpawns *c = GObj->GetMapInstance()->GetBaseMap()->GetSpawnsList(cellx, celly);
             if(c != NULL)

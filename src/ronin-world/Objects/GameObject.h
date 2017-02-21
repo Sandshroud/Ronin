@@ -556,8 +556,6 @@ public:
 
     virtual void OnPrePushToWorld();
     virtual void RemoveFromWorld();
-    virtual void OnRemoveInRangeObject(WorldObject* pObj);
-    virtual void CheckTriggerRange(Unit *uObj, float distSq);
 
     virtual void Reactivate();
 

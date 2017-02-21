@@ -6,12 +6,16 @@
 
 bool DeathKnightDeathCoilTrigger(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
 {
+    static SpellEntry *attackSpell = dbcSpell.LookupEntry(47632), *healSpell = dbcSpell.LookupEntry(47633);
+    if(attackSpell == NULL || healSpell == NULL)
+        return false;
+
     Unit *unitTarget, *unitCaster;
     if((unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL) && (unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL))
     {
         if(sFactionSystem.CanEitherUnitAttack(unitTarget, unitCaster))
-            unitCaster->CastSpell(unitTarget, 47632, true);
-        else unitCaster->CastSpell(unitTarget, 47633, true);
+            unitCaster->GetSpellInterface()->TriggerSpell(attackSpell, unitTarget);
+        else unitCaster->GetSpellInterface()->TriggerSpell(healSpell, unitTarget);
     }
 
     return true;

@@ -82,13 +82,13 @@ void Map::LoadSpawns(CellSpawns *mapSpawns)
     if(mapSpawns == NULL)
         return;
 
-    for(CreatureSpawnList::iterator i = mapSpawns->CreatureSpawns.begin(); i != mapSpawns->CreatureSpawns.end(); i++)
+    for(CreatureSpawnArray::iterator i = mapSpawns->CreatureSpawns.begin(); i != mapSpawns->CreatureSpawns.end(); i++)
     {
         uint32 cellx = CellHandler<MapInstance>::GetPosX((*i)->x), celly = CellHandler<MapInstance>::GetPosY((*i)->y);
         GetSpawnsListAndCreate(cellx, celly)->CreatureSpawns.push_back((*i));
     }
 
-    for(GameObjectSpawnList::iterator i = mapSpawns->GameObjectSpawns.begin(); i != mapSpawns->GameObjectSpawns.end(); i++)
+    for(GameObjectSpawnArray::iterator i = mapSpawns->GameObjectSpawns.begin(); i != mapSpawns->GameObjectSpawns.end(); i++)
     {
         uint32 cellx = CellHandler<MapInstance>::GetPosX((*i)->x), celly = CellHandler<MapInstance>::GetPosY((*i)->y);
         GetSpawnsListAndCreate(cellx, celly)->GameObjectSpawns.push_back((*i));

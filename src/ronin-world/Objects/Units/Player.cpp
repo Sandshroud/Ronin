@@ -23,6 +23,144 @@
 
 static const uint32 DKNodesMask[12] = {0xFFFFFFFF,0xF3FFFFFF,0x317EFFFF,0,0x2004000,0x1400E0,0xC1C02014,0x12018,0x380,0x4000C10,0,0};//all old continents are available to DK's by default.
 
+#define MAX_CELL_UPDATES 4
+
+void PlayerCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
+{
+    // Process calldown
+    ObjectCellManager::Update(instance, msTime, uiDiff);
+
+    // Handle any delayed cell updates
+    uint32 count = 0;
+    while(!_delayedCells[0].empty())
+    {
+        std::pair<uint16, uint16> pair = unPack(*_delayedCells[0].begin());
+        _delayedCells[0].erase(_delayedCells[0].begin());
+
+        _processedCells.insert(_makeCell(pair.first, pair.second));
+        instance->UpdateCellData(_object, pair.first, pair.second, _object->IsPlayer(), true);
+        if(++count >= MAX_CELL_UPDATES)
+            return;
+    }
+
+    while(!_delayedCells[1].empty())
+    {
+        std::pair<uint16, uint16> pair = unPack(*_delayedCells[1].begin());
+        _delayedCells[1].erase(_delayedCells[1].begin());
+
+        _processedCells.insert(_makeCell(pair.first, pair.second));
+        instance->UpdateCellData(_object, pair.first, pair.second, _object->IsPlayer(), false);
+        if(++count >= MAX_CELL_UPDATES)
+            return;
+    }
+}
+
+void PlayerCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
+{
+    // Current cell set
+    _currX = newX;
+    _currY = newY;
+
+    // Remove any pending cell handling
+    _delayedCells[0].clear();
+    _delayedCells[1].clear();
+
+    std::set<uint32> preProcessed;
+    // Push old processed data to preProcessed group
+    if(_lowX != _highX && _lowY != _highY)
+    {
+        for(uint16 x = _lowX; x <= _highX; x++)
+            for(uint16 y = _lowY; y <= _highY; y++)
+                preProcessed.insert(_makeCell(x, y));
+    }
+    // Clear old processed cells
+    _processedCells.clear();
+    // Push current cell to proccessed, we'll handle it in this function
+    _processedCells.insert(_makeCell(_currX, _currY));
+
+    if(cellRange)
+    {   // Fill priority cells from a range of 1
+        _lowX = _currX >= 1 ? _currX-1 : 0;
+        _lowY = _currY >= 1 ? _currY-1 : 0;
+        _highX = std::min<uint16>(_currX+1, _sizeX-1);
+        _highY = std::min<uint16>(_currY+1, _sizeY-1);
+        for(uint16 x = _lowX; x <= _highX; x++)
+        {
+            for(uint16 y = _lowY; y <= _highY; y++)
+            {
+                uint32 cellId = _makeCell(x, y);
+
+                // Check to see if we're a preprocessed cell
+                if(preProcessed.find(cellId) != preProcessed.end())
+                {
+                    _processedCells.insert(cellId);
+                    preProcessed.erase(cellId);
+                    continue;
+                }
+
+                // Skip processed cells(current usually)
+                if(_processedCells.find(cellId) != _processedCells.end())
+                    continue;
+
+                // Add as a priority delayed cell
+                _delayedCells[0].insert(cellId);
+            }
+        }
+
+        // Process non priority cell bounding
+        if(cellRange > 1)
+        {   // Calculate our new bounds based on range
+            _lowX = _currX >= cellRange ? _currX-cellRange : 0;
+            _lowY = _currY >= cellRange ? _currY-cellRange : 0;
+            _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
+            _highY = std::min<uint16>(_currY+cellRange, _sizeY-1);
+
+            // Only add extra cells if we're a player
+            if(_object->IsPlayer())
+            {
+                for(uint16 x = _lowX; x <= _highX; x++)
+                {
+                    for(uint16 y = _lowY; y <= _highY; y++)
+                    {
+                        uint32 cellId = _makeCell(x, y);
+
+                        // Check to see if we're a preprocessed cell
+                        if(preProcessed.find(cellId) != preProcessed.end())
+                        {
+                            _processedCells.insert(cellId);
+                            preProcessed.erase(cellId);
+                            continue;
+                        }
+
+                        // Skip processed cells(current usually)
+                        if(_processedCells.find(cellId) != _processedCells.end())
+                            continue;
+
+                        // Add as a low priority delayed cell
+                        _delayedCells[1].insert(cellId);
+                    }
+                }
+            }
+        }
+    }
+
+    // If our instance is null, then it's part of preloading
+    if(instance == NULL)
+    {   // Set the data as processed
+        _processedCells.insert(_delayedCells[0].begin(), _delayedCells[0].end());
+        _processedCells.insert(_delayedCells[1].begin(), _delayedCells[1].end());
+        // empty the tables
+        _delayedCells[0].clear();
+        _delayedCells[1].clear();
+        return;
+    }
+
+    // Update for our current cell here, other cell updates will occur in WorldObject::Update
+    instance->UpdateCellData(_object, _currX, _currY, _object->IsPlayer(), true);
+    // Push calls to remove cell data
+    instance->RemoveCellData(_object, preProcessed, false);
+}
+
 Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Unit(pInfo->charGuid, fieldCount), m_session(session), m_playerInfo(pInfo), m_factionInterface(this), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(pInfo->charGuid))
 {
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
@@ -77,7 +215,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_ShapeShifted                  = 0;
     m_curSelection                  = 0;
     m_lootGuid                      = 0;
-    m_currentSpell                  = NULL;
     m_resurrectHealth               = 0;
     m_resurrectMana                 = 0;
     m_GroupInviter                  = 0;
@@ -2305,7 +2442,7 @@ void Player::addSpell(uint32 spell_id, uint32 forget)
     }
 
     if(spell->isPassiveSpell() || spell->HasEffect(47))
-        CastSpell(this, spell, true);
+        GetSpellInterface()->TriggerSpell(spell, this);
 }
 
 void Player::DestroyForPlayer( Player* target, bool anim )
@@ -2584,7 +2721,8 @@ void Player::OnPushToWorld()
         CompleteLoading();
 
     // Cast our login effect spell
-    CastSpell(this, 836, true);
+    static SpellEntry *loginEffect = dbcSpell.LookupEntry(836);
+    if(loginEffect != NULL) GetSpellInterface()->TriggerSpell(loginEffect, this);
 
     m_beingPushed = false;
     sWorld.mInWorldPlayerCount++;
@@ -3554,63 +3692,9 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
     }
 }
 
-void Player::OnAddInRangeObject(WorldObject* pObj)
-{
-    //Send taxi move if we're on a taxi
-    if (GetTaxiState() && pObj->IsPlayer())
-        m_taxiData->CurrentPath->SendMoveForTime(this, castPtr<Player>( pObj ), m_taxiData->TravelTime, m_taxiData->MoveTime);
-
-    Unit::OnAddInRangeObject(pObj);
-
-    //unit based objects, send aura data
-    if (pObj->IsUnit())
-    {
-        Unit *uObj = castPtr<Unit>(pObj);
-        WorldPacket data(SMSG_AURA_UPDATE_ALL, 28 * TOTAL_AURAS);
-        data << uObj->GetGUID().asPacked();
-        if(uObj->m_AuraInterface.BuildAuraUpdateAllPacket(&data))
-            PushPacket(&data);
-
-        UnitPathSystem *path;
-        if((path = uObj->GetMovementInterface()->GetPath()) && path->hasDestination())
-            path->SendMovementPacket(this);
-    }
-}
-
-void Player::OnRemoveInRangeObject(WorldObject* pObj)
-{
-    if(m_tempSummon == pObj)
-    {
-        m_tempSummon->RemoveFromWorld();
-        if(m_tempSummon)
-            m_tempSummon->SafeDelete();
-
-        m_tempSummon = NULL;
-        SetUInt64Value(UNIT_FIELD_SUMMON, 0);
-    }
-
-    if(m_curSelection == pObj->GetGUID())
-        m_curSelection.Clean();
-
-    pObj->DestroyForPlayer(this);
-    m_visibleObjects.erase(pObj);
-    Unit::OnRemoveInRangeObject(pObj);
-
-    if( pObj == m_CurrentCharm)
-    {
-        Unit* p = m_CurrentCharm;
-        UnPossess();
-
-        if(m_currentSpell)
-            m_currentSpell->cancel();      // cancel the spell
-        m_CurrentCharm=NULL;
-    }
-}
-
 void Player::ClearInRangeObjects()
 {
     m_visibleObjects.clear();
-    WorldObject::ClearInRangeObjects();
 }
 
 void Player::SetDrunk(uint16 value, uint32 itemId)
@@ -3847,7 +3931,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                             plr = (*itr)->m_loggedInPlayer;
                             //if(plr && plr->GetInventory()->CanReceiveItem(itemProto, iter->StackSize, NULL) == 0)
                             {   // If we have pass on, or if we're not in range, we have to pass.
-                                if( plr->m_passOnLoot || ( !lootObj->IsInRangeSet(plr) ) )
+                                if( plr->m_passOnLoot || false)//( !lootObj->IsInRangeSet(plr) ) )
                                     iter->roll->PlayerRolled( (*itr), PASS );       // passed
                                 else
                                 {
@@ -4191,54 +4275,11 @@ void Player::Reset_ToLevel1()
 void Player::UpdateNearbyGameObjects()
 {
     ByteBuffer buff(500);
-    /*for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
-    {
-        if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
-        {
-            Gobj->SetUpdateField(OBJECT_FIELD_GUID);
-            Gobj->SetUpdateField(OBJECT_FIELD_GUID+1);
-            if(int count = Gobj->BuildValuesUpdateBlockForPlayer(&buff, UF_FLAGMASK_PUBLIC))
-                PushUpdateBlock(m_mapId, &buff, count);
-            buff.clear();
-        }
-    }*/
 }
 
 void Player::UpdateNearbyQuestGivers()
 {
-    /*for(WorldObject::InRangeArray::iterator itr = GetInRangeGameObjectSetBegin(); itr != GetInRangeGameObjectSetEnd(); ++itr )
-    {
-        if(GameObject *Gobj = GetInRangeObject<GameObject>(*itr))
-        {
-            if(Gobj->isQuestGiver())
-            {
-                uint32 status = sQuestMgr.CalcStatus(Gobj, this);
-                if(status != QMGR_QUEST_NOT_AVAILABLE)
-                {
-                    WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-                    data << Gobj->GetGUID() << status;
-                    PushPacket( &data );
-                }
-            }
-        }
-    }*/
 
-    for(WorldObject::InRangeArray::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr )
-    {
-        if(Creature *cObj = GetInRangeObject<Creature>(*itr))
-        {
-            if(cObj->isQuestGiver())
-            {
-                uint32 status = sQuestMgr.CalcStatus(cObj, this);
-                if(status != QMGR_QUEST_NOT_AVAILABLE)
-                {
-                    WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-                    data << cObj->GetGUID() << status;
-                    PushPacket( &data );
-                }
-            }
-        }
-    }
 }
 
 void Player::InitTaxiNodes()
@@ -5642,6 +5683,7 @@ void Player::SoftLoadPlayer()
     // Initialize our talent info
     m_talentInterface.InitActiveSpec();
 
+    static SpellEntry *shapeShift = dbcSpell.LookupEntry(2457), *honorless = dbcSpell.LookupEntry(PLAYER_HONORLESS_TARGET_SPELL);
     if(isDead()) // only add aura's to the living (death aura set elsewhere)
     {
         while(!m_loadAuras.empty())
@@ -5651,7 +5693,9 @@ void Player::SoftLoadPlayer()
             delete aur;
         }
 
-        CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
+        // We have no shapeshift aura, set our shapeshift.
+        if(getClass() == WARRIOR && shapeShift)
+            GetSpellInterface()->TriggerSpell(shapeShift, this);
     }
     else
     {
@@ -5662,11 +5706,12 @@ void Player::SoftLoadPlayer()
             m_loadAuras.pop_front();
         }
 
-        if(getClass() == WARRIOR && !HasAura(21156) && !HasAura(7376) && !HasAura(7381))
-            CastSpell(this, 2457, true); // We have no shapeshift aura, set our shapeshift.
+        // We have no shapeshift aura, set our shapeshift.
+        if(getClass() == WARRIOR && shapeShift && !(HasAura(21156) || HasAura(7376) || HasAura(7381)))
+            GetSpellInterface()->TriggerSpell(shapeShift, this);
 
         // Honorless target at 1st entering world.
-        CastSpell(this, PLAYER_HONORLESS_TARGET_SPELL, true);
+        if(honorless) GetSpellInterface()->TriggerSpell(honorless, this);
     }
 }
 
@@ -7342,6 +7387,7 @@ DrunkenState Player::GetDrunkenstateByValue(uint16 value)
 
 void Player::EventDrunkenVomit()
 {
-    CastSpell(this, 67468, false);
+    static SpellEntry *vomitEffect = dbcSpell.LookupEntry(67468);
+    if(vomitEffect) GetSpellInterface()->TriggerSpell(vomitEffect, this);
     m_drunk -= 2560;
 }

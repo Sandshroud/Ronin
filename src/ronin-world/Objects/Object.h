@@ -312,21 +312,23 @@ public:
     ObjectCellManager(WorldObject *obj) : _object(obj), _currX(0xFFFF), _currY(0xFFFF), _lowX(0xFFFF), _lowY(0xFFFF), _highX(0xFFFF), _highY(0xFFFF) {}
     ~ObjectCellManager() {}
 
-    void ClearInRangeObjects(MapInstance *instance);
-    void PostRemoveFromWorld();
+    virtual void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
+    virtual void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
 
-    void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
-    void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
-    void AddProcessedCell(uint16 cellX, uint16 cellY) { _processedCells.insert(_makeCell(cellX, cellY)); }
+    virtual void ClearInRangeObjects(MapInstance *instance);
+    virtual void PostRemoveFromWorld();
 
-private:
+    bool hasCell(uint32 cellId);
+    void FillCellRange(std::vector<uint32> *fillVector);
+    void CreateCellRange(std::vector<uint32> *fillVector, float range);
+
+protected:
     friend class MapInstance;
     static uint32 _makeCell(uint16 x, uint16 y) { return (((uint32)x)<<16) | ((uint32)y); }
     static std::pair<uint16, uint16> unPack(uint32 cellId) { return std::make_pair(((uint16)(cellId>>16)), ((uint16)(cellId & 0x0000FFFF))); }
+    uint32 _getCellId(float pos);
 
     uint16 _currX, _currY, _lowX, _lowY, _highX, _highY;
-    // Stack 0 is higher priority, stack 1 is lower priority
-    std::unordered_set<uint32> _delayedCells[2], _processedCells;
 
     WorldObject *_object;
 };
@@ -336,18 +338,6 @@ private:
 //===============================================
 class SERVER_DECL WorldObject : public Object
 {
-public:
-    // Storage indicators, be very specific when defining the typename
-    typedef std::unordered_set<WoWGuid> InRangeSet;
-
-    typedef std::unordered_set<WorldObject*> InRangeObjSet;
-    typedef std::unordered_set<Unit*> InRangeUnitSet;
-
-    // These two change definition based on performance desired, keep names as vague as possible
-    typedef std::vector<WoWGuid> InRangeArray;
-    // These two change definition based on performance desired, keep names as vague as possible
-    typedef Loki::AssocVector<WoWGuid, WorldObject*> InRangeHashMap;
-
 public:
     WorldObject(WoWGuid guid, uint32 fieldCount = OBJECT_END);
     virtual ~WorldObject( );
@@ -468,11 +458,6 @@ public:
         return m_position.DistanceSq(obj->GetPosition());
     }
 
-    RONIN_INLINE const float GetDistanceSq(float x, float y, float z)
-    {
-        return m_position.DistanceSq(x, y, z);
-    }
-
     RONIN_INLINE const float GetDistance2dSq( WorldObject* obj )
     {
         if( obj->GetMapId() != m_mapId )
@@ -480,115 +465,22 @@ public:
         return m_position.Distance2DSq( obj->m_position );
     }
 
-    RONIN_INLINE float GetDistance2dSq(float x, float y)
-    {
-        return m_position.Distance2DSq( x, y );
-    }
+    RONIN_INLINE const float GetDistanceSq(float x, float y, float z) { return m_position.DistanceSq(x, y, z); }
+    RONIN_INLINE float GetDistance2dSq(float x, float y) { return m_position.Distance2DSq( x, y ); }
 
-    // In-range object management
-    RONIN_INLINE bool IsInRangeSet( WorldObject* pObj ) { return m_inRangeSet.find(pObj->GetGUID()) != m_inRangeSet.end(); }
-
-    void AddInRangeObject(WorldObject* obj)
-    {
-        if( obj == NULL || m_inRangeSet.find(obj->GetGUID()) != m_inRangeSet.end())
-            return;
-
-        m_inRangeObjects.insert(std::make_pair(obj->GetGUID(), obj));
-        m_inRangeSet.insert(obj->GetGUID());
-        OnAddInRangeObject(obj);
-    }
-
-    void RemoveInRangeObject( WorldObject* obj )
-    {
-        if( obj == NULL || m_inRangeSet.find(obj->GetGUID()) == m_inRangeSet.end())
-            return;
-
-        OnRemoveInRangeObject(obj);
-        m_inRangeSet.erase(obj->GetGUID());
-        m_inRangeObjects.erase(obj->GetGUID());
-    }
-
-    WorldObject *GetInRangeObject(WoWGuid guid)
-    {
-        if(m_objGuid == guid)
-            return this;
-        InRangeHashMap::iterator itr;
-        if((itr = m_inRangeObjects.find(guid)) != m_inRangeObjects.end())
-            return itr->second;
-        return NULL;
-    }
-
+    WorldObject *GetInRangeObject(WoWGuid guid);
     template<typename T> T *GetInRangeObject(WoWGuid guid)
     {
-        WorldObject *obj = NULL;
-        if((obj = GetInRangeObject(guid)) && obj->IsType<T>())
-            return castPtr<T>(obj);
-        return NULL;
+        WorldObject *obj = GetInRangeObject(guid);
+        if(obj == NULL || !obj->IsType<T>())
+            return NULL;
+        return castPtr<T>(obj);
     }
 
-    virtual void OnAddInRangeObject( WorldObject* pObj )
-    {
-        WoWGuid guid = pObj->GetGUID();
-        if(pObj->IsUnit())
-        {
-            m_inRangeUnits.push_back(guid);
-            if(pObj->IsPlayer())
-                m_inRangePlayers.push_back(guid);
-        }
-    }
+    ObjectCellManager *GetCellManager() { return m_cellManager; }
 
-    virtual void OnRemoveInRangeObject( WorldObject* pObj )
-    {
-        InRangeArray::iterator itr;
-        WoWGuid guid = pObj->GetGUID();
-        if(pObj->IsUnit())
-        {
-            if((itr = std::find(m_inRangeUnits.begin(), m_inRangeUnits.end(), guid)) != m_inRangeUnits.end())
-                m_inRangeUnits.erase(itr);
-            if(pObj->IsPlayer() && ((itr = std::find(m_inRangePlayers.begin(), m_inRangePlayers.end(), guid)) != m_inRangePlayers.end()))
-                m_inRangePlayers.erase(itr);
-        }
-    }
-
-    // For when we're remapping an object that's already in our set
-    RONIN_INLINE virtual void UpdateInRangeObject(WorldObject *obj, float distSq) { }
-
-    // Stress function, use as last resort
-    void RemoveFromInRangeObjects(uint16 mapId);
-
-    RONIN_INLINE virtual void ClearInRangeObjects()
-    {
-        m_inRangeSet.clear();
-        m_inRangeObjects.clear();
-        m_inRangePlayers.clear();
-        m_inRangeUnits.clear();
-    }
-
-    RONIN_INLINE bool HasInRangeObjects() { return !m_inRangeObjects.empty(); }
-    RONIN_INLINE bool HasInRangePlayers() { return !m_inRangePlayers.empty(); }
-
-    RONIN_INLINE size_t GetInRangeCount() { return m_inRangeObjects.size(); }
-    RONIN_INLINE size_t GetInRangeUnitCount() { return m_inRangeUnits.size(); }
-    RONIN_INLINE size_t GetInRangePlayerCount() { return m_inRangePlayers.size(); }
-
-    RONIN_INLINE InRangeArray::iterator GetInRangeUnitSetBegin() { return m_inRangeUnits.begin(); }
-    RONIN_INLINE InRangeArray::iterator GetInRangeUnitSetEnd() { return m_inRangeUnits.end(); }
-    RONIN_INLINE InRangeArray::iterator GetInRangePlayerSetBegin() { return m_inRangePlayers.begin(); }
-    RONIN_INLINE InRangeArray::iterator GetInRangePlayerSetEnd() { return m_inRangePlayers.end(); }
-
-    RONIN_INLINE InRangeSet const* GetInRangeSet() { return &m_inRangeSet; }
-    RONIN_INLINE InRangeSet::iterator GetInRangeSetBegin() { return m_inRangeSet.begin(); }
-    RONIN_INLINE InRangeSet::iterator GetInRangeSetEnd() { return m_inRangeSet.end(); }
-
-    RONIN_INLINE InRangeHashMap const* GetInRangeMap() { return &m_inRangeObjects; }
-    RONIN_INLINE InRangeHashMap::iterator GetInRangeMapBegin() { return m_inRangeObjects.begin(); }
-    RONIN_INLINE InRangeHashMap::iterator GetInRangeMapEnd() { return m_inRangeObjects.end(); }
-    RONIN_INLINE InRangeHashMap::iterator FindInRangeMap(WorldObject * obj) { ASSERT(obj); return m_inRangeObjects.find(obj->GetGUID()); }
-
-    ObjectCellManager *GetCellManager() { return &m_cellManager; }
-
-    void __fastcall SendMessageToSet(WorldPacket *data, bool self,bool myteam_only=false,float maxRange=-1.f);
-    void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self);
+    void __fastcall SendMessageToSet(WorldPacket *data, bool self, bool myteam_only = false, float maxRange = -1.f);
+    void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self, float maxRange=-1.f);
 
     void SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, float resistPct, bool allowProc, bool no_remove_auras = false);
 
@@ -608,7 +500,6 @@ public:
     RONIN_INLINE void SetInstanceID(int32 instance) { m_instanceId = instance; }
     RONIN_INLINE int32 GetInstanceID() { return m_instanceId; }
 
-    void DestroyForInrange(bool anim = false);
     WorldPacket *BuildTeleportAckMsg( const LocationVector & v);
 
     void PlaySoundToPlayer( Player* plr, uint32 sound_entry );
@@ -667,14 +558,8 @@ protected:
     FactionTemplateEntry *m_factionTemplate;
     // Current map location
     LocationVector m_position, m_spawnLocation;
-
-    //! Set of Objects in range.
-    InRangeSet m_inRangeSet;
-    InRangeHashMap m_inRangeObjects;
-    InRangeArray m_inRangeUnits, m_inRangePlayers;
-
     //! Inrange cell management
-    ObjectCellManager m_cellManager;
+    ObjectCellManager *m_cellManager;
 
 public:
     bool IsInLineOfSight(WorldObject* pObj);

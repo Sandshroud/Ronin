@@ -23,6 +23,9 @@ createFileSingleton(CNavMeshInterface);
 
 void CNavMeshInterface::Init()
 {
+    if(sWorld.PathFinding == false)
+        return;
+
     allocator = NULL;
     if( (hModule = LoadLibrary("./Modules/Pathfinding.dll")) && ((allocator = (mmap_manager_construction)GetProcAddress(hModule, "mmap_manager_construction")) == NULL) )
         FreeLibrary(hModule);

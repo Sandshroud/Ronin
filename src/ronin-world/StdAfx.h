@@ -142,6 +142,7 @@ extern size_t __line__;
 #include "AuraInterface.h"
 #include "UnitPathSystem.h"
 #include "MovementInterface.h"
+#include "SpellInterface.h"
 #include "StatSystem.h"
 #include "Unit.h"
 #include "CreatureDataMgr.h"

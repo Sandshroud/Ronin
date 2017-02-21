@@ -44,8 +44,6 @@ public:
 
     void Create(WorldObject* caster, BaseSpell* pSpell, float x, float y, float z, int32 duration, float radius);
     void UpdateTargets(uint32 p_time);
-
-    void OnRemoveInRangeObject(WorldObject* pObj);
     void Remove();
 
     uint32 getLevel() { return casterLevel; }

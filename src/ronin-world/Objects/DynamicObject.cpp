@@ -79,14 +79,6 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
     UpdateTargets(0);
 }
 
-void DynamicObject::OnRemoveInRangeObject( WorldObject* pObj )
-{
-    if( pObj->IsUnit() )
-        targets.erase( pObj->GetGUID() );
-
-    WorldObject::OnRemoveInRangeObject( pObj );
-}
-
 void DynamicObject::UpdateTargets(uint32 p_time)
 {
     Unit* u_caster = NULL;
@@ -126,30 +118,6 @@ void DynamicObject::UpdateTargets(uint32 p_time)
 
         float radius = GetFloatValue(DYNAMICOBJECT_RADIUS);
         radius *= radius;
-
-        // Looking for targets in the WorldObject set
-        for(WorldObject::InRangeArray::iterator itr = GetInRangeUnitSetBegin(); itr != GetInRangeUnitSetEnd(); ++itr)
-        {
-            target = GetInRangeObject<Unit>(*itr);
-            if(!target->isAlive())
-                continue;
-
-            if(!sFactionSystem.isAttackable(u_caster, target, !m_spellProto->isSpellStealthTargetCapable()))
-                continue;
-
-            // skip units already hit, their range will be tested later
-            if(targets.find(target->GetGUID()) != targets.end())
-                continue;
-
-            if(GetDistanceSq(target) <= radius)
-            {
-                // Trigger raw aura application
-                //target->ApplyAura(m_spellProto, u_caster, target);
-
-                // add to target list
-                targets.insert(target->GetGUID());
-            }
-        }
 
         // loop the targets, check the range of all of them
         DynamicObjectList::iterator jtr = targets.begin(), jtr2, jend = targets.end();

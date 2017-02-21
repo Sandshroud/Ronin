@@ -98,12 +98,12 @@ public:
         mPoolStack = NULL;
     }
 
+    bool isUpdating() { return m_updating; }
     uint32 getCounter() { return mPoolCounter; }
 
     // Update our object stack, this includes inactivity timers
     void Update(uint32 msTime, uint32 pDiff)
     {
-        T* ptr = NULL;
         uint32 diff = pDiff;
         PoolSet *targetPool;
         if(mPoolStack == NULL) // No stack so use our main pool
@@ -123,16 +123,12 @@ public:
         if(!targetPool->empty())
         {
             m_updating = true;
-            poolIterator = targetPool->begin();
-            while(poolIterator != targetPool->end())
+            std::for_each(targetPool->begin(), targetPool->end(), [msTime, diff](T *elem)
             {
-                ptr = *poolIterator;
-                ++poolIterator;
-
-                if(ptr->IsActiveObject() && !ptr->IsActivated())
-                    ptr->InactiveUpdate(msTime, diff);
-                else ptr->Update(msTime, diff);
-            }
+                if(elem->IsActiveObject() && !elem->IsActivated())
+                    elem->InactiveUpdate(msTime, diff);
+                else elem->Update(msTime, diff);
+            } );
             m_updating = false;
         }
     }
@@ -212,14 +208,75 @@ private:
     uint32 _cellX, _cellY;
 };
 
-class MapInstanceObjectRemovalCallback : public ObjectRemovalCallback
+class MapInstanceObjectRemovalCallback : public ObjectProcessCallback
 {
 public:
     MapInstanceObjectRemovalCallback(MapInstance *instance) : _instance(instance) {}
-    void operator()(WorldObject *obj, WoWGuid guid, bool forced);
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void setForced(bool set) { _forced = set; }
 
 private:
     MapInstance *_instance;
+    bool _forced;
+};
+
+class MapInstanceInRangeTargetCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceInRangeTargetCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void ResetData(float range) { _range = range; _result = NULL; _resultDist = 0.f; };
+    Unit *GetResult() { return _result; }
+
+private:
+    MapInstance *_instance;
+
+    float _range;
+    Unit *_result;
+    float _resultDist;
+};
+
+class MapInstanceBroadcastMessageCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceBroadcastMessageCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void ResetData(float range, WorldPacket *data, bool myTeam, uint32 teamId) { _range = range; _message = data; _myTeam = myTeam; _teamId = teamId; _opcode = 0; _dataLen = 0; _dataStream = NULL; };
+    void ResetData(float range, uint32 opcode, uint16 Len, const void *data, bool myTeam, uint32 teamId) { _range = range; _dataLen = Len; _dataStream = data; _myTeam = myTeam; _teamId = teamId; _message = NULL; };
+
+private:
+    MapInstance *_instance;
+    bool _myTeam;
+    uint32 _teamId;
+    float _range;
+
+    WorldPacket *_message;
+
+    uint32 _opcode;
+    uint16 _dataLen;
+    const void *_dataStream;
+};
+
+class MapInstanceBroadcastObjectUpdateCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceBroadcastObjectUpdateCallback(MapInstance *instance) : _instance(instance), _publicUpdate(NULL), _partyUpdate(NULL), _petUpdate(NULL) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void cleanup()
+    {
+        if(_publicUpdate)
+            delete _publicUpdate;
+        if(_partyUpdate)
+            delete _partyUpdate;
+        if(_petUpdate)
+            delete _petUpdate;
+        _publicUpdate = _partyUpdate = _petUpdate;
+    }
+
+private:
+    MapInstance *_instance;
+    uint32 publicCount, partyCount, petCount;
+    ByteBuffer *_publicUpdate, *_partyUpdate, *_petUpdate;
 };
 
 /// Map instance class for processing different map instances(duh)
@@ -242,106 +299,18 @@ public:
     typedef Loki::AssocVector<WoWGuid, GameObject* > GameObjectStorageMap;
     typedef Loki::AssocVector<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
 
-    //This will be done in regular way soon
-    Mutex m_objectinsertlock;
-    ObjectSet m_objectinsertpool;
-    void AddObject(WorldObject*);
-    WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
-
-    bool IsClosing() { return false; }
-    bool IsFull() { return false; }
-
-    void AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
-    void RemoveZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
-    void AddAreaVisibleSpawn(uint32 areaId, WorldObject *obj);
-    void RemoveAreaVisibleSpawn(uint32 areaId, WorldObject *obj);
-
-    /////////////////////////////////////////////////////////
-    // Local (MapInstance) storage/generation of Creatures
-    /////////////////////////////////////////////
-    uint32 m_CreatureHighGuid;
-    CreatureStorageMap m_CreatureStorage;
-    Creature *CreateCreature(WoWGuid guid, uint32 entry = 0);
-
-    RONIN_INLINE Creature* GetCreature(WoWGuid guid)
-    {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT || guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
-        CreatureStorageMap::iterator itr = m_CreatureStorage.find(guid);
-        return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
-    }
-
-    // Use a creature guid to create our summon.
-    Summon* CreateSummon(uint32 entry);
-
-////////////////////////////////////////////////////////
-// Local (MapInstance) storage/generation of GameObjects
-/////////////////////////////////////////////
-    uint32 m_GOHighGuid;
-    GameObjectStorageMap m_gameObjectStorage;
-    GameObject *CreateGameObject(WoWGuid guid, uint32 entry = 0);
-
-    RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
-    {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
-        GameObjectStorageMap::iterator itr = m_gameObjectStorage.find(guid);
-        return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
-    }
-
-//////////////////////////////////////////////////////////
-// Local (MapInstance) storage/generation of DynamicObjects
-////////////////////////////////////////////
-    uint32 m_DynamicObjectHighGuid;
-    DynamicObjectStorageMap m_DynamicObjectStorage;
-    DynamicObject* CreateDynamicObject();
-
-    RONIN_INLINE DynamicObject* GetDynamicObject(WoWGuid guid)
-    {
-        DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.find(guid);
-        return ((itr != m_DynamicObjectStorage.end()) ? itr->second : NULL);
-    }
-
-//////////////////////////////////////////////////////////
-// Local (MapInstance) storage of players for faster lookup
-////////////////////////////////
-    typedef Loki::AssocVector<WoWGuid, Player*> PlayerStorageMap;
-    PlayerStorageMap m_PlayerStorage;
-    RONIN_INLINE Player* GetPlayer(WoWGuid guid)
-    {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_PLAYER);
-        PlayerStorageMap::iterator itr = m_PlayerStorage.find(guid);
-        return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULL;
-    }
-    std::queue<Player*> m_removeQueue;
-
-//////////////////////////////////////////////////////////
-// Local (MapInstance) storage of combats in progress
-////////////////////////////////
-    CombatProgressSet _combatProgress;
-    RONIN_INLINE void AddCombatInProgress(WoWGuid guid) { _combatProgress.insert(guid); }
-    RONIN_INLINE void RemoveCombatInProgress(WoWGuid guid) { _combatProgress.erase(guid); }
-    RONIN_INLINE bool IsCombatInProgress()
-    {
-        // if all players are out, list should be empty.
-        if(HasPlayers() == false)
-            return false;
-        return !_combatProgress.empty();
-    }
-
-//////////////////////////////////////////////////////////
-// Lookup Wrappers
-///////////////////////////////////
-    Unit* GetUnit(WoWGuid guid);
-    WorldObject* _GetObject(WoWGuid guid);
-
 //////////////////////////////////////////////////////////
 // Map initializers and functions
 ///////////////////////////////////
+public:
     MapInstance(Map *map, uint32 mapid, uint32 instanceid);
     ~MapInstance();
 
     void Preload();
     void Init(uint32 msTime);
     void Destruct();
+
+    WorldObject *GetInRangeObject(ObjectCellManager *manager, WoWGuid guid);
 
     void EventPushObjectToSelf(WorldObject *obj);
 
@@ -355,6 +324,36 @@ public:
     static bool canObjectsInteract(WorldObject *obj, WorldObject *curObj);
     static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
     static bool InZRange(float fRange, WorldObject* obj, WorldObject* currentobj);
+
+public:
+    // Cell walking functions
+    Unit *FindInRangeTarget(Creature *ctr, float range, uint32 typeMask);
+
+    void MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, const void *data, float range);
+    void MessageToCells(WorldObject *obj, WorldPacket *data, float range, bool myTeam, uint32 teamId);
+
+    void BroadcastObjectUpdate(WorldObject *obj);
+
+protected:
+    friend class MapInstanceObjectProcessCallback;
+    MapInstanceObjectProcessCallback _processCallback;
+
+    friend class MapInstanceObjectRemovalCallback;
+    MapInstanceObjectRemovalCallback _removalCallback;
+
+    std::vector<uint32> _InRangeTargetCellVector;
+    friend class MapInstanceInRangeTargetCallback;
+    MapInstanceInRangeTargetCallback _inRangeTargetCallback;
+
+    std::vector<uint32> _BroadcastMessageCellVector;
+    friend class MapInstanceBroadcastMessageCallback;
+    MapInstanceBroadcastMessageCallback _broadcastMessageCallback;
+
+    std::vector<uint32> _BroadcastObjectUpdateCellVector;
+    friend class MapInstanceBroadcastObjectUpdateCallback;
+    MapInstanceBroadcastObjectUpdateCallback _broadcastObjectUpdateCallback;
+
+public:
 
     //! Mark object as updated
     bool UpdateQueued(WorldObject *obj);
@@ -433,9 +432,6 @@ public:
     }
 
 protected:
-    //! Collect and send updates to clients
-    void _UpdateObjects();
-
     //! Objects that exist on map
     uint32 _mapId;
 
@@ -447,30 +443,25 @@ protected:
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_fullRangeObjectsByZone, m_fullRangeObjectsByArea;
 
     bool IsFullRangeObject(WorldObject *obj);
-    friend class MapInstanceObjectRemovalCallback;
-    MapInstanceObjectRemovalCallback _removalCallback;
 
-    friend class MapInstanceObjectProcessCallback;
-    MapInstanceObjectProcessCallback _processCallback;
-
-    MapCell *GetCellOrInit(uint32 x, uint32 y, bool priority);
+    MapCell *GetCellOrInit(uint32 x, uint32 y, bool shouldInit, bool priority);
     bool _CellActive(uint32 x, uint32 y);
 
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
     friend class ObjectCellManager;
-    bool UpdateCellData(WorldObject *Obj, uint32 cellX, uint32 cellY, bool priority);
+    friend class PlayerCellManager;
+    bool UpdateCellData(WorldObject *Obj, uint32 cellX, uint32 cellY, bool playerObj, bool priority);
     void RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool forced);
 
 public:
-    // This function is only used at preloading, and only to add new inrange objects
-    void UpdateInrangeSetOnCells(WorldObject* obj, uint32 startX, uint32 endX, uint32 startY, uint32 endY);
-
     bool IsPreloading() { return m_mapPreloading; }
     bool IsRaid() { return pdbcMap ? pdbcMap->IsRaid() : false; }
     bool IsContinent() { return pdbcMap ? pdbcMap->IsContinent() : true; }
 
     uint8 GetPoolOverrideForZone(uint32 zoneId);
+    bool IsCreaturePoolUpdating() { return mCreaturePool.isUpdating(); }
+    bool IsGameObjectPoolUpdating() { return mGameObjectPool.isUpdating(); }
 
 protected:
     /* Map Information */
@@ -510,6 +501,12 @@ public:
     // bytebuffer caching
     ByteBuffer m_createBuffer, m_updateBuffer;
 
+    ByteBuffer *GetCreateBuffer() { return &m_createBuffer; }
+    ByteBuffer *GetUpdateBuffer() { return &m_updateBuffer; }
+
+    // Object cell stacking
+    std::map<WoWGuid, uint32> m_objectCells;
+
 public:
     void ClearCorpse(Corpse* remove) { std::vector<Corpse* >::iterator itr; if((itr = std::find(m_corpses.begin(), m_corpses.end(), remove)) != m_corpses.end()) m_corpses.erase(itr); };
 
@@ -527,6 +524,97 @@ public:
 
 public:
 
+    //This will be done in regular way soon
+    Mutex m_objectinsertlock;
+    ObjectSet m_objectinsertpool;
+    void AddObject(WorldObject*);
+    WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
+
+    bool IsClosing() { return false; }
+    bool IsFull() { return false; }
+
+    void AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
+    void RemoveZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
+    void AddAreaVisibleSpawn(uint32 areaId, WorldObject *obj);
+    void RemoveAreaVisibleSpawn(uint32 areaId, WorldObject *obj);
+
+    /////////////////////////////////////////////////////////
+    // Local (MapInstance) storage/generation of Creatures
+    /////////////////////////////////////////////
+    uint32 m_CreatureHighGuid;
+    CreatureStorageMap m_CreatureStorage;
+    Creature *CreateCreature(WoWGuid guid, uint32 entry = 0);
+
+    RONIN_INLINE Creature* GetCreature(WoWGuid guid)
+    {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT || guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
+        CreatureStorageMap::iterator itr = m_CreatureStorage.find(guid);
+        return ((itr != m_CreatureStorage.end()) ? itr->second : NULL);
+    }
+
+    // Use a creature guid to create our summon.
+    Summon* CreateSummon(uint32 entry);
+
+////////////////////////////////////////////////////////
+// Local (MapInstance) storage/generation of GameObjects
+/////////////////////////////////////////////
+    uint32 m_GOHighGuid;
+    GameObjectStorageMap m_gameObjectStorage;
+    GameObject *CreateGameObject(WoWGuid guid, uint32 entry = 0);
+
+    RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
+    {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
+        GameObjectStorageMap::iterator itr = m_gameObjectStorage.find(guid);
+        return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
+    }
+
+//////////////////////////////////////////////////////////
+// Local (MapInstance) storage/generation of DynamicObjects
+////////////////////////////////////////////
+    uint32 m_DynamicObjectHighGuid;
+    DynamicObjectStorageMap m_DynamicObjectStorage;
+    DynamicObject* CreateDynamicObject();
+
+    RONIN_INLINE DynamicObject* GetDynamicObject(WoWGuid guid)
+    {
+        DynamicObjectStorageMap::iterator itr = m_DynamicObjectStorage.find(guid);
+        return ((itr != m_DynamicObjectStorage.end()) ? itr->second : NULL);
+    }
+
+//////////////////////////////////////////////////////////
+// Local (MapInstance) storage of players for faster lookup
+////////////////////////////////
+    typedef Loki::AssocVector<WoWGuid, Player*> PlayerStorageMap;
+    PlayerStorageMap m_PlayerStorage;
+    RONIN_INLINE Player* GetPlayer(WoWGuid guid)
+    {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_PLAYER);
+        PlayerStorageMap::iterator itr = m_PlayerStorage.find(guid);
+        return (itr != m_PlayerStorage.end()) ? m_PlayerStorage[guid] : NULL;
+    }
+    std::queue<Player*> m_removeQueue;
+
     // stored iterators for safe checking
     PlayerStorageMap::iterator __player_iterator;
+
+//////////////////////////////////////////////////////////
+// Local (MapInstance) storage of combats in progress
+////////////////////////////////
+    CombatProgressSet _combatProgress;
+    RONIN_INLINE void AddCombatInProgress(WoWGuid guid) { _combatProgress.insert(guid); }
+    RONIN_INLINE void RemoveCombatInProgress(WoWGuid guid) { _combatProgress.erase(guid); }
+    RONIN_INLINE bool IsCombatInProgress()
+    {
+        // if all players are out, list should be empty.
+        if(HasPlayers() == false)
+            return false;
+        return !_combatProgress.empty();
+    }
+
+//////////////////////////////////////////////////////////
+// Lookup Wrappers
+///////////////////////////////////
+    Unit* GetUnit(WoWGuid guid);
+    WorldObject* _GetObject(WoWGuid guid);
 };

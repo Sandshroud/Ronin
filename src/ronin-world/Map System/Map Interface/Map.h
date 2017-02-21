@@ -68,13 +68,13 @@ typedef struct
     uint32 conditionId;
 }GameObjectSpawn;
 
-typedef std::vector<CreatureSpawn*>     CreatureSpawnList;
-typedef std::vector<GameObjectSpawn*>   GameObjectSpawnList;
+typedef std::vector<CreatureSpawn*>     CreatureSpawnArray;
+typedef std::vector<GameObjectSpawn*>   GameObjectSpawnArray;
 
 typedef struct
 {
-    CreatureSpawnList CreatureSpawns;
-    GameObjectSpawnList GameObjectSpawns;
+    CreatureSpawnArray CreatureSpawns;
+    GameObjectSpawnArray GameObjectSpawns;
 }CellSpawns;
 
 typedef std::map<std::pair<uint32, uint32>, CellSpawns > SpawnsMap;
@@ -109,6 +109,9 @@ public:
             return NULL;
         return &m_spawns.at(cellPair);
     }
+
+    SpawnsMap::iterator GetSpawnsMapBegin() { return m_spawns.begin(); }
+    SpawnsMap::iterator GetSpawnsMapEnd() { return m_spawns.end(); }
 
     void LoadSpawns(CellSpawns *mapSpawns);
     RONIN_INLINE TerrainMgr* GetMapTerrain() { return _terrain; }

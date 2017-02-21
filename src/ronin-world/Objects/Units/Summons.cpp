@@ -56,16 +56,6 @@ void Summon::CreateAs(SummonHandler* NewHandle)
     m_Internal->Initialize(this);
 }
 
-void Summon::OnRemoveInRangeObject(WorldObject* object)
-{
-    if(m_Internal != NULL)
-        m_Internal->OnRemoveInRangeObject(object);
-    /*if(IsTotem() && s_Owner == NULL || s_Owner->GetGUID() == object->GetGUID())
-        event_ModifyTimeLeft(EVENT_SUMMON_EXPIRE_0+summonslot, 1);*/
-
-    WorldObject::OnRemoveInRangeObject(object);
-}
-
 void Summon::Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot)
 {
     ASSERT(m_owner);

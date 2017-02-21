@@ -42,6 +42,8 @@
 
 class Map;
 
+RONIN_INLINE uint32 getId(float pos, float size, float max) { return (uint32)((max-pos)/size); }
+
 template < class Class >
 class CellHandler
 {
@@ -166,12 +168,12 @@ template <class Class>
 uint32 CellHandler<Class>::GetPosX(float x)
 {
     ASSERT((x >= _minX) && (x <= _maxX));
-    return (uint32)((_maxX-x)/_cellSize);
+    return getId(x, _cellSize, _maxX);
 }
 
 template <class Class>
 uint32 CellHandler<Class>::GetPosY(float y)
 {
     ASSERT((y >= _minY) && (y <= _maxY));
-    return (uint32)((_maxY-y)/_cellSize);
+    return getId(y, _cellSize, _maxY);
 }

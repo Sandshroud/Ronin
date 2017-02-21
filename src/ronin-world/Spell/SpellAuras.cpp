@@ -487,13 +487,8 @@ void Aura::Remove()
     if (m_caster != NULL)
     {
         m_caster->OnAuraRemove(m_spellProto->NameHash, m_target);
-        if(m_spellProto->IsSpellChannelSpell())
-        {
-            if(m_caster->GetCurrentSpell() && m_caster->GetCurrentSpell()->GetSpellProto()->Id == m_spellProto->Id)
-            {
-                m_caster->GetCurrentSpell()->cancel();
-            }
-        }
+        if(m_spellProto->IsSpellChannelSpell() && m_caster->isCasting() && m_caster->GetSpellInterface()->GetCurrentSpellProto()->Id == m_spellProto->Id)
+            m_caster->GetSpellInterface()->CleanupCurrentSpell();
     }
 
     for( uint32 x = 0; x < 3; x++ )
@@ -535,7 +530,8 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
     else if(i == 1) m_auraFlags |= AFLAG_EFF_INDEX_1;
     else if(i == 2) m_auraFlags |= AFLAG_EFF_INDEX_2;
     int32 amount = a;
-    if(m_stackSizeorProcCharges >= 0) amount *= m_stackSizeorProcCharges;
+    if(m_stackSizeorProcCharges >= 0)
+        amount *= m_stackSizeorProcCharges;
 
     m_modList[m_modcount].i = i;
     m_modList[m_modcount].m_type = t;
@@ -693,33 +689,11 @@ void Aura::BuildAuraUpdatePacket(WorldPacket *data)
 void Aura::EventRelocateRandomTarget()
 {
     Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL || !m_caster->IsPlayer() || m_caster->isDead() || !m_caster->GetInRangeCount() )
+    if( m_caster == NULL || !m_caster->IsPlayer() || m_caster->isDead() )
         return;
 
     // Ok, let's do it. :D
     std::set<Unit* > enemies;
-
-    Unit *uObj = NULL;
-    for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++ )
-    {
-        if((uObj = m_caster->GetInRangeObject<Unit>(*itr)) == NULL)
-            continue;
-
-        if( !sFactionSystem.isHostile( m_caster, uObj ) )
-            continue;
-
-        // Too far away or dead, or I can't see him!
-        if( uObj->isDead() || m_caster->GetDistance2dSq( uObj ) > 100 || !castPtr<Player>(m_caster)->CanSee(uObj) )
-            continue;
-
-        if (m_caster->GetMapInstance() && m_caster->GetMapInstance()->CanUseCollision(m_caster))
-        {
-            if( !sVMapInterface.CheckLOS( m_caster->GetMapId(), m_caster->GetInstanceID(), m_caster->GetPhaseMask(), m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ() + 2.0f, uObj->GetPositionX(), uObj->GetPositionY(), uObj->GetPositionZ() + 2.0f) )
-                continue;
-        }
-
-        enemies.insert(uObj);
-    }
 
     // Can't do anything w/o a target
     if( !enemies.size() )
@@ -979,12 +953,12 @@ void Aura::SpellAuraModSilence(bool apply)
         m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED);
 
         // remove the current spell (for channelers)
-        if(m_target->GetCurrentSpell() && m_target->GetGUID() != m_casterGuid &&
+        /*if(m_target->GetCurrentSpell() && m_target->GetGUID() != m_casterGuid &&
             m_target->GetCurrentSpell()->getState() == SPELL_STATE_CASTING )
         {
             m_target->GetCurrentSpell()->cancel();
             m_target->SetCurrentSpell(NULL);
-        }
+        }*/
     }
     else
     {
@@ -1535,7 +1509,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
             data << pTarget->GetGUID();
 
             //now get rid of mobs agro. pTarget->CombatStatus.AttackersForgetHate() - this works only for already attacking mobs
-            WorldObject::InRangeArray::iterator itr, itr2;
+            /*WorldObject::InRangeArray::iterator itr, itr2;
             for(itr = pTarget->GetInRangeUnitSetBegin(); itr != pTarget->GetInRangeUnitSetEnd();)
             {
                 itr2 = itr++;
@@ -1554,7 +1528,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
                         castPtr<Player>( pObject )->GetSession()->SendPacket( &data );
                     }
                 }
-            }
+            }*/
             pTarget->SetDeathState(ALIVE);
         }
         else
@@ -1657,7 +1631,7 @@ void Aura::SpellAuraMechanicImmunity(bool apply)
         case 49039:
             {
                 if(apply && !m_target->HasAura(50397))
-                    GetUnitCaster()->CastSpell(m_target,50397,true);
+                    GetUnitCaster()->GetSpellInterface()->TriggerSpell(dbcSpell.LookupEntry(50397), m_target);
             }
         }
     }

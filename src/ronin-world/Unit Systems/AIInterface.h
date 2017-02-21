@@ -54,10 +54,6 @@ public:
     // Update
     void Update(uint32 msTime, uint32 p_time);
 
-    void OnAddInRangeObject(WorldObject *obj, bool hostile);
-    void UpdateInRangeObject(WorldObject *obj, bool hostile);
-    void OnRemoveInRangeObject(WorldObject *obj);
-
     void OnAttackStop();
     void OnDeath();
     void OnRespawn();
@@ -81,6 +77,4 @@ private:
 
     WoWGuid m_targetGuid;
     std::map<WoWGuid, uint32> m_threatMap;
-
-    Loki::AssocVector<WoWGuid, float> m_hostileMap;
 };

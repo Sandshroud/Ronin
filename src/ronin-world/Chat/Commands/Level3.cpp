@@ -2164,14 +2164,6 @@ bool ChatHandler::HandleClearBonesCommand(const char *args, WorldSession *m_sess
     sWorld.LogGM(m_session, "cleared bones on map %u at %f %f %f", p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ());
 
     WorldObject* obj;
-    for( WorldObject::InRangeHashMap::iterator itr = p->GetInRangeMapBegin(); itr != p->GetInRangeMapEnd(); itr++)
-    {
-        if((obj = itr->second) == NULL)
-            continue;
-
-        if( obj->GetTypeId() == TYPEID_CORPSE && castPtr<Corpse>(obj)->GetCorpseState() == CORPSE_STATE_BONES )
-            castPtr<Corpse>(obj)->Despawn();
-    }
 
     SystemMessage(m_session, "Completed.");
     return true;
@@ -2183,15 +2175,6 @@ bool ChatHandler::HandleClearCorpsesCommand(const char *args, WorldSession *m_se
     sWorld.LogGM(m_session, "cleared corpses on map %u at %f %f %f", p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ());
 
     WorldObject* obj;
-    for( WorldObject::InRangeHashMap::iterator itr = p->GetInRangeMapBegin(); itr != p->GetInRangeMapEnd(); itr++)
-    {
-        if((obj = itr->second) == NULL)
-            continue;
-
-        if( obj->GetTypeId() == TYPEID_CORPSE && castPtr<Corpse>(obj)->GetCorpseState() == CORPSE_STATE_BODY )
-            castPtr<Corpse>(obj)->Despawn();
-    }
-
     SystemMessage(m_session, "Completed.");
     return true;
 }

@@ -585,163 +585,75 @@ void Object::ClearLoot()
 //===============================================
 // Object Cell Management functions
 //===============================================
-#define MAX_CELL_UPDATES 4
-
 void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
 {
     _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
-    _processedCells.clear();
-    _delayedCells[0].clear();
-    _delayedCells[1].clear();
 
-    _object->RemoveFromInRangeObjects(instance->GetMapId());
+    //_object->RemoveFromInRangeObjects(instance->GetMapId());
 }
 
 void ObjectCellManager::PostRemoveFromWorld()
 {
     _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
-    _processedCells.clear();
-    _delayedCells[0].clear();
-    _delayedCells[1].clear();
+}
+
+bool ObjectCellManager::hasCell(uint32 cellId)
+{
+    std::pair<uint16, uint16> cellPair = unPack(cellId);
+    return (cellPair.first >= _lowX && cellPair.first <= _highX) && (cellPair.second >= _lowY && cellPair.second <= _highY);
+}
+
+void ObjectCellManager::FillCellRange(std::vector<uint32> *fillVector)
+{
+    for(uint16 x = _lowX; x <= _highX; x++)
+        for(uint16 y = _lowY; y <= _highY; y++)
+            fillVector->push_back(_makeCell(x, y));
+}
+
+void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, float range)
+{
+    if(range <= 1.f)
+    {
+        FillCellRange(fillVector);
+        return;
+    }
+
+    uint32 lowX = _getCellId(_object->GetPositionX()-range), highX = _getCellId(_object->GetPositionX()+range);
+    uint32 lowY = _getCellId(_object->GetPositionY()-range), highY = _getCellId(_object->GetPositionY()+range);
+    if(highX < lowX) std::swap(lowX, highX);
+    if(highY < lowY) std::swap(lowY, highY);
+    for(uint16 x = lowX; x <= highX; x++)
+        for(uint16 y = lowY; y <= highY; y++)
+            fillVector->push_back(_makeCell(x, y));
+
 }
 
 void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
 {
-    uint32 count = 0;
-    while(!_delayedCells[0].empty())
-    {
-        std::pair<uint16, uint16> pair = unPack(*_delayedCells[0].begin());
-        _delayedCells[0].erase(_delayedCells[0].begin());
-
-        _processedCells.insert(_makeCell(pair.first, pair.second));
-        instance->UpdateCellData(_object, pair.first, pair.second, true);
-        if(++count >= MAX_CELL_UPDATES)
-            return;
-    }
-
-    while(!_delayedCells[1].empty())
-    {
-        std::pair<uint16, uint16> pair = unPack(*_delayedCells[1].begin());
-        _delayedCells[1].erase(_delayedCells[1].begin());
-
-        _processedCells.insert(_makeCell(pair.first, pair.second));
-        instance->UpdateCellData(_object, pair.first, pair.second, false);
-        if(++count >= MAX_CELL_UPDATES)
-            return;
-    }
+    //Ny
 }
 
 void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
 {
     _currX = newX;
     _currY = newY;
+    _lowX = _currX >= cellRange ? _currX-cellRange : 0;
+    _lowY = _currY >= cellRange ? _currY-cellRange : 0;
+    _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
+    _highY = std::min<uint16>(_currY+cellRange, _sizeY-1);
+}
 
-    // Remove any pending cell handling
-    _delayedCells[0].clear();
-    _delayedCells[1].clear();
-
-    std::set<uint32> preProcessed;
-    // Push old processed data to preProcessed group
-    if(_lowX != _highX && _lowY != _highY)
-    {
-        for(uint16 x = _lowX; x <= _highX; x++)
-            for(uint16 y = _lowY; y <= _highY; y++)
-                preProcessed.insert(_makeCell(x, y));
-    }
-    // Clear old processed cells
-    _processedCells.clear();
-    // Push current cell to proccessed, we'll handle it in this function
-    _processedCells.insert(_makeCell(_currX, _currY));
-
-    if(cellRange)
-    {   // Fill priority cells from a range of 1
-        _lowX = _currX >= 1 ? _currX-1 : 0;
-        _lowY = _currY >= 1 ? _currY-1 : 0;
-        _highX = std::min<uint16>(_currX+1, _sizeX-1);
-        _highY = std::min<uint16>(_currY+1, _sizeY-1);
-        for(uint16 x = _lowX; x <= _highX; x++)
-        {
-            for(uint16 y = _lowY; y <= _highY; y++)
-            {
-                uint32 cellId = _makeCell(x, y);
-
-                // Check to see if we're a preprocessed cell
-                if(preProcessed.find(cellId) != preProcessed.end())
-                {
-                    _processedCells.insert(cellId);
-                    preProcessed.erase(cellId);
-                    continue;
-                }
-
-                // Skip processed cells(current usually)
-                if(_processedCells.find(cellId) != _processedCells.end())
-                    continue;
-
-                // Add as a priority delayed cell
-                _delayedCells[0].insert(cellId);
-            }
-        }
-
-        // Process non priority cell bounding
-        if(cellRange > 1)
-        {   // Calculate our new bounds based on range
-            _lowX = _currX >= cellRange ? _currX-cellRange : 0;
-            _lowY = _currY >= cellRange ? _currY-cellRange : 0;
-            _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
-            _highY = std::min<uint16>(_currY+cellRange, _sizeY-1);
-
-            // Only add extra cells if we're a player
-            if(_object->IsPlayer())
-            {
-                for(uint16 x = _lowX; x <= _highX; x++)
-                {
-                    for(uint16 y = _lowY; y <= _highY; y++)
-                    {
-                        uint32 cellId = _makeCell(x, y);
-
-                        // Check to see if we're a preprocessed cell
-                        if(preProcessed.find(cellId) != preProcessed.end())
-                        {
-                            _processedCells.insert(cellId);
-                            preProcessed.erase(cellId);
-                            continue;
-                        }
-
-                        // Skip processed cells(current usually)
-                        if(_processedCells.find(cellId) != _processedCells.end())
-                            continue;
-
-                        // Add as a low priority delayed cell
-                        _delayedCells[1].insert(cellId);
-                    }
-                }
-            }
-        }
-    }
-
-    // If our instance is null, then it's part of preloading
-    if(instance == NULL)
-    {   // Set the data as processed
-        _processedCells.insert(_delayedCells[0].begin(), _delayedCells[0].end());
-        _processedCells.insert(_delayedCells[1].begin(), _delayedCells[1].end());
-        // empty the tables
-        _delayedCells[0].clear();
-        _delayedCells[1].clear();
-        return;
-    }
-
-    // Update for our current cell here, other cell updates will occur in WorldObject::Update
-    instance->UpdateCellData(_object, _currX, _currY, true);
-    // Push calls to remove cell data
-    instance->RemoveCellData(_object, preProcessed, false);
+uint32 ObjectCellManager::_getCellId(float pos)
+{
+    return getId(pos, _cellSize, _maxX);
 }
 
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_cellManager(this), m_position(0,0,0,0)
+WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
 {
     m_mapId = -1;
     m_wmoId = m_zoneId = m_areaId = 0;
@@ -758,6 +670,8 @@ WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCo
     m_instanceId = 0;
     m_inactiveFlags = 0;
     m_objDeactivationTimer = 0;
+
+    m_cellManager = guid.getHigh() ? new ObjectCellManager(this) : new PlayerCellManager(this);
 }
 
 WorldObject::~WorldObject( )
@@ -784,7 +698,7 @@ void WorldObject::Destruct()
         SetMapCell(NULL);
     }
 
-    ClearInRangeObjects();
+    //ClearInRangeObjects();
 
     m_factionTemplate = NULL;
 
@@ -802,9 +716,7 @@ void WorldObject::Update(uint32 msTime, uint32 uiDiff)
     Object::Update(msTime, uiDiff);
 
     // Update our internal cell processor
-    m_cellManager.Update(GetMapInstance(), msTime, uiDiff);
-    if(GetInRangePlayerCount() && GetMapInstance()->GetPlayerCount() == 0)
-        ASSERT(false);
+    m_cellManager->Update(GetMapInstance(), msTime, uiDiff);
 }
 
 void WorldObject::InactiveUpdate(uint32 msTime, uint32 uiDiff)
@@ -911,7 +823,7 @@ void WorldObject::RemoveFromWorld()
     // Set Object out of world
     Object::SetInWorld(false);
 
-    m_cellManager.PostRemoveFromWorld();
+    m_cellManager->PostRemoveFromWorld();
 }
 
 void WorldObject::Deactivate(uint32 reactivationTime)
@@ -926,8 +838,6 @@ void WorldObject::Deactivate(uint32 reactivationTime)
 
     if(!IsInWorld())
         return;
-
-    DestroyForInrange(IsGameObject());
 
     // clear our managed cells
     GetCellManager()->ClearInRangeObjects(m_mapInstance);
@@ -990,40 +900,7 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
     m_mapInstance->ObjectLocationChange(this);
 }
 
-void WorldObject::DestroyForInrange(bool anim)
-{
-    WorldPacket data(SMSG_DESTROY_OBJECT, 9);
-    data << GetGUID();
-    data << uint8(anim ? 1 : 0);
-    SendMessageToSet(&data, false);
-}
-
-void WorldObject::RemoveFromInRangeObjects(uint16 mapId)
-{
-    // Remove object from all objects 'seeing' him
-    WorldObject::InRangeHashMap inrangeObjects(*GetInRangeMap());
-    for (WorldObject::InRangeHashMap::iterator iter = inrangeObjects.begin(); iter != inrangeObjects.end(); iter++)
-    {
-        if(WorldObject *wObj = iter->second)
-        {
-            if(wObj->IsPlayer())
-            {
-                if(Player *plr = castPtr<Player>(wObj))
-                {
-                    if( plr->IsVisible( this ) && plr->GetTransportGuid() != GetGUID())
-                        plr->PushOutOfRange(mapId, GetGUID());
-                    DestroyForPlayer(plr, IsGameObject());
-                }
-            }
-            wObj->RemoveInRangeObject(this);
-        }
-    }
-
-    // Clear object's in-range set
-    ClearInRangeObjects();
-}
-
-void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self)
+void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self, float maxRange)
 {
     if(self && GetTypeId() == TYPEID_PLAYER)
         castPtr<Player>(this)->GetSession()->OutPacket(Opcode, Len, Data);
@@ -1031,15 +908,7 @@ void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, b
     if(!IsInWorld())
         return;
 
-    for(InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
-    {
-        if(Player *plr = GetInRangeObject<Player>(*itr))
-        {
-            if(plr->GetSession() == NULL)
-                continue;
-            plr->GetSession()->OutPacket(Opcode, Len, Data);
-        }
-    }
+    m_mapInstance->MessageToCells(this, Opcode, Len, Data, maxRange);
 }
 
 void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_only, float maxRange)
@@ -1054,21 +923,16 @@ void WorldObject::SendMessageToSet(WorldPacket *data, bool bToSelf, bool myteam_
         myTeam = castPtr<Player>(this)->GetTeam();
     } else if(IsUnit()) myTeam = castPtr<Unit>(this)->GetTeam();
 
-    if(!HasInRangePlayers())
-        return;
+    m_mapInstance->MessageToCells(this, data, maxRange > 0.f ? maxRange*maxRange : 0.f, myteam_only, myTeam);
+}
 
-    float range = maxRange*maxRange;
-    for(InRangeArray::iterator itr = GetInRangePlayerSetBegin(); itr != GetInRangePlayerSetEnd(); itr++)
-    {
-        if(Player *plr = GetInRangeObject<Player>(*itr))
-        {
-            if(myteam_only && plr->GetTeam() != myTeam)
-                continue;
-            if(maxRange > 1.f && plr->GetDistanceSq(this) > range)
-                continue;
-            plr->PushPacket(data);
-        }
-    }
+WorldObject *WorldObject::GetInRangeObject(WoWGuid guid)
+{
+    if(m_objGuid == guid)
+        return this;
+    if(IsInWorld())
+        return m_mapInstance->GetInRangeObject(GetCellManager(), guid);
+    return NULL;
 }
 
 bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta)
@@ -1356,7 +1220,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     {
         if( pVictim->HasDummyAura(SPELL_HASH_GUARDIAN_SPIRIT) )
         {
-            pVictim->CastSpell(pVictim, dbcSpell.LookupEntry(48153), true);
+            if(SpellEntry *sp = dbcSpell.LookupEntry(48153))
+                pVictim->GetSpellInterface()->TriggerSpell(sp, pVictim);
             pVictim->RemoveDummyAura(SPELL_HASH_GUARDIAN_SPIRIT);
             return 0;
         }
@@ -1371,9 +1236,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 SpellEntry* sorInfo = dbcSpell.LookupEntry(54223);
                 if( sorInfo != NULL && castPtr<Player>(pVictim)->Cooldown_CanCast( sorInfo ))
                 {
-                    SpellCastTargets targets(pVictim->GetGUID());
-                    if(Spell* sor = new Spell( pVictim, sorInfo))
-                        sor->prepare(&targets, false);
+                    pVictim->GetSpellInterface()->LaunchSpell(sorInfo, pVictim);
                     return 0;
                 }
             }
@@ -1436,12 +1299,12 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         if(pVictim->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT) > 0)
         {
-            if(pVictim->GetCurrentSpell())
+            if(pVictim->isCasting())
             {
-                Spell* spl = pVictim->GetCurrentSpell();
+                SpellEntry* spl = pVictim->GetSpellInterface()->GetCurrentSpellProto();
                 for(int i = 0; i < 3; i++)
                 {
-                    if(spl->GetSpellProto()->Effect[i] != SPELL_EFFECT_PERSISTENT_AREA_AURA)
+                    if(spl->Effect[i] != SPELL_EFFECT_PERSISTENT_AREA_AURA)
                         continue;
                     if(DynamicObject* dObj = GetMapInstance()->GetDynamicObject(pVictim->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT)))
                     {
@@ -1453,8 +1316,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     }
                 }
 
-                if(spl->GetSpellProto()->ChannelInterruptFlags == 48140)
-                    spl->cancel();
+                if(spl->ChannelInterruptFlags == 48140)
+                    pVictim->GetSpellInterface()->CleanupCurrentSpell();
             }
         }
 
@@ -1506,7 +1369,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                         for ( uint32 i = 0; i < m_Group->GetSubGroupCount(); i++ )
                         {
                             for ( it = m_Group->GetSubGroup(i)->GetGroupMembersBegin(); it != m_Group->GetSubGroup(i)->GetGroupMembersEnd(); ++it )
-                                if ( (*it)->m_loggedInPlayer && (*it)->m_loggedInPlayer != plr && (*it)->m_loggedInPlayer->IsInRangeSet(plr) )
+                                if ( (*it)->m_loggedInPlayer && (*it)->m_loggedInPlayer != plr && false)//(*it)->m_loggedInPlayer->IsInRangeSet(plr) )
                                     (*it)->m_loggedInPlayer->GetFactionInterface()->Reputation_OnKill(pVictim);
                         }
                         m_Group->getLock().Release();
@@ -1755,12 +1618,9 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
     else if(IsUnit()) // we still have to tell the combat status handler we did damage so we're put in combat
         castPtr<Unit>(this)->SetInCombat(pVictim);
 
+    //Only pushback the victim current spell if it's not fully absorbed
     if( (dmg.full_damage == 0 && abs_dmg) == 0 )
-    {
-        //Only pushback the victim current spell if it's not fully absorbed
-        if( pVictim->GetCurrentSpell() )
-            pVictim->GetCurrentSpell()->AddTime( school );
-    }
+        pVictim->GetSpellInterface()->PushbackCast(school);
 }
 
 //*****************************************************************************************

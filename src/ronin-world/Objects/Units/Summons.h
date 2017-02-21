@@ -117,7 +117,6 @@ public:
     void Destruct();
     void OnPushToWorld();
     void CreateAs(SummonHandler* NewHandle);
-    void OnRemoveInRangeObject(WorldObject* object);
     void Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot);
 
     int32 GetSummonSlot() { return summonslot; };

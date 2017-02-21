@@ -550,6 +550,9 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
     GlyphProperties *glyph = dbcGlyphProperties.LookupEntry(glyphId);
     if(glyph == NULL)
         return SPELL_FAILED_INVALID_GLYPH;
+    SpellEntry *glyphSpell = dbcSpell.LookupEntry(glyph->SpellId);
+    if(glyphSpell == NULL)
+        return SPELL_FAILED_INVALID_GLYPH;
 
     for(uint32 x = 0; x < GLYPHS_COUNT; ++x)
     {
@@ -564,7 +567,7 @@ uint8 TalentInterface::ApplyGlyph(uint8 slot, uint32 glyphId)
     UnapplyGlyph(slot);
     m_Player->SetUInt32Value(PLAYER_FIELD_GLYPHS_1 + slot, glyphId);
     m_specs[m_activeSpec].Glyphs[slot] = glyphId;
-    m_Player->CastSpell(m_Player, glyph->SpellId, true);   // Apply the glyph effect
+    m_Player->GetSpellInterface()->TriggerSpell(glyphSpell, m_Player);
     return 0;
 }
 

@@ -890,7 +890,7 @@ void SpellEffectClass::SpellEffectTriggerMissile(uint32 i, WorldObject *target, 
         return;
 
     // Just send this spell where he wants :S
-    castPtr<Unit>(m_caster)->CastSpellAoF(m_targets.m_dest.x, m_targets.m_dest.y, m_targets.m_dest.z, spInfo, true);
+    //castPtr<Unit>(m_caster)->CastSpellAoF(m_targets.m_dest.x, m_targets.m_dest.y, m_targets.m_dest.z, spInfo, true);
 }
 
 void SpellEffectClass::SpellEffectOpenLock(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Open Lock
@@ -1388,14 +1388,7 @@ void SpellEffectClass::SpellEffectInterruptCast(uint32 i, WorldObject *target, i
     }
 
     // FIXME:This thing prevent target from spell casting too but cant find.
-    uint32 school=0;
-    if( unitTarget->GetCurrentSpell() != NULL && (unitTarget->GetCurrentSpell()->getState() == SPELL_STATE_PREPARING || unitTarget->GetCurrentSpell()->getState() == SPELL_STATE_CASTING) && unitTarget->GetCurrentSpell() != this )
-    {
-        school=unitTarget->GetCurrentSpell()->m_spellInfo->School;
-        unitTarget->InterruptCurrentSpell();
-        //if(school)//prevent from casts in this school
-            //unitTarget->SchoolCastPrevent[school] = GetDuration() + getMSTime();
-    }
+    unitTarget->GetSpellInterface()->InterruptCast(castPtr<Spell>(this));
 }
 
 void SpellEffectClass::SpellEffectDistract(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Distract
@@ -1504,8 +1497,7 @@ void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32
         return;
 
     // also cancel any spells we are casting
-    if( unitTarget->GetCurrentSpell() != NULL && unitTarget->GetCurrentSpell() != this && unitTarget->GetCurrentSpell()->getState() == SPELL_STATE_PREPARING )
-        unitTarget->InterruptCurrentSpell();
+    unitTarget->GetSpellInterface()->InterruptCast(castPtr<Spell>(this));
     unitTarget->smsg_AttackStop( unitTarget );
 
     if( unitTarget->IsPlayer() )

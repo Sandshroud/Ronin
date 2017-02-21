@@ -165,33 +165,6 @@ void GameObject::RemoveFromWorld()
         m_mapInstance->RemoveZoneVisibleSpawn(m_zoneId, this);
 }
 
-void GameObject::OnRemoveInRangeObject(WorldObject* pObj)
-{
-    WorldObject::OnRemoveInRangeObject(pObj);
-    if(m_summonedGo && m_summoner == pObj)
-    {
-        for(int i = 0; i < 4; i++)
-        {
-            if (m_summoner->m_ObjectSlots[i] == GetGUID())
-                m_summoner->m_ObjectSlots[i] = 0;
-        }
-
-        m_summoner = NULL;
-        Deactivate(0);
-    }
-}
-
-void GameObject::CheckTriggerRange(Unit *uObj, float distSq)
-{
-    if(m_triggerSpell == NULL || m_triggerRange == 0.f)
-        return;
-    bool inRange = (distSq <= m_triggerRange);
-    if(inRange == true && m_inTriggerRangeObjects.find(uObj->GetGUID()) == m_inTriggerRangeObjects.end())
-        m_inTriggerRangeObjects.insert(uObj->GetGUID());
-    else if(inRange == false && m_inTriggerRangeObjects.find(uObj->GetGUID()) != m_inTriggerRangeObjects.end())
-        m_inTriggerRangeObjects.erase(uObj->GetGUID());
-}
-
 void GameObject::Reactivate()
 {
     // Todo: Check spawn points and reset data for respawn event
@@ -508,7 +481,8 @@ void GameObject::UseFishingNode(Player* player)
 
 void GameObject::EndFishing(Player* player, bool abort )
 {
-    Spell* spell = player->GetCurrentSpell();
+    return;
+    Spell* spell = NULL;//player->GetCurrentSpell();
 
     if(spell)
     {
@@ -980,7 +954,7 @@ void GameObject::Use(Player *p)
                             spell->prepare(&targets, true);
 
                         Deactivate(0);
-                        pleader->InterruptCurrentSpell();
+                        pleader->GetSpellInterface()->CleanupCurrentSpell();
                     }break;
                 case 186811://Ritual of Refreshment
                 case 193062:
@@ -995,7 +969,7 @@ void GameObject::Use(Player *p)
                             spell->prepare(&targets, true);
 
                         Deactivate(0);
-                        pleader->InterruptCurrentSpell();
+                        pleader->GetSpellInterface()->CleanupCurrentSpell();
                     }break;
                 case 181622://Ritual of Souls
                 case 193168:
@@ -1021,7 +995,7 @@ void GameObject::Use(Player *p)
                 return;
             }
 
-            p->CastSpell(p, sp, false);
+            p->GetSpellInterface()->LaunchSpell(sp, p);
         }break;
     case GAMEOBJECT_TYPE_CAMERA://eye of azora
         {

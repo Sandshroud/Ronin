@@ -32,8 +32,17 @@ class Map;
 
 class MapCellObjectStorage;
 
-class ObjectProcessCallback { public: virtual void operator()(WorldObject *obj, WorldObject *curObj) = 0; };
-class ObjectRemovalCallback { public: virtual void operator()(WorldObject *obj, WoWGuid guid, bool forced) = 0; };
+class ObjectProcessCallback
+{
+public:
+    virtual void operator()(WorldObject *obj, WorldObject *curObj) = 0;
+
+    void Lock() { processLock.Acquire(); }
+    void Unlock() { processLock.Release(); }
+
+private:
+    Mutex processLock;
+};
 
 class SERVER_DECL MapCell
 {
@@ -42,7 +51,7 @@ public:
     MapCell();
     ~MapCell();
 
-    typedef std::vector<WorldObject*> CellObjectSet;
+    typedef Loki::AssocVector<WoWGuid, WorldObject*> CellObjectMap;
 
     //Init
     void Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance);
@@ -50,11 +59,13 @@ public:
     //WorldObject Managing
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
-    bool HasPlayers(uint16 phaseMask = 0xFFFF);
+
+    WorldObject *FindObject(WoWGuid guid);
+
+    bool HasPlayers() { return !m_playerSet.empty(); }
 
     // Iterating through different phases of sets
-    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback);
-    void ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback, bool forced);
+    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0);
 
     //State Related
     void SetActivity(bool state);
@@ -89,5 +100,8 @@ private:
     MapInstance* _instance;
     Map *_mapData;
 
-    MapCell::CellObjectSet m_objectSet, m_playerSet;
+    // Non player set and player set
+    CellObjectMap m_nonPlayerSet, m_playerSet;
+    // Object type sets
+    CellObjectMap m_gameObjectSet, m_creatureSet;
 };

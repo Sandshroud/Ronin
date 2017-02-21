@@ -375,12 +375,15 @@ void WorldSession::HandleBinderActivateOpcode( WorldPacket & recv_data )
 void WorldSession::SendInnkeeperBind(Creature* pCreature)
 {
     CHECK_INWORLD_RETURN();
-    WorldPacket data(45);
+    WorldPacket data(SMSG_GOSSIP_COMPLETE, 0);
+    SendPacket(&data);
+
+    static SpellEntry *updateBind = dbcSpell.LookupEntry(3286);
+    if(updateBind == NULL)
+        return;
 
     if(!_player->bHasBindDialogOpen)
     {
-        OutPacket(SMSG_GOSSIP_COMPLETE, 0, NULL);
-
         data.Initialize(SMSG_BINDER_CONFIRM);
         data << pCreature->GetGUID() << pCreature->GetZoneId();
         SendPacket(&data);
@@ -389,7 +392,7 @@ void WorldSession::SendInnkeeperBind(Creature* pCreature)
         return;
     }
 
-    pCreature->CastSpell(_player,3286,true);
+    pCreature->GetSpellInterface()->TriggerSpell(updateBind, _player);
 
     data.Initialize(SMSG_BINDPOINTUPDATE);
     data << _player->GetBindPositionX() << _player->GetBindPositionY() << _player->GetBindPositionZ() << _player->GetBindMapId() << _player->GetBindZoneId();
@@ -398,8 +401,6 @@ void WorldSession::SendInnkeeperBind(Creature* pCreature)
     data.Initialize(SMSG_PLAYERBOUND);
     data << pCreature->GetGUID() << _player->GetBindZoneId();
     SendPacket(&data);
-
-    OutPacket(SMSG_GOSSIP_COMPLETE, 0, NULL);
 }
 
 void WorldSession::SendSpiritHealerRequest(Creature* pCreature)

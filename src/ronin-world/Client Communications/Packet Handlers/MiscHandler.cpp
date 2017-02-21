@@ -127,7 +127,7 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
         return;
 
     if(_player->isCasting())
-        _player->InterruptCurrentSpell();
+        _player->GetSpellInterface()->CleanupCurrentSpell();
 
     if(Group * party = _player->GetGroup())
     {
@@ -1348,6 +1348,9 @@ void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
     uint64 guid;
     recv_data >> guid;
     CHECK_INWORLD_RETURN();
+    static SpellEntry *untalentVisual = dbcSpell.LookupEntry(14867), *untrainTalent = dbcSpell.LookupEntry(46331);
+    if(untalentVisual == NULL || untrainTalent == NULL)
+        return;
 
     uint32 playerGold = _player->GetUInt32Value( PLAYER_FIELD_COINAGE );
     uint32 price = _player->CalcTalentResetCost(_player->m_talentInterface.GetTalentResets());
@@ -1356,9 +1359,8 @@ void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
         return;
 
     _player->SetUInt32Value( PLAYER_FIELD_COINAGE, playerGold - price );
-
-    _player->CastSpell(_player, 14867, true);   // Spell: "Untalent Visual Effect"
-    _player->CastSpell(_player, 46331, true);   // Spell: "Trainer: Untrain Talents"
+    _player->GetSpellInterface()->TriggerSpell(untalentVisual, _player);// Spell: "Untalent Visual Effect"
+    _player->GetSpellInterface()->TriggerSpell(untrainTalent, _player); // Spell: "Trainer: Untrain Talents"
 
     WorldPacket data( MSG_TALENT_WIPE_CONFIRM, 12); // You don't have any talent.
     data << uint64(0);

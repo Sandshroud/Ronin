@@ -58,7 +58,7 @@ void AIInterface::Update(uint32 msTime, uint32 p_time)
                 return;
             }
 
-            if(m_Creature->isCasting() && m_Creature->GetCurrentSpell()->GetSpellProto()->isSpellInterruptOnMovement())
+            if(m_Creature->isCasting() && m_Creature->GetSpellInterface()->GetCurrentSpellProto()->isSpellInterruptOnMovement())
             {
                 m_path->DisableAutoPath();
                 return;
@@ -82,21 +82,6 @@ void AIInterface::Update(uint32 msTime, uint32 p_time)
                 _HandleCombatAI();
         }break;
     }
-}
-
-void AIInterface::OnAddInRangeObject(WorldObject *obj, bool isHostile)
-{
-
-}
-
-void AIInterface::UpdateInRangeObject(WorldObject *obj, bool isHostile)
-{
-
-}
-
-void AIInterface::OnRemoveInRangeObject(WorldObject *obj)
-{
-    m_hostileMap.erase(obj->GetGUID());
 }
 
 void AIInterface::OnAttackStop()
@@ -148,38 +133,13 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
 
 bool AIInterface::FindTarget()
 {
-    if(m_AIFlags & AI_FLAG_DISABLED)
+    if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld())
         return false;
-    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty() || m_hostileMap.empty())
+    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty())
         return false;
 
-    Unit *target = NULL;
-    float baseAggro = m_Creature->GetAggroRange(), targetDist = 0.f;
-
-    // Begin iterating through our inrange units
-    for(Loki::AssocVector<WoWGuid, float>::iterator itr = m_hostileMap.begin(); itr != m_hostileMap.end(); itr++)
-    {
-        Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(itr->first);
-        if(unitTarget == NULL || unitTarget->isDead()) // Cut down on checks by skipping dead creatures
-            continue;
-        // Check our aggro range against our saved range
-        float aggroRange = unitTarget->ModDetectedRange(m_Creature, baseAggro);
-        aggroRange *= aggroRange; // Distance is squared so square our range
-        if(itr->second >= aggroRange)
-            continue;
-        if(target && targetDist <= itr->second)
-            continue;
-        if(!sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
-            continue;
-        // LOS is a big system hit so do it last
-        if(!m_Creature->IsInLineOfSight(unitTarget))
-            continue;
-
-        target = unitTarget;
-        targetDist = itr->second;
-    }
-
-    if(target)
+    float baseAggro = m_Creature->GetAggroRange();
+    if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(m_Creature, baseAggro, TYPEMASK_TYPE_PLAYER))
     {
         m_targetGuid = target->GetGUID();
         return true;
@@ -191,7 +151,7 @@ void AIInterface::_HandleCombatAI()
 {
     bool tooFarFromSpawn = false;
     Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
-    if(m_Creature->isCasting() && m_Creature->GetCurrentSpell()->GetSpellProto()->isSpellAttackInterrupting())
+    if(m_Creature->isCasting() && m_Creature->GetSpellInterface()->GetCurrentSpellProto()->isSpellAttackInterrupting())
     {
         if(unitTarget) m_Creature->SetOrientation(m_Creature->GetAngle(unitTarget));
         return;
@@ -239,7 +199,8 @@ void AIInterface::_HandleCombatAI()
 
         m_path->SetSpeed(MOVE_SPEED_RUN);//unitTarget->GetCombatMovement());
         m_path->MoveToPoint(x, y, z, o);
-    } else m_Creature->SetOrientation(m_Creature->GetAngle(unitTarget));
+    } else if(!m_Creature->isTargetInFront(unitTarget))
+        m_path->UpdateOrientation(unitTarget);
 
     if(!m_Creature->ValidateAttackTarget(m_targetGuid))
         m_Creature->EventAttackStart(m_targetGuid);

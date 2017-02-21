@@ -308,8 +308,7 @@ void WorldSession::LogoutPlayer()
         }
 
         // cancel current spell
-        if( plr->m_currentSpell != NULL )
-            plr->m_currentSpell->cancel();
+        plr->GetSpellInterface()->Cleanup();
 
         if( plr->GetTeam() == 1 && sWorld.HordePlayers )
             sWorld.HordePlayers--;

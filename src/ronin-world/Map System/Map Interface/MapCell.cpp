@@ -49,44 +49,68 @@ void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 void MapCell::AddObject(WorldObject* obj)
 {
     if(obj->IsPlayer())
-        m_playerSet.push_back(obj);
-    else m_objectSet.push_back(obj);
+        m_playerSet[obj->GetGUID()] = obj;
+    else
+    {
+        m_nonPlayerSet[obj->GetGUID()] = obj;
+        if(obj->IsCreature())
+            m_creatureSet[obj->GetGUID()] = obj;
+        else if(obj->IsGameObject())
+            m_gameObjectSet[obj->GetGUID()] = obj;
+    }
 }
 
 void MapCell::RemoveObject(WorldObject* obj)
 {
-    MapCell::CellObjectSet::iterator itr;
-    if(obj->IsPlayer() && (itr = std::find(m_playerSet.begin(), m_playerSet.end(), obj)) != m_playerSet.end())
-        m_playerSet.erase(itr);
-    else if((itr = std::find(m_objectSet.begin(), m_objectSet.end(), obj)) != m_objectSet.end())
-        m_objectSet.erase(itr);
+    m_playerSet.erase(obj->GetGUID());
+    m_nonPlayerSet.erase(obj->GetGUID());
+    m_creatureSet.erase(obj->GetGUID());
+    m_gameObjectSet.erase(obj->GetGUID());
 }
 
-bool MapCell::HasPlayers(uint16 phaseMask)
+WorldObject *MapCell::FindObject(WoWGuid guid)
 {
-    return !m_playerSet.empty();
+    MapCell::CellObjectMap::iterator itr;
+    if((itr = m_playerSet.find(guid)) != m_playerSet.end() || (itr = m_nonPlayerSet.find(guid)) != m_nonPlayerSet.end())
+        return itr->second;
+    return NULL;
 }
 
-void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback)
-{
-    WorldObject *curObj;
-    for(MapCell::CellObjectSet::iterator itr = m_objectSet.begin(); itr != m_objectSet.end(); itr++)
-        if((curObj = *itr) && obj != curObj)
-            (*callback)(obj, curObj);
-    for(MapCell::CellObjectSet::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
-        if((curObj = *itr) && obj != curObj)
-            (*callback)(obj, curObj);
-}
-
-void MapCell::ProcessSetRemovals(WorldObject *obj, ObjectRemovalCallback *callback, bool forced)
+void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
 {
     WorldObject *curObj;
-    for(MapCell::CellObjectSet::iterator itr = m_objectSet.begin(); itr != m_objectSet.end(); itr++)
-        if((curObj = *itr) && obj != curObj)
-            (*callback)(obj, curObj->GetGUID(), forced);
-    for(MapCell::CellObjectSet::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
-        if((curObj = *itr) && obj != curObj)
-            (*callback)(obj, curObj->GetGUID(), forced);
+    if(objectMask == 0)
+    {
+        for(MapCell::CellObjectMap::iterator itr = m_nonPlayerSet.begin(); itr != m_nonPlayerSet.end(); itr++)
+            if((curObj = itr->second) && obj != curObj)
+                (*callback)(obj, curObj);
+        for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
+            if((curObj = itr->second) && obj != curObj)
+                (*callback)(obj, curObj);
+    }
+    else
+    {
+        if(objectMask & TYPEMASK_TYPE_UNIT)
+        {
+            for(MapCell::CellObjectMap::iterator itr = m_creatureSet.begin(); itr != m_creatureSet.end(); itr++)
+                if((curObj = itr->second) && obj != curObj)
+                    (*callback)(obj, curObj);
+        }
+
+        if(objectMask & TYPEMASK_TYPE_PLAYER)
+        {
+            for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
+                if((curObj = itr->second) && obj != curObj)
+                    (*callback)(obj, curObj);
+        }
+
+        if(objectMask & TYPEMASK_TYPE_GAMEOBJECT)
+        {
+            for(MapCell::CellObjectMap::iterator itr = m_gameObjectSet.begin(); itr != m_gameObjectSet.end(); itr++)
+                if((curObj = itr->second) && obj != curObj)
+                    (*callback)(obj, curObj);
+        }
+    }
 }
 
 void MapCell::SetActivity(bool state)
@@ -116,7 +140,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
     //MapInstance *pInstance = NULL;//_instance->IsInstance() ? castPtr<InstanceMgr>(_instance) : NULL;
     if(sp->CreatureSpawns.size())//got creatures
     {
-        for(CreatureSpawnList::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
+        for(CreatureSpawnArray::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             CreatureSpawn *spawn = *i;
             if(Creature *c = _instance->CreateCreature(spawn->guid))
@@ -129,7 +153,9 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
                     continue;
                 }
 
-                c->PushToWorld(_instance);
+                if(_instance->IsCreaturePoolUpdating())
+                    _instance->AddObject(c);
+                else c->PushToWorld(_instance);
                 loadCount++;
             }
         }
@@ -137,7 +163,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
 
     if(sp->GameObjectSpawns.size())//got GOs
     {
-        for(GameObjectSpawnList::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
+        for(GameObjectSpawnArray::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
         {
             GameObjectSpawn *spawn = *i;
             if(GameObject *go = _instance->CreateGameObject(spawn->guid))
@@ -145,7 +171,9 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
                 go->Load(mapId, spawn->x, spawn->y, spawn->z, 0.f, spawn->rX, spawn->rY, spawn->rZ, spawn->rAngle, spawn);
                 go->SetInstanceID(_instance->GetInstanceID());
 
-                go->PushToWorld(_instance);
+                if(_instance->IsGameObjectPoolUpdating())
+                    _instance->AddObject(go);
+                else go->PushToWorld(_instance);
                 loadCount++;
             }
         }
@@ -161,9 +189,9 @@ void MapCell::UnloadCellData(bool preDestruction)
     _loaded = false;
     std::set<WorldObject*> deletionSet;
     //This time it's simpler! We just remove everything :)
-    for(MapCell::CellObjectSet::iterator itr = m_objectSet.begin(); itr != m_objectSet.end(); itr++)
+    for(MapCell::CellObjectMap::iterator itr = m_nonPlayerSet.begin(); itr != m_nonPlayerSet.end(); itr++)
     {
-        WorldObject *obj = (*itr);
+        WorldObject *obj = itr->second;
         if(obj == NULL)
             continue;
 
@@ -181,7 +209,7 @@ void MapCell::UnloadCellData(bool preDestruction)
 
         deletionSet.insert(obj);
     }
-    m_objectSet.clear();
+    m_nonPlayerSet.clear();
 
     while(deletionSet.size())
     {

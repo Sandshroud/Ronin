@@ -142,7 +142,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    if(_player->m_currentSpell)
+    if(_player->isCasting())
     {
         _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
         return;
@@ -179,8 +179,9 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     uint8 cn; uint32 spellId;
     recvPacket >> cn >> spellId;
     SpellCastTargets targets(recvPacket, _player->GetGUID());
+    return;
 
-    if(spellId == 0)
+    /*if(spellId == 0)
     {
         sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
         return;
@@ -225,55 +226,6 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 
     if (GetPlayer()->GetOnMeleeSpell() != spellId)
     {
-        //autoshot 75
-        if((spellInfo->isAutoRepeatSpell()) /*spellInfo->Attributes == 327698*/) // auto shot..
-        {
-            //sLog.outString( "HandleSpellCast: Auto Shot-type spell cast (id %u, name %s)" , spellInfo->Id , spellInfo->Name );
-            /*Item* weapon = GetPlayer()->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
-            if(!weapon)
-                return;
-            uint32 spellid;
-            switch(weapon->GetProto()->SubClass)
-            {
-            case 2:          // bows
-            case 3:          // guns
-            case 18:         // crossbow
-                spellid = SPELL_RANGED_GENERAL;
-                break;
-            case 16:            // thrown
-                spellid = SPELL_RANGED_THROW;
-                break;
-            case 19:            // wands
-                spellid = SPELL_RANGED_WAND;
-                break;
-            default:
-                spellid = 0;
-                break;
-            }
-
-            if(!spellid)
-                spellid = spellInfo->Id;
-
-            if(!_player->m_onAutoShot)
-            {
-                _player->m_AutoShotTarget = _player->GetSelection();
-                if(!targets.m_unitTarget)
-                {
-                    sLog.outString( "Cancelling auto-shot cast because targets.m_unitTarget is null!" );
-                    return;
-                }
-
-                _player->m_AutoShotSpell = dbcSpell.LookupEntry(spellid);
-                _player->m_AutoShotDuration = _player->GetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME);
-                //This will fix fast clicks
-                if(_player->m_AutoShotAttackTimer < 500)
-                    _player->m_AutoShotAttackTimer = 500;
-                _player->m_onAutoShot = true;
-            }*/
-
-            return;
-        }
-
         if(_player->m_currentSpell)
         {
             if( _player->m_currentSpell->getState() == SPELL_STATE_CASTING )
@@ -315,24 +267,24 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 
         if(Spell* spell = new Spell(GetPlayer(), spellInfo, cn))
             spell->prepare(&targets, false);
-    }
+    }*/
 }
 
 void WorldSession::HandleCancelCastOpcode(WorldPacket& recvPacket)
 {
     uint32 spellId;
     recvPacket >> spellId;
-    if(GetPlayer()->m_currentSpell)
-        GetPlayer()->m_currentSpell->cancel();
+    _player->GetSpellInterface()->CleanupCurrentSpell();
 }
 
 void WorldSession::HandleCancelAuraOpcode( WorldPacket& recvPacket)
 {
     uint32 spellId;
     recvPacket >> spellId;
-    if(_player->m_currentSpell && _player->m_currentSpell->GetSpellProto()->Id == spellId)
-        _player->m_currentSpell->cancel();
-    else if(SpellEntry* info = dbcSpell.LookupEntry(spellId))
+    SpellEntry* info = dbcSpell.LookupEntry(spellId);
+    if(info == NULL)
+        return;
+    if(!_player->GetSpellInterface()->CleanupSpecificSpell(info))
         _player->m_AuraInterface.RemoveAllPosAurasByNameHash(info->NameHash);
 }
 
@@ -340,13 +292,10 @@ void WorldSession::HandleCancelChannellingOpcode( WorldPacket& recvPacket)
 {
     uint32 spellId;
     recvPacket >> spellId;
-    if(_player->m_currentSpell != NULL)
-    {
-        if(_player->m_currentSpell->GetSpellProto()->Id != spellId)
-            sLog.Debug("Spell","Player cancelled spell that was not being channeled: %u", spellId);
-
-        _player->m_currentSpell->cancel();
-    }
+    SpellEntry* info = dbcSpell.LookupEntry(spellId);
+    if(info == NULL)
+        return;
+    _player->GetSpellInterface()->CleanupSpecificSpell(info);
 }
 
 void WorldSession::HandleCancelAutoRepeatSpellOpcode(WorldPacket& recv_data)

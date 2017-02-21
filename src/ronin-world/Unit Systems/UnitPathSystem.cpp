@@ -155,6 +155,11 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 void UnitPathSystem::EnterEvade()
 {
     m_autoPath = false;
+    if(_waypointPath == NULL)
+    {
+        MoveToPoint(m_Unit->GetSpawnX(), m_Unit->GetSpawnY(), m_Unit->GetSpawnZ(), m_Unit->GetSpawnO());
+        return;
+    }
 
 }
 
@@ -202,6 +207,11 @@ void UnitPathSystem::_CleanupPath()
 
     lastUpdatePoint.timeStamp = 0; // Clean up our last update point
     lastUpdatePoint.pos.x = lastUpdatePoint.pos.y = lastUpdatePoint.pos.z = fInfinite;
+}
+
+void UnitPathSystem::SetFollowTarget(Unit *target, float distance)
+{
+
 }
 
 void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
@@ -260,6 +270,69 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     BroadcastMovementPacket();
 }
 
+void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
+{
+    float angle = NormAngle(m_Unit->GetAngle(unitTarget));
+    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
+    {
+        SetOrientation(angle);
+        return;
+    }
+
+    _destO = angle;
+
+    // Broadcast a movement change
+    WorldPacket data(SMSG_MONSTER_MOVE, 100);
+    data << m_Unit->GetGUID().asPacked();
+    data << uint8(0);
+    data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
+    // If we are at our destination, or have no destination, broadcast a stop packet
+    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite))
+        data << uint32(0) << uint8(5) << float( _destO );
+    else
+    {
+        data << uint32(m_pathCounter);
+        data << uint8(4) << float( _destO );
+        data << uint32(0x00400000);
+        data << uint32(m_pathLength - lastUpdatePoint.timeStamp);
+
+        uint32 counter = 0;
+        size_t counterPos = data.wpos();
+        data << uint32(0); // movement point counter
+        for(uint32 i = 0; i < m_movementPoints.size(); i++)
+        {
+            if(MovementPoint *path = m_movementPoints[i])
+            {
+                if(path->timeStamp <= lastUpdatePoint.timeStamp)
+                    continue;
+
+                data << path->pos.x << path->pos.y << path->pos.z;
+                counter++;
+            }
+        }
+        data.put<uint32>(counterPos, counter);
+    }
+
+    m_Unit->SendMessageToSet( &data, false );
+}
+
+void UnitPathSystem::SetOrientation(float orientation)
+{
+    m_pathCounter++;
+    m_Unit->SetOrientation(orientation);
+
+    LocationVector *pos = m_Unit->GetPositionV();
+    WorldPacket data(SMSG_MONSTER_MOVE, 100);
+    data << m_Unit->GetGUID().asPacked();
+    data << uint8(0);
+    data.appendvector(*pos);
+    data << uint32(m_pathCounter);
+    data << uint8(4) << float( m_Unit->GetOrientation() );
+    data << uint32(0x00400000) << uint32(0) << uint32(1);
+    data.appendvector(*pos);
+    m_Unit->SendMessageToSet( &data, false );
+}
+
 void UnitPathSystem::StopMoving()
 {
     _CleanupPath();
@@ -270,9 +343,6 @@ void UnitPathSystem::StopMoving()
 
 void UnitPathSystem::BroadcastMovementPacket()
 {
-    if(!m_Unit->HasInRangePlayers())
-        return;
-
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
