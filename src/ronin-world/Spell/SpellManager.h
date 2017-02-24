@@ -8,8 +8,8 @@ class Creature;
 class SpellEffectClass;
 class SpellCastTargets;
 
-typedef bool(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
-typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
 
 typedef bool(*tCanCastCCS)(SpellEntry *sp, Creature *ctr);
 typedef bool(*tGenCCSTargets)(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
@@ -37,8 +37,8 @@ public:
 
     bool HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result);
     // Modifiers for effect amounts and dummy effect handlers
-    bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
-    bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount);
+    bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+    bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
 
     bool CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr);
     bool GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);

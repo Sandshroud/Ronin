@@ -32,7 +32,7 @@ enum SpellEffectIndex
 class SpellEffectClass : public BaseSpell
 {
 public:
-    SpellEffectClass(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid);
+    SpellEffectClass(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid);
     ~SpellEffectClass();
     virtual void Destruct();
 
@@ -55,7 +55,7 @@ public:
 
     static std::map<uint8, pSpellEffect> m_spellEffectMap;
 
-    virtual void GetSpellDestination(LocationVector &dest) { m_caster->GetPosition(dest); }
+    virtual void GetSpellDestination(LocationVector &dest) { _unitCaster->GetPosition(dest); }
 
 private:
     typedef Loki::AssocVector<WoWGuid, Aura*> AuraTargetMap;

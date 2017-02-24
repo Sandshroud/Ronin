@@ -209,10 +209,6 @@ void WildSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, in
 
 void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
-    return;
-    if(!m_caster->IsUnit())
-        return;
-    Unit *u_caster = castPtr<Unit>(m_caster);
     uint32 entry = m_spellInfo->EffectMiscValue[i];
 
     SummonPropertiesEntry * spe = dbcSummonProperties.LookupEntry( GetSpellProto()->EffectMiscValueB[i] );
@@ -235,7 +231,7 @@ void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 am
     // Client adds these spells to the companion window, it's weird but then it happens anyways
     if(spe->slot == 5)
     {
-        SummonCompanion(u_caster, i, amount, spe, ctrData, v);
+        SummonCompanion(_unitCaster, i, amount, spe, ctrData, v);
         return;
     }
 
@@ -249,23 +245,23 @@ void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 am
         {
             if(spe->Id == 121)
             {
-                SummonTotem(u_caster, i, amount, spe, ctrData, v);
+                SummonTotem(_unitCaster, i, amount, spe, ctrData, v);
                 return;
             }
         }break;
     case DBC_SUMMON_CONTROL_TYPE_PET:
         {
-            SummonTemporaryPet(u_caster, i, amount, spe, ctrData, v);
+            SummonTemporaryPet(_unitCaster, i, amount, spe, ctrData, v);
             return;
         }break;
     case DBC_SUMMON_CONTROL_TYPE_POSSESSED:
         {
-            SummonPossessed(u_caster, i, amount, spe, ctrData, v);
+            SummonPossessed(_unitCaster, i, amount, spe, ctrData, v);
             return;
         }break;
     case DBC_SUMMON_CONTROL_TYPE_VEHICLE:
         {
-            SummonVehicle(u_caster, i, amount, spe, ctrData, v);
+            SummonVehicle(_unitCaster, i, amount, spe, ctrData, v);
             return;
         }break;
     }
@@ -277,38 +273,38 @@ void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 am
     case DBC_SUMMON_TYPE_OPPONENT:
         {
             if(spe->controltype == DBC_SUMMON_CONTROL_TYPE_GUARDIAN)
-                SummonGuardian(u_caster, i, amount, spe, ctrData, v);
-            else SummonWild(u_caster, i, amount, spe, ctrData, v);
+                SummonGuardian(_unitCaster, i, amount, spe, ctrData, v);
+            else SummonWild(_unitCaster, i, amount, spe, ctrData, v);
             return;
         }break;
     case DBC_SUMMON_TYPE_PET:
         {
-            SummonTemporaryPet(u_caster, i, amount, spe, ctrData, v);
+            SummonTemporaryPet(_unitCaster, i, amount, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_GUARDIAN:
     case DBC_SUMMON_TYPE_MINION:
     case DBC_SUMMON_TYPE_RUNEBLADE:
         {
-            SummonGuardian(u_caster, i, amount, spe, ctrData, v);
+            SummonGuardian(_unitCaster, i, amount, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_TOTEM:
         {
-            SummonTotem(u_caster, i, amount, spe, ctrData, v);
+            SummonTotem(_unitCaster, i, amount, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_COMPANION:
         {   // These are used as guardians in some quests
             if(spe->slot == 6)
-                SummonGuardian(u_caster, i, amount, spe, ctrData, v);
-            else SummonCompanion(u_caster, i, amount, spe, ctrData, v);
+                SummonGuardian(_unitCaster, i, amount, spe, ctrData, v);
+            else SummonCompanion(_unitCaster, i, amount, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_VEHICLE:
     case DBC_SUMMON_TYPE_MOUNT:
         {
-            SummonVehicle(u_caster, i, amount, spe, ctrData, v);
+            SummonVehicle(_unitCaster, i, amount, spe, ctrData, v);
         }break;
     case DBC_SUMMON_TYPE_LIGHTWELL:
         {
-            SummonGuardian(u_caster, i, amount, spe, ctrData, v);
+            SummonGuardian(_unitCaster, i, amount, spe, ctrData, v);
         }break;
     default:
         {

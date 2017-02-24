@@ -110,7 +110,7 @@ uint32 InstanceManager::PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint
                 ret = INSTANCE_ABORT_INSTANCE_CLOSING;
             else if(instance->IsFull())
                 ret = INSTANCE_ABORT_FULL;
-            else if(instance->IsCombatInProgress())
+            else if(instance->CheckCombatStatus())
                 ret = INSTANCE_ABORT_ENCOUNTER;
             // else ret = instance_ok and we can enter our existing instance
         }   // Check instance data for load preparation, if no data abort

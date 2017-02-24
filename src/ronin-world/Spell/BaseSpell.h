@@ -110,13 +110,13 @@ typedef std::set<WoWGuid> SpellDelayTargets;
 class BaseSpell
 {
 public:
-    BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid);
+    BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid);
     ~BaseSpell();
 
     void _Prepare();
     virtual void Destruct();
 
-    RONIN_INLINE WorldObject *GetCaster() { return m_caster; }
+    RONIN_INLINE Unit *GetCaster() { return _unitCaster; }
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
     RONIN_INLINE uint8 GetCastNumber() { return m_castNumber; }
 
@@ -145,10 +145,10 @@ public:
         if (b_durSet == false)
         {
             b_durSet = true;
-            if((m_duration = m_spellInfo->CalculateSpellDuration(m_caster->getLevel(), 0)) != -1 && m_spellInfo->SpellGroupType && m_caster->IsUnit())
+            if(_unitCaster && (m_duration = m_spellInfo->CalculateSpellDuration(_unitCaster->getLevel(), 0)) != -1 && m_spellInfo->SpellGroupType)
             {
-                castPtr<Unit>(m_caster)->SM_FIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
-                castPtr<Unit>(m_caster)->SM_PIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
+                _unitCaster->SM_FIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
+                _unitCaster->SM_PIValue(SMT_DURATION, (int32*)&m_duration, m_spellInfo->SpellGroupType);
             }
         }
         return m_duration;
@@ -158,12 +158,12 @@ public:
     {
         b_radSet[i] = true;
         m_radius[0][i] = m_spellInfo->radiusHostile[i], m_radius[1][i] = m_spellInfo->radiusFriend[i];
-        if (m_spellInfo->SpellGroupType && m_caster && m_caster->IsUnit())
+        if (m_spellInfo->SpellGroupType && _unitCaster)
         {
-            castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);
-            castPtr<Unit>(m_caster)->SM_PFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);
-            castPtr<Unit>(m_caster)->SM_FFValue(SMT_RADIUS, &m_radius[1][i], m_spellInfo->SpellGroupType);
-            castPtr<Unit>(m_caster)->SM_PFValue(SMT_RADIUS, &m_radius[1][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[1][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[1][i], m_spellInfo->SpellGroupType);
         }
     }
 
@@ -191,7 +191,7 @@ protected:
     }
 
 protected:
-    WorldObject *m_caster;
+    Unit *_unitCaster;
     WoWGuid m_casterGuid;
 
     SpellEntry *m_spellInfo;

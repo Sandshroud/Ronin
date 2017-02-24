@@ -104,6 +104,7 @@ void GameObject::_searchNearbyUnits()
         Deactivate(0);
         return;
     }
+    return;
 
     SpellCastTargets tgt;
     tgt.m_targetMask |= (m_triggerSpell->isSpellAreaOfEffect() ? 0x40 : 0x02);
@@ -121,8 +122,8 @@ void GameObject::_searchNearbyUnits()
                 continue;
 
             tgt.m_unitTarget = *itr;
-            if(Spell* sp = new Spell(this, m_triggerSpell))
-                sp->prepare(&tgt, true);
+            /*if(Spell* sp = new Spell(this, m_triggerSpell))
+                sp->prepare(&tgt, true);*/
 
             if(GetType() == GAMEOBJECT_TYPE_TRAP)
             {
@@ -900,9 +901,9 @@ void GameObject::Use(Player *p)
                         if(target == NULL)
                             return;
 
-                        SpellCastTargets targets(target->GetGUID());
+                        /*SpellCastTargets targets(target->GetGUID());
                         if(Spell *spell = new Spell(this, info))
-                            spell->prepare(&targets, true);
+                            spell->prepare(&targets, true);*/
                     }break;
                 case 177193:// doom portal
                     {

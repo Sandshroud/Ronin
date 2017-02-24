@@ -429,7 +429,7 @@ bool SpellManager::HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, in
     return false;
 }
 
-bool SpellManager::ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool SpellManager::ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
@@ -438,7 +438,7 @@ bool SpellManager::ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, 
     return false;
 }
 
-bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);

@@ -1373,10 +1373,8 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         {
             if(SpellEntry *inf = dbcSpell.LookupEntry(qst->reward_cast_on_player))
             {
-                WorldObject *caster = qst_giver->IsItem() ? castPtr<Item>(qst_giver)->GetOwner() : castPtr<WorldObject>(qst_giver);
-                SpellCastTargets tgt(plr->GetGUID());
-                if(Spell *spe = new Spell(caster, inf))
-                    spe->prepare(&tgt, true);
+                if(Unit *uCaster = (qst_giver->IsUnit() ? castPtr<Unit>(qst_giver) : (qst_giver->IsItem() ? castPtr<Item>(qst_giver)->GetOwner() : NULL)))
+                    uCaster->GetSpellInterface()->TriggerSpell(inf, plr);
             }
         }
     }
@@ -1414,10 +1412,8 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         {
             if(SpellEntry *inf = dbcSpell.LookupEntry(qst->reward_cast_on_player))
             {
-                WorldObject *caster = qst_giver->IsItem() ? castPtr<Item>(qst_giver)->GetOwner() : castPtr<WorldObject>(qst_giver);
-                SpellCastTargets tgt(plr->GetGUID());
-                if(Spell *spe = new Spell(caster, inf))
-                    spe->prepare(&tgt, true);
+                if(Unit *uCaster = (qst_giver->IsUnit() ? castPtr<Unit>(qst_giver) : (qst_giver->IsItem() ? castPtr<Item>(qst_giver)->GetOwner() : NULL)))
+                    uCaster->GetSpellInterface()->TriggerSpell(inf, plr);
             }
         }
     }

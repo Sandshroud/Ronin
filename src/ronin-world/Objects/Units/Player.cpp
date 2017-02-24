@@ -563,7 +563,7 @@ void Player::EventExploration(MapInstance *instance)
             grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, this );
     }
 
-    if(m_areaFlags & OBJECT_AREA_FLAG_INDOORS)
+    if(HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
     {
         uint32 mountAuraId = 0; //Mount expired?
         if(m_AuraInterface.GetMountedAura(mountAuraId) && !(m_mapId == 531 && (mountAuraId == 25953 || mountAuraId == 26054 || mountAuraId == 26055 || mountAuraId == 26056)))
@@ -871,6 +871,8 @@ void Player::UpdatePlayerRatings()
     for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
     {
         int32 val = CalculatePlayerCombatRating(cr);
+        if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
+            val = 0; // Parry requires that we have the ability to parry, weirdly enough
         if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING))
         {
             for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
@@ -883,13 +885,18 @@ void Player::UpdatePlayerRatings()
             }
         }
 
+        if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
+            val = 0; // Parry requires that we have the ability to parry, weirdly enough
+
         if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT))
             for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
                 if(itr->second->m_miscValue[0] & (1<<cr))
                     val += (float(GetStat(itr->second->m_miscValue[1]))*float(itr->second->m_amount/100.f));
 
         if(index == PLAYER_RATING_MODIFIER_MASTERY && !m_AuraInterface.HasAurasWithModType(SPELL_AURA_MASTERY))
-            val = 0.f; // Mastery requires the aura before the rating can come into effect, so nullify it here
+            val = 0; // Mastery requires the aura before the rating can come into effect, so nullify it here
+        if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
+            val = 0; // Parry requires that we have the ability to parry, weirdly enough
 
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
@@ -1125,7 +1132,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     ss << uint32(0) << ", " << float(0.f) << ", " << float(0.f) << ", " << float(0.f) << ", " << float(0.f) << ", ";
 
     // Misc player data
-    ss << uint32(iInstanceType) << ", " << uint32(iRaidType) << ", " << uint32(m_restData.isResting) << ", " << uint32(m_restData.restState) << ", " << uint32(m_restData.restAmount);
+    ss << uint32(iInstanceType) << ", " << uint32(iRaidType) << ", " << uint32(m_restData.isResting) << ", " << uint32(m_restData.restState) << ", " << uint32(m_restData.restAmount) << ", " << uint32(m_restData.areaTriggerId);
     ss << ", " << uint64(sWorld.GetWeekStart()) << ", " << uint64(UNIXTIME) << ", 0, 0);"; // Reset for position and talents
 
     if(buf)
@@ -1250,7 +1257,7 @@ bool Player::LoadFromDB()
         taxiPath, taxiMoveTime, taxiTravelTime, taxiMountId, \
         transportGuid, transportX, transportY, transportZ, \
         entryPointMapId, entryPointX, entryPointY, entryPointZ, entryOrientation, \
-        instanceDifficulty, raidDifficulty, isResting, restState, restTime, \
+        instanceDifficulty, raidDifficulty, isResting, restState, restTime, restAreaTrigger, \
         lastWeekResetTime, lastSaveTime, needPositionReset, needTalentReset FROM character_data WHERE guid='%u'", m_objGuid.getLow());
 
     q->AddQuery("SELECT * FROM character_actions WHERE guid = '%u'", m_objGuid.getLow());
@@ -1358,9 +1365,12 @@ void Player::LoadFromDBProc(QueryResultVector & results)
 
     if(getLevel() != GetUInt32Value(PLAYER_FIELD_MAX_LEVEL))
     {
-        m_restData.isResting = fields[PLAYERLOAD_FIELD_ISRESTING].GetUInt8();
+        if(m_restData.isResting = fields[PLAYERLOAD_FIELD_ISRESTING].GetUInt8())
+            SetFlag(PLAYER_FLAGS, PLAYER_FLAG_RESTING); //put zzz icon
+
         m_restData.restState = fields[PLAYERLOAD_FIELD_RESTSTATE].GetUInt8();
         m_restData.restAmount = fields[PLAYERLOAD_FIELD_RESTTIME].GetUInt32();
+        m_restData.areaTriggerId = fields[PLAYERLOAD_FIELD_RESTAREATRIGGER].GetUInt32();
     }
 
     m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
@@ -3456,25 +3466,18 @@ void Player::HandleRestedCalculations(bool rest_on)
         ApplyPlayerRestState(true);
     else if(HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
     {
-        /*if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(LastAreaTrigger->AreaTriggerID))
+        bool result = false;
+        if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(m_restData.areaTriggerId))
         {
             float delta = 3.2f;
             if(ATE->radius) // If there is a radius, check our distance with the middle.
-            {
-                if(CalcDistance(ATE->base_x, ATE->base_y, ATE->base_z) < ATE->radius+delta)
-                    ApplyPlayerRestState(true);
-            }
-            else
-            {
-                if(IsInBox(ATE->base_x, ATE->base_y, ATE->base_z, ATE->box_length, ATE->box_width, ATE->box_height, ATE->box_yaw, delta))
-                    ApplyPlayerRestState(true);
-            }
-        }
-        else
-        {   // Clear our trigger, since it's wrong anyway.
-            LastAreaTrigger = NULL;
-        }*/
-        ApplyPlayerRestState(false);
+            {   // Only add delta leeway to a single part of the squared value
+                delta = (delta + ATE->radius) * ATE->radius;
+                result = (GetDistance2dSq(ATE->base_x, ATE->base_y) < delta && ((ATE->base_z-1.f) <= GetPositionZ()));
+            } else result = IsInBox(ATE->base_x, ATE->base_y, ATE->base_z, ATE->box_length, ATE->box_width, ATE->box_height, ATE->box_yaw, delta);
+        } else m_restData.areaTriggerId = 0;
+
+        ApplyPlayerRestState(result);
     } else if(rest_on == false)
         ApplyPlayerRestState(false);
 }
@@ -3538,6 +3541,11 @@ void Player::UpdateRestState()
 
     //update needle (weird, works at 1/2 rate)
     SetUInt32Value(PLAYER_REST_STATE_EXPERIENCE, (m_restData.restAmount ? 1+(m_restData.restAmount >> 1) : 0));
+}
+
+void Player::SetRestedAreaTrigger(uint32 triggerId)
+{
+    m_restData.areaTriggerId = triggerId;
 }
 
 void Player::ApplyPlayerRestState(bool apply)

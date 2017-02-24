@@ -576,6 +576,7 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_ISRESTING,
     PLAYERLOAD_FIELD_RESTSTATE,
     PLAYERLOAD_FIELD_RESTTIME,
+    PLAYERLOAD_FIELD_RESTAREATRIGGER,
     PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME,
     PLAYERLOAD_FIELD_LAST_SAVE_TIME,
     PLAYERLOAD_FIELD_NEEDS_POSITION_RESET,
@@ -1152,6 +1153,7 @@ public:
     void AddCalculatedRestXP(uint32 seconds);
     void ApplyPlayerRestState(bool apply);
     void UpdateRestState();
+    void SetRestedAreaTrigger(uint32 triggerId);
 
     void SendMirrorTimer(MirrorTimerType Type, uint32 MaxValue, uint32 CurrentValue, int32 Regen);
     void StopMirrorTimer(MirrorTimerType Type);
@@ -1540,6 +1542,7 @@ private:
         bool isResting;
         uint8 restState;
         uint32 restAmount;
+        uint32 areaTriggerId;
     } m_restData;
 
     /// Creature Interaction data

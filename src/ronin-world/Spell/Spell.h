@@ -37,7 +37,7 @@ enum SpellEffectTargetFlags
 class SERVER_DECL Spell : public SpellEffectClass
 {
 public:
-    Spell( WorldObject* Caster, SpellEntry *info, uint8 castNumber = 0, WoWGuid itemCaster = 0, Aura* aur = NULL);
+    Spell( Unit* Caster, SpellEntry *info, uint8 castNumber = 0, WoWGuid itemCaster = 0, Aura* aur = NULL);
     ~Spell();
     virtual void Destruct();
 

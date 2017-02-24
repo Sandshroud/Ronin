@@ -328,7 +328,7 @@ public:
 
 public:
     // Combat functions
-    bool CheckCombatStatus(Unit *unit);
+    bool CheckCombatStatus(Unit *unit = NULL);
     void ClearCombatTimers(WoWGuid guid, WoWGuid guid2 = WoWGuid());
     void TriggerCombatTimer(WoWGuid guid, WoWGuid guid2, uint32 timer);
 
@@ -347,6 +347,7 @@ public:
     void BroadcastObjectUpdate(WorldObject *obj);
 
 protected:
+    // These are stored in MapInstance.cpp with functions
     friend class MapInstanceObjectProcessCallback;
     MapInstanceObjectProcessCallback _processCallback;
 
@@ -365,6 +366,7 @@ protected:
     friend class MapInstanceBroadcastObjectUpdateCallback;
     MapInstanceBroadcastObjectUpdateCallback _broadcastObjectUpdateCallback;
 
+    // These are stored in SpellTargets.cpp with functions
 public:
 
     //! Mark object as updated
@@ -613,20 +615,6 @@ public:
 
     // stored iterators for safe checking
     PlayerStorageMap::iterator __player_iterator;
-
-//////////////////////////////////////////////////////////
-// Local (MapInstance) storage of combats in progress
-////////////////////////////////
-    CombatProgressSet _combatProgress;
-    RONIN_INLINE void AddCombatInProgress(WoWGuid guid) { _combatProgress.insert(guid); }
-    RONIN_INLINE void RemoveCombatInProgress(WoWGuid guid) { _combatProgress.erase(guid); }
-    RONIN_INLINE bool IsCombatInProgress()
-    {
-        // if all players are out, list should be empty.
-        if(HasPlayers() == false)
-            return false;
-        return !_combatProgress.empty();
-    }
 
 //////////////////////////////////////////////////////////
 // Lookup Wrappers

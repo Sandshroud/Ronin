@@ -4,25 +4,25 @@
 
 #include "StdAfx.h"
 
-bool PaladinBlessingApplicator(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinBlessingApplicator(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     Group *grp = NULL;
-    uint32 triggerSpell = (sp->Id == 19740 ? 79101 : 79062);
-    if(caster->IsPlayer() && target->IsPlayer() && (grp = castPtr<Player>(caster)->GetGroup()) && grp->HasMember(castPtr<Player>(target)))
+    SpellEntry *triggerSpell = dbcSpell.LookupEntry(sp->Id == 19740 ? 79101 : 79062);
+    if(triggerSpell && caster->IsPlayer() && target->IsPlayer() && (grp = castPtr<Player>(caster)->GetGroup()) && grp->HasMember(castPtr<Player>(target)))
     {
         grp->Lock();
         GroupMembersSet::iterator itr;
         for(uint8 i = 0; i < grp->GetSubGroupCount(); i++)
             for(itr = grp->GetSubGroup(i)->GetGroupMembersBegin(); itr != grp->GetSubGroup(i)->GetGroupMembersEnd(); itr++)
                 if((*itr)->m_loggedInPlayer && false)//caster->IsInRangeSet((*itr)->m_loggedInPlayer))
-                    caster->CastSpell((*itr)->m_loggedInPlayer, triggerSpell, true);
+                    caster->GetSpellInterface()->TriggerSpell(triggerSpell, (*itr)->m_loggedInPlayer);
         grp->Unlock();
-    } else if(target->IsUnit())
-        caster->CastSpell(target, triggerSpell, true);
+    } else if(triggerSpell && target->IsUnit())
+        caster->GetSpellInterface()->TriggerSpell(triggerSpell, castPtr<Unit>(target));
     return true;
 }
 
-bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL, *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitCaster && unitTarget)
@@ -42,7 +42,7 @@ bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, WorldObject *
     return true;
 }
 
-bool PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
@@ -63,7 +63,7 @@ bool PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, Worl
     return true;
 }
 
-bool PaladinExorcismAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinExorcismAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     // Exorcism gets a raw attack power increase of 0.315-0.325%, not sure yet which
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
@@ -71,7 +71,7 @@ bool PaladinExorcismAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject 
     return true;
 }
 
-bool PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {

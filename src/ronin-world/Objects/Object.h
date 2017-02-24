@@ -392,11 +392,6 @@ public:
     // Field values
     virtual uint32 getLevel() = 0;
 
-    void CastSpell(WorldObject* Target, SpellEntry* Sp, bool triggered);
-    void CastSpell(WorldObject* Target, uint32 SpellID, bool triggered);
-    void CastSpell(uint64 targetGuid, SpellEntry* Sp, bool triggered);
-    void CastSpell(uint64 targetGuid, uint32 SpellID, bool triggered);
-
     RONIN_INLINE const float& GetPositionX( ) const { return m_position.x; }
     RONIN_INLINE const float& GetPositionY( ) const { return m_position.y; }
     RONIN_INLINE const float& GetPositionZ( ) const { return m_position.z; }

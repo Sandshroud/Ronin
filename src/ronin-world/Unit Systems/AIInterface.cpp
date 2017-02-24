@@ -146,6 +146,7 @@ bool AIInterface::FindTarget()
     if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(m_Creature, baseAggro, TYPEMASK_TYPE_PLAYER))
     {
         m_targetGuid = target->GetGUID();
+        m_Creature->SetInCombat(target);
         return true;
     }
     return false;

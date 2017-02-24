@@ -1690,18 +1690,21 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
     QueryResult *res = WorldDatabase.Query("SELECT type, requiredteam, map, position_x, position_y, position_z, orientation FROM areatriggers WHERE entry = %u", id);
     if(res == NULL)
     {
+        _player->SetRestedAreaTrigger(id);
         sLog.outDebug("Missing AreaTrigger: %u", id);
         return;
     }
 
     Field *fields = res->Fetch();
-    if(fields[0].GetUInt32() != 1 || (fields[1].GetInt32() != -1 && fields[1].GetInt32() != _player->GetTeam()))
+    if((fields[1].GetInt32() != -1 && fields[1].GetInt32() != _player->GetTeam()))
     {
         delete res;
         return;
     }
 
-    if(_player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
+    _player->SetRestedAreaTrigger(id);
+
+    if(fields[0].GetUInt32() == 1 && _player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
     {
         MapEntry* map = dbcMap.LookupEntry(fields[2].GetUInt32());
         if(map == NULL)

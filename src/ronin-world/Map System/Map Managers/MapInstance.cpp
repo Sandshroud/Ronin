@@ -46,7 +46,6 @@ _processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _b
     m_PlayerStorage.clear();
     m_DynamicObjectStorage.clear();
 
-    _combatProgress.clear();
     _updates.clear();
     _processQueue.clear();
     MapSessions.clear();
@@ -141,7 +140,6 @@ void MapInstance::Destruct()
     m_CreatureStorage.clear();
     m_gameObjectStorage.clear();
 
-    _combatProgress.clear();
     _updates.clear();
     _processQueue.clear();
     MapSessions.clear();
@@ -1709,6 +1707,8 @@ bool MapInstance::CheckCombatStatus(Unit *unit)
     // If we're forcing combat ignore mapping states
     if(m_forceCombatState)
         return true;
+    if(unit == NULL)
+        return !m_combatPartners.empty();
     // We have no combat history
     if(m_combatPartners.find(unit->GetGUID()) == m_combatPartners.end())
         return false;

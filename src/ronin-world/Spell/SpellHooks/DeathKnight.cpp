@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-bool DeathKnightDeathCoilTrigger(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool DeathKnightDeathCoilTrigger(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     static SpellEntry *attackSpell = dbcSpell.LookupEntry(47632), *healSpell = dbcSpell.LookupEntry(47633);
     if(attackSpell == NULL || healSpell == NULL)
@@ -21,7 +21,7 @@ bool DeathKnightDeathCoilTrigger(SpellEntry *sp, uint32 effIndex, WorldObject *c
     return true;
 }
 
-bool DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
@@ -34,7 +34,7 @@ bool DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject
     return true;
 }
 
-bool DeathKnightUnholyAmountModifier(SpellEntry *sp, uint32 effIndex, WorldObject *caster, WorldObject *target, int32 &amount)
+bool DeathKnightUnholyAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {

@@ -795,10 +795,8 @@ public:
     void SetFFAPvPFlag();
     void RemoveFFAPvPFlag();
 
-    bool CanReduceCombatTimer(WoWGuid guid);
     void SetInCombat(Unit *unit, uint32 timerOverride = 5000);
     bool IsInCombat() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT); }
-    void RemoveCombatTimer(WoWGuid guid);
 
     /////////////////////////////////////////////////////// Unit properties ///////////////////////////////////////////////////
 

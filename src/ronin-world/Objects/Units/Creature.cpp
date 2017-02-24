@@ -259,11 +259,15 @@ void Creature::Tag(Player* plr)
 
 void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
 {
-    if(!hasStateFlag(UF_ATTACKING) || (isCasting() && m_spellInterface.GetCurrentSpellProto()->isSpellAttackInterrupting()))
+    if(!hasStateFlag(UF_ATTACKING))
+        return;
+
+    bool casting; // We don't need to update our physical or spell attacks if we're already casting
+    if((casting = isCasting()) && m_spellInterface.GetCurrentSpellProto()->isSpellAttackInterrupting())
         return;
 
     // Handle our creature spell casting
-    if(!m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SILENCE))
+    if(casting == false && !m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SILENCE))
     {   // Check our individual spells to cast
         for(std::vector<CreatureSpell*>::iterator itr = m_combatSpells.begin(); itr != m_combatSpells.end(); itr++)
         {

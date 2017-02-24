@@ -33,6 +33,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     uint64 itemGUID;
     uint32 spellId;
     recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID;
+    SpellCastTargets targets(recvPacket, _player->GetGUID());
 
     Item* tmpItem = _player->GetInventory()->GetInventoryItem(bagIndex, slot);
     if (tmpItem == NULL && (tmpItem = _player->GetInventory()->GetInventoryItem(slot)) == NULL)
@@ -58,7 +59,6 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         SendPacket(&data);
     }
 
-    SpellCastTargets targets(recvPacket, _player->GetGUID());
     targets.m_itemTarget = itemGUID;
     uint8 x;
     bool matching = false;
@@ -262,7 +262,7 @@ void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
 {
     CHECK_INWORLD_RETURN();
 
-    WorldObject* caster = NULL;
+    Unit* caster = NULL;
     if (_player->m_CurrentCharm != NULL)
         caster = _player->m_CurrentCharm;
     if (caster == NULL)

@@ -101,7 +101,7 @@ void SpellCastTargets::write( WorldPacket& data )
         data << m_strTarget;
 }
 
-BaseSpell::BaseSpell(WorldObject* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : m_casterGuid(caster->GetGUID()), m_caster(caster), m_spellInfo(info), m_castNumber(castNumber), m_itemCaster(itemGuid)
+BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : m_casterGuid(caster->GetGUID()), _unitCaster(caster), m_spellInfo(info), m_castNumber(castNumber), m_itemCaster(itemGuid)
 {
     m_isCasting = false;
     m_duration = -1;
@@ -128,13 +128,13 @@ void BaseSpell::_Prepare()
     if((m_missileTravelTime || m_spellInfo->speed > 0.0f) && !m_spellInfo->IsSpellChannelSpell())
     {
         m_missileSpeed = m_spellInfo->speed/1000.f;
-        if(m_targets.hasDestination() && (m_targets.m_dest.x != m_caster->GetPositionX() && m_targets.m_dest.y != m_caster->GetPositionY() && m_targets.m_dest.z != m_caster->GetPositionZ()))
+        if(m_targets.hasDestination() && (m_targets.m_dest.x != _unitCaster->GetPositionX() && m_targets.m_dest.y != _unitCaster->GetPositionY() && m_targets.m_dest.z != _unitCaster->GetPositionZ()))
             m_isDelayedAOEMissile = !m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_MISSILE);
     }
 
-    if((m_spellInfo->SpellScalingId || m_spellInfo->CastingTimeIndex) && !(m_triggeredSpell || (m_caster->IsPlayer() && castPtr<Player>(m_caster)->CastTimeCheat)))
+    if((m_spellInfo->SpellScalingId || m_spellInfo->CastingTimeIndex) && !(m_triggeredSpell || (_unitCaster->IsPlayer() && castPtr<Player>(_unitCaster)->CastTimeCheat)))
     {
-        uint32 level = m_caster->getLevel();
+        uint32 level = _unitCaster->getLevel();
         if(m_spellInfo->SpellScalingId)
         {
             m_castTime = m_spellInfo->castTimeMin;
@@ -163,16 +163,16 @@ void BaseSpell::_Prepare()
                 m_castTime = m_spellInfo->baseCastTime;
         }
 
-        if(m_castTime && m_caster->IsUnit())
+        if(m_castTime)
         {
             if(m_spellInfo->SpellGroupType)
             {
-                castPtr<Unit>(m_caster)->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, m_spellInfo->SpellGroupType );
-                castPtr<Unit>(m_caster)->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, m_spellInfo->SpellGroupType );
+                _unitCaster->SM_FIValue( SMT_CAST_TIME, (int32*)&m_castTime, m_spellInfo->SpellGroupType );
+                _unitCaster->SM_PIValue( SMT_CAST_TIME, (int32*)&m_castTime, m_spellInfo->SpellGroupType );
             }
 
             if (!(m_spellInfo->isAbilitySpell() || m_spellInfo->isTradeSpell()))
-                m_castTime *= castPtr<Unit>(m_caster)->GetFloatValue(UNIT_MOD_CAST_SPEED);
+                m_castTime *= _unitCaster->GetFloatValue(UNIT_MOD_CAST_SPEED);
             /*else if(m_spellInfo->isSpellRangedSpell() && !m_spellInfo->isAutoRepeatSpell())
             m_castTime *= castPtr<Unit>(m_caster)->getattacks[RANGED_ATTACK]);*/
         }
@@ -199,7 +199,7 @@ void BaseSpell::Destruct()
     m_delayTargets.clear();
     m_spellMisses.clear();
 
-    m_caster = NULL;
+    _unitCaster = NULL;
     m_spellInfo = NULL;
 
     delete this;
@@ -252,7 +252,7 @@ void BaseSpell::writeSpellGoTargets( WorldPacket * data )
 void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
 {
     if (cast_flags & SPELL_CASTFLAG_POWER_UPDATE) //send new power
-        *data << uint32(castPtr<Unit>(m_caster)->GetPower(GetSpellProto()->powerType));
+        *data << uint32(castPtr<Unit>(_unitCaster)->GetPower(GetSpellProto()->powerType));
 
     if( cast_flags & SPELL_CASTFLAG_RUNE_UPDATE ) //send new runes
     {
@@ -277,13 +277,13 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
         uint8 effIndex = 0;
         uint32 amount = 0, type = 0;
         if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL, effIndex))
-            amount = m_spellInfo->CalculateSpellPoints(effIndex, m_caster->getLevel(), 0);
+            amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), 0);
         else if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL_PCT, effIndex))
-            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, m_caster->getLevel(), 0);
+            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), 0);
         //else if(m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)) {}// TODO
 
         *data << uint32(amount) << uint8(type);
-        if(type == 2) *data << m_caster->GetGUID().asPacked();
+        if(type == 2) *data << _unitCaster->GetGUID().asPacked();
     }
 
     if( m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION )
@@ -309,8 +309,8 @@ void BaseSpell::SendSpellStart()
         cast_flags |= SPELL_CASTFLAG_HEAL_UPDATE;
 
     WorldPacket data(SMSG_SPELL_START, 150);
-    data << m_caster->GetGUID().asPacked();
-    data << m_caster->GetGUID().asPacked();
+    data << m_casterGuid.asPacked();
+    data << _unitCaster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(GetSpellProto()->Id);
     data << uint32(cast_flags);
@@ -321,7 +321,7 @@ void BaseSpell::SendSpellStart()
 
     writeSpellCastFlagData(&data, cast_flags);
 
-    m_caster->SendMessageToSet( &data, m_caster->IsPlayer() );
+    _unitCaster->SendMessageToSet( &data, _unitCaster->IsPlayer() );
 }
 
 void BaseSpell::SendSpellGo()
@@ -334,7 +334,7 @@ void BaseSpell::SendSpellGo()
         cast_flags |= SPELL_CASTFLAG_NO_VISUAL;
     if(GetSpellProto()->powerType > 0 && GetSpellProto()->powerType != POWER_TYPE_HEALTH)
         cast_flags |= SPELL_CASTFLAG_POWER_UPDATE;
-    if(m_caster->IsUnit() && castPtr<Unit>(m_caster)->getClass() == DEATHKNIGHT && (GetSpellProto()->SpellRuneCostID || m_spellInfo->HasEffect(SPELL_EFFECT_ACTIVATE_RUNE)))
+    if(_unitCaster->getClass() == DEATHKNIGHT && (GetSpellProto()->SpellRuneCostID || m_spellInfo->HasEffect(SPELL_EFFECT_ACTIVATE_RUNE)))
         cast_flags |= (SPELL_CASTFLAG_NO_GCD | SPELL_CASTFLAG_RUNE_UPDATE);
     else if(m_spellInfo->StartRecoveryTime == 0)
         cast_flags |= SPELL_CASTFLAG_NO_GCD;
@@ -342,8 +342,8 @@ void BaseSpell::SendSpellGo()
         cast_flags |= SPELL_CASTFLAG_MISSILE_INFO;
 
     WorldPacket data(SMSG_SPELL_GO, 200);
-    data << m_caster->GetGUID().asPacked();
-    data << m_caster->GetGUID().asPacked();
+    data << m_casterGuid.asPacked();
+    data << _unitCaster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(m_spellInfo->Id);
     data << uint32(cast_flags);
@@ -356,7 +356,7 @@ void BaseSpell::SendSpellGo()
 
     writeSpellCastFlagData(&data, cast_flags);
 
-    m_caster->SendMessageToSet( &data, m_caster->IsPlayer() );
+    _unitCaster->SendMessageToSet( &data, _unitCaster->IsPlayer() );
 }
 
 void BaseSpell::SendSpellMisses(SpellTarget *forced)
@@ -366,7 +366,7 @@ void BaseSpell::SendSpellMisses(SpellTarget *forced)
 
     WorldPacket data(SMSG_SPELLLOGMISS, 29);
     data << m_spellInfo->Id;
-    data << m_caster->GetGUID();
+    data << _unitCaster->GetGUID();
     data << m_castNumber;
     if(forced == NULL)
     {
@@ -374,12 +374,12 @@ void BaseSpell::SendSpellMisses(SpellTarget *forced)
         for(std::vector<std::pair<WoWGuid, uint8>>::iterator itr = m_spellMisses.begin(); itr != m_spellMisses.end(); itr++)
             data << (*itr).first << (*itr).second;
     } else data << uint32(1) << forced->Guid << forced->HitResult;
-    m_caster->SendMessageToSet(&data, true);
+    _unitCaster->SendMessageToSet(&data, true);
 }
 
 bool BaseSpell::IsNeedSendToClient()
 {
-    if(!m_caster->IsUnit() || !m_caster->IsInWorld() || m_spellInfo->isPassiveSpell())
+    if(!_unitCaster->IsInWorld() || m_spellInfo->isPassiveSpell())
         return false;
     if(m_spellInfo->SpellVisual[0] || m_spellInfo->SpellVisual[1])
         return true;
@@ -395,10 +395,10 @@ bool BaseSpell::IsNeedSendToClient()
 void BaseSpell::SendProjectileUpdate()
 {
     WorldPacket data(SMSG_SET_PROJECTILE_POSITION, 40);
-    data << m_caster->GetGUID();
+    data << _unitCaster->GetGUID();
     data << m_castNumber;
     data << float(0.0f) << float(0.0f) << float(0.0f);
-    m_caster->SendMessageToSet(&data, true);
+    _unitCaster->SendMessageToSet(&data, true);
 }
 
 void BaseSpell::SendCastResult(uint8 result)
@@ -406,10 +406,10 @@ void BaseSpell::SendCastResult(uint8 result)
     if(result == SPELL_CANCAST_OK)
         return;
 
-    if(!m_caster->IsInWorld())
+    if(!_unitCaster->IsInWorld())
         return;
 
-    Player* plr = m_caster->IsPlayer() ? castPtr<Player>(m_caster) : NULL;
+    Player* plr = _unitCaster->IsPlayer() ? castPtr<Player>(_unitCaster) : NULL;
     if( plr == NULL)
         return;
 
@@ -452,45 +452,45 @@ void BaseSpell::SendCastResult(uint8 result)
 
 void BaseSpell::SendInterrupted(uint8 result)
 {
-    if(!m_caster->IsUnit() || !m_caster->IsInWorld()) 
+    if(!_unitCaster->IsInWorld()) 
         return;
 
     WorldPacket data(SMSG_SPELL_FAILURE, 13);
-    data << m_caster->GetGUID().asPacked();
+    data << _unitCaster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(m_spellInfo->Id);
     data << uint8(result);
-    m_caster->SendMessageToSet(&data, true);
+    _unitCaster->SendMessageToSet(&data, true);
 
     data.Initialize(SMSG_SPELL_FAILED_OTHER);
-    data << m_caster->GetGUID().asPacked();
+    data << _unitCaster->GetGUID().asPacked();
     data << uint8(m_castNumber);
     data << uint32(m_spellInfo->Id);
     data << uint8(result);
-    m_caster->SendMessageToSet(&data, false);
+    _unitCaster->SendMessageToSet(&data, false);
 }
 
 void BaseSpell::SendChannelStart(int32 duration)
 {
-    if(!m_caster->IsUnit() || !m_caster->IsInWorld()) 
+    if(!_unitCaster->IsInWorld()) 
         return;
 
     WorldPacket data(MSG_CHANNEL_START, 16);
-    data << m_caster->GetGUID().asPacked();
+    data << _unitCaster->GetGUID().asPacked();
     data << m_spellInfo->Id;
     data << duration;
-    m_caster->SendMessageToSet(&data, true);
+    _unitCaster->SendMessageToSet(&data, true);
 }
 
 void BaseSpell::SendChannelUpdate(uint32 time)
 {
-    if(!m_caster->IsUnit() || !m_caster->IsInWorld()) 
+    if(!_unitCaster->IsInWorld()) 
         return;
 
     WorldPacket data(MSG_CHANNEL_UPDATE, 12);
-    data << m_caster->GetGUID().asPacked();
+    data << _unitCaster->GetGUID().asPacked();
     data << time;
-    m_caster->SendMessageToSet(&data, true);
+    _unitCaster->SendMessageToSet(&data, true);
 }
 
 void BaseSpell::SendHealSpellOnPlayer( WorldObject* caster, WorldObject* target, uint32 dmg, bool critical, uint32 overheal, uint32 spellid)
@@ -526,13 +526,13 @@ void BaseSpell::SendHealManaSpellOnPlayer(WorldObject* caster, WorldObject* targ
 
 void BaseSpell::SendResurrectRequest(Player* target)
 {
-    const char* name = m_caster->IsCreature() ? castPtr<Creature>(m_caster)->GetName() : "";
+    const char* name = _unitCaster->IsCreature() ? castPtr<Creature>(_unitCaster)->GetName() : "";
     WorldPacket data(SMSG_RESURRECT_REQUEST, 12+strlen(name)+3);
-    data << m_caster->GetGUID();
+    data << _unitCaster->GetGUID();
     data << uint32(strlen(name) + 1);
     data << name;
     data << uint8(0);
-    data << uint8(m_caster->IsCreature() ? 1 : 0);
+    data << uint8(_unitCaster->IsCreature() ? 1 : 0);
     if (m_spellInfo->isResurrectionTimerIgnorant())
         data << uint32(0);
     target->GetSession()->SendPacket(&data);

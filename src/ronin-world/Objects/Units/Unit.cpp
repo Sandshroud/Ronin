@@ -2207,10 +2207,10 @@ bool Unit::UpdateAutoAttackState()
         return false;
 
     Unit* victim = GetInRangeObject<Unit>(m_attackTarget);
-    if (!victim || isCasting())
+    if (victim == NULL)
         return false;
 
-    if(m_attackTimer[MELEE] != 0 && !(m_dualWield && m_attackTimer[OFFHAND] == 0))
+    if(isCasting() || (m_attackTimer[MELEE] != 0 && !(m_dualWield && m_attackTimer[OFFHAND] == 0)))
         return false;
 
     uint8 swingError = 0;
@@ -2245,6 +2245,9 @@ bool Unit::UpdateAutoAttackState()
             EventAttack(victim, OFFHAND);
             resetAttackTimer(OFFHAND);
         }
+
+        // Trigger a combat update timer on attack
+        SetInCombat(victim);
     }
 
     Player *plr = NULL;
@@ -2957,17 +2960,12 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
     target->SendPowerUpdate();
 }
 
-bool Unit::CanReduceCombatTimer(WoWGuid guid)
-{
-    if(m_attackTarget == guid)
-        return false;
-    return true;
-}
-
 void Unit::SetInCombat(Unit *unit, uint32 timerOverride)
 {
     ASSERT(unit);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+    // Set our target's combat flag too
+    unit->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
     m_mapInstance->TriggerCombatTimer(GetGUID(), unit->GetGUID(), timerOverride);
 }
 

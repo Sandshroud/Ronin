@@ -1742,7 +1742,7 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
         m_groundHeight = ADTHeight;
 
     // Liquid heights, needs more work | Don't use ADT height at holes or when under ADT height | TODO: Buildings underwater that cut off ADT liquid
-    if(m_liquidHeight == NO_WMO_HEIGHT && (isHole || (m_groundHeight != ADTHeight && GetPositionZ() < ADTHeight)))
+    if(m_liquidHeight == NO_WMO_HEIGHT && (isHole || (m_groundHeight != ADTHeight && GetPositionZ() < ADTHeight) || (m_areaFlags & OBJECT_AREA_FLAG_IGNORE_ADT_WATER)))
         m_liquidFlags = 0, m_liquidHeight = NO_WATER_HEIGHT;
     else if(m_liquidHeight == NO_WMO_HEIGHT || (m_groundHeight == ADTHeight))
     {   // Use ADT liquid and Type
@@ -1900,43 +1900,4 @@ int32 WorldObject::GetSpellBaseCost(SpellEntry *sp)
             return float2int32(((float)GetUInt32Value(UNIT_FIELD_BASE_MANA)) * (((float)sp->ManaCostPercentage) / 100.f));
         return float2int32(((float)GetUInt32Value(UNIT_FIELD_BASE_HEALTH)) * (((float)sp->ManaCostPercentage) / 100.f));
     } else return sp->ManaCost;
-}
-
-void WorldObject::CastSpell( WorldObject* Target, SpellEntry* Sp, bool triggered )
-{
-    if( Sp == NULL )
-        return;
-
-    Spell* newSpell = new Spell(this, Sp);
-    SpellCastTargets targets;
-    if(Target)
-    {
-        if(Target->IsUnit())
-            targets.m_targetMask |= TARGET_FLAG_UNIT;
-        else targets.m_targetMask |= TARGET_FLAG_OBJECT;
-        targets.m_unitTarget = Target->GetGUID();
-    } else newSpell->GenerateTargets(&targets);
-    newSpell->prepare(&targets, triggered);
-}
-
-void WorldObject::CastSpell( WorldObject* Target, uint32 SpellID, bool triggered )
-{
-    if(SpellEntry * ent = dbcSpell.LookupEntry(SpellID))
-        CastSpell(Target, ent, triggered);
-}
-
-void WorldObject::CastSpell( uint64 targetGuid, SpellEntry* Sp, bool triggered )
-{
-    if( Sp == NULL )
-        return;
-
-    SpellCastTargets targets(targetGuid);
-    if(Spell* newSpell = new Spell(this, Sp))
-        newSpell->prepare(&targets, triggered);
-}
-
-void WorldObject::CastSpell( uint64 targetGuid, uint32 SpellID, bool triggered )
-{
-    if(SpellEntry * ent = dbcSpell.LookupEntry(SpellID))
-        CastSpell(targetGuid, ent, triggered);
 }
