@@ -49,7 +49,7 @@ namespace VMAP
         virtual bool getObjectHitPos(unsigned int mapId, unsigned int m_instance, int m_phase, float x1, float y1, float z1, float x2, float y2, float z2, float& rx, float& ry, float& rz, float modifyDist) = 0;
         virtual float getHeight(unsigned int mapId, unsigned int m_instance, int m_phase, float x, float y, float z, float maxSearchDist) = 0;
 
-        virtual unsigned int getWMOData(unsigned int pMapId, float x, float y, float z, unsigned int &wmoFlags, bool &areaResult, unsigned int &adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight, DataPointCallback* callback) const = 0;
+        virtual unsigned int getWMOData(unsigned int pMapId, float x, float y, float z, unsigned int &wmoFlags, unsigned int &areaResultFlags, unsigned int &adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight, DataPointCallback* callback) const = 0;
         virtual bool getAreaInfo(unsigned int pMapId, float x, float y, float& z, unsigned int& flags, int& adtId, int& rootId, int& groupId) const = 0;
         virtual void getLiquidData(unsigned int pMapId, float x, float y, float z, unsigned short &typeFlags, float &level) const = 0;
     };

@@ -321,7 +321,7 @@ namespace VMAP
         return height;
     }
 
-    G3D::uint32 VMapManager::getWMOData(unsigned int mapId, float x, float y, float z, G3D::uint32& wmoFlags, bool &areaResult, unsigned int &adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight, DataPointCallback* callback) const
+    G3D::uint32 VMapManager::getWMOData(unsigned int mapId, float x, float y, float z, G3D::uint32& wmoFlags, unsigned int &areaResultFlags, unsigned int &adtFlags, int& adtId, int& rootId, int& groupId, float &groundHeight, unsigned short &liquidFlags, float &liquidHeight, DataPointCallback* callback) const
     {
         InstanceTreeMap::const_iterator instanceTree = iInstanceMapTrees.find(mapId);
         if (instanceTree != iInstanceMapTrees.end())
@@ -335,7 +335,7 @@ namespace VMAP
                 groundHeight = data.ground_CalcZ;
 
             // Area result
-            if(areaResult = data.hitResult)
+            if(areaResultFlags = (data.hitResult ? 0x01 : 0x00))
             {
                 adtFlags = data.flags;
                 // Area data
@@ -344,6 +344,7 @@ namespace VMAP
                 groupId = data.groupId;
                 if(data.hitInstance)
                 {
+                    areaResultFlags |= data.hitFlags;
                     if((data.hitModel->GetMogpFlags() & WMO_FLAG_HAS_WMO_LIQUID) && data.hitInstance->GetLiquidLevel(pos, data.hitModel, liquidHeight))
                         liquidFlags = data.hitModel->GetLiquidType();
                     else if(!G3D::fuzzyEq(data.LiquidHeightSearch, -G3D::inf()))
@@ -354,7 +355,7 @@ namespace VMAP
 
                     if(data.hitModel->IsWithinObject(pos, data.hitInstance))
                         wmoFlags = data.hitModel->GetMogpFlags();
-                    return data.rootId;
+                    return data.wmoId;
                 }
             }
             else if(!G3D::fuzzyEq(data.LiquidHeightSearch, -G3D::inf()))

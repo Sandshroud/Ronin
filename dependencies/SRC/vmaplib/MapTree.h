@@ -28,7 +28,7 @@ namespace VMAP
 
     struct WMOData
     {   // Quick grab of all needed WMO info from vmap data
-        WMOData() : groundResult(false), hitResult(false), ground_CalcZ(-G3D::inf()), offset_z(-G3D::inf()), hitInstance(NULL), hitModel(NULL), flags(0), adtId(0), rootId(0), groupId(0), liqTypeSearch(0), LiquidHeightSearch(-G3D::inf()) {}
+        WMOData() : groundResult(false), hitResult(false), ground_CalcZ(-G3D::inf()), offset_z(-G3D::inf()), hitInstance(NULL), hitModel(NULL), hitFlags(0), flags(0), wmoId(0), adtId(0), rootId(0), groupId(0), liqTypeSearch(0), LiquidHeightSearch(-G3D::inf()) {}
 
         // We have data
         bool groundResult, hitResult;
@@ -39,6 +39,7 @@ namespace VMAP
         // Location info
         const ModelInstance* hitInstance;
         const GroupModel* hitModel;
+        G3D::uint16 hitFlags;
         float offset_z;
 
         // Area data

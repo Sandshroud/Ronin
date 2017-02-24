@@ -594,7 +594,7 @@ namespace VMAP
         if (callback.hit != groupModels.end())
         {
             data.hitResult = true;
-            data.rootId = RootWMOID;
+            data.wmoId = data.rootId = RootWMOID;
             data.groupId = callback.hit->GetWmoID();
             data.flags = callback.hit->GetMogpFlags();
             if (callback.mstrHit != groupModels.end())

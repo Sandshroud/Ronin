@@ -158,31 +158,31 @@ void VMapInterface::GetWMOData(MapInstance *instance, uint32 mapId, float x, flo
     m_mapLocks[mapId]->m_lock.Acquire();
 
     groundLevel = liquidLevel = NO_WMO_HEIGHT;
-    uint32 wmoFlags = 0, adtFlags = 0;
+    uint32 wmoFlags = 0, adtFlags = 0, areaResultFlags = 0;
     int32 adtId = 0, rootId = 0, groupId = 0;
-    bool areaRes = false;
 
     // Grab as much WMO data as we can in a single check
-    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaRes, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel, NULL);
+    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaResultFlags, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel, NULL);
 
     // We can just check for liquid data, but currently there is no real fix for caves etc so just accept any WMO with inherit data
     if(wmoFlags & VMAP::WMO_FLAG_HAS_WMO_LIQUID)
         areaFlags |= OBJECT_AREA_FLAG_USE_WMO_WATER;
-    else if(wmoFlags & (VMAP::WMO_FLAG_INSIDE_MASTER_WMO|VMAP::WMO_FLAG_INSIDE_SLAVE_WMO))
-        areaFlags;// |= OBJECT_AREA_FLAG_IGNORE_ADT_WATER;
 
     // Next check if we've got any area info from our callback
-    if(areaRes)
+    if(areaResultFlags)
     {   // We precached our WMO table data, so grab that from our manager
         WMOAreaTableEntry *WMOEntry = NULL;
         // Set our area Id
         if(WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupId))
             areaId = WMOEntry->areaId;
-
         // Indoor checks
-        if(adtFlags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS && !(adtFlags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS || adtFlags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
-            if(WMOEntry == NULL || !(WMOEntry->Flags & 0x4))
-                areaFlags |= OBJECT_AREA_FLAG_INDOORS;
+        if(WMOEntry && !(WMOEntry->Flags & 0x4) && !(adtFlags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
+        {   // Inside the WMO
+            areaFlags |= OBJECT_AREA_FLAG_INDOORS;
+            // If we're indoors, and we have water flag, ignore ADT water
+            if(wmoFlags & VMAP::WMO_FLAG_HAS_WMO_LIQUID)
+                areaFlags |= OBJECT_AREA_FLAG_IGNORE_ADT_WATER;
+        }
 
         // City flag checks
         if(adtFlags & VMAP::WMO_FLAG_INSIDE_CITY_WMO
@@ -209,12 +209,11 @@ void VMapInterface::GetWalkableHeight(MapInstance *instance, uint32 mapId, float
 
     groundLevel = liquidLevel = NO_WMO_HEIGHT;
     uint16 liquidFlags = 0;
-    uint32 wmoFlags = 0, adtFlags = 0;
+    uint32 wmoFlags = 0, adtFlags = 0, areaResultFlags = 0;
     int32 adtId = 0, rootId = 0, groupId = 0;
-    bool areaRes = false;
 
     // Grab as much WMO data as we can in a single check
-    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaRes, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel, NULL);
+    wmoId = vMapMgr->getWMOData(mapId, x, y, z, wmoFlags, areaResultFlags, adtFlags, adtId, rootId, groupId, groundLevel, liquidFlags, liquidLevel, NULL);
 
     // release write lock
     m_mapLocks[mapId]->m_lock.Release();
