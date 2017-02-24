@@ -94,9 +94,6 @@ WorldSession::~WorldSession()
 
     if(_zlibStream)
     {
-        int result = Z_OK;
-        while(result != Z_STREAM_END)
-            result = deflate(_zlibStream, Z_FINISH);
         deflateEnd(_zlibStream);
         delete _zlibStream;
         _zlibStream = NULL;
