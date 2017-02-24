@@ -196,9 +196,9 @@ void SpellManager::PoolSpellData()
         spellInfo->EffectPointsPerComboPoint[effectEntry->EffectIndex] = effectEntry->EffectPointsPerComboPoint;
         spellInfo->EffectRadiusIndex[effectEntry->EffectIndex] = effectEntry->EffectRadiusIndex;
         spellInfo->EffectRealPointsPerLevel[effectEntry->EffectIndex] = effectEntry->EffectRealPointsPerLevel;
-        spellInfo->EffectSpellClassMask[0][effectEntry->EffectIndex] = effectEntry->EffectSpellClassMask[0];
-        spellInfo->EffectSpellClassMask[1][effectEntry->EffectIndex] = effectEntry->EffectSpellClassMask[1];
-        spellInfo->EffectSpellClassMask[2][effectEntry->EffectIndex] = effectEntry->EffectSpellClassMask[2];
+        spellInfo->EffectSpellClassMask[effectEntry->EffectIndex][0] = effectEntry->EffectSpellClassMask[0];
+        spellInfo->EffectSpellClassMask[effectEntry->EffectIndex][1] = effectEntry->EffectSpellClassMask[1];
+        spellInfo->EffectSpellClassMask[effectEntry->EffectIndex][2] = effectEntry->EffectSpellClassMask[2];
         spellInfo->EffectTriggerSpell[effectEntry->EffectIndex] = effectEntry->EffectTriggerSpell;
         spellInfo->EffectImplicitTargetA[effectEntry->EffectIndex] = effectEntry->EffectImplicitTargetA;
         spellInfo->EffectImplicitTargetB[effectEntry->EffectIndex] = effectEntry->EffectImplicitTargetB;
