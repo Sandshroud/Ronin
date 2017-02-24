@@ -37,6 +37,8 @@ _processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _b
 
     InactiveMoveTime = 0;
 
+    m_forceCombatState = false;
+
     // buffers
     m_createBuffer.reserve(0x7FFF);
     m_updateBuffer.reserve(0x1FF);
@@ -377,7 +379,7 @@ void MapInstance::PushObject(WorldObject* obj)
     // Skip cell loading for preloading maps or inactive objects
     bool skipCellLoad = m_mapPreloading || (obj->IsActiveObject() && !obj->IsActivated());
     obj->GetCellManager()->SetCurrentCell(skipCellLoad ? NULL : this, objCell->GetPositionX(), objCell->GetPositionY(), 2);
-    m_objectCells[obj->GetGUID()] = ObjectCellManager::_makeCell(cx, cy);
+    CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cx, cy));
 }
 
 void MapInstance::RemoveObject(WorldObject* obj)
@@ -390,7 +392,7 @@ void MapInstance::RemoveObject(WorldObject* obj)
     ASSERT(obj->GetMapId() == _mapId);
 
     m_poolLock.Acquire();
-    m_objectCells.erase(obj->GetGUID());
+    RemoveCachedCell(obj->GetGUID());
     switch(obj->GetTypeId())
     {
     case TYPEID_UNIT:
@@ -474,6 +476,11 @@ void MapInstance::RemoveObject(WorldObject* obj)
     obj->SetMapCell(NULL);
 }
 
+void MapInstance::QueueSoftDisconnect(Player *plr)
+{
+    _softDCPlayers.insert(plr);
+}
+
 void MapInstance::ChangeObjectLocation( WorldObject* obj )
 {
     if( obj->GetMapInstance() != this )
@@ -530,6 +537,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 if(plObj && canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
                 {
                     plObj->AddVisibleObject( curObj );
+                    curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
                     if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
                         plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
                     m_createBuffer.clear();
@@ -577,6 +585,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 if(plObj && canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
                 {
                     plObj->AddVisibleObject( curObj );
+                    curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
                     if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
                         plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
                     m_createBuffer.clear();
@@ -647,7 +656,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
 
             // Set our cellId
             obj->GetCellManager()->SetCurrentCell(this, cellX, cellY, 2);
-            m_objectCells[obj->GetGUID()] = ObjectCellManager::_makeCell(cellX, cellY);
+            CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cellX, cellY));
         }
     }
 }
@@ -658,6 +667,7 @@ void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject 
     if( plObj2 && _instance->canObjectsInteract(plObj2, obj) && plObj2->CanSee( obj ) && !plObj2->IsVisible( obj ) )
     {
         plObj2->AddVisibleObject(obj);
+        obj->GetCellManager()->AddVisibleBy(plObj2->GetGUID());
         if(uint32 count = obj->BuildCreateUpdateBlockForPlayer(&_instance->m_createBuffer, plObj2))
             plObj2->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
         _instance->m_createBuffer.clear();
@@ -666,6 +676,7 @@ void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject 
     if( plObj != NULL && _instance->canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
     {
         plObj->AddVisibleObject( curObj );
+        curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
         if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &_instance->m_createBuffer, plObj ))
             plObj->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
         _instance->m_createBuffer.clear();
@@ -744,12 +755,14 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
     bool cansee = canObjectsInteract(plObj, curObj) && plObj->CanSee(curObj), isvisible = plObj->GetVisibility(curObj, &itr);
     if(!cansee && isvisible)
     {
+        curObj->GetCellManager()->RemoveVisibleBy(plObj->GetGUID());
         plObj->PushOutOfRange(_mapId, curObj->GetGUID());
         plObj->RemoveVisibleObject(itr);
     }
     else if(cansee && !isvisible)
     {
         plObj->AddVisibleObject(curObj);
+        curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
         if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
             plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
         m_createBuffer.clear();
@@ -1338,6 +1351,43 @@ void MapInstance::_ProcessInputQueue()
     m_objectinsertlock.Release();
 }
 
+void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
+{
+    if(m_combatTimers.empty())
+        return;
+
+    std::vector<std::pair<WoWGuid, WoWGuid>> deletionQueue;
+    // Find combats that have cleared up
+    for(std::map<std::pair<WoWGuid, WoWGuid>, uint32>::iterator itr = m_combatTimers.begin(); itr != m_combatTimers.end(); itr++)
+    {
+        bool toDelete = false;
+        Unit *unit1 = GetUnit(itr->first.first), *unit2 = GetUnit(itr->first.second);
+        if(unit1 == NULL || unit2 == NULL)
+            toDelete = true;
+        else if(!(unit1->ValidateAttackTarget(itr->first.second) || unit2->ValidateAttackTarget(itr->first.first)))
+            toDelete = true;
+        if(toDelete == false)
+            continue;
+        // Remove our combatants from our partner lists
+        m_combatPartners[itr->first.first].erase(itr->first.second);
+        m_combatPartners[itr->first.second].erase(itr->first.first);
+        // Clean up our combat partner list
+        if(m_combatPartners[itr->first.first].empty())
+            m_combatPartners.erase(itr->first.first);
+        if(m_combatPartners[itr->first.second].empty())
+            m_combatPartners.erase(itr->first.second);
+        // Queue our combat into deletion queue
+        deletionQueue.push_back(itr->first);
+    }
+
+    // Cleaning up finished combat
+    while(!deletionQueue.empty())
+    {
+        m_combatTimers.erase(*deletionQueue.begin());
+        deletionQueue.erase(deletionQueue.begin());
+    }
+}
+
 void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 {
     // Now we process player updates, there is no pool as all players are constantly in our update set
@@ -1359,6 +1409,13 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformPlayerRemovals()
 {
     m_updateMutex.Acquire();
+    while(!_softDCPlayers.empty())
+    {
+        Player *plObj = *_softDCPlayers.begin();
+        _softDCPlayers.erase(_softDCPlayers.begin());
+        plObj->ForceLogout();
+    }
+
     while(!m_removeQueue.empty())
     {
         Player *plObj = m_removeQueue.front();
@@ -1367,6 +1424,7 @@ void MapInstance::_PerformPlayerRemovals()
         // Clear any updates pending
         _processQueue.erase(plObj);
         _movedObjects.erase(plObj);
+        _softDCPlayers.erase(plObj);
         _updates.erase(plObj);
 
         plObj->PopPendingUpdates(_mapId);
@@ -1644,6 +1702,59 @@ bool MapInstance::InZRange(float fRange, WorldObject* obj, WorldObject *curObj)
     if((heightDifference*heightDifference) >= fRange)
         return false;
     return true;
+}
+
+bool MapInstance::CheckCombatStatus(Unit *unit)
+{
+    // If we're forcing combat ignore mapping states
+    if(m_forceCombatState)
+        return true;
+    // We have no combat history
+    if(m_combatPartners.find(unit->GetGUID()) == m_combatPartners.end())
+        return false;
+    // We have no combatants
+    if(m_combatPartners.at(unit->GetGUID()).empty())
+        return false;
+
+    return true;
+}
+
+void MapInstance::ClearCombatTimers(WoWGuid guid, WoWGuid guid2)
+{
+    if(guid2.empty())
+    {   // Remove all guids tied to guid1'
+        for(std::set<WoWGuid>::iterator itr = m_combatPartners[guid].begin(); itr != m_combatPartners[guid].end(); itr++)
+        {
+            // Remove our combatant from our partner lists
+            m_combatPartners[*itr].erase(guid);
+            // Clean up our combat partner list
+            if(m_combatPartners[*itr].empty())
+                m_combatPartners.erase(*itr);
+            // Remove combat timer from processing list
+            m_combatTimers.erase(std::make_pair(guid, *itr));
+        }
+        // Clean up our combat partner list
+        m_combatPartners.erase(guid);
+        return;
+    }
+
+    // Remove our combatants from our partner lists
+    m_combatPartners[guid].erase(guid2);
+    m_combatPartners[guid2].erase(guid);
+    // Clean up our combat partner list
+    if(m_combatPartners[guid].empty())
+        m_combatPartners.erase(guid);
+    if(m_combatPartners[guid2].empty())
+        m_combatPartners.erase(guid2);
+    // Remove combat timer from processing list
+    m_combatTimers.erase(std::make_pair(guid, guid2));
+}
+
+void MapInstance::TriggerCombatTimer(WoWGuid guid, WoWGuid guid2, uint32 timer)
+{
+    m_combatPartners[guid].insert(guid2);
+    m_combatPartners[guid2].insert(guid);
+    m_combatTimers[std::make_pair(guid, guid2)] = timer;
 }
 
 void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius /* = 2 */)

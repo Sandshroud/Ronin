@@ -275,6 +275,7 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_setwaterwalk                  = false;
     m_areaSpiritHealer_guid         = 0;
     m_KickDelay                     = 0;
+    m_hardKick                      = false;
     m_passOnLoot                    = false;
     m_changingMaps                  = true;
     m_mageInvisibility              = false;
@@ -284,6 +285,9 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_drunkTimer                    = 0;
     m_drunk                         = 0;
     m_hasSentMoTD = false;
+    m_cooldownCheat = false;
+    CastTimeCheat = false;
+    PowerCheat = false;
 
     m_completedQuests.clear();
     m_completedDailyQuests.clear();
@@ -2310,7 +2314,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGu
 
 void Player::smsg_InitialSpells()
 {
-    uint16 spellCount = (uint16)m_spells.size();
+    uint16 spellCount = (uint16)m_spells.size(), cooldownCount = 0;
     WorldPacket data(SMSG_INITIAL_SPELLS, 5 + (spellCount * 4) + ((m_cooldownMap[0].size() + m_cooldownMap[1].size()) * 4) );
     data << uint8(0) << uint16(spellCount); // spell count
 
@@ -2318,7 +2322,7 @@ void Player::smsg_InitialSpells()
         data << uint32(*sitr) << uint16(0x0000);
 
     time_t curr = UNIXTIME;
-    size_t pos = data.wpos(), itemCount = 0;
+    size_t pos = data.wpos();
     data << uint16(0);        // placeholder
     for( PlayerCooldownMap::iterator itr2, itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end(); )
     {
@@ -2338,7 +2342,7 @@ void Player::smsg_InitialSpells()
         data << uint32( msTimeLeft );           // cooldown remaining in ms (for spell)
         data << uint32( 0 );                    // cooldown remaining in ms (for category)
 
-        ++itemCount;
+        ++cooldownCount;
 
         sLog.outDebug("sending spell cooldown for spell %u to %u ms", itr2->first, msTimeLeft);
     }
@@ -2360,12 +2364,12 @@ void Player::smsg_InitialSpells()
         data << uint16( itr2->first );          // spell category
         data << uint32( 0 );                    // cooldown remaining in ms (for spell)
         data << uint32( msTimeLeft );           // cooldown remaining in ms (for category)
-        ++itemCount;
+        ++cooldownCount;
 
         sLog.outDebug("InitialSpells", "sending category cooldown for cat %u to %u ms", itr2->first, msTimeLeft);
     }
 
-    data.put<uint16>(pos, itemCount);
+    data.put<uint16>(pos, cooldownCount);
     GetSession()->SendPacket(&data);
 }
 
@@ -4221,7 +4225,7 @@ void Player::SendInitialLogonPackets()
     // Login speed
     data.Initialize(SMSG_LOGIN_SETTIMESPEED);
     data << uint32(RONIN_UTIL::secsToTimeBitFields(UNIXTIME));
-    data << float(0.01666667f) << uint32(getMSTime());
+    data << float(0.01666667f) << uint32(0);//getMSTime());
     GetSession()->SendPacket( &data );
 
     m_currency.SendInitialCurrency();
@@ -4655,10 +4659,11 @@ void Player::_Warn(const char *message)
     sChatHandler.RedSystemMessage(GetSession(), message);
 }
 
-void Player::Kick(uint32 delay /* = 0 */)
+void Player::Kick(uint32 delay /* = 0 */, bool hardKick)
 {
-    if(m_KickDelay = delay);
-    else _Kick();
+    m_hardKick |= hardKick;
+    if((m_KickDelay = delay) == 0)
+        _Kick();
 }
 
 void Player::_Kick()
@@ -4673,7 +4678,10 @@ void Player::_Kick()
             return;
     }
 
-    m_session->Disconnect();
+    if(m_hardKick == false)
+        SoftDisconnect();
+    else if(WorldSession *session = m_session)
+        session->Disconnect();
 }
 
 void Player::ClearCooldownForSpell(uint32 spell_id)
@@ -6118,8 +6126,9 @@ void Player::SendAreaTriggerMessage(const char * message, ...)
 
 void Player::SoftDisconnect()
 {
-    //basic, but it stops crashes ^^
-    m_session->Disconnect();
+    if(IsInWorld())
+        m_mapInstance->QueueSoftDisconnect(this);
+    else m_session->Disconnect();
 }
 
 void Player::Possess(Unit* pTarget)
@@ -6610,7 +6619,7 @@ void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId
 
 void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
 {
-    if( CooldownCheat )
+    if( m_cooldownCheat )
         return;
 
     time_t currTime = UNIXTIME;
@@ -6641,7 +6650,7 @@ void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
 
 void Player::Cooldown_AddStart(SpellEntry * pSpell)
 {
-    if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
+    if( pSpell->StartRecoveryTime == 0 || m_cooldownCheat)
         return;
 
     int32 atime = pSpell->StartRecoveryTime;
@@ -6665,7 +6674,7 @@ void Player::Cooldown_AddStart(SpellEntry * pSpell)
 
 void Player::Cooldown_OnCancel(SpellEntry *pSpell)
 {
-    if( pSpell->StartRecoveryTime == 0 || CooldownCheat)
+    if( pSpell->StartRecoveryTime == 0 || m_cooldownCheat)
         return;
 
     int32 atime = pSpell->StartRecoveryTime;
@@ -6684,7 +6693,7 @@ bool Player::Cooldown_CanCast(SpellEntry * pSpell)
     if(pSpell == NULL)
         return false;
 
-    if(CooldownCheat)
+    if(m_cooldownCheat)
         return true;
 
     PlayerCooldownMap::iterator itr;

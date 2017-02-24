@@ -1214,7 +1214,8 @@ public:
     void _Warn(const char *message);
     void _Kick();
     void _Disconnect();
-    void Kick(uint32 delay = 0);
+
+    void Kick(uint32 delay = 0, bool hardKick = false);
     void SoftDisconnect();
 
     GameObject* GetSummonedObject () {return m_SummonedObject;};
@@ -1571,12 +1572,15 @@ public:
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;
+
     uint32 m_KickDelay;
+    bool m_hardKick;
+
     Unit* m_CurrentCharm;
     Transporter* m_CurrentTransporter;
     bool IgnoreSpellFocusRequirements;
     uint32 roll;
-    bool CooldownCheat;
+    bool m_cooldownCheat;
     bool CastTimeCheat;
     bool PowerCheat;
 

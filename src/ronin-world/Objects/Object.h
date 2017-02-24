@@ -316,11 +316,15 @@ public:
     virtual void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
 
     virtual void ClearInRangeObjects(MapInstance *instance);
+    virtual void OnUnitDeath(MapInstance *instance);
     virtual void PostRemoveFromWorld();
 
     bool hasCell(uint32 cellId);
     void FillCellRange(std::vector<uint32> *fillVector);
     void CreateCellRange(std::vector<uint32> *fillVector, float range);
+
+    void AddVisibleBy(WoWGuid guid) { m_visibleTo.insert(guid); }
+    void RemoveVisibleBy(WoWGuid guid) { m_visibleTo.erase(guid); }
 
 protected:
     friend class MapInstance;
@@ -331,6 +335,9 @@ protected:
     uint16 _currX, _currY, _lowX, _lowY, _highX, _highY;
 
     WorldObject *_object;
+
+    // Players that can see us
+    std::set<WoWGuid> m_visibleTo;
 };
 
 //===============================================

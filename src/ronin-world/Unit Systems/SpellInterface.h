@@ -24,18 +24,27 @@ public:
     void FinishSpell(Spell *finishedSpell);
     void InterruptCast(Spell *interruptSpell, uint32 interruptTime = 0);
 
-    void LaunchSpell(SpellEntry *info, Unit *target = NULL, uint8 castNumber = 0);
-    void TriggerSpell(SpellEntry *info, Unit *target, uint8 castNumber = 0);
+    // Spell casting
+    void LaunchSpell(SpellEntry *info, uint8 castNumber, SpellCastTargets &targets);
+    void LaunchSpell(SpellEntry *info, float posX, float posY, float posZ);
+    void LaunchSpell(SpellEntry *info, Unit *target = NULL);
+    void TriggerSpell(SpellEntry *info, Unit *target);
 
+    // Next melee spells
+    void TriggerNextMeleeSpell(Unit *target);
+    uint32 getNextMeleeSpell();
+
+    // School affecting
     void PushbackCast(uint32 school);
     void PreventSchoolCast(uint32 school, uint32 duration);
 
 protected:
-    bool checkCast(SpellEntry *sp, uint8 &errorOut);
+    bool checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 &errorOut);
 
 private:
     Unit *m_Unit;
 
-    Spell* m_currentSpell;
+    Spell* m_currentSpell, *m_nextMeleeSpell;
+
     SpellEntry *m_lastSpell;
 };

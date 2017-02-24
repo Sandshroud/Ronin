@@ -316,6 +316,7 @@ public:
 
     void PushObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
+    void QueueSoftDisconnect(Player *plr);
 
     virtual void ChangeObjectLocation(WorldObject* obj); // update inrange lists
     void ChangeFarsightLocation(Player* plr, Unit* farsight, bool apply);
@@ -324,6 +325,17 @@ public:
     static bool canObjectsInteract(WorldObject *obj, WorldObject *curObj);
     static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
     static bool InZRange(float fRange, WorldObject* obj, WorldObject* currentobj);
+
+public:
+    // Combat functions
+    bool CheckCombatStatus(Unit *unit);
+    void ClearCombatTimers(WoWGuid guid, WoWGuid guid2 = WoWGuid());
+    void TriggerCombatTimer(WoWGuid guid, WoWGuid guid2, uint32 timer);
+
+private:
+    bool m_forceCombatState;
+    std::map<WoWGuid, std::set<WoWGuid>> m_combatPartners;
+    std::map<std::pair<WoWGuid, WoWGuid>, uint32> m_combatTimers;
 
 public:
     // Cell walking functions
@@ -389,6 +401,7 @@ public:
     RONIN_INLINE size_t GetPlayerCount() { return m_PlayerStorage.size(); }
 
     void _ProcessInputQueue();
+    void _PerformCombatUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformPlayerUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformCreatureUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformObjectUpdates(uint32 msTime, uint32 uiDiff);
@@ -471,7 +484,7 @@ protected:
     /* Update System */
     Mutex m_updateMutex;
     ObjectSet _updates, _movedObjects;
-    PlayerSet _processQueue, _movedPlayers;
+    PlayerSet _processQueue, _movedPlayers, _softDCPlayers;
 
     /* Sessions */
     SessionSet MapSessions;
@@ -506,6 +519,9 @@ public:
 
     // Object cell stacking
     std::map<WoWGuid, uint32> m_objectCells;
+
+    void CacheObjectCell(WoWGuid guid, uint32 cellId) { m_objectCells[guid] = cellId; }
+    void RemoveCachedCell(WoWGuid guid) { m_objectCells.erase(guid); }
 
 public:
     void ClearCorpse(Corpse* remove) { std::vector<Corpse* >::iterator itr; if((itr = std::find(m_corpses.begin(), m_corpses.end(), remove)) != m_corpses.end()) m_corpses.erase(itr); };

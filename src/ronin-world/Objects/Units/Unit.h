@@ -615,10 +615,6 @@ public:
     RONIN_INLINE DeathState getDeathState() { return m_deathState; }
     virtual void SetDeathState(DeathState s);
 
-    bool IsFFAPvPFlagged();
-    void SetFFAPvPFlag();
-    void RemoveFFAPvPFlag();
-
     /*******************
     *** Aura start
     ********/
@@ -655,10 +651,6 @@ public:
     void SummonExpireAll(bool clearowner); //Empties all slots (NPC's + GameObjects
     RONIN_INLINE void AddSummonToSlot(uint8 slot, Creature* toAdd) { m_Summons[slot].push_back(toAdd); };
     void FillSummonList(std::vector<Creature*> &summonList, uint8 summonType);
-
-    virtual uint32 GetOnMeleeSpell() { return 0; }
-    virtual uint8 GetOnMeleeSpellCN() { return 0; }
-    virtual void ClearNextMeleeSpell() {};
 
     uint32 GetVehicleKitId() const { return m_vehicleKitId; }
     void InitVehicleKit(uint32 vehicleKitId);
@@ -727,6 +719,8 @@ public:
     void SendChatMessageToPlayer(uint8 type, uint32 lang, const char *msg, Player* plr);
     void SendChatMessageAlternateEntry(uint32 entry, uint8 type, uint32 lang, const char * msg);
     void RegisterPeriodicChatMessage(uint32 delay, uint32 msgid, std::string message, bool sendnotify);
+
+    bool IsFactionNonHostile();
     void SetFaction(uint32 faction, bool save = true);
     void ResetFaction();
 
@@ -788,14 +782,23 @@ public:
 
     void UpdateVisibility();
 
+    //! Is unit stunned
+    void SetUnitStunned(bool state);
+
     //! Is PVP flagged?
     bool IsPvPFlagged();
     void SetPvPFlag();
     //! Removal
     void RemovePvPFlag();
 
+    bool IsFFAPvPFlagged();
+    void SetFFAPvPFlag();
+    void RemoveFFAPvPFlag();
+
+    bool CanReduceCombatTimer(WoWGuid guid);
     void SetInCombat(Unit *unit, uint32 timerOverride = 5000);
     bool IsInCombat() { return HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT); }
+    void RemoveCombatTimer(WoWGuid guid);
 
     /////////////////////////////////////////////////////// Unit properties ///////////////////////////////////////////////////
 
@@ -915,6 +918,8 @@ public:
     AuraInterface m_AuraInterface;
     UnitBaseStats *baseStats;
 
+    uint16 _stunStateCounter;
+
     float detectRange;
 
     uint8 m_invisFlag;
@@ -947,7 +952,6 @@ public:
     bool disarmed, disarmedShield;
 
     WoWGuid m_killer;
-    bool m_instanceInCombat;
     uint32 m_combatStopTimer;
 
 protected:

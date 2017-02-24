@@ -37,6 +37,9 @@ public:
     SpellCastTargets(uint64 unitTarget) : m_castFlags(0), m_targetIndex(0), m_targetMask(0x2), m_src(0.f, 0.f, 0.f), m_dest(0.f, 0.f, 0.f), m_dest_transGuid(0), m_src_transGuid(0),
         m_unitTarget(unitTarget), m_itemTarget(0), missilespeed(0), missilepitch(0), traveltime(0) { }
 
+    SpellCastTargets(Unit *caster, float destX, float destY, float destZ) : m_castFlags(0), m_targetIndex(0), m_targetMask(0x20|0x40), m_src(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ()),
+        m_dest(destX, destY, destZ), m_dest_transGuid(0), m_src_transGuid(0), m_unitTarget(0), m_itemTarget(0), missilespeed(0), missilepitch(0), traveltime(0) { }
+
     SpellCastTargets(WorldPacket & data, uint64 caster) : m_castFlags(0), m_targetIndex(0), m_targetMask(0), m_src(0.f, 0.f, 0.f), m_dest(0.f, 0.f, 0.f),
         missilespeed(0), missilepitch(0), traveltime(0) { m_unitTarget = m_itemTarget = m_dest_transGuid = m_src_transGuid = 0; read(data, caster); }
 

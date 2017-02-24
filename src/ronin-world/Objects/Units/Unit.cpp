@@ -39,6 +39,8 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_deathState = ALIVE;
 
     m_silenced = 0;
+    _stunStateCounter = 0;
+
     disarmed = false;
     disarmedShield = false;
 
@@ -62,7 +64,6 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     for(int i = 0; i < INVIS_FLAG_TOTAL; i++)
         m_invisDetect[i] = 0;
 
-    m_instanceInCombat = false;
     m_combatStopTimer = 0;
     m_attackUpdateTimer = 0;
     m_emoteState = 0;
@@ -149,14 +150,12 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
 
     if(HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
     {
-        if(m_combatStopTimer <= uiDiff)
+        if((m_combatStopTimer += uiDiff) > 1000)
         {
-            if(!m_instanceInCombat && m_attackTarget.empty())
-            {
-                m_combatStopTimer = 0;
+            if(IsInWorld() && !m_mapInstance->CheckCombatStatus(this))
                 RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
-            } else m_combatStopTimer = 5000;
-        } else m_combatStopTimer -= uiDiff;
+            m_combatStopTimer = 0;
+        }
     }
 
     /*-----------------------POWER & HP REGENERATION-----------------*/
@@ -2264,12 +2263,9 @@ bool Unit::UpdateAutoAttackState()
 
 void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
-    m_combatStopTimer = std::max<uint32>(m_combatStopTimer, 5000);
-    if (!GetOnMeleeSpell() || attackType == OFFHAND)
+    if (!m_spellInterface.getNextMeleeSpell() || attackType == OFFHAND)
         Strike( target, attackType, NULL, 0, false, false, true);
-    else if(SpellEntry *spellInfo = dbcSpell.LookupEntry( GetOnMeleeSpell() ))
-        m_spellInterface.TriggerSpell(spellInfo, target, GetOnMeleeSpellCN());
-    ClearNextMeleeSpell();
+    else m_spellInterface.TriggerNextMeleeSpell(target);
 }
 
 void Unit::EventAttackStart(WoWGuid guid)
@@ -2961,16 +2957,18 @@ void Unit::Energize(Unit* target, uint32 SpellId, uint32 amount, uint32 type)
     target->SendPowerUpdate();
 }
 
+bool Unit::CanReduceCombatTimer(WoWGuid guid)
+{
+    if(m_attackTarget == guid)
+        return false;
+    return true;
+}
+
 void Unit::SetInCombat(Unit *unit, uint32 timerOverride)
 {
+    ASSERT(unit);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
-    m_combatStopTimer = timerOverride;
-
-    // Trigger back combat status
-    if(unit == NULL)
-        return;
-    // Only trigger combat calldown once
-    unit->SetInCombat(NULL, timerOverride);
+    m_mapInstance->TriggerCombatTimer(GetGUID(), unit->GetGUID(), timerOverride);
 }
 
 void Unit::EventModelChange()
@@ -3076,6 +3074,21 @@ void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
         // Trigger the aura spell
         GetSpellInterface()->TriggerSpell(sp, itr->second->self ? this : m_target);
     }
+}
+
+void Unit::SetUnitStunned(bool state)
+{
+    if(state)
+    {
+        if(_stunStateCounter++)
+            return;
+        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
+        return;
+    }
+
+    if(_stunStateCounter == 0 || (--_stunStateCounter > 0))
+        return;
+    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
 }
 
 //! Is PVP flagged?
@@ -3242,8 +3255,10 @@ void Unit::SetDeathState(DeathState s)
 {
     m_deathState = s;
     if(s == DEAD && !hasStateFlag(UF_CORPSE))
+    {
         addStateFlag(UF_CORPSE);
-    else if(s != DEAD)
+        GetCellManager()->OnUnitDeath(m_mapInstance);
+    } else if(s != DEAD)
         clearStateFlag(UF_CORPSE);
 }
 
@@ -3282,6 +3297,13 @@ void Unit::Dismount()
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI );
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
+}
+
+bool Unit::IsFactionNonHostile()
+{
+    if(m_factionTemplate == NULL)
+        return true;
+    return m_factionTemplate->nonHostileFaction;
 }
 
 void Unit::SetFaction(uint32 faction, bool save)

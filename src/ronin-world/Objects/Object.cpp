@@ -590,13 +590,30 @@ void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
     _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
 
-    //_object->RemoveFromInRangeObjects(instance->GetMapId());
+    // Clear our visible spectrum,
+    while(!m_visibleTo.empty())
+    {
+        WoWGuid guid = *m_visibleTo.begin();
+        m_visibleTo.erase(m_visibleTo.begin());
+        if(Player *plr = instance->GetPlayer(guid))
+            _object->DestroyForPlayer(plr, _object->IsGameObject());
+    }
+
+    instance->RemoveCachedCell(_object->GetGUID());
+    if(MapCell *cell = _object->GetMapCell())
+        cell->RemoveObject(_object);
+    _object->SetMapCell(NULL);
 }
 
 void ObjectCellManager::PostRemoveFromWorld()
 {
     _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
+}
+
+void ObjectCellManager::OnUnitDeath(MapInstance *instance)
+{
+    instance->ClearCombatTimers(_object->GetGUID());
 }
 
 bool ObjectCellManager::hasCell(uint32 cellId)
@@ -930,7 +947,7 @@ WorldObject *WorldObject::GetInRangeObject(WoWGuid guid)
 {
     if(m_objGuid == guid)
         return this;
-    if(IsInWorld())
+    if(IsInWorld() && guid.pLen())
         return m_mapInstance->GetInRangeObject(GetCellManager(), guid);
     return NULL;
 }

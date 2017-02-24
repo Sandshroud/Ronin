@@ -179,9 +179,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     uint8 cn; uint32 spellId;
     recvPacket >> cn >> spellId;
     SpellCastTargets targets(recvPacket, _player->GetGUID());
-    return;
-
-    /*if(spellId == 0)
+    if(spellId == 0)
     {
         sLog.outDebug("WORLD: unknown spell id %i\n", spellId);
         return;
@@ -207,7 +205,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     // Cheat Detection only if player and not from an item
     // this could fuck up things but meh it's needed ALOT of the newbs are using WPE now
     // WPE allows them to mod the outgoing packet and basicly choose what ever spell they want :(
-    if((!GetPlayer()->HasSpell(spellId) || spellInfo->isPassiveSpell()) && !IsException(_player, spellId))
+    if(((!GetPlayer()->HasSpell(spellId)) || spellInfo->isPassiveSpell()) && !IsException(_player, spellId))
     {
         // Some spells the player doesn't actually know, but are given to him by his current shapeshift.
         // These spells should be allowed to be cast.
@@ -224,50 +222,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
             return;
     }
 
-    if (GetPlayer()->GetOnMeleeSpell() != spellId)
-    {
-        if(_player->m_currentSpell)
-        {
-            if( _player->m_currentSpell->getState() == SPELL_STATE_CASTING )
-            {
-                // cancel the existing channel spell, cast this one
-                _player->m_currentSpell->cancel();
-            }
-            else
-            {
-                // send the error message
-                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, cn, 0);
-                return;
-            }
-        }
-
-        // some anticheat stuff
-        if( spellInfo->isSpellSelfCastOnly() )
-        {
-            if( targets.m_unitTarget && targets.m_unitTarget != _player->GetGUID() )
-            {
-                // send the error message
-                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_BAD_TARGETS, cn, 0);
-                return;
-            }
-        }
-
-        if( targets.m_unitTarget && GetPlayer()->GetMapInstance() && spellInfo->isSpellDamagingEffect() )
-        {
-            Unit* pUnit = GetPlayer()->GetMapInstance()->GetUnit( targets.m_unitTarget );
-            if( pUnit && pUnit != GetPlayer() && !sFactionSystem.isAttackable( GetPlayer(), pUnit, false ))
-            {
-                //GetPlayer()->BroadcastMessage("Faction exploit detected. You will be disconnected in 5 seconds.");
-                //GetPlayer()->Kick(5000);
-                // Just cancel the cast
-                _player->SendCastResult(spellInfo->Id, SPELL_FAILED_BAD_TARGETS, cn, 0);
-                return;
-            }
-        }
-
-        if(Spell* spell = new Spell(GetPlayer(), spellInfo, cn))
-            spell->prepare(&targets, false);
-    }*/
+    _player->GetSpellInterface()->LaunchSpell(spellInfo, cn, targets);
 }
 
 void WorldSession::HandleCancelCastOpcode(WorldPacket& recvPacket)

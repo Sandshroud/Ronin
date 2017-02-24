@@ -41,6 +41,13 @@ void FactionSystem::LoadFactionInteractionData()
         FactionTemplateEntry *entry = dbcFactionTemplate.LookupRow(i);
         if(entry == NULL)
             continue;
+        entry->nonHostileFaction = false;
+        if(entry->HostileMask == 0)
+            entry->nonHostileFaction = true;
+        if(entry->EnemyFactions[0] == 0 && entry->EnemyFactions[1] == 0
+            && entry->EnemyFactions[2] == 0 && entry->EnemyFactions[3] == 0 )
+            entry->nonHostileFaction = true;
+
         entry->FactionTeam = _GetTeam(entry);
         entry->m_faction = dbcFaction.LookupEntry(entry->Faction);
         if(entry->m_faction == NULL)

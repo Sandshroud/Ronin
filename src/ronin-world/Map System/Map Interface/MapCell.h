@@ -60,6 +60,9 @@ public:
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
 
+    void ReactivateObject(WorldObject *obj);
+    void DeactivateObject(WorldObject *obj);
+
     WorldObject *FindObject(WoWGuid guid);
 
     bool HasPlayers() { return !m_playerSet.empty(); }
@@ -104,4 +107,6 @@ private:
     CellObjectMap m_nonPlayerSet, m_playerSet;
     // Object type sets
     CellObjectMap m_gameObjectSet, m_creatureSet;
+    // Deactivated objects
+    CellObjectMap m_deactivatedObjects;
 };

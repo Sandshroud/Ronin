@@ -363,6 +363,7 @@ struct FactionTemplateEntry
     uint32 FriendlyFactions[4];
     uint32 FactionTeam;
 
+    bool nonHostileFaction;
     FactionEntry *m_faction;
     FactionEntry *GetFaction() { return m_faction; }
 };

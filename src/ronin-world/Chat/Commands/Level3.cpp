@@ -786,11 +786,11 @@ bool ChatHandler::HandleCooldownCheatCommand(const char* args, WorldSession* m_s
     Player* plyr = getSelectedChar(m_session, true);
     if(!plyr) return true;
 
-    bool val = plyr->CooldownCheat;
+    bool val = plyr->m_cooldownCheat;
     BlueSystemMessage(m_session, "%s cooldown cheat on %s.", val ? "Deactivating" : "Activating", plyr->GetName());
     GreenSystemMessageToPlr(plyr, "%s %s a cooldown cheat on you.", m_session->GetPlayer()->GetName(), val ? "deactivated" : "activated");
 
-    plyr->CooldownCheat = !val;
+    plyr->m_cooldownCheat = !val;
     sWorld.LogGM(m_session, "%s cooldown cheat on %s", val ? "disabled" : "enabled", plyr->GetName());
 
     return true;
@@ -826,7 +826,7 @@ bool ChatHandler::HandleShowCheatsCommand(const char* args, WorldSession* m_sess
         inactive++;
 
     GreenSystemMessage(m_session, "Showing cheat status for: %s", plyr->GetName());
-    print_cheat_status("Cooldown", plyr->CooldownCheat);
+    print_cheat_status("Cooldown", plyr->m_cooldownCheat);
     print_cheat_status("CastTime", plyr->CastTimeCheat);
     print_cheat_status("Power", plyr->PowerCheat);
     SystemMessage(m_session, "%u cheats active, %u inactive.", active, inactive);

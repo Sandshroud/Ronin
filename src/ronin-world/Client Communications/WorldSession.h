@@ -207,6 +207,7 @@ public:
         return m_accountData[index];
     }
 
+    bool hasLogoutTimer() { return _logoutTime > 0; }
     void SetLogoutTimer(uint32 ms)
     {
         if(ms)  _logoutTime = m_currMsTime+ms;

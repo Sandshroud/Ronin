@@ -94,6 +94,7 @@ void AIInterface::OnDeath()
     m_targetGuid.Clean();
     m_path->DisableAutoPath();
     m_path->StopMoving();
+
     m_AIState = AI_STATE_DEAD;
     m_Creature->EventAttackStop();
     m_Creature->clearStateFlag(UF_EVADING);
@@ -133,10 +134,13 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
 
 bool AIInterface::FindTarget()
 {
-    if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld())
+    if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld() || m_Creature->hasStateFlag(UF_EVADING))
         return false;
-    if(m_Creature->hasStateFlag(UF_EVADING) || !m_targetGuid.empty())
+    // If we're a non hostile faction, only search if we have a threatlist
+    if(m_Creature->IsFactionNonHostile() && true) // Assume true for now
         return false;
+    if(!m_targetGuid.empty())
+        return true;
 
     float baseAggro = m_Creature->GetAggroRange();
     if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(m_Creature, baseAggro, TYPEMASK_TYPE_PLAYER))

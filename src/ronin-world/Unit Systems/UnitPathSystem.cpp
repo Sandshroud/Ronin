@@ -346,9 +346,12 @@ void UnitPathSystem::BroadcastMovementPacket()
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
-    data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
+    // If we have no path data but are broadcasting, check validity of last update point
+    if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
+        data.appendvector(*m_Unit->GetPositionV()); // Broadcast our current position since it's valid
+    else data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
     // If we are at our destination, or have no destination, broadcast a stop packet
-    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite))
+    if((lastUpdatePoint.pos.x == _destX && lastUpdatePoint.pos.y == _destY) || (_destX == fInfinite && _destY == fInfinite))
         data << uint32(0) << uint8(1);
     else
     {
