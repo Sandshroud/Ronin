@@ -1334,7 +1334,17 @@ void QuestMgr::GiveQuestRewardReputation(Player* plr, Quest* qst, Object* qst_gi
 
 void QuestMgr::OnQuestAccepted(Player* plr, Quest* qst, Object* qst_giver)
 {
+    // If the quest should give any items on begin, give them the items.
+    for(uint32 i = 0; i < 4; ++i)
+    {
+        if(qst->receive_items[i] && qst->receive_items[i] != qst->srcitem)
+        {
+            plr->GetInventory()->AddItemById(qst->receive_items[i], qst->receive_itemcount[i], 0, ADDITEM_FLAG_GIFTED);
+        }
+    }
 
+    if(qst->srcitem && plr->GetInventory()->GetItemCount(qst->srcitem) < qst->srcitemcount)
+        plr->GetInventory()->AddItemById(qst->srcitem, qst->srcitemcount, 0, ADDITEM_FLAG_GIFTED);
 }
 
 void QuestMgr::GiveQuestTitleReward(Player* plr, Quest* qst)
@@ -1388,6 +1398,20 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         //Remove aquired spells
         if( qst->required_spell && plr->HasQuestSpell(qle->GetRequiredSpell()) )
             plr->RemoveQuestSpell(qle->GetRequiredSpell());
+
+        for (uint32 x=0;x<4;x++)
+        {
+            if(qst->receive_itemcount[x] == 0)
+                continue;
+            plr->GetInventory()->RemoveItemAmt(qst->receive_items[x], qst->receive_itemcount[x]);
+        }
+
+        for (uint32 x=0;x<6;x++)
+        {
+            if(qst->required_itemcount[x] == 0)
+                continue;
+            plr->GetInventory()->RemoveItemAmt(qst->required_item[x], qst->required_itemcount[x]);
+        }
 
         qle->Finish();
     }
@@ -1459,6 +1483,19 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
                     uCaster->GetSpellInterface()->TriggerSpell(inf, plr);
             }
         }
+
+        if(qst->count_reward_item)
+        {
+            for(uint8 i = 0; i < 4; i++)
+            {
+                if(qst->reward_itemcount[i] == 0)
+                    continue;
+                plr->GetInventory()->AddItemById(qst->reward_item[i], qst->reward_itemcount[i], 0, ADDITEM_FLAG_GIFTED);
+            }
+        }
+
+        if(qst->count_reward_choiceitem && qst->reward_choiceitem[reward_slot])
+            plr->GetInventory()->AddItemById(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], 0, ADDITEM_FLAG_GIFTED);
     }
 
     //Add to finished quests

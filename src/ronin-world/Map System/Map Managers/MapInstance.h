@@ -96,6 +96,7 @@ public:
         if(mPoolStack)
             delete [] mPoolStack;
         mPoolStack = NULL;
+        mPool.clear();
     }
 
     bool isUpdating() { return m_updating; }
@@ -313,6 +314,9 @@ public:
     static bool canObjectsInteract(WorldObject *obj, WorldObject *curObj);
     static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
     static bool InZRange(float fRange, WorldObject* obj, WorldObject* currentobj);
+
+    // Generally an expansion indicator
+    uint32 GetZoneModifier(uint32 zoneId);
 
     // Append quests based on guid and scripts
     void AppendQuestList(WoWGuid guid, Player *plr, uint32 &count, WorldPacket *packet);

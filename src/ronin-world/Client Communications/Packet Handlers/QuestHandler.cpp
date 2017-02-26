@@ -513,7 +513,7 @@ void WorldSession::HandleQuestgiverCompleteQuestOpcode( WorldPacket & recvPacket
         return;
     }
 
-    if (status == QMGR_QUEST_FINISHED || qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE)
+    if (status >= QMGR_QUEST_FINISHED_LOWLEVEL || qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE)
     {
         WorldPacket data;
         sQuestMgr.BuildOfferReward(&data, qst, qst_giver, 1, _player);

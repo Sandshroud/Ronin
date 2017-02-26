@@ -128,7 +128,7 @@ WorldPacket* WorldSession::BuildQuestQueryResponse(Quest *qst)
         *data << uint32(qst->required_itemcount[i]);// Collect item count [i]
     }
 
-    *data << qst->required_spell;
+    *data << uint32(0);//qst->required_spell;
 
     for(i = 0; i < 4; i++)
         *data << qst->qst_objectivetexts[i];    // Objective 1 - Used as text if mob not set

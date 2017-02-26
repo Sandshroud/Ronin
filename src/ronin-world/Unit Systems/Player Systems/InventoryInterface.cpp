@@ -2801,6 +2801,8 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
             item->SetUInt64Value(ITEM_FIELD_CREATOR, creator->GetGUID());
 
         item->Bind(ITEM_BIND_ON_PICKUP);
+        if(randomprop || it->RandomPropId || it->RandomSuffixId)
+            item->SetItemRandomPropertyData(randomprop ? randomprop : it->RandomPropId ? it->RandomPropId : it->RandomSuffixId, RandomUInt());
         item->LoadRandomProperties();
 
         toadd = count > maxStack ? maxStack : count;
@@ -2809,7 +2811,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
         if( AddItemToFreeSlot( item ) )
         {
             SlotResult *lr = LastSearchResult();
-            _sendPushResult(item, toadd, lr->ContainerSlot, lr->Slot, addItemFlags);
+            _sendPushResult(item, lr->ContainerSlot, lr->Slot, toadd, addItemFlags);
             sQuestMgr.OnPlayerItemPickup(chr, item, toadd);
             count -= toadd;
         }

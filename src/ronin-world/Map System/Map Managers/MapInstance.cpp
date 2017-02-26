@@ -87,6 +87,11 @@ void MapInstance::Destruct()
         m_stateManager = NULL;
     }
 
+    // Clean up our pools ahead of time
+    mCreaturePool.Cleanup();
+    mGameObjectPool.Cleanup();
+    mDynamicObjectPool.Cleanup();
+
     std::vector<WorldObject*> m_delQueue;
     while(m_CreatureStorage.size())
     {
@@ -95,11 +100,25 @@ void MapInstance::Destruct()
         RemoveObject(ctr);
     }
 
+    while(m_delQueue.size())
+    {
+        WorldObject *obj = *m_delQueue.begin();
+        m_delQueue.erase(m_delQueue.begin());
+        obj->Destruct();
+    }
+
     while(m_gameObjectStorage.size())
     {
         GameObject *gObj = m_gameObjectStorage.begin()->second;
         m_delQueue.push_back(gObj);
         RemoveObject(gObj);
+    }
+
+    while(m_delQueue.size())
+    {
+        WorldObject *obj = *m_delQueue.begin();
+        m_delQueue.erase(m_delQueue.begin());
+        obj->Destruct();
     }
 
     while(m_DynamicObjectStorage.size())
@@ -144,10 +163,6 @@ void MapInstance::Destruct()
     _processQueue.clear();
     MapSessions.clear();
     pdbcMap = NULL;
-
-    mCreaturePool.Cleanup();
-    mGameObjectPool.Cleanup();
-    mDynamicObjectPool.Cleanup();
 
     m_battleground = NULL;
 
@@ -1659,6 +1674,30 @@ bool MapInstance::InZRange(float fRange, WorldObject* obj, WorldObject *curObj)
     if((heightDifference*heightDifference) >= fRange)
         return false;
     return true;
+}
+
+uint32 MapInstance::GetZoneModifier(uint32 zoneId)
+{
+    if(pdbcMap == 0)
+        return 0;
+    uint32 mapId = _mapId;
+    if(pdbcMap->rootPhaseMap != -1)
+        mapId = pdbcMap->rootPhaseMap;
+    // Starting zones should be marked as 0 modifier
+    if(mapId == 648 || mapId == 654)
+        return 0; // Gilneas and The Lost Islands
+    if(AreaTableEntry *areaTable = dbcAreaTable.LookupEntry(zoneId))
+    {
+        switch(areaTable->ZoneId)
+        {   // Cataclysm zones in kalim/Ek
+        case 616: // Mount Hyjal
+        case 4922: // Twilight Highlands
+        case 5034: // Uldum
+        case 5042: // Deepholm
+            return 4;
+        }
+    }
+    return pdbcMap->addon;
 }
 
 void MapInstance::AppendQuestList(WoWGuid guid, Player *plr, uint32 &count, WorldPacket *packet)

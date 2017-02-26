@@ -332,7 +332,7 @@ uint32 getGrayLevel(uint16 unitLevel)
 
 inline uint8 GetZeroDifference(uint8 pl_level)
 {
-    uint8 diff=0;
+    uint8 diff = 0;
     if(pl_level >= 10)
     {
         if(pl_level <= 20)
@@ -350,14 +350,15 @@ inline uint8 GetZeroDifference(uint8 pl_level)
                 if(i == 5) diff *= 2;
             }
         }
-    }
+    } else diff = 5;
     return diff;
 }
 
-uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker)
+uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker, uint32 mapZoneModifier)
 {
-    uint32 baseGain = 0, nBaseExp = 45+(611*3); // 3 is zone expansion
-
+    uint32 baseGain = 0, nBaseExp = 45, modifier = mapZoneModifier;
+    while(modifier > 0)
+        nBaseExp *= 1.8f + (--modifier);
     if (pVictim->getLevel() >= pAttacker->getLevel())
     {
         uint8 nLevelDiff = pVictim->getLevel() - pAttacker->getLevel();

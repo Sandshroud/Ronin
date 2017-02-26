@@ -1409,7 +1409,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
             PlayerInGroup = pleaderinfo->m_loggedInPlayer;
         }
 
-        xp = CalculateXpToGive(pVictim, PlayerInGroup);
+        xp = CalculateXpToGive(pVictim, PlayerInGroup, pVictim->GetMapInstance()->GetZoneModifier(pVictim->GetZoneId()));
         PlayerInGroup->GiveXP(xp, pVictim->GetGUID(), true, givesGuildXP);
     }
     else
@@ -1436,7 +1436,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
             pHighLvlPlayer = pleaderinfo->m_loggedInPlayer;
         }
 
-        xp = CalculateXpToGive(pVictim, pHighLvlPlayer);
+        xp = CalculateXpToGive(pVictim, pHighLvlPlayer, pVictim->GetMapInstance()->GetZoneModifier(pVictim->GetZoneId()));
         //i'm not sure about this formula is correct or not. Maybe some brackets are wrong placed ?
         for(int i=0;i<active_player_count;++i)
             active_player_list[i]->GiveXP( float2int32(((xp*active_player_list[i]->getLevel()) / total_level)*xp_mod), pVictim->GetGUID(), true, givesGuildXP );

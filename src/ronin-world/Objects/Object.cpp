@@ -1484,7 +1484,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                             plr->GiveGroupXP( pVictim, plr );
                             //TODO: pet xp if player in group
                         }
-                        else if( uint32 xp = CalculateXpToGive( pVictim, plr ) )
+                        else if( uint32 xp = CalculateXpToGive( pVictim, plr, m_mapInstance->GetZoneModifier(m_zoneId) ) )
                         {
                             if(plr->MobXPGainRate)
                                 xp += (xp*(plr->MobXPGainRate/100));

@@ -122,5 +122,5 @@ private:
 
 #define sStatSystem StatSystem::getSingleton()
 
-SERVER_DECL uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker);
+SERVER_DECL uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker, uint32 mapModifier);
 SERVER_DECL bool isEven (int num);
