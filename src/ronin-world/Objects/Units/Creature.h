@@ -432,17 +432,20 @@ public:
     RONIN_INLINE uint32 GetProtoItemDisplayId(uint8 i) { return GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID + i); }
 
     // loooooot
-    void GenerateLoot();
+    virtual void GenerateLoot();
     uint32 GetRequiredLootSkill();
 
     // updates the loot state, whether it is tagged or lootable, or no longer has items
-    void UpdateLootAnimation(Player* Looter);
+    void UpdateLootAnimation();
 
     // clears tag, clears "tagged" visual grey
     void ClearTag();
 
     // tags the object by a certain player.
     void Tag(Player* plr);
+
+    // checks if we meet tag requirements
+    bool IsTaggedByPlayer(Player *plr);
 
     // used by bgs
     bool IsLightwell(uint32 entry) { return (GetEntry() == 31883 || GetEntry() == 31893 || GetEntry() == 31894 || GetEntry() == 31895 || GetEntry() == 31896 || GetEntry() == 31897); }
@@ -467,7 +470,7 @@ public: // values
 
     bool m_skinned;
     int8 m_lootMethod;
-    uint32 m_taggingGroup, m_taggingPlayer;
+    WoWGuid m_taggedGroup, m_taggedPlayer;
 
     ItemPrototype* m_shieldProto;
 

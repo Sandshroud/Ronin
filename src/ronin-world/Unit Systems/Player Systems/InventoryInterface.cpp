@@ -1168,7 +1168,7 @@ int16 PlayerInventory::GetInventorySlotByGuid(uint64 guid)
     return ITEM_NO_SLOT_AVAILABLE; //was changed from 0 cuz 0 is the slot for head
 }
 
-int16 PlayerInventory::GetBagSlotByGuid(uint64 guid)
+int16 PlayerInventory::GetBagSlotByGuid(uint64 guid, uint8 &slotOut)
 {
     for(uint32 i = EQUIPMENT_SLOT_START; i < INVENTORY_SLOT_ITEM_END; i++)
     {
@@ -1176,7 +1176,8 @@ int16 PlayerInventory::GetBagSlotByGuid(uint64 guid)
         {
             if(m_pItems[i]->GetGUID() == guid)
             {
-                return i;
+                slotOut = i;
+                return INVENTORY_SLOT_NOT_SET;
             }
         }
     }
@@ -1189,12 +1190,15 @@ int16 PlayerInventory::GetBagSlotByGuid(uint64 guid)
             {
                 Item* inneritem = castPtr<Container>(m_pItems[i])->GetItem(j);
                 if(inneritem && inneritem->GetGUID() == guid)
+                {
+                    slotOut = j;
                     return i;
+                }
             }
         }
     }
 
-    return ITEM_NO_SLOT_AVAILABLE; //was changed from 0 cuz 0 is the slot for head
+    return (slotOut = ITEM_NO_SLOT_AVAILABLE); //was changed from 0 cuz 0 is the slot for head
 }
 
 //-------------------------------------------------------------------//
@@ -2751,7 +2755,7 @@ void PlayerInventory::CheckAreaItems()
 /////////////////////////////////////////////////////////////////////////////
 // Crow: Adds an item by id, allowing for count, random prop, and if created, will send item push created, else, recieved.
 // This was supposed to be given to Arc :|
-bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop, bool created, Player* creator /* = NULL*/ )
+bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop, uint8 addItemFlags, Player* creator /* = NULL*/ )
 {
     if( count < 1 )
         count = 1;
@@ -2779,7 +2783,9 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
             if( free_stack_item != NULL )
             {
                 // increase stack by new amount
-                //chr->GetSession()->SendItemPushResult( free_stack_item, created ? true : false, created ? false : true, true, true, (uint8)-1, (uint32)-1, count);
+                uint8 inventorySlot = 0xFF;
+                uint16 bagSlot = GetBagSlotByGuid(free_stack_item->GetGUID(), inventorySlot);
+                _sendPushResult(free_stack_item, bagSlot, inventorySlot, count, addItemFlags);
                 free_stack_item->SetUInt32Value( ITEM_FIELD_STACK_COUNT, free_stack_item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + count );
                 free_stack_item->m_isDirty = true;
                 return true;
@@ -2803,7 +2809,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
         if( AddItemToFreeSlot( item ) )
         {
             SlotResult *lr = LastSearchResult();
-            //chr->GetSession()->SendItemPushResult( item, created ? true : false, created ? false : true, true, true, lr->ContainerSlot, lr->Slot, toadd);
+            _sendPushResult(item, toadd, lr->ContainerSlot, lr->Slot, addItemFlags);
             sQuestMgr.OnPlayerItemPickup(chr, item, toadd);
             count -= toadd;
         }
@@ -2952,4 +2958,25 @@ void PlayerInventory::RemoveItemsWithHolidayId(uint32 IgnoreHolidayId)
                 SafeFullRemoveItemByGuid(item->GetGUID());
         }
     }
+}
+
+void PlayerInventory::_sendPushResult(Item *item, int8 bagSlot, uint8 slot, uint32 count, uint8 addItemFlags)
+{
+    WorldPacket data(SMSG_ITEM_PUSH_RESULT, 50);
+    data << m_pOwner->GetGUID();
+    data << uint32((addItemFlags & ADDITEM_FLAG_LOOTED) == 0 ? 1 : 0);
+    data << uint32((addItemFlags & ADDITEM_FLAG_CREATED) == 0 ? 0 : 1);
+    data << uint32((addItemFlags & ADDITEM_FLAG_SILENT) == 0 ? 1 : 0);
+    data << uint8(bagSlot) << uint32(item->GetStackCount() == count ? slot : 0xFFFFFFFF);
+    data << uint32(item->GetEntry());
+    data << uint32(item->GetItemPropertySeed());
+    data << uint32(item->GetItemRandomPropertyId());
+    data << uint32(count);
+    data << uint32(1);
+    if((addItemFlags & ADDITEM_FLAG_CREATED) && (addItemFlags & ADDITEM_FLAG_GIFTED) == 0)
+        m_pOwner->SendMessageToSet(&data, true, true, 25.f);
+    else m_pOwner->PushPacket(&data);
+
+    if(m_pOwner->GetGroup() && (addItemFlags & ADDITEM_FLAG_LOOTED) > 0)
+        m_pOwner->GetGroup()->SendPacketToAllButOne(&data, m_pOwner);
 }

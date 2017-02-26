@@ -3304,6 +3304,11 @@ bool Unit::IsFactionNonHostile()
     return m_factionTemplate->nonHostileFaction;
 }
 
+bool Unit::IsFactionNPCHostile()
+{
+    return false;
+}
+
 void Unit::SetFaction(uint32 faction, bool save)
 {
     SetFactionTemplate(faction);

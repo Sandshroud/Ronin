@@ -721,6 +721,7 @@ public:
     void RegisterPeriodicChatMessage(uint32 delay, uint32 msgid, std::string message, bool sendnotify);
 
     bool IsFactionNonHostile();
+    bool IsFactionNPCHostile();
     void SetFaction(uint32 faction, bool save = true);
     void ResetFaction();
 

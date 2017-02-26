@@ -34,6 +34,7 @@ Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_values
     m_objType = TYPEID_OBJECT;
 
     m_loot.gold = 0;
+    m_lootGenerated = false;
     m_looted = false;
 }
 
@@ -339,7 +340,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
     return 1; // update count: 1 ;)
 }
 
-uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFlags, uint32 expectedField)
+uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, Player *target, uint32 updateFlags, uint32 expectedField)
 {
     UpdateMask updateMask(m_valuesCount);
     if(expectedField || _SetUpdateBits(&updateMask, updateFlags))
@@ -347,7 +348,7 @@ uint32 Object::BuildValuesUpdateBlockForPlayer(ByteBuffer *data, uint32 updateFl
         if(expectedField != 0) updateMask.SetBit(expectedField);
         *data << uint8(UPDATETYPE_VALUES);     // update type == update
         *data << m_objGuid.asPacked();
-        _BuildChangedValuesUpdate( data, &updateMask );
+        _BuildChangedValuesUpdate( data, target, &updateMask );
         return 1;
     }
     return 0;
@@ -371,21 +372,20 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
     uint16 typeMask = GetTypeFlags(), uFlag = GetUpdateFlag(target), offset = 0, *flags, fLen = 0;
     for(uint8 f = 0; f < 10; f++)
     {
-        if(typeMask & 1<<f)
+        if((typeMask & 1<<f) == 0)
+            continue;
+        GetUpdateFieldData(f, flags, fLen);
+        for(uint16 i = 0; i < fLen; i++, offset++)
         {
-            GetUpdateFieldData(f, flags, fLen);
-            for(uint16 i = 0; i < fLen; i++, offset++)
-            {
-                if(offset >= mask.GetCount())
-                    break;
-                if(m_uint32Values[offset] == 0)
-                    continue;
+            if(offset >= mask.GetCount())
+                break;
+            if(m_uint32Values[offset] == 0)
+                continue;
 
-                if(flags[i] & (uFlag|m_notifyFlags))
-                {
-                    mask.SetBit(offset);
-                    fields << uint32(m_uint32Values[offset]);
-                }
+            if(flags[i] & (uFlag|m_notifyFlags))
+            {
+                mask.SetBit(offset);
+                fields << _GetSwappedValueForUpdate(offset, flags[i], target);
             }
         }
     }
@@ -399,14 +399,49 @@ void Object::_BuildCreateValuesUpdate(ByteBuffer * data, Player* target)
 //  Creates an update block with the values of this object as
 //  determined by the updateMask.
 //=======================================================================================
-void Object::_BuildChangedValuesUpdate(ByteBuffer * data, UpdateMask *updateMask)
+void Object::_BuildChangedValuesUpdate(ByteBuffer * data, Player* target, UpdateMask *updateMask)
 {
     WPAssert( updateMask && updateMask->GetCount() == m_valuesCount );
     *data << uint8(updateMask->GetBlockCount());
     data->append( updateMask->GetMask(), updateMask->GetLength() );
-    for( uint16 index = 0; index < updateMask->GetCount(); index++ )
-        if( updateMask->GetBit( index ) )
-            *data << m_uint32Values[index];
+    uint16 typeMask = GetTypeFlags(), offset = 0, *flags, fLen = 0;
+    for(uint8 f = 0; f < 10; f++)
+    {
+        if((typeMask & 1<<f) == 0)
+            continue;
+        GetUpdateFieldData(f, flags, fLen);
+        for(uint16 i = 0; i < fLen; i++, offset++)
+        {
+            if(offset >= updateMask->GetCount())
+                break;
+            if(!updateMask->GetBit(offset))
+                continue;
+            *data << _GetSwappedValueForUpdate(offset, flags[i], target);
+        }
+    }
+}
+
+uint32 Object::_GetSwappedValueForUpdate(uint32 index, uint16 fieldFlag, Player *target)
+{
+    if((fieldFlag & UF_FLAG_DYNAMIC) == 0)
+        return m_uint32Values[index];
+
+    uint32 val = m_uint32Values[index];
+    if(IsUnit() && index == UNIT_DYNAMIC_FLAGS && ((val & U_DYN_FLAG_TAPPED_BY_PLAYER) == 0))
+    {
+        // Manage our own loot flags
+        val &= ~(U_DYN_FLAG_LOOTABLE|U_DYN_FLAG_TAGGED_BY_OTHER);
+        Creature *curObj = castPtr<Creature>(this);
+        if(!curObj->IsTaggedByPlayer(target))
+            val |= U_DYN_FLAG_TAGGED_BY_OTHER;
+        else if(curObj->isDead() && curObj->GetLoot()->HasLoot(target)) 
+            val |= U_DYN_FLAG_LOOTABLE;
+    }
+    else if(IsGameObject() && index == GAMEOBJECT_DYNAMIC)
+    {
+
+    }
+    return val;
 }
 
 ///////////////////////////////////////////////////////////////
@@ -580,6 +615,7 @@ void Object::ClearLoot()
     m_loot.gold = 0;
     m_loot.items.clear();
     m_loot.looters.clear();
+    m_lootGenerated = false;
 }
 
 //===============================================
@@ -596,7 +632,7 @@ void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
         WoWGuid guid = *m_visibleTo.begin();
         m_visibleTo.erase(m_visibleTo.begin());
         if(Player *plr = instance->GetPlayer(guid))
-            _object->DestroyForPlayer(plr, _object->IsGameObject());
+            plr->RemoveIfVisible(instance->GetMapId(), _object);
     }
 
     instance->RemoveCachedCell(_object->GetGUID());
@@ -1407,15 +1443,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         uint64 victimGuid = pVictim->GetGUID();
         pVictim->SetFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_DEAD );
 
-        if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->m_taggingPlayer != 0 )    // only execute loot code if we were tagged
-        {
-            // fill loot vector
-            castPtr<Creature>(pVictim)->GenerateLoot();
-
-            // update visual.
-            castPtr<Creature>(pVictim)->UpdateLootAnimation(pAttacker);
-        }
-
+        pVictim->GenerateLoot();
         if(pVictim->IsCreature())
         {
             //--------------------------------- POSSESSED CREATURES -----------------------------------------

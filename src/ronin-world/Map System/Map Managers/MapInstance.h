@@ -260,23 +260,11 @@ private:
 class MapInstanceBroadcastObjectUpdateCallback : public ObjectProcessCallback
 {
 public:
-    MapInstanceBroadcastObjectUpdateCallback(MapInstance *instance) : _instance(instance), _publicUpdate(NULL), _partyUpdate(NULL), _petUpdate(NULL) {}
+    MapInstanceBroadcastObjectUpdateCallback(MapInstance *instance) : _instance(instance) {}
     void operator()(WorldObject *obj, WorldObject *curObj);
-    void cleanup()
-    {
-        if(_publicUpdate)
-            delete _publicUpdate;
-        if(_partyUpdate)
-            delete _partyUpdate;
-        if(_petUpdate)
-            delete _petUpdate;
-        _publicUpdate = _partyUpdate = _petUpdate;
-    }
 
 private:
     MapInstance *_instance;
-    uint32 publicCount, partyCount, petCount;
-    ByteBuffer *_publicUpdate, *_partyUpdate, *_petUpdate;
 };
 
 /// Map instance class for processing different map instances(duh)
@@ -395,6 +383,7 @@ public:
     RONIN_INLINE bool HasPlayers() { return (m_PlayerStorage.size() > 0); }
     void TeleportPlayers();
 
+    bool CanLootPlayers(Player *plr) { return false; }
     RONIN_INLINE virtual bool IsInstance() { return pdbcMap && (pdbcMap->IsDungeon() || pdbcMap->IsRaid()); }
     RONIN_INLINE uint32 GetInstanceID() { return m_instanceID; }
     RONIN_INLINE MapEntry *GetdbcMap() { return pdbcMap; }

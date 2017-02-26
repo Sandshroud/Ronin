@@ -39,7 +39,38 @@ void WorldSession::HandleRepopRequestOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
 {
+    Object *obj = NULL;
+    WoWGuid guid = _player->GetLootGUID();
+    uint8 lootSlot = recv_data.read<uint8>();
+    if(guid.empty())
+        return;
 
+    ObjectLoot *loot = NULL;
+    if(guid.getHigh() == HIGHGUID_TYPE_ITEM)
+    {
+        if(Item *source = _player->GetInventory()->GetItemByGUID(guid))
+        {
+            obj = source;
+            loot = source->GetLoot();
+        }
+    }
+    else if(WorldObject *source = _player->GetInRangeObject(guid))
+    {
+        obj = source;
+        loot = source->GetLoot();
+    }
+
+    if(loot == NULL || !loot->HasLoot(_player))
+        return;
+    __LootItem *item = &loot->items[lootSlot];
+    if(item == NULL || (item->has_looted.size())) // FFA check
+        return;
+
+    item->has_looted.insert(_player->GetGUID());
+    loot->_lootedItems.push_back(lootSlot);
+
+    _player->GetInventory()->AddItemById(item->proto->ItemId, item->StackSize, item->randProp, ADDITEM_FLAG_LOOTED);
+    _player->GetSession()->OutPacket(SMSG_LOOT_REMOVED, 1, &lootSlot);
 }
 
 void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
@@ -122,6 +153,16 @@ void WorldSession::HandleLootOpcode( WorldPacket & recv_data )
 
     WoWGuid guid;
     recv_data >> guid;
+    if(guid.getHigh() == HIGHGUID_TYPE_UNIT)
+    {
+        Creature *ctr = _player->GetInRangeObject<Creature>(guid);
+        if(ctr == NULL)
+            return;
+        if(ctr->IsVehicle())
+            return;
+        if(ctr->HasFlag(UNIT_DYNAMIC_FLAGS, U_DYN_FLAG_TAPPED_BY_PLAYER))
+            return;
+    }
 
     if(_player->GetMapInstance()->GetCreature(guid) && _player->GetMapInstance()->GetCreature(guid)->IsVehicle())
         return;
@@ -260,7 +301,8 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                 pLootTarget->GetLoot()->looters.erase(_player->GetLowGUID());
                 if( !pLootTarget->GetLoot()->HasLoot(_player) )
                 {
-                    castPtr<Creature>(pLootTarget)->UpdateLootAnimation(_player);
+                    castPtr<Creature>(pLootTarget)->RemoveFlag(UNIT_DYNAMIC_FLAGS, U_DYN_FLAG_TAPPED_BY_PLAYER);
+                    castPtr<Creature>(pLootTarget)->UpdateLootAnimation();
 
                     // skinning
                     if(!castPtr<Creature>(pLootTarget)->IsSummon() && lootmgr.IsSkinnable(pLootTarget->GetEntry())

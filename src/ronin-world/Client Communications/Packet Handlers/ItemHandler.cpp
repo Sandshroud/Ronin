@@ -1434,8 +1434,9 @@ void WorldSession::HandleInsertGemOpcode(WorldPacket &recvPacket)
                 }
             }
 
-            uint16 bagSlot = itemi->GetBagSlotByGuid(gemGuid[i]);
-            if(bagSlot == ITEM_NO_SLOT_AVAILABLE)
+            uint8 invSlot = 0xFF;
+            uint16 bagSlot = itemi->GetBagSlotByGuid(gemGuid[i], invSlot);
+            if(bagSlot == ITEM_NO_SLOT_AVAILABLE && invSlot == ITEM_NO_SLOT_AVAILABLE)
             {
                 itemi->BuildInventoryChangeError( it, TargetItem, INV_ERR_OBJECT_IS_BUSY );
                 continue;

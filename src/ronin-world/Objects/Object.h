@@ -205,14 +205,15 @@ public:
 
     //! This includes any nested objects we have, inventory for example.
     virtual uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
-    uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, uint32 updateFlags, uint32 expectedField = 0);
+    uint32 __fastcall BuildValuesUpdateBlockForPlayer( ByteBuffer *buf, Player* target, uint32 updateFlags, uint32 expectedField = 0);
 
     // Data field updates
     virtual void OnUpdateProcess();
 
 private:
     void _BuildCreateValuesUpdate( ByteBuffer *data, Player* target );
-    void _BuildChangedValuesUpdate( ByteBuffer *data, UpdateMask *updateMask );
+    void _BuildChangedValuesUpdate( ByteBuffer *data, Player* target, UpdateMask *updateMask );
+    uint32 _GetSwappedValueForUpdate(uint32 updateField, uint16 fieldFlag, Player *target);
 
     void _BuildMovementUpdate( ByteBuffer *data, uint16 flags, Player* target );
 
@@ -294,13 +295,16 @@ public:
     RONIN_INLINE bool IsLooted() { return m_looted; }
     RONIN_INLINE void SetLooted() { m_looted = true; }
 
+    // fills loot vector
+    RONIN_INLINE bool IsLootGenerated() { return m_lootGenerated; }
+    virtual void GenerateLoot() { m_lootGenerated = true; }
     // empties loot vector
     void ClearLoot();
 
 private:
     // loooooot
     ObjectLoot m_loot;
-    bool m_looted;
+    bool m_lootGenerated, m_looted;
 };
 
 //===============================================

@@ -1373,7 +1373,7 @@ public:
     void AddArenaPoints( uint32 arenapoints );
 
     // loooooot
-    void GenerateLoot(Corpse* pCorpse);
+    virtual void GenerateLoot();
     uint32 GenerateShapeshiftModelId(uint32 form);
     void StartQuest(uint32 id);
     //Calculate honor for random bgs

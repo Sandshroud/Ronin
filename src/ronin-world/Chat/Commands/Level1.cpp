@@ -288,7 +288,7 @@ bool ChatHandler::HandleAddInvItemCommand(const char *args, WorldSession *m_sess
     {
         sWorld.LogGM(m_session, "used add item command, item id %u [%s] to %s", it->ItemId, it->Name.c_str(), chr->GetName());
 
-        if(!chr->GetInventory()->AddItemById(itemid, count, randomprop, false, m_session->GetPlayer()))
+        if(!chr->GetInventory()->AddItemById(itemid, count, randomprop, (ADDITEM_FLAG_CREATED|ADDITEM_FLAG_GIFTED), m_session->GetPlayer()))
         {
             m_session->SendNotification("No free slots were found in your inventory!");
             return true;

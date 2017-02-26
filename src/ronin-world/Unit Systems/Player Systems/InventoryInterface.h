@@ -45,6 +45,14 @@ enum AddItemResult
     ADD_ITEM_RESULT_DUPLICATED      = 2,
 };
 
+enum AddItemFlags
+{
+    ADDITEM_FLAG_LOOTED = 0x01,
+    ADDITEM_FLAG_GIFTED = 0x02,
+    ADDITEM_FLAG_CREATED = 0x04,
+    ADDITEM_FLAG_SILENT = 0x08,
+};
+
 #define ITEM_NO_SLOT_AVAILABLE -1 //works for all kind of slots now
 #define INVENTORY_SLOT_NOT_SET -1
 
@@ -87,7 +95,7 @@ public:
     int16 GetInventorySlotById(uint32 ID);
     int16 GetInventorySlotByGuid(uint64 guid);
     int16 GetInventorySlotByGuid2(uint64 guid);
-    int16 GetBagSlotByGuid(uint64 guid);
+    int16 GetBagSlotByGuid(uint64 guid, uint8 &slotOut);
 
     Item* SafeAddItem(uint32 ItemId, int16 ContainerSlot, int16 slot);
     AddItemResult SafeAddItem(Item* pItem, int16 ContainerSlot, int16 slot);
@@ -173,7 +181,7 @@ public:
         return true;
     }
 
-    bool AddItemById(uint32 itemid, uint32 count, int32 randomprop, bool created, Player* creator = NULL);
+    bool AddItemById(uint32 itemid, uint32 count, int32 randomprop, uint8 addFlag, Player* creator = NULL);
     void SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot, int16 DstSlot);
 
     RONIN_INLINE bool VerifyBagSlotsWithBank(int16 ContainerSlot, int16 Slot)
@@ -204,6 +212,8 @@ public:
         return true;
     }
     void RemoveItemsWithHolidayId(uint32 IgnoreHolidayId = 0);
+
+    void _sendPushResult(Item *item, int8 bagSlot, uint8 slot, uint32 count, uint8 addItemFlags);
 };
 
 class ItemIterator

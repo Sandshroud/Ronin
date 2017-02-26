@@ -81,6 +81,7 @@ struct ObjectLoot
     bool HasLoot(Player* Looter);
 
     std::vector<__LootItem> items;
+    std::vector<uint8> _lootedItems;
 };
 
 struct StoreLootItem

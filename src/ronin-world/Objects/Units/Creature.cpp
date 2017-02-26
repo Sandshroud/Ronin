@@ -45,7 +45,8 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
     m_enslaveCount = 0;
     m_enslaveSpell = 0;
 
-    m_taggingPlayer = m_taggingGroup = 0;
+    m_taggedPlayer.Clean();
+    m_taggedGroup.Clean();
     m_lootMethod = -1;
 
     m_aggroRangeMod = 0.f;
@@ -122,10 +123,12 @@ void Creature::Reactivate()
     if(m_deathState == DEAD)
     {
         // Reset after death specifics
-        m_skinned = false;
-        m_taggingGroup = m_taggingPlayer = 0;
+        m_skinned = m_pickPocketed = false;
+
+        ClearLoot();
+        m_taggedGroup.Clean();
+        m_taggedPlayer.Clean();
         m_lootMethod = -1;
-        m_pickPocketed = false;
 
         // Other interface hooks
         m_aiInterface.OnRespawn();
@@ -220,41 +223,65 @@ float Creature::GetAggroRange()
     return baseAggro;
 }
 
-void Creature::UpdateLootAnimation(Player* Looter)
+void Creature::UpdateLootAnimation()
 {
-
+    // Mark field updated for next inrange update
+    SetUpdateField(UNIT_DYNAMIC_FLAGS);
 }
 
 void Creature::ClearTag()
 {
     if( isAlive() )
     {
+        // Reset after death specifics
+        m_skinned = m_pickPocketed = false;
+
         ClearLoot();
-        m_taggingGroup = m_taggingPlayer = 0;
+        m_taggedGroup.Clean();
+        m_taggedPlayer.Clean();
         m_lootMethod = -1;
 
         // if we are alive, means that we left combat
         if( IsInWorld() )
-            UpdateLootAnimation(NULL);
+            UpdateLootAnimation();
     }
     // dead, don't clear tag
 }
 
 void Creature::Tag(Player* plr)
 {
-    // Tagging
-    if( m_taggingPlayer != 0 || isCritter() )
+    if(isCritter())
         return;
 
-    m_taggingPlayer = plr->GetLowGUID();
-    m_taggingGroup = plr->getPlayerInfo()->m_Group ? plr->getPlayerInfo()->m_Group->GetID() : 0;
+    Group *grp = NULL;// Tagging
+    if( !m_taggedPlayer.empty() )
+    {
+        if(PlayerInfo *taggedPlayerInfo = objmgr.GetPlayerInfo(m_taggedPlayer)) // Check if tagged member is part of our group
+            if(m_taggedGroup.empty() && (grp = plr->GetGroup()) && grp->HasMember(taggedPlayerInfo))
+                m_taggedGroup = MAKE_NEW_GUID(grp->GetID(), 0, HIGHGUID_TYPE_GROUP);
+        return;
+    }
+
+    m_taggedPlayer = plr->GetGUID();
+    if(Group *grp = plr->getPlayerInfo()->m_Group)
+        m_taggedGroup = MAKE_NEW_GUID(grp->GetID(), 0, HIGHGUID_TYPE_GROUP);
 
     /* set loot method */
     if( Group *grp = plr->GetGroup() )
         m_lootMethod = grp->GetMethod();
 
+    // Set as tagged by other player
+    SetFlag(UNIT_DYNAMIC_FLAGS, U_DYN_FLAG_TAGGED_BY_OTHER);
+
     // update tag visual
-    UpdateLootAnimation(plr);
+    UpdateLootAnimation();
+}
+
+bool Creature::IsTaggedByPlayer(Player *plr)
+{
+    if(!m_taggedGroup.empty() && plr->GetGroupID() == m_taggedGroup.getLow())
+        return true;
+    return m_taggedPlayer == plr->GetGUID();
 }
 
 void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
@@ -383,32 +410,41 @@ uint32 Creature::GetRequiredLootSkill()
 
 void Creature::GenerateLoot()
 {
-    uint8 team = 0;
-    uint8 difficulty = (m_mapInstance ? (m_mapInstance->iInstanceMode) : 0);
-    if(!m_killer.empty() && m_killer.getHigh() == HIGHGUID_TYPE_PLAYER)
-        if(Player *plr = GetInRangeObject<Player>(m_killer))
-            team = plr->GetTeam();
+    bool generated = IsLootGenerated();
+    // Use calldown
+    Unit::GenerateLoot();
+    // Check for tagged player
+    if(m_taggedPlayer.empty() || generated)
+        return;
+    Player *taggedPlayer = GetInRangeObject<Player>(m_taggedPlayer);
+    if(taggedPlayer == NULL)
+        return;
 
-    lootmgr.FillCreatureLoot(GetLoot(), GetEntry(), difficulty, team);
+    // Fill loot
+    lootmgr.FillCreatureLoot(GetLoot(), GetEntry(), m_mapInstance->iInstanceMode, taggedPlayer->GetTeam());
 
     // -1 , no gold; 0 calculated according level; >0 coppercoins
     if( _creatureData->money == -1)
-    {
         GetLoot()->gold = 0;
-        return;
-    }
-    else if(_creatureData->money == 0)
+    else
     {
-        CreatureData *info = GetCreatureData();
-        if (info && info->type != UT_BEAST)
+        if(_creatureData->money == 0)
         {
-            if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
-                GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
-            else GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
-        } else GetLoot()->gold = 0; // Beasts don't drop money
-    } else GetLoot()->gold = uint32(_creatureData->money);
-    if(GetLoot()->gold)
-        GetLoot()->gold = float2int32(floor(float(GetLoot()->gold) * sWorld.getRate(RATE_MONEY)));
+            CreatureData *info = GetCreatureData();
+            if (info && info->type != UT_BEAST)
+            {
+                if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
+                    GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
+                else GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
+            } else GetLoot()->gold = 0; // Beasts don't drop money
+        } else GetLoot()->gold = uint32(_creatureData->money);
+
+        if(GetLoot()->gold)
+            GetLoot()->gold = float2int32(floor(float(GetLoot()->gold) * sWorld.getRate(RATE_MONEY)));
+    }
+
+    SetFlag(UNIT_DYNAMIC_FLAGS, U_DYN_FLAG_LOOTABLE);
+    UpdateLootAnimation();
 }
 
 void Creature::SaveToDB(bool saveposition /*= false*/)
@@ -516,6 +552,9 @@ void Creature::SetDeathState(DeathState s)
     if(s == JUST_DIED)
     {
         m_aiInterface.OnDeath();
+
+        // Generate our loot based on death
+        GenerateLoot();
 
         //despawn all summons we created
         SummonExpireAll(true);
@@ -645,7 +684,12 @@ void Creature::UpdateAreaInfo(MapInstance *instance)
 
 void Creature::Respawn(bool addrespawnevent, bool free_guid)
 {
-    m_taggingPlayer = m_taggingGroup = 0;
+    // Reset after death specifics
+    m_skinned = m_pickPocketed = false;
+
+    ClearLoot();
+    m_taggedGroup.Clean();
+    m_taggedPlayer.Clean();
     m_lootMethod = 1;
 
     m_AuraInterface.RemoveAllNonPassiveAuras();

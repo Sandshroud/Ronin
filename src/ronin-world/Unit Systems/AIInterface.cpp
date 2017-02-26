@@ -141,9 +141,10 @@ bool AIInterface::FindTarget()
         return false;
     if(!m_targetGuid.empty())
         return true;
+    uint32 targetTypeMask = (TYPEMASK_TYPE_PLAYER | (m_Creature->IsFactionNPCHostile() ? TYPEMASK_TYPE_UNIT : 0x0000));
 
     float baseAggro = m_Creature->GetAggroRange();
-    if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(m_Creature, baseAggro, TYPEMASK_TYPE_PLAYER))
+    if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(m_Creature, baseAggro, targetTypeMask))
     {
         m_targetGuid = target->GetGUID();
         m_Creature->SetInCombat(target);
@@ -172,13 +173,18 @@ void AIInterface::_HandleCombatAI()
                 m_path->StopMoving();
             m_targetGuid.Clean();
             m_Creature->EventAttackStop();
-        }
+        } else m_targetGuid.Clean();
 
-        if(tooFarFromSpawn == false && unitTarget == NULL && FindTarget() == true)
-            unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
-        else
+        bool returnToSpawn = true;
+        if(tooFarFromSpawn == false && unitTarget == NULL)
+            if((returnToSpawn = !FindTarget()) == false && (unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid)) == NULL)
+                returnToSpawn = true;
+
+        if(returnToSpawn)
         {
             m_AIState = AI_STATE_IDLE;
+            m_targetGuid.Clean();
+            m_Creature->EventAttackStop();
             if(!m_path->hasDestination())
             {
                 m_Creature->addStateFlag(UF_EVADING);

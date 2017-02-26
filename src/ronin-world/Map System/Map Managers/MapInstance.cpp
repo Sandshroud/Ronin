@@ -1094,64 +1094,24 @@ void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, Worl
     uint32 targetFlag = obj->GetUpdateFlag(plrTarget);
     if(targetFlag & UF_FLAG_PARTY_MEMBER)
     {
-        if(partyCount == 0xFFFFFFFF)
-            return;
-        if(_partyUpdate == NULL)
+        if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(_instance->GetUpdateBuffer(), plrTarget, UF_FLAGMASK_PARTY_MEMBER))
         {
-            ByteBuffer *updateBuff = _instance->GetUpdateBuffer();
-            if((partyCount = obj->BuildValuesUpdateBlockForPlayer(updateBuff, UF_FLAGMASK_PARTY_MEMBER)) == 0)
-            {
-                partyCount = 0xFFFFFFFF;
-                updateBuff->clear();
-                return;
-            }
-
-            _partyUpdate = new ByteBuffer(updateBuff->size());
-            _partyUpdate->append(updateBuff->contents(), updateBuff->size());
-            updateBuff->clear();
+            plrTarget->PushUpdateBlock(_instance->GetMapId(), _instance->GetUpdateBuffer(), count);
+            _instance->GetUpdateBuffer()->clear();
         }
-
-        plrTarget->PushUpdateBlock(_instance->GetMapId(), _partyUpdate, partyCount);
     }
     else if(targetFlag & UF_FLAG_OWNER)
     {
-        if(petCount == 0xFFFFFFFF)
-            return;
-        if(_petUpdate == NULL)
+        if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(_instance->GetUpdateBuffer(), plrTarget, UF_FLAGMASK_OWN_PET))
         {
-            ByteBuffer *updateBuff = _instance->GetUpdateBuffer();
-            if((petCount = obj->BuildValuesUpdateBlockForPlayer(updateBuff, UF_FLAGMASK_OWN_PET)) == 0)
-            {
-                petCount = 0xFFFFFFFF;
-                updateBuff->clear();
-                return;
-            }
-
-            _petUpdate = new ByteBuffer(updateBuff->size());
-            _petUpdate->append(updateBuff->contents(), updateBuff->size());
-            updateBuff->clear();
+            plrTarget->PushUpdateBlock(_instance->GetMapId(), _instance->GetUpdateBuffer(), count);
+            _instance->GetUpdateBuffer()->clear();
         }
-
-        plrTarget->PushUpdateBlock(_instance->GetMapId(), _petUpdate, petCount);
     }
-    else if(publicCount != 0xFFFFFFFF)
+    else if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(_instance->GetUpdateBuffer(), plrTarget, UF_FLAGMASK_PUBLIC))
     {
-        if(_publicUpdate == NULL)
-        {
-            ByteBuffer *updateBuff = _instance->GetUpdateBuffer();
-            if((publicCount = obj->BuildValuesUpdateBlockForPlayer(updateBuff, UF_FLAGMASK_PUBLIC)) == 0)
-            {
-                publicCount = 0xFFFFFFFF;
-                updateBuff->clear();
-                return;
-            }
-
-            _publicUpdate = new ByteBuffer(updateBuff->size());
-            _publicUpdate->append(updateBuff->contents(), updateBuff->size());
-            updateBuff->clear();
-        }
-
-        plrTarget->PushUpdateBlock(_instance->GetMapId(), _publicUpdate, publicCount);
+        plrTarget->PushUpdateBlock(_instance->GetMapId(), _instance->GetUpdateBuffer(), count);
+        _instance->GetUpdateBuffer()->clear();
     }
 }
 
@@ -1166,7 +1126,6 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
             cell->ProcessObjectSets(obj, &_broadcastObjectUpdateCallback, TYPEMASK_TYPE_PLAYER);
     }
     _BroadcastObjectUpdateCellVector.clear();
-    _broadcastObjectUpdateCallback.cleanup();
     _broadcastObjectUpdateCallback.Unlock();
 }
 
@@ -1593,7 +1552,7 @@ void MapInstance::_PerformPendingUpdates()
         if( wObj->IsPlayer() )
         {
             // need to be different! ;)
-            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, UF_FLAGMASK_SELF) )
+            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, castPtr<Player>( wObj ), UF_FLAGMASK_SELF) )
                 castPtr<Player>( wObj )->PushUpdateBlock(_mapId, &m_updateBuffer, count );
             m_updateBuffer.clear();
         }

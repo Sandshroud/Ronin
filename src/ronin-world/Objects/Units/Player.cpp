@@ -668,7 +668,7 @@ void Player::ProcessImmediateItemUpdate(Item *item)
         return;
 
     ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
-    if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
+    if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, this, 0xFFFF))
         PushUpdateBlock(m_mapId, &buff, count);
     buff.clear();
     m_mapInstance->PushToProcessed(this);
@@ -684,7 +684,7 @@ void Player::ProcessPendingItemUpdates()
     {
         Item *item = *m_pendingUpdates.begin();
         m_pendingUpdates.erase(m_pendingUpdates.begin());
-        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, 0xFFFF))
+        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, this, 0xFFFF))
             PushUpdateBlock(m_mapId, &buff, count);
         buff.clear();
     }
@@ -3791,7 +3791,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     if( lootEnt->GetTypeId() == TYPEID_UNIT )
     {
         Creature* LootOwner = castPtr<Creature>( lootEnt );
-        if( uint32 GroupId = LootOwner->m_taggingGroup )
+        if( uint32 GroupId = LootOwner->m_taggedGroup.getLow() )
             if(m_Group == NULL || GroupId != m_Group->GetID())
                 return;
         loot_method = LootOwner->m_lootMethod;
@@ -7006,11 +7006,22 @@ void Player::Social_SendFriendList(uint32 flag)
     PushPacket(&data, true);
 }
 
-void Player::GenerateLoot(Corpse* pCorpse)
+void Player::GenerateLoot()
 {
-    // default gold
-    pCorpse->ClearLoot();
-    pCorpse->GetLoot()->gold = 500;
+    // Use calldown
+    Unit::GenerateLoot();
+    if(!IsInWorld())
+        return;
+    if(m_mapInstance->CanLootPlayers(this))
+        return;
+
+    Corpse *pCorpse = NULL;
+    if(pCorpse = getMyCorpse())
+    {
+        // default gold
+        pCorpse->ClearLoot();
+        pCorpse->GetLoot()->gold = 500;
+    }
 
     TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerLootGen )( this, pCorpse );
 }
