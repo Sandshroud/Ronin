@@ -33,13 +33,12 @@ WorldPacket* WorldSession::BuildQuestQueryResponse(Quest *qst)
 
     WorldPacket* data = new WorldPacket(SMSG_QUEST_QUERY_RESPONSE, 248);
     *data << uint32(qst->id);                           // Quest ID
-    *data << uint32(2);                                 // Quest Method
+    *data << uint32(qst->qst_accept_type);              // Quest Method
     *data << int32(qst->qst_max_level);                 // Quest level
     *data << uint32(qst->qst_min_level);                // minlevel !!!
-
     if(qst->qst_sort > 0)
         *data << int32(-(int32)qst->qst_sort);          // Negative if pointing to a sort.
-    else *data << uint32(qst->qst_zone_id);              // Positive if pointing to a zone.
+    else *data << uint32(qst->qst_zone_id);             // Positive if pointing to a zone.
 
     *data << uint32(qst->qst_type);                     // Info ID / Type
     *data << uint32(qst->qst_suggested_players);        // suggested players
@@ -59,14 +58,19 @@ WorldPacket* WorldSession::BuildQuestQueryResponse(Quest *qst)
     }
     *data << uint32(qst->reward_spell);                 // Spell added to spellbook upon completion
     *data << uint32(qst->reward_cast_on_player);        // Spell casted on player upon completion
+
+    // Honor fields, now currency
     *data << uint32(0);
-    *data << uint32(0);
+    *data << float(0);
+
     *data << uint32(qst->srcitem);                      // Item given at the start of a quest (srcitem)
     *data << uint32(qst->qst_flags);                    // Quest Flags
     *data << uint32(0);                                 // Quest target mark type
+
     *data << uint32(qst->reward_title);                 // Reward Title Id - Player is givn this title upon completion
     *data << uint32(qst->required_player_kills);        // Required Kill Player
     *data << uint32(qst->reward_talents);
+
     *data << uint32(0); // Arena currency?
     *data << uint32(0); // Skill Line Id
     *data << uint32(0); // Skill Line Points
@@ -189,7 +193,7 @@ void QuestLogEntry::Init(Quest* quest, Player* plr, uint32 slot)
         }
     }
 
-    m_expirationTime = UNIXTIME+(m_quest->required_timelimit/1000);
+    m_expirationTime = m_quest->required_timelimit ? (UNIXTIME+(m_quest->required_timelimit/1000)) : 0;
 
     // update slot
     plr->SetQuestLogSlot(this, slot);

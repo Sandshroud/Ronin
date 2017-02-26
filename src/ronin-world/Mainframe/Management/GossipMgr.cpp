@@ -49,14 +49,14 @@ void GossipManager::BuildGossipMessage(WorldPacket *packet, Player *plr, Object 
     GossipMenu *menu = NULL;//GetScriptedGossipMenu(obj);
     if(menu == NULL || !menu->BlocksBasicMenu())
         count += _BuildBasicGossipMenu(packet, textId, plr, obj);
-    //if(menu) count += menu->Append(packet, textId, plr);
+    //else if(menu) count += menu->Append(packet, textId, plr);
     packet->put<uint32>(sizePos, textId);
     packet->put<uint32>(sizePos+4, count);
 
     // Append our questgiver data from here on
     sizePos = packet->wpos();
     *packet << uint32(count = 0); // Quest counter
-    //count = sQuestMgr.AppendQuestList(packet, obj->GetGUID());
+    sQuestMgr.AppendQuestList(obj, plr, count, packet);
     packet->put<uint32>(sizePos, count);
 }
 

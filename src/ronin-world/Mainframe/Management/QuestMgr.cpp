@@ -140,6 +140,7 @@ void QuestMgr::LoadQuests()
         for(uint8 i = 0; i < 4; i++)
             newQuest->qst_objectivetexts[i] = strdup(fields[f++].GetString());
         newQuest->qst_zone_id = fields[f++].GetUInt32();
+        newQuest->qst_accept_type = 2; // Default for now
         newQuest->qst_sort = fields[f++].GetUInt32();
         newQuest->qst_type = fields[f++].GetUInt32();
         newQuest->qst_flags = fields[f++].GetUInt32();
@@ -371,6 +372,35 @@ void QuestMgr::LoadQuests()
     LoadLocks.Release();
 }
 
+void QuestMgr::AppendQuestList(Object *obj, Player *plr, uint32 &count, WorldPacket *packet)
+{
+    QuestRelationList *list;
+    switch(obj->GetHighGUID())
+    {
+    case HIGHGUID_TYPE_ITEM: list = m_itm_quests[obj->GetEntry()]; break;
+    case HIGHGUID_TYPE_UNIT: list = m_npc_quests[obj->GetEntry()]; break;
+    case HIGHGUID_TYPE_GAMEOBJECT: list = m_obj_quests[obj->GetEntry()]; break;
+    }
+    if(list != NULL && !list->empty())
+    {   // Process through our quest relation list and build our quest list packet and increment counter
+        for(QuestRelationList::iterator itr = list->begin(); itr != list->end(); ++itr)
+        {
+            uint32 status = CalcQuestStatus(plr, *itr);
+            if(status <= QMGR_QUEST_AVAILABLELOW_LEVEL)
+                continue;
+
+            BuildGossipQuest(packet, (*itr)->qst, status, plr);
+            ++count;
+        }
+    }
+
+    // Map specific quests occur here so only allow world objects
+    if(!(obj->IsObject() && obj->IsInWorld()))
+        return;
+    // Our map instances have their own guidlist so we have different map lists and event data affects lists as well
+    castPtr<WorldObject>(obj)->GetMapInstance()->AppendQuestList(obj->GetGUID(), plr, count, packet);
+}
+
 uint32 QuestMgr::CalcQuestStatus(Player* plr, QuestRelation* qst)
 {
     return CalcQuestStatus(plr, qst->qst, qst->type, false);
@@ -584,6 +614,16 @@ uint32 QuestMgr::ActiveQuestsCount(Object* quest_giver, Player* plr)
     return questCount;
 }
 
+void QuestMgr::BuildGossipQuest(WorldPacket *data, Quest *qst, uint32 quest_status, Player *plr)
+{
+    *data << uint32(qst->id);
+    *data << uint32((quest_status == QMGR_QUEST_NOT_FINISHED || quest_status >= QMGR_QUEST_FINISHED_LOWLEVEL) ? 0x4 : 0x2);
+    *data << int32(qst->qst_max_level);
+    *data << uint32(qst->qst_flags);
+    *data << uint8(qst->qst_is_repeatable ? 1 : 0);
+    *data << qst->qst_title;
+}
+
 void QuestMgr::BuildOfferReward(WorldPacket *data, Quest* qst, Object* qst_giver, uint32 menutype, Player* plr)
 {
     uint32 i = 0;
@@ -711,9 +751,9 @@ void QuestMgr::BuildQuestDetails(WorldPacket *data, Quest* qst, Object* qst_give
     *data << GenerateRewardMoney(plr, qst);
     *data << uint32(float2int32(GenerateQuestXP(plr, qst) * sWorld.getRate(RATE_QUESTXP)));
     *data << uint32(qst->reward_title);
-    *data << uint32(0) << uint32(0); // unk as of 4.0.6a
+    *data << uint32(0) << float(0); // unk as of 4.0.6a
     *data << uint32(qst->reward_talents);
-    *data << uint32(0) << uint32(0); // unk as of 4.0.6a
+    *data << uint32(0) << float(0); // unk as of 4.0.6a
 
     for(i = 0; i < 5; i++)
         *data << uint32(qst->reward_repfaction[i]);
@@ -729,9 +769,12 @@ void QuestMgr::BuildQuestDetails(WorldPacket *data, Quest* qst, Object* qst_give
         *data << uint32(0); // CurrencyID
     for(i = 0; i < 4; i++)
         *data << uint32(0); // CurrencyCount
+
+    // Reward skill
     *data << uint32(0);
     *data << uint32(0);
 
+    // Emote
     *data << uint32(4);                         // Quantity of emotes, always four
     *data << uint32(1);                         // Emote id 1
     *data << uint32(0);                         // Emote delay/player emote

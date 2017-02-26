@@ -961,14 +961,11 @@ void Group::UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribut
 
 void Group::UpdateAllOutOfRangePlayersFor(Player* pPlayer)
 {
-    WorldPacket data(150);
-    WorldPacket data2(150);
-
     if(m_SubGroupCount>8)
         return;
 
-    /* tell the other players about us */
-    UpdateOutOfRangePlayer(pPlayer, GROUP_UPDATE_TYPE_FULL_CREATE, true, &data2);
+    WorldPacket data; /* tell the other players about us */
+    UpdateOutOfRangePlayer(pPlayer, GROUP_UPDATE_TYPE_FULL_CREATE, true, &data);
 
     /* tell us any other players we don't know about */
     Player* plr;

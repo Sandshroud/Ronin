@@ -132,6 +132,7 @@ struct Quest
     char *qst_objectivetexts[4];
 
     uint32 qst_zone_id;
+    uint32 qst_accept_type;
     uint32 qst_sort;
     uint32 qst_type;
     uint32 qst_flags;
@@ -250,6 +251,7 @@ public:
 
     Mutex LoadLocks;
     void LoadQuests(); // Actually load our quests, do not call outside startup.
+    void AppendQuestList(Object *obj, Player *plr, uint32 &count, WorldPacket *packet);
 
     bool QuestExists(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return true; return false; };
     Quest* GetQuestPointer(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return QuestStorage.at(entry); return NULL; };
@@ -265,6 +267,7 @@ public:
     uint32 ActiveQuestsCount(Object* quest_giver, Player* plr);
 
     //Packet Forging...
+    void BuildGossipQuest(WorldPacket *data, Quest *qst, uint32 qst_status, Player *plr);
     void BuildOfferReward(WorldPacket* data,Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
     void BuildQuestDetails(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
     void BuildRequestItems(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 status);

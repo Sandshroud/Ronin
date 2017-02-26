@@ -326,6 +326,9 @@ public:
     static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
     static bool InZRange(float fRange, WorldObject* obj, WorldObject* currentobj);
 
+    // Append quests based on guid and scripts
+    void AppendQuestList(WoWGuid guid, Player *plr, uint32 &count, WorldPacket *packet);
+
 public:
     // Combat functions
     bool CheckCombatStatus(Unit *unit = NULL);

@@ -1702,6 +1702,11 @@ bool MapInstance::InZRange(float fRange, WorldObject* obj, WorldObject *curObj)
     return true;
 }
 
+void MapInstance::AppendQuestList(WoWGuid guid, Player *plr, uint32 &count, WorldPacket *packet)
+{
+    // Nothing yet
+}
+
 bool MapInstance::CheckCombatStatus(Unit *unit)
 {
     // If we're forcing combat ignore mapping states
