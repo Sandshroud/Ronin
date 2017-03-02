@@ -2279,6 +2279,7 @@ void Unit::EventAttackStart(WoWGuid guid)
     Dismount();
 
     SetUInt64Value(UNIT_FIELD_TARGET, guid);
+    m_spellInterface.OnChangeSelection(guid);
 }
 
 void Unit::EventAttackStop()
@@ -2286,6 +2287,7 @@ void Unit::EventAttackStop()
     clearStateFlag(UF_ATTACKING);
     smsg_AttackStop(m_attackTarget);
     m_attackTarget.Clean();
+    m_spellInterface.OnChangeSelection(0);
 }
 
 void Unit::smsg_AttackStart(WoWGuid victimGuid)

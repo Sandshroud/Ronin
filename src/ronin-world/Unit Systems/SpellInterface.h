@@ -17,12 +17,15 @@ public:
     void CleanupCurrentSpell();
     bool CleanupSpecificSpell(SpellEntry *sp);
 
+    void OnChangeSelection(WoWGuid guid);
+
     SpellEntry *GetCurrentSpellProto();
     bool IsCasting() { return (m_currentSpell != NULL); }
 
     void ProcessSpell(Spell *castingSpell);
     void FinishSpell(Spell *finishedSpell);
     void InterruptCast(Spell *interruptSpell, uint32 interruptTime = 0);
+    void ProcessNextMeleeSpell(Spell *nextMeleeSpell);
 
     // Spell casting
     void LaunchSpell(SpellEntry *info, uint8 castNumber, SpellCastTargets &targets);
@@ -31,8 +34,9 @@ public:
     void TriggerSpell(SpellEntry *info, Unit *target);
 
     // Next melee spells
-    void TriggerNextMeleeSpell(Unit *target);
     uint32 getNextMeleeSpell();
+    void TriggerNextMeleeSpell(Unit *target);
+    void ClearNextMeleeSpell();
 
     // School affecting
     void PushbackCast(uint32 school);
@@ -44,7 +48,8 @@ protected:
 private:
     Unit *m_Unit;
 
-    Spell* m_currentSpell;
+    Mutex _spellLock;
+    Spell* m_currentSpell, *m_nextMeleeSpell;
 
     SpellEntry *m_lastSpell;
 };

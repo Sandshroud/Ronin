@@ -352,22 +352,17 @@ void Spell::cast(bool check)
         // don't get applied.
         if(!m_triggeredByAura) _unitCaster->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
 
-        m_isCasting = false;
-        SendCastResult(m_canCastResult);
-        finish();
+        _unitCaster->GetSpellInterface()->ProcessNextMeleeSpell(this);
         return;
     }
 
     // Only take power if we're not a triggered spell, or we're a triggered next melee attack
-    if(isNextMeleeAttack1 || m_triggeredSpell == false)
+    if((isNextMeleeAttack1 || m_triggeredSpell == false) && !TakePower())
     {
-        if(!TakePower())
-        {
-            SendInterrupted(SPELL_FAILED_NO_POWER);
-            SendCastResult(SPELL_FAILED_NO_POWER);
-            finish();
-            return;
-        }
+        SendInterrupted(SPELL_FAILED_NO_POWER);
+        SendCastResult(SPELL_FAILED_NO_POWER);
+        finish();
+        return;
     }
 
     FillTargetMap(false);

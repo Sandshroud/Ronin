@@ -4,6 +4,7 @@
 SpellInterface::SpellInterface(Unit *unit) : m_Unit(unit)
 {
     m_currentSpell = NULL;
+    m_nextMeleeSpell = NULL;
     m_lastSpell = NULL;
 }
 
@@ -21,11 +22,13 @@ void SpellInterface::Update(uint32 msTime, uint32 uiDiff)
 void SpellInterface::Cleanup()
 {
     CleanupCurrentSpell();
+    ClearNextMeleeSpell();
 }
 
 void SpellInterface::OnRemoveFromWorld()
 {
     CleanupCurrentSpell();
+    ClearNextMeleeSpell();
 }
 
 void SpellInterface::CleanupCurrentSpell()
@@ -44,6 +47,11 @@ bool SpellInterface::CleanupSpecificSpell(SpellEntry *sp)
         return true;
     }
     return false;
+}
+
+void SpellInterface::OnChangeSelection(WoWGuid guid)
+{
+    ClearNextMeleeSpell();
 }
 
 SpellEntry *SpellInterface::GetCurrentSpellProto()
@@ -74,6 +82,16 @@ void SpellInterface::InterruptCast(Spell *interruptSpell, uint32 interruptTime)
     if(interruptTime && m_currentSpell->GetSpellProto()->School)
         PreventSchoolCast(m_currentSpell->GetSpellProto()->School, interruptTime);
     CleanupCurrentSpell();
+}
+
+void SpellInterface::ProcessNextMeleeSpell(Spell *nextMeleeSpell)
+{
+    if(m_nextMeleeSpell)
+        return;
+
+    _spellLock.Acquire();
+    m_nextMeleeSpell = nextMeleeSpell;
+    _spellLock.Release();
 }
 
 void SpellInterface::LaunchSpell(SpellEntry *info, uint8 castNumber, SpellCastTargets &targets)
@@ -111,14 +129,37 @@ void SpellInterface::TriggerSpell(SpellEntry *info, Unit *target)
         spell->prepare(&targets, true);
 }
 
-void SpellInterface::TriggerNextMeleeSpell(Unit *target)
-{
-
-}
-
 uint32 SpellInterface::getNextMeleeSpell()
 {
-    return 0;
+    _spellLock.Acquire();
+    uint32 ret = m_nextMeleeSpell ? m_nextMeleeSpell->GetSpellProto()->Id : 0;
+    _spellLock.Release();
+    return ret;
+}
+
+void SpellInterface::TriggerNextMeleeSpell(Unit *target)
+{
+    _spellLock.Acquire();
+    if(Spell *triggerSpell = m_nextMeleeSpell)
+    {
+        m_nextMeleeSpell = NULL;
+        _spellLock.Release();
+
+        SpellCastTargets targets(target->GetGUID());
+        triggerSpell->prepare(&targets, true);
+        triggerSpell = NULL;
+    } else _spellLock.Release();
+}
+
+void SpellInterface::ClearNextMeleeSpell()
+{
+    _spellLock.Acquire();
+    if(Spell *triggerSpell = m_nextMeleeSpell)
+    {
+        m_nextMeleeSpell = NULL;
+        _spellLock.Release();
+        triggerSpell->finish();
+    } else _spellLock.Release();
 }
 
 void SpellInterface::PushbackCast(uint32 school)
@@ -167,6 +208,11 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
     if(sp->Id == getNextMeleeSpell())
     {
         errorOut = SPELL_FAILED_DONT_REPORT;
+        return false;
+    }
+    else if(sp->isNextMeleeAttack1() && getNextMeleeSpell())
+    {
+        errorOut = SPELL_FAILED_SPELL_IN_PROGRESS;
         return false;
     }
 

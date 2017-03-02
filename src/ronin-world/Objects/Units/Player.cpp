@@ -2556,6 +2556,14 @@ void Player::RemovePendingPlayer(uint8 reason)
     Destruct();
 }
 
+void Player::SetSelection(WoWGuid guid)
+{
+    if(m_curSelection != guid)
+        m_spellInterface.OnChangeSelection(guid);
+
+    m_curSelection = guid;
+}
+
 bool Player::HasSpell(uint32 spell)
 {
     return m_spells.find(spell) != m_spells.end();

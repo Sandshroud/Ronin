@@ -943,7 +943,7 @@ public:
     CharClassEntry *GetClassDBC() { return myClass; }
 
     const WoWGuid& GetSelection( ) const { return m_curSelection; }
-    void SetSelection(const uint64 &guid) { m_curSelection = guid; }
+    void SetSelection(WoWGuid guid);
 
     /************************************************************************/
     /* Spells                                                               */
