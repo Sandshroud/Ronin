@@ -78,7 +78,7 @@ public:
     // Update spell state based on time difference
     void Update(uint32 difftime);
     // Checks against the cast position and cancels if we've moved
-    void updatePosition(float x, float y, float z);
+    bool updatePosition(float x, float y, float z);
     // Updates our channel based data for triggers etc
     void _UpdateChanneledSpell(uint32 difftime);
     // Updates delayed targets, calls finish() as well

@@ -44,7 +44,7 @@ protected:
 private:
     Unit *m_Unit;
 
-    Spell* m_currentSpell, *m_nextMeleeSpell;
+    Spell* m_currentSpell;
 
     SpellEntry *m_lastSpell;
 };

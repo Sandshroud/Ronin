@@ -285,14 +285,24 @@ void Spell::cancel()
         }
     }
 
-    SendChannelUpdate(0);
-
     // Ensure the item gets consumed once the channel has started
     if (m_timer > 0)
         m_ForceConsumption = true;
 
     if( !m_isCasting )
         finish();
+    else
+    {
+        // Remove spell casting state
+        _unitCaster->GetSpellInterface()->FinishSpell(this);
+        if(_unitCaster->GetChannelSpellId() == m_spellInfo->Id)
+        {
+            _unitCaster->SetChannelSpellTargetGUID(0);
+            _unitCaster->SetChannelSpellId(0);
+        }
+
+        SendChannelUpdate(0);
+    }
 }
 
 void Spell::AddCooldown()
@@ -371,13 +381,16 @@ void Spell::cast(bool check)
 
     if( m_spellInfo->IsSpellChannelSpell() && !m_triggeredSpell )
     {
+        m_timer = GetDuration();
         m_spellState = SPELL_STATE_CASTING;
-        SendChannelStart(GetDuration());
+        // Send channel start
+        SendChannelStart(m_timer);
         // Set our channel spell to this
         _unitCaster->SetChannelSpellId(m_spellInfo->Id);
         // If we have a single spell target and it's not us, set our channel focus to that
         if(m_fullTargetMap.size() == 1 && m_spellInfo->isChannelTrackTarget())
             _unitCaster->SetChannelSpellTargetGUID(m_fullTargetMap.begin()->first);
+        else _unitCaster->SetChannelSpellTargetGUID(m_casterGuid);
         _unitCaster->GetSpellInterface()->ProcessSpell(this);
         return;
     }
@@ -486,9 +499,7 @@ void Spell::AddTime(uint32 type)
 
 void Spell::Update(uint32 difftime)
 {
-    updatePosition(_unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ());
-
-    if(m_cancelled)
+    if(!updatePosition(_unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ()))
     {
         cancel();
         return;
@@ -522,16 +533,16 @@ void Spell::Update(uint32 difftime)
     }
 }
 
-void Spell::updatePosition(float x, float y, float z)
+bool Spell::updatePosition(float x, float y, float z)
 {
     if(m_spellInfo->isSpellInterruptOnMovement() && ( m_castPositionX != x || m_castPositionY != y || m_castPositionZ != z))
     {
         if(m_spellInfo->IsSpellChannelSpell() || (_unitCaster->HasNoInterrupt() == 0 && m_spellInfo->EffectMechanic[1] != 14))
         {
-            cancel();
-            return;
+            return false;
         }
     }
+    return true;
 }
 
 void Spell::_UpdateChanneledSpell(uint32 difftime)
@@ -672,6 +683,11 @@ void Spell::finish()
     }
 
     _unitCaster->GetSpellInterface()->FinishSpell(this);
+    if(_unitCaster->GetChannelSpellId() == m_spellInfo->Id)
+    {
+        _unitCaster->SetChannelSpellTargetGUID(0);
+        _unitCaster->SetChannelSpellId(0);
+    }
 
     if(_unitCaster->IsPlayer())
     {
