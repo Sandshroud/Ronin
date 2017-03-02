@@ -1120,7 +1120,7 @@ void MovementInterface::HandlePendingMoveData(bool fromLanding)
     // If we're falling we need to cut before we handle the pending data
     if(m_isFalling)
     {
-        if(fromLanding == true)
+        if(fromLanding == true && !(hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_CAN_FLY) || hasPendingMoveStatus(MOVEMENT_STATUS_CANFLY)))
         {   // Handle our pending falling damage
             float diff = 0.f;
             if(castPtr<Player>(m_Unit)->hasGMTag() && (diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)

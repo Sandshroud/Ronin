@@ -372,6 +372,8 @@ public:
     void removeServerFlag(MovementFlagsE flag) { m_serverFlags[4] &= ~flag; UpdateMovementFlagMask(4); }
     void removeServerFlag(MovementFlagsF flag) { m_serverFlags[5] &= ~flag; UpdateMovementFlagMask(5); }
 
+    bool hasPendingMoveStatus(uint8 type) { return m_pendingEnable[type]; }
+
     bool isMoving() { return hasFlag(MOVEMENTFLAG_MASK_MOVING); }
     bool isTurning() { return hasFlag(MOVEMENTFLAG_MASK_TURNING); }
     bool isPitching() { return hasFlag(MOVEMENTFLAG_MASK_PITCHING); }
