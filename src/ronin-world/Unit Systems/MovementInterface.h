@@ -345,7 +345,7 @@ public:
 
     void setRooted(bool root);
     void setAsleep(bool sleep) {}
-    void setStunned(bool stun) {}
+    void setStunned(bool stunned);
     void setCanFly(bool canfly);
 
     // Movement flags

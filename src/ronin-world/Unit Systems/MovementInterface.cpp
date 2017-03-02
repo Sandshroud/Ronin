@@ -1321,6 +1321,11 @@ bool MovementInterface::isInAir()
     return (RONIN_UTIL::fuzzyGt(m_serverLocation->z, m_Unit->GetGroundHeight()+0.5f) || RONIN_UTIL::fuzzyLt(m_serverLocation->z, m_Unit->GetGroundHeight()-0.5f));
 }
 
+void MovementInterface::setStunned(bool stunned)
+{
+    setRooted(stunned);
+}
+
 void MovementInterface::setCanFly(bool canFly)
 {
     // Only players can have the canfly flag, because only players use the flying flag

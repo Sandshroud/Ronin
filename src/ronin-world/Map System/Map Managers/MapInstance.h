@@ -341,6 +341,8 @@ public:
 
     void BroadcastObjectUpdate(WorldObject *obj);
 
+    void UpdateObjectCellVisibility(WorldObject *obj, uint32 curX, uint32 curY, uint32 lowX, uint32 highX, uint32 lowY, uint32 highY);
+
 protected:
     // These are stored in MapInstance.cpp with functions
     friend class MapInstanceObjectProcessCallback;

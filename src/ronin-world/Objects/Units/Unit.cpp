@@ -2679,7 +2679,10 @@ bool Unit::IsDazed()
 
 void Unit::UpdateVisibility()
 {
+    if(!IsInWorld())
+        return;
 
+    GetCellManager()->UpdateVisibility(m_mapInstance);
 }
 
 void Unit::InitVehicleKit(uint32 vehicleKitId)
@@ -3080,6 +3083,7 @@ void Unit::SetUnitStunned(bool state)
     {
         if(_stunStateCounter++)
             return;
+        m_movementInterface.setStunned(true);
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
         return;
     }
@@ -3087,6 +3091,7 @@ void Unit::SetUnitStunned(bool state)
     if(_stunStateCounter == 0 || (--_stunStateCounter > 0))
         return;
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
+    m_movementInterface.setStunned(false);
 }
 
 //! Is PVP flagged?
@@ -3255,7 +3260,10 @@ void Unit::SetDeathState(DeathState s)
     if(s == DEAD && !hasStateFlag(UF_CORPSE))
     {
         addStateFlag(UF_CORPSE);
+        // Trigger cell manager death state
         GetCellManager()->OnUnitDeath(m_mapInstance);
+        // Remove combat flag at death
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
     } else if(s != DEAD)
         clearStateFlag(UF_CORPSE);
 }

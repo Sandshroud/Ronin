@@ -122,6 +122,7 @@ enum PlayerFlags
     PLAYER_FLAG_UNK23               = 0x400000,
     PLAYER_FLAG_ALLOW_ONLY_ABILITY  = 0x800000,
     PLAYER_FLAG_UNK25               = 0x1000000,
+    PLAYER_FLAGS_XP_USER_DISABLED   = 0x2000000,
 };
 
 enum CharterTypes
@@ -872,8 +873,8 @@ public:
     RONIN_INLINE std::string* GetNameString() { return &m_name; }
 
     //void KilledMonster(uint32 entry, const uint64 &guid);
-    void GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGuildXP);   // to stop rest xp being given
-    void ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val, int32 randSuffixAmt = 0, int32 suffixSeed = 0);
+    void GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP);
+    void ModifyBonuses(bool apply, WoWGuid guid, uint32 slot, uint32 type, int32 val, int32 randSuffixAmt = 0, int32 suffixSeed = 0);
 
     int32 GetBonusesFromItems(uint32 statType);
 
@@ -1098,6 +1099,7 @@ public:
     /************************************************************************/
     void SpawnCorpseBones();
     Corpse* CreateCorpse();
+    void SetDeathState(DeathState state);
     void KillPlayer();
     void ResurrectPlayer(Unit* pResurrector = NULL);
     void BuildPlayerRepop();
@@ -1325,8 +1327,8 @@ public:
     /* Spell Packet wrapper Please keep this separated                      */
     /************************************************************************/
     void SendLevelupInfo(uint32 level, uint32 Hp, uint32 Mana, uint32 *Stats);
-    void SendLogXPGain(uint64 guid, uint32 NormalXP, uint32 RestedXP, bool type);
-    void SendEnvironmentalDamageLog(const uint64 & guid, uint8 type, uint32 damage);
+    void SendLogXPGain(WoWGuid victimGuid, uint32 totalXP, uint32 RestedXP);
+    void SendEnvironmentalDamageLog(const WoWGuid &guid, uint8 type, uint32 damage);
     void SendWorldStateUpdate(uint32 WorldState, uint32 Value);
     void SendCastResult(uint32 SpellId, uint8 ErrorMessage, uint8 MultiCast, uint32 Extra);
     void Gossip_SendPOI(float X, float Y, uint32 Icon, uint32 Flags, uint32 Data, const char* Name);

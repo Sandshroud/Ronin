@@ -373,7 +373,7 @@ uint32 CalculateXpToGive(Unit* pVictim, Unit* pAttacker, uint32 mapZoneModifier)
         else baseGain = 0;
     }
 
-    return baseGain;
+    return baseGain * sWorld.getRate(RATE_XP);
 }
 
 bool isEven (int num)

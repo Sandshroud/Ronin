@@ -46,17 +46,17 @@ void Player::SendLevelupInfo(uint32 level, uint32 Hp, uint32 Mana, uint32 *Stats
     GetSession()->SendPacket(&data);
 }
 
-void Player::SendLogXPGain(uint64 guid, uint32 NormalXP, uint32 RestedXP, bool type)
+void Player::SendLogXPGain(WoWGuid victimGuid, uint32 totalXP, uint32 RestedXP)
 {
     WorldPacket data(SMSG_LOG_XPGAIN, 50);
-    data << guid << NormalXP << uint8(type);
-    if(type) data << uint32(RestedXP) << float(1.f);
+    data << victimGuid << uint32(totalXP) << uint8(victimGuid.empty() ? 0 : 1);
+    if(!victimGuid.empty()) data << uint32(RestedXP) << float(1.f);
     data << uint8(0);
     GetSession()->SendPacket(&data);
 }
 
 // this one needs to be send inrange...
-void Player::SendEnvironmentalDamageLog(const uint64 & guid, uint8 type, uint32 damage)
+void Player::SendEnvironmentalDamageLog(const WoWGuid &guid, uint8 type, uint32 damage)
 {
     WorldPacket data(SMSG_ENVIRONMENTALDAMAGELOG, 20);
     data << guid << type << damage << uint32(0) << uint32(0);

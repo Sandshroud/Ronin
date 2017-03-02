@@ -140,25 +140,28 @@ uint8 Spell::_DidHit(Unit* target, float *resistOut, uint8 *reflectout)
     if(target->IsCreature() && castPtr<Creature>(target)->hasStateFlag(UF_EVADING))
         return SPELL_DID_HIT_EVADE;
 
-    /*************************************************************************/
-    /* Check if the target is immune to this mechanic                       */
-    /*************************************************************************/
-    if(target->GetMechanicDispels(m_spellInfo->MechanicsType))
-        return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
-
-    // Creature Aura Immune Flag Check
-    if (Creature* cTarget = target->IsCreature() ? castPtr<Creature>(target) : NULL)
-        if(cTarget->GetCreatureData()->auraMechanicImmunity && (cTarget->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<m_spellInfo->MechanicsType)))
-            return SPELL_DID_HIT_IMMUNE;
-
-    /************************************************************************/
-    /* Check if the target has a % resistance to this mechanic            */
-    /************************************************************************/
-    if( m_spellInfo->MechanicsType < MECHANIC_COUNT)
+    if(uint32 mechanic = m_spellInfo->MechanicsType)
     {
-        float res = target->GetMechanicResistPCT(Spell::GetMechanic(m_spellInfo));
-        if( !m_spellInfo->isSpellResistanceIgnorant() && Rand(res))
-            return SPELL_DID_HIT_RESIST;
+        /*************************************************************************/
+        /* Check if the target is immune to this mechanic                       */
+        /*************************************************************************/
+        if(target->GetMechanicDispels(mechanic))
+            return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
+
+        // Creature Aura Immune Flag Check
+        if (Creature* cTarget = target->IsCreature() ? castPtr<Creature>(target) : NULL)
+            if(cTarget->GetCreatureData()->auraMechanicImmunity && (cTarget->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<(mechanic-1))))
+                return SPELL_DID_HIT_IMMUNE;
+
+        /************************************************************************/
+        /* Check if the target has a % resistance to this mechanic            */
+        /************************************************************************/
+        if( mechanic < MECHANIC_COUNT)
+        {
+            float res = target->GetMechanicResistPCT(Spell::GetMechanic(m_spellInfo));
+            if( !m_spellInfo->isSpellResistanceIgnorant() && Rand(res))
+                return SPELL_DID_HIT_RESIST;
+        }
     }
 
     /************************************************************************/

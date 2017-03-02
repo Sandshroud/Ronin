@@ -236,6 +236,7 @@ void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
 
     pTarget->EventAttackStop();
     pTarget->SetSelection(NULL);
+    pTarget->SafeTeleport(mapid, 0, x, y, z, o);
 }
 
 void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)

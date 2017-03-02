@@ -705,7 +705,7 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
 
     _processCallback.Lock();
     _processCallback.SetCell(cellX, cellY);
-    objCell->ProcessObjectSets(obj, &_processCallback);
+    objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
     _processCallback.Unlock();
     return true;
 }
@@ -1142,6 +1142,13 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
     }
     _BroadcastObjectUpdateCellVector.clear();
     _broadcastObjectUpdateCallback.Unlock();
+}
+
+void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, uint32 curX, uint32 curY, uint32 lowX, uint32 highX, uint32 lowY, uint32 highY)
+{
+    for(uint16 x = lowX; x <= highX; x++)
+        for(uint16 y = lowY; y <= highY; y++)
+            UpdateCellData(obj, x, y, obj->IsPlayer(), true);
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)

@@ -191,7 +191,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     sLog.Debug( "WORLD"," Received CMSG_QUESTGIVER_ACCEPT_QUEST" );
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     uint32 quest_id;
     uint32 unk;
 
@@ -204,7 +204,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     bool bSkipLevelCheck = false;
     Quest *qst = NULL;
     Object* qst_giver = NULL;
-    uint32 guidtype = GUID_HIPART(guid);
+    uint32 guidtype = guid.getHigh();
 
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
@@ -304,6 +304,10 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
         _player->UpdateNearbyGameObjects();
 
     sQuestMgr.OnQuestAccepted(_player,qst,qst_giver);
+
+    WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
+    data << guid << sQuestMgr.CalcStatus(qst_giver, GetPlayer());
+    SendPacket( &data );
 }
 
 void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
@@ -610,18 +614,19 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
     }
 
     sQuestMgr.OnQuestFinished(_player, qst, qst_giver, reward_slot);
-    //if(qst_giver->GetTypeId() == TYPEID_UNIT) qst->LUA_SendEvent(castPtr<Creature>( qst_giver ),GetPlayer(),ON_QUEST_COMPLETEQUEST);
 
     if(qst->qst_next_quest_id)
     {
-        WorldPacket data(12);
-        data.Initialize(CMSG_QUESTGIVER_QUERY_QUEST);
-        data << guid;
-        data << qst->qst_next_quest_id;
+        WorldPacket data(CMSG_QUESTGIVER_QUERY_QUEST, 12);
+        data << guid << qst->qst_next_quest_id;
         HandleQuestGiverQueryQuestOpcode(data);
     }
 
     _player->SaveToDB(false);
+
+    WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
+    data << guid << sQuestMgr.CalcStatus(qst_giver, GetPlayer());
+    SendPacket( &data );
 }
 
 void WorldSession::HandlePushQuestToPartyOpcode(WorldPacket &recv_data)

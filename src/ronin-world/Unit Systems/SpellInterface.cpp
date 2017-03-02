@@ -299,7 +299,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
             }
         }
 
-        if(m_Unit != unitTarget)
+        if(unitTarget && m_Unit != unitTarget)
         {
             if(sFactionSystem.GetFactionsInteractStatus(p_caster, unitTarget, true) >= FI_STATUS_NEUTRAL)
             {
@@ -594,7 +594,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
     //    return false;
     //}
 
-    if( unitTarget != m_Unit )
+    if( unitTarget && unitTarget != m_Unit )
     {
         // Partha: +2.52yds to max range, this matches the range the client is calculating.
         // see extra/supalosa_range_research.txt for more info
@@ -606,7 +606,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         }
     }
 
-    if( m_Unit->IsPlayer() )
+    if( unitTarget && m_Unit->IsPlayer() )
     {
         if ( m_Unit != unitTarget && !m_Unit->IsInLineOfSight(unitTarget) )
         {
@@ -810,113 +810,116 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         }break;
     }
 
-    // if target is already skinned, don't let it be skinned again
-    if( sp->Effect[0] == SPELL_EFFECT_SKINNING && unitTarget->IsUnit() && (castPtr<Creature>(unitTarget)->m_skinned) )
+    if(unitTarget)
     {
-        errorOut =SPELL_FAILED_TARGET_UNSKINNABLE;
-        return false;
-    }
-
-    bool auraApplicator = false;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AURA))
-        auraApplicator = true;
-    else
-    {
-        for(uint8 i = 0; i < 3; i++)
-            if(sp->EffectApplyAuraName[i])
-                auraApplicator = true;
-    }
-
-    // if we're replacing a higher rank, deny it
-    if(auraApplicator)
-    {
-        AuraCheckResponse acr = unitTarget->m_AuraInterface.AuraCheck(sp, m_Unit->GetGUID());
-        if( acr.Error == AURA_CHECK_RESULT_HIGHER_BUFF_PRESENT )
+        // if target is already skinned, don't let it be skinned again
+        if( sp->Effect[0] == SPELL_EFFECT_SKINNING && unitTarget->IsUnit() && (castPtr<Creature>(unitTarget)->m_skinned) )
         {
-            errorOut =SPELL_FAILED_AURA_BOUNCED;
+            errorOut =SPELL_FAILED_TARGET_UNSKINNABLE;
             return false;
         }
-    }
 
-    //check if we are trying to stealth or turn invisible but it is not allowed right now
-    /*if( IsStealthSpell() || IsInvisibilitySpell() )
-    {
-        //if we have Faerie Fire, we cannot stealth or turn invisible
-        if( m_Unit->m_AuraInterface.HasNegativeAuraWithNameHash( SPELL_HASH_FAERIE_FIRE ) || m_Unit->m_AuraInterface.HasNegativeAuraWithNameHash( SPELL_HASH_FAERIE_FIRE__FERAL_ ) )
+        bool auraApplicator = false;
+        if(sp->HasEffect(SPELL_EFFECT_APPLY_AURA))
+            auraApplicator = true;
+        else
         {
-            errorOut =SPELL_FAILED_SPELL_UNAVAILABLE;
+            for(uint8 i = 0; i < 3; i++)
+                if(sp->EffectApplyAuraName[i])
+                    auraApplicator = true;
+        }
+
+        // if we're replacing a higher rank, deny it
+        if(auraApplicator)
+        {
+            AuraCheckResponse acr = unitTarget->m_AuraInterface.AuraCheck(sp, m_Unit->GetGUID());
+            if( acr.Error == AURA_CHECK_RESULT_HIGHER_BUFF_PRESENT )
+            {
+                errorOut =SPELL_FAILED_AURA_BOUNCED;
+                return false;
+            }
+        }
+
+        //check if we are trying to stealth or turn invisible but it is not allowed right now
+        /*if( IsStealthSpell() || IsInvisibilitySpell() )
+        {
+            //if we have Faerie Fire, we cannot stealth or turn invisible
+            if( m_Unit->m_AuraInterface.HasNegativeAuraWithNameHash( SPELL_HASH_FAERIE_FIRE ) || m_Unit->m_AuraInterface.HasNegativeAuraWithNameHash( SPELL_HASH_FAERIE_FIRE__FERAL_ ) )
+            {
+                errorOut =SPELL_FAILED_SPELL_UNAVAILABLE;
+                return false;
+            }
+        }*/
+
+        switch( sp->NameHash )
+        {
+        case SPELL_HASH_DIVINE_PROTECTION:
+        case SPELL_HASH_DIVINE_SHIELD:
+        case SPELL_HASH_HAND_OF_PROTECTION:
+            {
+                if( unitTarget->HasAura(25771) ) // Forbearance
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+
+                if( !unitTarget->HasDummyAura(SPELL_HASH_AVENGING_WRATH) )
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+            }break;
+
+        case SPELL_HASH_AVENGING_WRATH:
+            {
+                if( !unitTarget->HasDummyAura(SPELL_HASH_AVENGING_WRATH) )
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+            }break;
+
+        case SPELL_HASH_ICE_BLOCK:
+            {
+                if( unitTarget->HasAura(41425) ) // Hypothermia
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+            }break;
+
+        case SPELL_HASH_POWER_WORD__SHIELD:
+            {
+                if( unitTarget->HasAura(6788) ) // Weakened Soul
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+            }break;
+
+        case SPELL_HASH_FIRST_AID:
+            {
+                if( unitTarget->HasAura(11196) ) // Recently Bandaged
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+            }break;
+        case SPELL_HASH_BLOODLUST:
+            {
+                if( unitTarget->HasAurasOfNameHashWithCaster(SPELL_HASH_SATED, NULL) )
+                {
+                    errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
+                    return false;
+                }
+            }break;
+        }
+
+        if (sp->MechanicsType == 16 && unitTarget->HasAura(11196))
+        {
+            errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
             return false;
         }
-    }*/
-
-    switch( sp->NameHash )
-    {
-    case SPELL_HASH_DIVINE_PROTECTION:
-    case SPELL_HASH_DIVINE_SHIELD:
-    case SPELL_HASH_HAND_OF_PROTECTION:
-        {
-            if( unitTarget->HasAura(25771) ) // Forbearance
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-
-            if( !unitTarget->HasDummyAura(SPELL_HASH_AVENGING_WRATH) )
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-        }break;
-
-    case SPELL_HASH_AVENGING_WRATH:
-        {
-            if( !unitTarget->HasDummyAura(SPELL_HASH_AVENGING_WRATH) )
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-        }break;
-
-    case SPELL_HASH_ICE_BLOCK:
-        {
-            if( unitTarget->HasAura(41425) ) // Hypothermia
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-        }break;
-
-    case SPELL_HASH_POWER_WORD__SHIELD:
-        {
-            if( unitTarget->HasAura(6788) ) // Weakened Soul
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-        }break;
-
-    case SPELL_HASH_FIRST_AID:
-        {
-            if( unitTarget->HasAura(11196) ) // Recently Bandaged
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-        }break;
-    case SPELL_HASH_BLOODLUST:
-        {
-            if( unitTarget->HasAurasOfNameHashWithCaster(SPELL_HASH_SATED, NULL) )
-            {
-                errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-                return false;
-            }
-        }break;
-    }
-
-    if (sp->MechanicsType == 16 && unitTarget->HasAura(11196))
-    {
-        errorOut =SPELL_FAILED_DAMAGE_IMMUNE;
-        return false;
     }
 
     if(m_Unit->GetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT) > 0)

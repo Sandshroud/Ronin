@@ -621,6 +621,19 @@ void Object::ClearLoot()
 //===============================================
 // Object Cell Management functions
 //===============================================
+void ObjectCellManager::OnRelocate(MapInstance *instance, LocationVector &destination)
+{
+    uint32 posX = _getCellId(destination.x), posY = _getCellId(destination.y);
+    if(!(posX < _lowX || posX > _highX || posY < _lowY || posY > _highY))
+        return;
+
+    std::set<uint32> cellSet;
+    for(uint16 x = _lowX; x <= _highX; x++)
+        for(uint16 y = _lowY; y <= _highY; y++)
+            cellSet.insert(_makeCell(x, y));
+    instance->RemoveCellData(_object, cellSet, true);
+}
+
 void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
 {
     _currX = _currY = 0;
@@ -641,15 +654,20 @@ void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
     _object->SetMapCell(NULL);
 }
 
+void ObjectCellManager::OnUnitDeath(MapInstance *instance)
+{
+    instance->ClearCombatTimers(_object->GetGUID());
+}
+
 void ObjectCellManager::PostRemoveFromWorld()
 {
     _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
 }
 
-void ObjectCellManager::OnUnitDeath(MapInstance *instance)
+void ObjectCellManager::UpdateVisibility(MapInstance *instance)
 {
-    instance->ClearCombatTimers(_object->GetGUID());
+    instance->UpdateObjectCellVisibility(_object, _currX, _currY, _lowX, _highX, _lowY, _highY);
 }
 
 bool ObjectCellManager::hasCell(uint32 cellId)

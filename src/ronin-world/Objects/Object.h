@@ -319,9 +319,13 @@ public:
     virtual void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
     virtual void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
 
+    virtual void OnRelocate(MapInstance *instance, LocationVector &destination);
     virtual void ClearInRangeObjects(MapInstance *instance);
+
     virtual void OnUnitDeath(MapInstance *instance);
     virtual void PostRemoveFromWorld();
+
+    virtual void UpdateVisibility(MapInstance *instance);
 
     bool hasCell(uint32 cellId);
     void FillCellRange(std::vector<uint32> *fillVector);

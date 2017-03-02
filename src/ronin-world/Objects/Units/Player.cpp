@@ -517,6 +517,15 @@ void Player::Update(uint32 msTime, uint32 diff)
     }
 
     ProcessPendingItemUpdates();
+
+    if(m_KickDelay)
+    {
+        if(m_KickDelay <= diff)
+        {
+            m_KickDelay = 0;
+            _Kick();
+        } else m_KickDelay -= diff;
+    }
 }
 
 void Player::EventExploration(MapInstance *instance)
@@ -2256,7 +2265,7 @@ void Player::EventDeath()
 
 ///  This function sends the message displaying the purple XP gain for the char
 ///  It assumes you will send out an UpdateObject packet at a later time.
-void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGuildXP)
+void Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
 {
     if ( xp < 1 || m_XPoff )
         return;
@@ -2277,7 +2286,7 @@ void Player::GiveXP(uint32 xp, const uint64 &guid, bool allowbonus, bool allowGu
     }
 
     UpdateRestState();
-    SendLogXPGain(guid, xp, restxp, guid == 0 ? true : false);
+    SendLogXPGain(guid, xp, restxp);
 
     int32 newxp = GetUInt32Value(PLAYER_XP) + xp;
     uint32 level = GetUInt32Value(UNIT_FIELD_LEVEL);
@@ -3013,12 +3022,6 @@ void Player::BuildPlayerRepop()
 
 Corpse* Player::RepopRequestedPlayer()
 {
-    if( myCorpse != NULL )
-    {
-        GetSession()->SendNotification( NOTIFICATION_MESSAGE_NO_PERMISSION );
-        return NULL;
-    }
-
     if( m_CurrentTransporter != NULL )
     {
         m_CurrentTransporter->RemovePlayer( castPtr<Player>(this) );
@@ -3039,16 +3042,15 @@ Corpse* Player::RepopRequestedPlayer()
     // If we're in battleground, remove the skinnable flag.. has bad effects heheh
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE );
 
-    bool corpse = true;
-    Corpse* ret = corpse ? CreateCorpse() : NULL;
+    Corpse* ret = myCorpse ? myCorpse : CreateCorpse();
     BuildPlayerRepop();
 
-    if( corpse && m_session )
+    if( ret && m_session )
     {
         /* Send Spirit Healer Location */
         WorldPacket data( SMSG_DEATH_RELEASE_LOC, 16 );
         data << m_mapId;
-        data.appendvector(m_position, false);
+        data.appendvector(ret->GetPosition(), false);
         PushPacket( &data );
 
         /* Corpse reclaim delay */
@@ -3100,6 +3102,15 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
             }
             m_resurrectLoction.ChangeCoords(0.0f, 0.0f, 0.0f);
         }
+    }
+}
+
+void Player::SetDeathState(DeathState s)
+{
+    Unit::SetDeathState(s == JUST_DIED ? DEAD : s);
+    if(s == JUST_DIED)
+    {
+        // stuff
     }
 }
 
@@ -4648,6 +4659,9 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
             m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
             m_CurrentTransporter = NULL;
         }
+
+        // Update our object cell manager
+        if(IsInWorld()) GetCellManager()->OnRelocate(m_mapInstance, destination);
     }
 
     //update position
@@ -4670,8 +4684,11 @@ void Player::_Warn(const char *message)
 void Player::Kick(uint32 delay /* = 0 */, bool hardKick)
 {
     m_hardKick |= hardKick;
-    if((m_KickDelay = delay) == 0)
-        _Kick();
+    if(m_KickDelay > 0 && m_KickDelay < delay)
+        m_KickDelay /= 2;
+    else if((m_KickDelay = delay) >= 0)
+        SetUnitStunned(true);
+    else _Kick();
 }
 
 void Player::_Kick()
@@ -5822,7 +5839,7 @@ int32 Player::GetBonusesFromItems(uint32 statType)
     return bonus;
 }
 
-void Player::ModifyBonuses(bool apply, uint64 guid, uint32 slot, uint32 type, int32 val, int32 randSuffixAmt, int32 suffixSeed)
+void Player::ModifyBonuses(bool apply, WoWGuid guid, uint32 slot, uint32 type, int32 val, int32 randSuffixAmt, int32 suffixSeed)
 {
     std::pair<uint64, uint32> guid_slot = std::make_pair(guid, slot);
     if(apply)
