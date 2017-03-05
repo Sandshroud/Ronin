@@ -1993,9 +1993,8 @@ void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int3
     if ( unitTarget == NULL || !unitTarget->isAlive())
         return;
 
-    if( _unitCaster->IsPlayer() && _unitCaster->GetGUID() != unitTarget->GetGUID() )
-        if( unitTarget->IsPvPFlagged() )
-            castPtr<Player>( _unitCaster )->PvPToggle();
+    if( _unitCaster->GetGUID() != unitTarget->GetGUID() && unitTarget->IsPvPFlagged())
+        _unitCaster->SetPvPFlag();
 
     if(!sFactionSystem.isAttackable(_unitCaster,unitTarget))
         return;

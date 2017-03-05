@@ -1263,15 +1263,10 @@ public:
         SafeTeleport(MapID, InstanceID, vec);
     }
 
-    //! Do this on /pvp off
-    RONIN_INLINE void ResetPvPTimer();
-    //! Stop the timer for pvp off
-    RONIN_INLINE void StopPvPTimer() { RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER); m_pvpTimer = 0; }
-
-    //! Update our pvp area (called when zone changes)
-    void UpdatePvPArea();
+    // PVP state updates during player update
+    void UpdatePvPState(uint32 msTime, uint32 uiDiff);
     //! PvP Toggle (called on /pvp)
-    void PvPToggle();
+    void RequestPvPToggle(bool state);
 
     RONIN_INLINE uint32 LastHonorResetTime() const { return m_lastHonorResetTime; }
     RONIN_INLINE void LastHonorResetTime(uint32 val) { m_lastHonorResetTime = val; }

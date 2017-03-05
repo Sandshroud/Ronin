@@ -1208,21 +1208,11 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
     // We identified both the attacker and the victim as possible PvP combatants, if we are not dueling we will flag the attacker
     if( pOwner != NULL && pAttacker != NULL && pOwner != pAttacker && pOwner != pAttacker->DuelingWith )
-    {
-        if( !pAttacker->IsPvPFlagged() )
-        {
-            pAttacker->PvPToggle();
-        }
-    }
+        pAttacker->SetPvPFlag();
 
     // PvP NPCs will flag the player when attacking them
     if( pVictim->IsCreature() && pVictim->IsPvPFlagged() && pAttacker != NULL )
-    {
-        if( !pAttacker->IsPvPFlagged() )
-        {
-            pAttacker->PvPToggle();
-        }
-    }
+        pAttacker->SetPvPFlag();
 
     if(!no_remove_auras)
     {
@@ -1787,6 +1777,8 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && (mgr = GetMapInstance()) == NULL)
         return;
+    if(!IsPlayer())
+        return;
 
     // Holes are used for WMO placement
     bool isHole = false;//mgr->GetADTIsHole(GetPositionX(), GetPositionY());
@@ -1837,12 +1829,13 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
         AreaTableEntry* at = dbcAreaTable.LookupEntry(m_areaId), *zoneAt = dbcAreaTable.LookupEntry(m_zoneId);
         if(at != NULL || (at = zoneAt) != NULL)
         {
-            if(at->category == AREAC_CONTESTED)
-                m_areaFlags |= OBJECT_AREA_FLAG_CONTESTED;
-            if(at->category == AREAC_ALLIANCE_TERRITORY)
+            if(at->category == AREAC_ALLIANCE_TERRITORY || zoneAt->category == AREAC_ALLIANCE_TERRITORY)
                 m_areaFlags |= OBJECT_AREA_FLAG_ALLIANCE_ZONE;
-            if(at->category == AREAC_HORDE_TERRITORY)
+            else if(at->category == AREAC_HORDE_TERRITORY || zoneAt->category == AREAC_HORDE_TERRITORY)
                 m_areaFlags |= OBJECT_AREA_FLAG_HORDE_ZONE;
+            else if(at->category == AREAC_CONTESTED || zoneAt->category == AREAC_CONTESTED)
+                m_areaFlags |= OBJECT_AREA_FLAG_CONTESTED;
+
             if(at->AreaFlags & AREA_CITY_AREA)
                 m_areaFlags |= OBJECT_AREA_FLAG_INCITY;
             if(at->AreaFlags & AREA_PVP_ARENA)
@@ -1852,6 +1845,14 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
                 m_areaFlags |= OBJECT_AREA_FLAG_UNDERWATER_AREA;
         }
     }
+
+    // Handle pvp area flagging
+    if(sWorld.IsPvPRealm && HasAreaFlag(OBJECT_AREA_FLAG_CONTESTED))
+        m_areaFlags |= OBJECT_AREA_FLAG_PVP_AREA;
+    else if(IsUnit() && castPtr<Unit>(this)->GetTeam() == TEAM_ALLIANCE && HasAreaFlag(OBJECT_AREA_FLAG_HORDE_ZONE))
+        m_areaFlags |= OBJECT_AREA_FLAG_PVP_AREA;
+    else if(IsUnit() && castPtr<Unit>(this)->GetTeam() == TEAM_HORDE && HasAreaFlag(OBJECT_AREA_FLAG_ALLIANCE_ZONE))
+        m_areaFlags |= OBJECT_AREA_FLAG_PVP_AREA;
 }
 
 void WorldObject::PlaySoundToPlayer( Player* plr, uint32 sound_entry )

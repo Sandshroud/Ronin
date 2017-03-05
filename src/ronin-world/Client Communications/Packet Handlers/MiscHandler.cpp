@@ -841,27 +841,9 @@ void WorldSession::HandleSetWatchedFactionIndexOpcode(WorldPacket &recvPacket)
 void WorldSession::HandleTogglePVPOpcode(WorldPacket& recv_data)
 {
     CHECK_INWORLD_RETURN();
-    std::string error;
-    uint32 areaId = _player->GetAreaId();
-    if(sWorld.FunServerMall != -1 && areaId == (uint32)sWorld.FunServerMall)
-    {
-        if(AreaTableEntry *at = dbcAreaTable.LookupEntry(areaId))
-        {
-            error.append("You cannot flag for PvP while in the area: ");
-            error.append(at->name);
-            error.append(".");
-        }
-        else
-            error.append("You cannot do that here.");
-        return;
-    }
-    else if(_player->HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
-        error.append("You cannot do that here.");
 
-    if(!error.length())
-        _player->PvPToggle(); // Crow: Should be a delayed pvp flag
-    else
-        sChatHandler.ColorSystemMessage(this, MSG_COLOR_WHITE, error.c_str());
+    // Pass to player function
+    _player->RequestPvPToggle(recv_data.size() ? (recv_data.read<uint8>() ? 1 : 0) : !_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE));
 }
 
 void WorldSession::HandleSetCurrencyFlags(WorldPacket &recvPacket)

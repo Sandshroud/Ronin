@@ -253,7 +253,7 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     blinked                         = false;
     blinktimer                      = getMSTime();
     linkTarget                      = NULL;
-    m_pvpTimer                      = 0;
+    m_pvpTimer                      = 300000;
     m_globalCooldown                = 0;
     m_lastHonorResetTime            = 0;
     m_TeleportState                 = 1;
@@ -475,18 +475,8 @@ void Player::Update(uint32 msTime, uint32 diff)
 {
     Unit::Update( msTime, diff );
 
-    if(m_pvpTimer)
-    {
-        if(diff >= m_pvpTimer)
-            m_pvpTimer -= diff;
-        else m_pvpTimer = 0;
-
-        if(m_pvpTimer == 0 || !IsPvPFlagged())
-        {
-            StopPvPTimer();
-            RemovePvPFlag();    // Reset Timer Status
-        }
-    }
+    if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER))
+        UpdatePvPState(msTime, diff);
 
     if (m_drunk)
     {
@@ -602,8 +592,6 @@ void Player::EventExploration(MapInstance *instance)
     if(!(at->AreaFlags & AREA_FLYING_PERMITTED))
         m_AuraInterface.RemoveFlightAuras(); // remove flying buff
 
-    UpdatePvPArea();
-
     if(HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
     {
         Unit* pUnit = GetSelection() ? m_mapInstance->GetUnit(GetSelection()) : NULL;
@@ -615,6 +603,13 @@ void Player::EventExploration(MapInstance *instance)
 
         if(DuelingWith != NULL)
             DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
+    }
+    else
+    {   // PvP flag updating
+        if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE) || HasAreaFlag(OBJECT_AREA_FLAG_PVP_AREA))
+            SetPvPFlag(); // PvP is always active or we're in pvp flag area
+        else if(HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP) && !HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER))
+            RemovePvPFlag();
     }
 
     TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, oldArea );
@@ -5522,188 +5517,47 @@ void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
         EndDuel(DUEL_WINNER_RETREAT);
 }
 
-void Player::UpdatePvPArea()
-{
-    AreaTableEntry *areaDBC = dbcAreaTable.LookupEntry(GetAreaId()), *zoneDBC = dbcAreaTable.LookupEntry(GetZoneId());
-    if(areaDBC == NULL)
-    {
-        RemoveFFAPvPFlag();
-        RemovePvPFlag();
-        StopPvPTimer();
-        return;
-    }
-
-    // This is where all the magic happens :P
-    if((areaDBC->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == 0) || (areaDBC->category == AREAC_HORDE_TERRITORY && GetTeam() == 1) ||
-        zoneDBC && ((zoneDBC->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == 0) || (zoneDBC->category == AREAC_HORDE_TERRITORY && GetTeam() == 1)))
-    {
-        if(!HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE) && !m_pvpTimer)
-        {
-            // I'm flagged and I just walked into a zone of my type. Start the 5min counter.
-            ResetPvPTimer();
-        }
-        return;
-    }
-    else
-    {
-        //Enemy city check
-        if(areaDBC->AreaFlags & AREA_CITY_AREA || areaDBC->AreaFlags & AREA_CITY)
-        {
-            if((areaDBC->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == 1) || (areaDBC->category == AREAC_HORDE_TERRITORY && GetTeam() == 0) ||
-                zoneDBC && ((zoneDBC->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == 1) || (zoneDBC->category == AREAC_HORDE_TERRITORY && GetTeam() == 0)))
-            {
-                if(!IsPvPFlagged())
-                    SetPvPFlag();
-                StopPvPTimer();
-                return;
-            }
-        }
-
-        // I just walked into either an enemies town, or a contested zone.
-        // Force flag me if i'm not already.
-        if(HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
-        {
-            if(IsPvPFlagged())
-                RemovePvPFlag();
-
-            RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_FREE_FOR_ALL_PVP);
-
-            StopPvPTimer();
-        }
-        else
-        {
-            //contested territory
-            if(sWorld.IsPvPRealm)
-            {
-                //automaticaly sets pvp flag on contested territorys.
-                if(!IsPvPFlagged())
-                    SetPvPFlag();
-                StopPvPTimer();
-            }
-            else
-            {
-                if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE))
-                {
-                    if(!IsPvPFlagged())
-                        SetPvPFlag();
-                }
-                else if(!HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE) && IsPvPFlagged() && !m_pvpTimer)
-                    ResetPvPTimer();
-            }
-        }
-    }
-
-    /* ffa pvp arenas will come later */
-    if(areaDBC->AreaFlags & AREA_PVP_ARENA)
-    {
-        if(!IsPvPFlagged())
-            SetPvPFlag();
-
-        SetFFAPvPFlag();
-    }
-    else
-    {
-        RemoveFFAPvPFlag();
-    }
-}
-
 void Player::BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag)
 {
 
 }
 
-void Player::PvPToggle()
+void Player::UpdatePvPState(uint32 msTime, uint32 uiDiff)
 {
-    AreaTableEntry* at = dbcAreaTable.LookupEntry(GetAreaId());
-    if(!sWorld.IsPvPRealm)
+    if(m_pvpTimer > uiDiff)
     {
-        if(m_pvpTimer > 0)
-        {
-            // Means that we typed /pvp while we were "cooling down". Stop the timer.
-            StopPvPTimer();
+        m_pvpTimer -= uiDiff;
+        return;
+    }
 
-            SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
+    // Remove pvp timer flag to prevent future updates
+    RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER);
+    // Reset timer back to default(5 minutes)
+    m_pvpTimer = 300000;
 
-            if(!IsPvPFlagged())
-                SetPvPFlag();
-        }
-        else
-        {
-            if(IsPvPFlagged())
-            {
-                if(at != NULL && ( at->AreaFlags & AREA_CITY_AREA || at->AreaFlags & AREA_CITY) )
-                {
-                    if(!(at->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == 1) || (at->category == AREAC_HORDE_TERRITORY && GetTeam() == 0))
-                    {
-                        // Start the "cooldown" timer.
-                        ResetPvPTimer();
-                    }
-                }
-                else
-                {
-                    // Start the "cooldown" timer.
-                    ResetPvPTimer();
-                }
-                RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
-            }
-            else
-            {
-                // Move into PvP state.
-                SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
+    // If we are in pvp area, we can't change pvp state
+    if(HasAreaFlag(OBJECT_AREA_FLAG_PVP_AREA))
+        return;
+    RemovePvPFlag();
+}
 
-                StopPvPTimer();
-                SetPvPFlag();
-            }
-        }
+void Player::RequestPvPToggle(bool state)
+{
+    if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE) == state)
+        return;
+
+    if(state)
+    {
+        SetPvPFlag();
+        RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER);
+        SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
     }
     else
     {
-        // This is where all the magic happens :P
-        if((at->category == AREAC_ALLIANCE_TERRITORY && GetTeam() == TEAM_ALLIANCE) || (at->category == AREAC_HORDE_TERRITORY && GetTeam() == TEAM_HORDE))
-        {
-            if(m_pvpTimer > 0)
-            {
-                // Means that we typed /pvp while we were "cooling down". Stop the timer.
-                StopPvPTimer();
-
-                SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
-
-                if(!IsPvPFlagged())
-                    SetPvPFlag();
-            }
-            else
-            {
-                if(IsPvPFlagged())
-                {
-                    // Start the "cooldown" timer.
-                    ResetPvPTimer();
-
-                    RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
-                }
-                else
-                {
-                    // Move into PvP state.
-                    SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
-
-                    StopPvPTimer();
-                    SetPvPFlag();
-                }
-            }
-        }
-        else
-        {
-            if(!HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE))
-                SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
-            else
-                RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
-        }
+        RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TOGGLE);
+        SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER);
+        m_pvpTimer = 300000;
     }
-}
-
-void Player::ResetPvPTimer()
-{
-    SetFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER);
-    m_pvpTimer = 300000;
 }
 
 void Player::SoftLoadPlayer()

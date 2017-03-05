@@ -3104,10 +3104,6 @@ bool Unit::IsPvPFlagged()
 
 void Unit::SetPvPFlag()
 {
-    // reset the timer as well..
-    if(IsPlayer())
-        castPtr<Player>(this)->StopPvPTimer();
-
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP);
     SetByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
@@ -3115,8 +3111,6 @@ void Unit::SetPvPFlag()
 //! Removal
 void Unit::RemovePvPFlag()
 {
-    if(IsPlayer())
-        castPtr<Player>(this)->StopPvPTimer();
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP);
     RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, U_FIELD_BYTES_FLAG_PVP);
 }
