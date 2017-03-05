@@ -976,12 +976,9 @@ void WorldSession::SystemMessage(const char * format, ...)
     SendPacket(&data);
 }
 
-void WorldSession::SendChatPacket(WorldPacket * data, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator)
+void WorldSession::SendChatPacket(WorldPacket * data, int32 lang, uint32 langpos, uint32 guidPos)
 {
-    int32 session_lang = lang;
-    if(lang > 0 && (CanUseCommand('c') || (originator && originator->CanUseCommand('c'))))
-        session_lang = LANG_UNIVERSAL;
-    data->put<int32>(langpos, session_lang);
+    data->put<int32>(langpos, (CanUseCommand('c') ? LANG_UNIVERSAL : lang));
     if(guidPos != 0 && _player)
         data->put<uint64>(guidPos, _player->GetGUID());
     SendPacket(data);

@@ -204,7 +204,7 @@ public:
     void operator()(WorldObject *obj, WorldObject *curObj);
     void SetCell(uint32 cellX, uint32 cellY) { _cellX = cellX; _cellY = cellY; }
 
-private:
+protected:
     MapInstance *_instance;
     uint32 _cellX, _cellY;
 };
@@ -216,7 +216,7 @@ public:
     void operator()(WorldObject *obj, WorldObject *curObj);
     void setForced(bool set) { _forced = set; }
 
-private:
+protected:
     MapInstance *_instance;
     bool _forced;
 };
@@ -229,7 +229,7 @@ public:
     void ResetData(float range) { _range = range; _result = NULL; _resultDist = 0.f; };
     Unit *GetResult() { return _result; }
 
-private:
+protected:
     MapInstance *_instance;
 
     float _range;
@@ -241,17 +241,28 @@ class MapInstanceBroadcastMessageCallback : public ObjectProcessCallback
 {
 public:
     MapInstanceBroadcastMessageCallback(MapInstance *instance) : _instance(instance) {}
-    void operator()(WorldObject *obj, WorldObject *curObj);
-    void ResetData(float range, WorldPacket *data, bool myTeam, uint32 teamId) { _range = range; _message = data; _myTeam = myTeam; _teamId = teamId; _opcode = 0; _dataLen = 0; _dataStream = NULL; };
-    void ResetData(float range, uint32 opcode, uint16 Len, const void *data, bool myTeam, uint32 teamId) { _range = range; _dataLen = Len; _dataStream = data; _myTeam = myTeam; _teamId = teamId; _message = NULL; };
 
-private:
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void setPacketData(WorldPacket *data) { _packet = data; }
+
+protected:
     MapInstance *_instance;
+    WorldPacket *_packet;
+};
+
+class MapInstanceBroadcastMessageInrangeCallback : public MapInstanceBroadcastMessageCallback
+{
+public:
+    MapInstanceBroadcastMessageInrangeCallback(MapInstance *instance) : MapInstanceBroadcastMessageCallback(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+
+    void ResetData(float range, WorldPacket *data, bool myTeam, uint32 teamId) { setPacketData(data); _range = range; _myTeam = myTeam; _teamId = teamId; _opcode = 0; _dataLen = 0; _dataStream = NULL; };
+    void ResetData(float range, uint32 opcode, uint16 Len, const void *data, bool myTeam, uint32 teamId) { _range = range; _dataLen = Len; _dataStream = data; _myTeam = myTeam; _teamId = teamId; setPacketData(NULL); };
+
+protected:
     bool _myTeam;
     uint32 _teamId;
     float _range;
-
-    WorldPacket *_message;
 
     uint32 _opcode;
     uint16 _dataLen;
@@ -266,6 +277,28 @@ public:
 
 private:
     MapInstance *_instance;
+};
+
+class MapInstanceBroadcastChatPacketCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceBroadcastChatPacketCallback(MapInstance *instance) : _instance(instance) {}
+
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void setPacketData(WorldPacket *data, int32 lang, uint32 langPos, uint32 guidPos)
+    {
+        _packet = data;
+        _defaultLang = lang;
+        _langPos = langPos;
+        _guidPos = guidPos;
+    }
+
+private:
+    MapInstance *_instance;
+    WorldPacket *_packet;
+
+    int32 _defaultLang;
+    uint32 _langPos, _guidPos;
 };
 
 /// Map instance class for processing different map instances(duh)
@@ -359,6 +392,14 @@ protected:
     friend class MapInstanceBroadcastMessageCallback;
     MapInstanceBroadcastMessageCallback _broadcastMessageCallback;
 
+    std::vector<uint32> _BroadcastMessageInRangeCellVector;
+    friend class MapInstanceBroadcastMessageInrangeCallback;
+    MapInstanceBroadcastMessageInrangeCallback _broadcastMessageInRangeCallback;
+
+    std::vector<uint32> _BroadcastChatPacketCellVector;
+    friend class MapInstanceBroadcastChatPacketCallback;
+    MapInstanceBroadcastChatPacketCallback _broadcastChatPacketCallback;
+
     std::vector<uint32> _BroadcastObjectUpdateCellVector;
     friend class MapInstanceBroadcastObjectUpdateCallback;
     MapInstanceBroadcastObjectUpdateCallback _broadcastObjectUpdateCallback;
@@ -430,7 +471,7 @@ public:
 
     void UnloadCell(uint32 x,uint32 y);
     void SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius = 2);
-    void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
+    void SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, int32 lang, uint32 langpos, uint32 guidPos);
     void BeginInstanceExpireCountdown();
     void HookOnAreaTrigger(Player* plr, uint32 id);
 

@@ -243,7 +243,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
     }
 
     WorldPacket broadcast(type, 50);
-    if(packetLang)
+    if(packetLang && lang > LANG_UNIVERSAL)
         lang = CanUseCommand('c') ? LANG_UNIVERSAL : lang;
 
     switch(type)
@@ -352,7 +352,8 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
         } break;
     default:
         {
-            size_t pos = sChatHandler.FillMessageData(&broadcast, false, type, lang, _player->GetGUID(), 0, _player->GetName(), message.c_str(), "", _player->GetChatTag());
+            size_t langPos, guidPos;
+            sChatHandler.FillBroadcastMessage(&broadcast, guidPos, langPos, false, type, lang, _player->GetGUID(), 0, _player->GetName(), message.c_str(), "", _player->GetChatTag());
             switch(type)
             {
             case CHAT_MSG_EMOTE:
@@ -362,9 +363,8 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                 }break;
             case CHAT_MSG_SAY:
                 {
-                    Player *target = NULL;
-                    SendChatPacket(&broadcast, 1, pos, lang, this);
-                    _player->GetMapInstance()->SendChatMessageToCellPlayers(_player, &broadcast, 1, 1, pos, lang, this);
+                    SendChatPacket(&broadcast, lang, langPos, guidPos);
+                    _player->GetMapInstance()->SendChatMessageToCellPlayers(_player, &broadcast, 1, lang, langPos, guidPos);
                     if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[say] %s: %s", _player->GetName(), message.c_str());
                 } break;
             case CHAT_MSG_PARTY:
@@ -389,7 +389,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                             {
                                 if((*itr)->m_loggedInPlayer == NULL)
                                     continue;
-                                (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                                (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(&broadcast, lang, langPos, guidPos);
                             }
                             _player->GetGroup()->Unlock();
                         }
@@ -404,7 +404,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                             {
                                 if((*itr)->m_loggedInPlayer == NULL)
                                     continue;
-                                (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(&broadcast, 1, pos, lang, this);
+                                (*itr)->m_loggedInPlayer->GetSession()->SendChatPacket(&broadcast, lang, langPos, guidPos);
                             }
                             _player->GetGroup()->Unlock();
                         }
@@ -427,7 +427,8 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
                 } break;
             case CHAT_MSG_YELL:
                 {
-                    _player->GetMapInstance()->SendChatMessageToCellPlayers(_player, &broadcast, 2, 1, pos, lang, this);
+                    SendChatPacket(&broadcast, lang, langPos, guidPos);
+                    _player->GetMapInstance()->SendChatMessageToCellPlayers(_player, &broadcast, 2, lang, langPos, guidPos);
                     if(sWorld.bLogChat && message.c_str()[0] != '.') sWorld.LogChat(this, "[Yell] %s: %s", _player->GetName(), message.c_str());
                 } break;
             default:

@@ -689,27 +689,50 @@ int ChatHandler::ParseCommands(const char* text, WorldSession *m_session)
     return 1;
 }
 
+size_t ChatHandler::_FillBasicStructure(WorldPacket *data, bool gmMessage, uint8 type, int32 lang, WoWGuid sender, uint32 unk/* = 0*/)
+{
+    data->Initialize(gmMessage ? SMSG_GM_MESSAGECHAT : SMSG_MESSAGECHAT, 500);
+    *data << type;
+    size_t langPos = data->wpos();
+    *data << lang << sender;
+    *data << uint32(unk);
+    return langPos;
+}
+
+void ChatHandler::_FillMessageStructure(WorldPacket *data, int32 lang, std::string message, uint8 chatTag)
+{
+    if (lang == LANG_ADDON)
+        *data << uint8(0);
+    *data << uint32(message.length()+1) << message << uint8(chatTag);
+}
+
+size_t ChatHandler::_FillMonsterMessageStructure(WorldPacket *data, std::string senderName, WoWGuid targetGuid, std::string receiverName)
+{
+    *data << uint32(senderName.length() + 1) << senderName;
+    size_t guidPos = data->wpos();
+    *data << targetGuid;
+    if (!targetGuid.empty() && (targetGuid.getHigh() != HIGHGUID_TYPE_PLAYER && targetGuid.getHigh() != HIGHGUID_TYPE_PET))
+    {
+        *data << uint32(receiverName.length() + 1);
+        *data << receiverName;
+    }
+    return guidPos;
+}
+
 void ChatHandler::FillPlayerMessage(WorldPacket *data, WoWGuid from, uint8 type, int32 language, std::string message, uint8 chatTag, const char *header, bool gmMessage)
 {
     data->Initialize(gmMessage ? SMSG_GM_MESSAGECHAT : SMSG_MESSAGECHAT, 500);
-    *data << uint8(type) << uint32(language);
-    *data << from << uint32(0);
+    _FillBasicStructure(data, gmMessage, type, language, from);
     if(header)
         *data << header;
     else *data << from;
-    *data << uint32(message.length()+1);
-    *data << message;
-    *data << uint8(chatTag);
+    _FillMessageStructure(data, language, message, chatTag);
 }
 
-size_t ChatHandler::FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid, WoWGuid receiverGuid, std::string senderName, std::string message, std::string receiverName, uint8 chatTag)
+void ChatHandler::FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid, WoWGuid receiverGuid, std::string senderName, std::string message, std::string receiverName, uint8 chatTag)
 {
-    size_t pos = 0;
     data->Initialize(gmMessage ? SMSG_GM_MESSAGECHAT : SMSG_MESSAGECHAT, 500);
-    *data << uint8(type);
-    *data << uint32(language);
-    *data << senderGuid;
-    *data << uint32(0);
+    _FillBasicStructure(data, gmMessage, type, language, senderGuid);
     switch(type)
     {
     case CHAT_MSG_MONSTER_SAY:
@@ -720,29 +743,18 @@ size_t ChatHandler::FillMessageData(WorldPacket *data, bool gmMessage, uint8 typ
     case CHAT_MSG_RAID_BOSS_EMOTE:
     case CHAT_MSG_RAID_BOSS_WHISPER:
     case CHAT_MSG_BATTLENET:
-        {
-            *data << uint32(senderName.length() + 1);
-            *data << senderName;
-            pos = data->wpos();
-            *data << uint64(receiverGuid);
-            if (!receiverGuid.empty() && receiverGuid.getHigh() != HIGHGUID_TYPE_PLAYER && receiverGuid.getHigh() != HIGHGUID_TYPE_PET)
-            {
-                *data << uint32(receiverName.length() + 1);
-                *data << receiverName;
-            }
-        }break;
+        _FillMonsterMessageStructure(data, senderName, receiverGuid, receiverName);
+        break;
     case CHAT_MSG_WHISPER_FOREIGN:
         {
             *data << uint32(senderName.length() + 1);
             *data << senderName;
-            pos = data->wpos();
             *data << uint64(receiverGuid);
         }break;
     case CHAT_MSG_BG_SYSTEM_NEUTRAL:
     case CHAT_MSG_BG_SYSTEM_ALLIANCE:
     case CHAT_MSG_BG_SYSTEM_HORDE:
         {
-            pos = data->wpos();
             *data << uint64(receiverGuid);
             if (!receiverGuid.empty() && receiverGuid.getHigh() != HIGHGUID_TYPE_PLAYER)
             {
@@ -761,16 +773,66 @@ size_t ChatHandler::FillMessageData(WorldPacket *data, bool gmMessage, uint8 typ
                 ASSERT(senderName.length() > 0);
                 *data << senderName;
             }
-            pos = data->wpos();
             *data << uint64(receiverGuid);
         }break;
     }
-    if (language == LANG_ADDON)
-        *data << uint8(0);
-    *data << uint32(message.length()+1);
-    *data << message;
-    *data << uint8(chatTag);
-    return pos;
+
+    _FillMessageStructure(data, language, message, chatTag);
+}
+
+void ChatHandler::FillBroadcastMessage(WorldPacket *data, size_t &guidPos, size_t &langPos, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid, WoWGuid receiverGuid, std::string senderName, std::string message, std::string receiverName, uint8 chatTag)
+{
+    data->Initialize(gmMessage ? SMSG_GM_MESSAGECHAT : SMSG_MESSAGECHAT, 500);
+    langPos = _FillBasicStructure(data, gmMessage, type, language, senderGuid);
+
+    switch(type)
+    {
+    case CHAT_MSG_MONSTER_SAY:
+    case CHAT_MSG_MONSTER_PARTY:
+    case CHAT_MSG_MONSTER_YELL:
+    case CHAT_MSG_MONSTER_WHISPER:
+    case CHAT_MSG_MONSTER_EMOTE:
+    case CHAT_MSG_RAID_BOSS_EMOTE:
+    case CHAT_MSG_RAID_BOSS_WHISPER:
+    case CHAT_MSG_BATTLENET:
+        guidPos = _FillMonsterMessageStructure(data, senderName, receiverGuid, receiverName);
+        break;
+    case CHAT_MSG_WHISPER_FOREIGN:
+        {
+            *data << uint32(senderName.length() + 1);
+            *data << senderName;
+            guidPos = data->wpos();
+            *data << uint64(receiverGuid);
+        }break;
+    case CHAT_MSG_BG_SYSTEM_NEUTRAL:
+    case CHAT_MSG_BG_SYSTEM_ALLIANCE:
+    case CHAT_MSG_BG_SYSTEM_HORDE:
+        {
+            guidPos = data->wpos();
+            *data << uint64(receiverGuid);
+            if (!receiverGuid.empty() && receiverGuid.getHigh() != HIGHGUID_TYPE_PLAYER)
+            {
+                *data << uint32(receiverName.length() + 1);
+                *data << receiverName;
+            }
+        }break;
+    case CHAT_MSG_ACHIEVEMENT:
+    case CHAT_MSG_GUILD_ACHIEVEMENT:
+        *data << uint64(receiverGuid);
+        break;
+    default:
+        {
+            if (type == CHAT_MSG_CHANNEL)
+            {
+                ASSERT(senderName.length() > 0);
+                *data << senderName;
+            }
+            guidPos = data->wpos();
+            *data << uint64(receiverGuid);
+        }break;
+    }
+
+    _FillMessageStructure(data, language, message, chatTag);
 }
 
 void ChatHandler::FillSystemMessageData(WorldPacket *data, const char *message)

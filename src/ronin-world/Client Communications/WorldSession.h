@@ -129,7 +129,7 @@ public:
     RONIN_INLINE void SendPacket(WorldPacket* packet);
     void OutPacket(uint16 opcode, uint16 len = 0, const void* data = NULL);
 
-    void SendChatPacket(WorldPacket * data, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator);
+    void SendChatPacket(WorldPacket * data, int32 lang, uint32 langpos, uint32 guidPos);
 
     // Process Logs
     void LogUnprocessedTail(WorldPacket *packet);

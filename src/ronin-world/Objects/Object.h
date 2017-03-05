@@ -330,6 +330,7 @@ public:
     bool hasCell(uint32 cellId);
     void FillCellRange(std::vector<uint32> *fillVector);
     void CreateCellRange(std::vector<uint32> *fillVector, float range);
+    void CreateCellRange(std::vector<uint32> *fillVector, uint32 range);
 
     void AddVisibleBy(WoWGuid guid) { m_visibleTo.insert(guid); }
     void RemoveVisibleBy(WoWGuid guid) { m_visibleTo.erase(guid); }

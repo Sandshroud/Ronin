@@ -212,8 +212,16 @@ public:
     ChatHandler();
     ~ChatHandler();
 
+protected:
+    size_t _FillBasicStructure(WorldPacket *data, bool gmMessage, uint8 type, int32 lang, WoWGuid sender, uint32 unk = 0);
+
+    size_t _FillMonsterMessageStructure(WorldPacket *data, std::string senderName, WoWGuid targetGuid, std::string receiverName);
+    void _FillMessageStructure(WorldPacket *data, int32 lang, std::string message, uint8 chatTag);
+
+public:
     void FillPlayerMessage(WorldPacket *data, WoWGuid from, uint8 type, int32 language, std::string message, uint8 chatTag = 0, const char *header = NULL, bool gmMessage = false);
-    size_t FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid = 0, WoWGuid receiverGuid = 0, std::string senderName = "", std::string message = "", std::string receiverName = "", uint8 chatTag = 0);
+    void FillMessageData(WorldPacket *data, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid = 0, WoWGuid receiverGuid = 0, std::string senderName = "", std::string message = "", std::string receiverName = "", uint8 chatTag = 0);
+    void FillBroadcastMessage(WorldPacket *data, size_t &guidPos, size_t &langPos, bool gmMessage, uint8 type, int32 language, WoWGuid senderGuid = 0, WoWGuid receiverGuid = 0, std::string senderName = "", std::string message = "", std::string receiverName = "", uint8 chatTag = 0);
     static void FillSystemMessageData(WorldPacket *data, const char* message );
 
     int ParseCommands(const char* text, WorldSession *m_session);

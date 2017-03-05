@@ -25,7 +25,7 @@
 extern bool bServerShutdown;
 
 MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
-_processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastObjectUpdateCallback(this)
+_processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this)
 {
     m_mapPreloading = false;
     iInstanceMode = 0;
@@ -732,7 +732,7 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(Obj, &_removalCallback, forced);
+            cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER);
     }
     _removalCallback.Unlock();
 }
@@ -1057,6 +1057,28 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
 
 void MapInstanceBroadcastMessageCallback::operator()(WorldObject *obj, WorldObject *curObj)
 {
+    if(!curObj->IsPlayer())
+        return;
+    castPtr<Player>(curObj)->PushPacket(_packet, false);
+}
+
+void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius /* = 2 */)
+{
+    _broadcastMessageCallback.Lock();
+    _broadcastMessageCallback.setPacketData(packet);
+    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageCellVector, cell_radius);
+    for(auto itr = _BroadcastMessageCellVector.begin(); itr != _BroadcastMessageCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &_broadcastMessageCallback, TYPEMASK_TYPE_PLAYER);
+    }
+    _BroadcastMessageCellVector.clear();
+    _broadcastMessageCallback.Unlock();
+}
+
+void MapInstanceBroadcastMessageInrangeCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{
     float range = 0.f;
     Player *playerObj = castPtr<Player>(curObj);
     if(_range > 1.f && !_instance->IsInRange(_range, obj, curObj, range))
@@ -1064,40 +1086,66 @@ void MapInstanceBroadcastMessageCallback::operator()(WorldObject *obj, WorldObje
     if(_myTeam && playerObj->GetTeam() != _teamId)
         return;
 
-    if(_message)
-        playerObj->PushPacket(_message, true);
+    if(_packet != NULL)
+        playerObj->PushPacket(_packet, true);
     else if(WorldSession *session = playerObj->GetSession())
         session->OutPacket(_opcode, _dataLen, _dataStream);
 }
 
 void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, const void *data, float range)
 {
-    _broadcastMessageCallback.Lock();
-    _broadcastMessageCallback.ResetData(range, opcodeId, Len, data, false, 0);
-    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageCellVector, range);
-    for(auto itr = _BroadcastMessageCellVector.begin(); itr != _BroadcastMessageCellVector.end(); itr++)
+    _broadcastMessageInRangeCallback.Lock();
+    _broadcastMessageInRangeCallback.ResetData(range, opcodeId, Len, data, false, 0);
+    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageInRangeCellVector, range);
+    for(auto itr = _BroadcastMessageInRangeCellVector.begin(); itr != _BroadcastMessageInRangeCellVector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastMessageCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &_broadcastMessageInRangeCallback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastMessageCellVector.clear();
-    _broadcastMessageCallback.Unlock();
+    _BroadcastMessageInRangeCellVector.clear();
+    _broadcastMessageInRangeCallback.Unlock();
 }
 
 void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float range, bool myTeam, uint32 teamId)
 {
-    _broadcastMessageCallback.Lock();
-    _broadcastMessageCallback.ResetData(range, data, myTeam, teamId);
-    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageCellVector, range);
-    for(auto itr = _BroadcastMessageCellVector.begin(); itr != _BroadcastMessageCellVector.end(); itr++)
+    _broadcastMessageInRangeCallback.Lock();
+    _broadcastMessageInRangeCallback.ResetData(range, data, myTeam, teamId);
+    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageInRangeCellVector, range);
+    for(auto itr = _BroadcastMessageInRangeCellVector.begin(); itr != _BroadcastMessageInRangeCellVector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastMessageCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &_broadcastMessageInRangeCallback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastMessageCellVector.clear();
-    _broadcastMessageCallback.Unlock();
+    _BroadcastMessageInRangeCellVector.clear();
+    _broadcastMessageInRangeCallback.Unlock();
+}
+
+void MapInstanceBroadcastChatPacketCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{
+    if(!_instance->canObjectsInteract(obj, curObj))
+        return;
+    if(!curObj->IsPlayer())
+        return;
+    Player *curPlr = castPtr<Player>(curObj);
+    if(WorldSession *session = curPlr->GetSession())
+        session->SendChatPacket(_packet, _defaultLang, _langPos, _guidPos);
+}
+
+void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *packet, uint32 cell_radius, int32 lang, uint32 langpos, uint32 guidPos)
+{
+    _broadcastChatPacketCallback.Lock();
+    _broadcastChatPacketCallback.setPacketData(packet, lang, langpos, guidPos);
+    obj->GetCellManager()->CreateCellRange(&_BroadcastChatPacketCellVector, cell_radius);
+    for(auto itr = _BroadcastChatPacketCellVector.begin(); itr != _BroadcastChatPacketCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &_broadcastChatPacketCallback, TYPEMASK_TYPE_PLAYER);
+    }
+    _BroadcastChatPacketCellVector.clear();
+    _broadcastChatPacketCallback.Unlock();
 }
 
 void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1765,70 +1813,6 @@ void MapInstance::TriggerCombatTimer(WoWGuid guid, WoWGuid guid2, uint32 timer)
     m_combatPartners[guid].insert(guid2);
     m_combatPartners[guid2].insert(guid);
     m_combatTimers[std::make_pair(guid, guid2)] = timer;
-}
-
-void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius /* = 2 */)
-{
-    /*uint32 cellX = GetPosX(obj->GetPositionX());
-    uint32 cellY = GetPosY(obj->GetPositionY());
-    uint32 endX = ((cellX+cell_radius) <= _sizeX) ? cellX + cell_radius : (_sizeX-1);
-    uint32 endY = ((cellY+cell_radius) <= _sizeY) ? cellY + cell_radius : (_sizeY-1);
-    uint32 startX = (cellX-cell_radius) > 0 ? cellX - cell_radius : 0;
-    uint32 startY = (cellY-cell_radius) > 0 ? cellY - cell_radius : 0;
-
-    MapCell *cell;
-    uint32 posX, posY;
-    MapCell::CellObjectSet::iterator iter, iend;
-    for (posX = startX; posX <= endX; ++posX )
-    {
-        for (posY = startY; posY <= endY; ++posY )
-        {
-            cell = GetCell(posX, posY);
-            if (cell && cell->HasPlayers() )
-            {
-                iter = cell->Begin();
-                iend = cell->End();
-                for(; iter != iend; iter++)
-                {
-                    if((*iter)->IsPlayer())
-                    {
-                        castPtr<Player>(*iter)->GetSession()->SendPacket(packet);
-                    }
-                }
-            }
-        }
-    }*/
-}
-
-void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius, uint32 langpos, uint32 guidPos, int32 lang, WorldSession * originator)
-{
-    /*uint32 cellX = GetPosX(obj->GetPositionX());
-    uint32 cellY = GetPosY(obj->GetPositionY());
-    uint32 endX = ((cellX+cell_radius) <= _sizeX) ? cellX + cell_radius : (_sizeX-1);
-    uint32 endY = ((cellY+cell_radius) <= _sizeY) ? cellY + cell_radius : (_sizeY-1);
-    uint32 startX = (cellX-cell_radius) > 0 ? cellX - cell_radius : 0;
-    uint32 startY = (cellY-cell_radius) > 0 ? cellY - cell_radius : 0;
-
-    uint32 posX, posY;
-    MapCell *cell;
-    MapCell::CellObjectSet::iterator iter, iend;
-    for (posX = startX; posX <= endX; ++posX )
-    {
-        for (posY = startY; posY <= endY; ++posY )
-        {
-            cell = GetCell(posX, posY);
-            if (cell && cell->HasPlayers() )
-            {
-                iter = cell->Begin();
-                iend = cell->End();
-                for(; iter != iend; iter++)
-                {
-                    if((*iter)->IsPlayer() && originator->GetPlayer()->PhasedCanInteract((*iter))) // Matching phases.
-                        castPtr<Player>(*iter)->GetSession()->SendChatPacket(packet, langpos, guidPos, lang, originator);
-                }
-            }
-        }
-    }*/
 }
 
 void MapInstance::HookOnAreaTrigger(Player* plr, uint32 id)

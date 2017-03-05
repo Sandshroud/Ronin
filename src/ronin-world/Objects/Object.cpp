@@ -701,6 +701,22 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, float r
 
 }
 
+void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 range)
+{
+    if(range == 0)
+    {
+        FillCellRange(fillVector);
+        return;
+    }
+
+    uint32 lowX = _currX-range, highX = _currX+range;
+    uint32 lowY = _currY-range, highY = _currY+range;
+    for(uint16 x = lowX; x <= highX; x++)
+        for(uint16 y = lowY; y <= highY; y++)
+            fillVector->push_back(_makeCell(x, y));
+
+}
+
 void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
 {
     //Ny
