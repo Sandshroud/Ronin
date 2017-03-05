@@ -336,10 +336,22 @@ void LogonCommHandler::LoadRealmConfiguration()
     delete[] port;
 
     realm->Address = address;
-    realm->Icon = mainIni->ReadInteger("RealmData", "RealmType", 1);
     realm->WorldRegion = mainIni->ReadInteger("RealmData", "WorldRegion", 1);
     realm->Name = mainIni->ReadString("RealmData", "RealmName", "SomeRealm");
-    sWorld.IsPvPRealm = ((realm->Icon == REALMTYPE_RPPVP || realm->Icon == REALMTYPE_PVP) ? true : false);
+
+    // Realm type is based on icon, in world pvp is default true
+    switch(realm->Icon = mainIni->ReadInteger("RealmData", "RealmType", 0))
+    {
+    case REALMTYPE_NORMAL:
+    case REALMTYPE_RP:
+        // For normal and RP set pvp type to false
+        sWorld.IsPvPRealm = false;
+    case REALMTYPE_RPPVP:
+        break; // RP PVP is fine
+    default: // If we're not an RP PvP, then we're pvp
+        realm->Icon = REALMTYPE_PVP;
+        break;
+    }
 }
 
 void LogonCommHandler::UpdateAccountCount(uint32 account_id, int8 add)
