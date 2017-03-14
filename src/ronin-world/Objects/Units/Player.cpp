@@ -478,12 +478,8 @@ void Player::Update(uint32 msTime, uint32 diff)
     if(HasFlag(PLAYER_FLAGS, PLAYER_FLAG_PVP_TIMER))
         UpdatePvPState(msTime, diff);
 
-    if (m_drunk)
-    {
-        m_drunkTimer += diff;
-        if (m_drunkTimer > 10*1000)
-            EventHandleSobering();
-    }
+    if (m_drunk && ((m_drunkTimer += diff) > 10*1000))
+        EventHandleSobering();
 
     if(hasStateFlag(UF_ATTACKING))
         UpdateAutoAttackState();

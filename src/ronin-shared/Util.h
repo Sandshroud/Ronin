@@ -219,6 +219,11 @@ namespace RONIN_UTIL
         return newname;
     }
 
+    RONIN_INLINE int32 CompressMovementPoint(float x, float y, float z)
+    {
+        return int32((((int)(z / 0.25f) & 0x3FF) << 22) | (((int)(y / 0.25f) & 0x7FF) << 11) | (((int)(x / 0.25f) & 0x7FF)));
+    }
+
     // returns true if the ip hits the mask, otherwise false
     RONIN_INLINE bool ParseCIDRBan(unsigned int IP, unsigned int Mask, unsigned int MaskBits)
     {

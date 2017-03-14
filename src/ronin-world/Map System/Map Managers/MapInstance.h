@@ -517,6 +517,8 @@ public:
     bool IsCreaturePoolUpdating() { return mCreaturePool.isUpdating(); }
     bool IsGameObjectPoolUpdating() { return mGameObjectPool.isUpdating(); }
 
+    bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
+
 protected:
     /* Map Information */
     MapEntry* pdbcMap;

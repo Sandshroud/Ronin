@@ -209,6 +209,15 @@ void UnitPathSystem::_CleanupPath()
     lastUpdatePoint.pos.x = lastUpdatePoint.pos.y = lastUpdatePoint.pos.z = fInfinite;
 }
 
+uint32 UnitPathSystem::buildMonsterMoveFlags(uint8 packetSendFlags)
+{
+    if(packetSendFlags & MOVEBCFLAG_UNCOMP)
+        return 0x00400000;
+
+    // No monster flags required
+    return 0;
+}
+
 void UnitPathSystem::SetFollowTarget(Unit *target, float distance)
 {
 
@@ -241,27 +250,29 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
         MovementPoint *lastPoint = &srcPoint; // Store our starting position
         m_pathLength = (dist/speed)*1000.f;
-
-        bool ignoreTerrainHeight = m_Unit->canFly();
-        float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
-        float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ), posToAdd = 0.f;
-        if(ignoreTerrainHeight)
-            posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
-        else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
-
-        float lastCalcPoint = lastPoint->pos.z;// Path calculation
-        uint32 timeToMove = 0;
-        while((m_pathLength-timeToMove) > 500)
+        if(m_pathLength > 800)
         {
-            timeToMove += 500;
-            lastCalcPoint += posToAdd;
+            bool ignoreTerrainHeight = m_Unit->canFly();
+            float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
+            float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ), posToAdd = 0.f;
+            if(ignoreTerrainHeight)
+                posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
+            else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
 
-            float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
-            float targetZ = instance->GetWalkableHeight(m_Unit, px, py, maxZ);
-            if(ignoreTerrainHeight && lastCalcPoint > targetZ)
-                targetZ = lastCalcPoint;
+            float lastCalcPoint = lastPoint->pos.z;// Path calculation
+            uint32 timeToMove = 500;
+            while((m_pathLength-timeToMove) > 500)
+            {
+                timeToMove += 500;
+                lastCalcPoint += posToAdd;
 
-            m_movementPoints.push_back(lastPoint = new MovementPoint(timeToMove, px, py, targetZ));
+                float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
+                float targetZ = instance->GetWalkableHeight(m_Unit, px, py, maxZ);
+                if(ignoreTerrainHeight && lastCalcPoint > targetZ)
+                    targetZ = lastCalcPoint;
+
+                m_movementPoints.push_back(lastPoint = new MovementPoint(timeToMove, px, py, targetZ));
+            }
         }
 
         m_movementPoints.push_back(new MovementPoint(m_pathLength, _destX, _destY, _destZ));
@@ -318,6 +329,10 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
 
 void UnitPathSystem::SetOrientation(float orientation)
 {
+    // Only update if we need to
+    if(RONIN_UTIL::fuzzyEq(orientation, m_Unit->GetOrientation()))
+        return;
+
     m_pathCounter++;
     m_Unit->SetOrientation(orientation);
 
@@ -341,15 +356,23 @@ void UnitPathSystem::StopMoving()
     BroadcastMovementPacket();
 }
 
-void UnitPathSystem::BroadcastMovementPacket()
-{
+void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
+{ 
+    // Grab our destination point data
+    MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
+    if(lastPoint == NULL)
+        return;
+    // Grab our start point data
+    LocationVector startPoint(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+    // If we have no path data but are broadcasting, check validity of last update point
+    if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
+        startPoint = *m_Unit->GetPositionV();
+
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
     data << uint8(0);
-    // If we have no path data but are broadcasting, check validity of last update point
-    if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
-        data.appendvector(*m_Unit->GetPositionV()); // Broadcast our current position since it's valid
-    else data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
+    // We need to append our start vector here, but need to use it later for compressed movement
+    data.appendvector(startPoint, false);
     // If we are at our destination, or have no destination, broadcast a stop packet
     if((lastUpdatePoint.pos.x == _destX && lastUpdatePoint.pos.y == _destY) || (_destX == fInfinite && _destY == fInfinite))
         data << uint32(0) << uint8(1);
@@ -358,18 +381,47 @@ void UnitPathSystem::BroadcastMovementPacket()
         data << uint32(m_pathCounter);
         if(_destO == fInfinite) data << uint8(0);
         else data << uint8(4) << float( _destO );
-        data << uint32(0x00400000);
+        data << uint32(buildMonsterMoveFlags(packetSendFlags));
         data << uint32(m_pathLength);
 
-        uint32 counter = 0;
+        uint32 counter = 1;
         size_t counterPos = data.wpos();
-        data << uint32(0); // movement point counter
-        for(uint32 i = 0; i < m_movementPoints.size(); i++)
+        data << uint32(counter);
+        // Append uncompressed buffer
+        if(packetSendFlags & MOVEBCFLAG_UNCOMP)
         {
-            if(MovementPoint *path = m_movementPoints[i])
+            for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
             {
-                data << path->pos.x << path->pos.y << path->pos.z;
-                counter++;
+                if(MovementPoint *path = m_movementPoints[i])
+                {
+                    if(path->timeStamp <= lastUpdatePoint.timeStamp)
+                        continue;
+
+                    data << path->pos.x << path->pos.y << path->pos.z;
+                    counter++;
+                }
+            }
+        }
+
+        // Append our last point, could use _dest if we wanted to
+        data << lastPoint->pos.x << lastPoint->pos.y << lastPoint->pos.z;
+        // Append compressed buffer here
+        if((packetSendFlags & MOVEBCFLAG_UNCOMP) == 0)
+        {
+            LocationVector middle(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+            middle.x = (middle.x+lastPoint->pos.x)/2.f;
+            middle.y = (middle.y+lastPoint->pos.y)/2.f;
+            middle.z = (middle.z+lastPoint->pos.z)/2.f;
+            for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
+            {
+                if(MovementPoint *path = m_movementPoints[i])
+                {
+                    if(path->timeStamp <= lastUpdatePoint.timeStamp)
+                        continue;
+
+                    data << RONIN_UTIL::CompressMovementPoint(middle.x - path->pos.x, middle.y - path->pos.y, middle.z - path->pos.z);
+                    counter++;
+                }
             }
         }
         data.put<uint32>(counterPos, counter);
@@ -378,9 +430,12 @@ void UnitPathSystem::BroadcastMovementPacket()
     m_Unit->SendMessageToSet( &data, false );
 }
 
-void UnitPathSystem::SendMovementPacket(Player *plr)
+void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
 {
     if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
+        return;
+    MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
+    if(lastPoint == NULL)
         return;
 
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
@@ -390,27 +445,50 @@ void UnitPathSystem::SendMovementPacket(Player *plr)
     data << uint32(m_pathCounter);
     if(_destO == fInfinite) data << uint8(0);
     else data << uint8(4) << float( _destO );
-    data << uint32(0x00400000);
+    data << uint32(buildMonsterMoveFlags(packetSendFlags));
     data << uint32(m_pathLength - lastUpdatePoint.timeStamp);
 
-    uint32 counter = 0;
+    uint32 counter = 1;
     size_t counterPos = data.wpos();
-    data << uint32(0); // movement point counter
-    for(uint32 i = 0; i < m_movementPoints.size(); i++)
+    data << uint32(counter);
+    // Append uncompressed buffer
+    if(packetSendFlags & MOVEBCFLAG_UNCOMP)
     {
-        if(MovementPoint *path = m_movementPoints[i])
+        for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
         {
-            if(path->timeStamp <= lastUpdatePoint.timeStamp)
-                continue;
+            if(MovementPoint *path = m_movementPoints[i])
+            {
+                if(path->timeStamp <= lastUpdatePoint.timeStamp)
+                    continue;
 
-            data << path->pos.x << path->pos.y << path->pos.z;
-            counter++;
+                data << path->pos.x << path->pos.y << path->pos.z;
+                counter++;
+            }
         }
     }
 
-    if(counter == 0)
-        return;
+    // Append our last point, could use _dest if we wanted to
+    data << lastPoint->pos.x << lastPoint->pos.y << lastPoint->pos.z;
+    // Append compressed buffer here
+    if((packetSendFlags & MOVEBCFLAG_UNCOMP) == 0)
+    {
+        LocationVector middle(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+        middle.x = (middle.x+lastPoint->pos.x)/2.f;
+        middle.y = (middle.y+lastPoint->pos.y)/2.f;
+        middle.z = (middle.z+lastPoint->pos.z)/2.f;
+        for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
+        {
+            if(MovementPoint *path = m_movementPoints[i])
+            {
+                if(path->timeStamp <= lastUpdatePoint.timeStamp)
+                    continue;
 
+                data << RONIN_UTIL::CompressMovementPoint(middle.x - path->pos.x, middle.y - path->pos.y, middle.z - path->pos.z);
+                counter++;
+            }
+        }
+    }
     data.put<uint32>(counterPos, counter);
+
     plr->PushPacket(&data);
 }

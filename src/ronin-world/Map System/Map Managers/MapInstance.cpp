@@ -737,6 +737,18 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     _removalCallback.Unlock();
 }
 
+bool MapInstance::HasActivatedCondition(uint32 conditionId, WorldObject *obj)
+{
+    // Check if condition is active
+    if(m_activeConditions.find(conditionId) == m_activeConditions.end())
+        return false;
+
+    // TODO: check condition requirements
+
+    // Passed condition checks, set us up
+    return true;
+}
+
 uint8 MapInstance::GetPoolOverrideForZone(uint32 zoneId)
 {
     switch(zoneId)
@@ -1059,7 +1071,10 @@ void MapInstanceBroadcastMessageCallback::operator()(WorldObject *obj, WorldObje
 {
     if(!curObj->IsPlayer())
         return;
-    castPtr<Player>(curObj)->PushPacket(_packet, false);
+    Player *curPlr = castPtr<Player>(curObj);
+    if(!curPlr->IsVisible(obj))
+        return;
+    curPlr->PushPacket(_packet, false);
 }
 
 void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius /* = 2 */)
@@ -1081,6 +1096,8 @@ void MapInstanceBroadcastMessageInrangeCallback::operator()(WorldObject *obj, Wo
 {
     float range = 0.f;
     Player *playerObj = castPtr<Player>(curObj);
+    if(!playerObj->IsVisible(obj))
+        return;
     if(_range > 1.f && !_instance->IsInRange(_range, obj, curObj, range))
         return;
     if(_myTeam && playerObj->GetTeam() != _teamId)
@@ -1129,6 +1146,9 @@ void MapInstanceBroadcastChatPacketCallback::operator()(WorldObject *obj, WorldO
     if(!curObj->IsPlayer())
         return;
     Player *curPlr = castPtr<Player>(curObj);
+    if(!curPlr->IsVisible(obj))
+        return;
+
     if(WorldSession *session = curPlr->GetSession())
         session->SendChatPacket(_packet, _defaultLang, _langPos, _guidPos);
 }

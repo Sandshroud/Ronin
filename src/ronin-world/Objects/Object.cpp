@@ -822,6 +822,20 @@ void WorldObject::InactiveUpdate(uint32 msTime, uint32 uiDiff)
         }
     }
 
+    if(m_inactiveFlags & OBJECT_INACTIVE_FLAG_CONDITION)
+    {
+        if(m_objDeactivationTimer > uiDiff)
+        {
+            m_objDeactivationTimer -= uiDiff;
+            return;
+        }
+        else if(!m_mapInstance->HasActivatedCondition(getConditionID(), this))
+        {
+            m_objDeactivationTimer = 5000;
+            return;
+        } else m_objDeactivationTimer = 0;
+    }
+
     if(m_inactiveFlags & OBJECT_INACTIVE_FLAG_EVENTS)
     {
         if(m_objDeactivationTimer > uiDiff)

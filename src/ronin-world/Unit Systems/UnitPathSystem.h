@@ -32,6 +32,13 @@ struct MovementPoint
     float orientationOverride;
 };
 
+enum PacketBroadcastFlags
+{
+    MOVEBCFLAG_NONE     = 0x00,
+    MOVEBCFLAG_UNCOMP   = 0x01,
+
+};
+
 class UnitPathSystem
 {
 public: // Class defines
@@ -65,6 +72,7 @@ public: // Class functions
 
 private:
     void _CleanupPath();
+    uint32 buildMonsterMoveFlags(uint8 packetSendFlags);
 
 public:
     void SetFollowTarget(Unit *target, float distance);
@@ -73,8 +81,8 @@ public:
     void SetOrientation(float orientation);
     void StopMoving();
 
-    void BroadcastMovementPacket();
-    void SendMovementPacket(Player *plr);
+    void BroadcastMovementPacket(uint8 packetSendFlags = 0);
+    void SendMovementPacket(Player *plr, uint8 packetSendFlags = 0);
 
 private:
     Unit *m_Unit, *m_followTarget;
