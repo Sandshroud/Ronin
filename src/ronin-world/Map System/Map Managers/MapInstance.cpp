@@ -1141,8 +1141,6 @@ void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float rang
 
 void MapInstanceBroadcastChatPacketCallback::operator()(WorldObject *obj, WorldObject *curObj)
 {
-    if(!_instance->canObjectsInteract(obj, curObj))
-        return;
     if(!curObj->IsPlayer())
         return;
     Player *curPlr = castPtr<Player>(curObj);
