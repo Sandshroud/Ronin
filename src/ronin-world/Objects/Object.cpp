@@ -621,6 +621,10 @@ void Object::ClearLoot()
 //===============================================
 // Object Cell Management functions
 //===============================================
+
+unsigned int ObjectCellManager::VisibleCellRange = 1;
+bool ObjectCellManager::cutCorners = (VisibleCellRange > 1);
+
 void ObjectCellManager::OnRelocate(MapInstance *instance, LocationVector &destination)
 {
     uint32 posX = _getCellId(destination.x), posY = _getCellId(destination.y);
@@ -629,14 +633,22 @@ void ObjectCellManager::OnRelocate(MapInstance *instance, LocationVector &destin
 
     std::set<uint32> cellSet;
     for(uint16 x = _lowX; x <= _highX; x++)
+    {
         for(uint16 y = _lowY; y <= _highY; y++)
+        {
+            if(cutCorners && isCorner(x, y, _lowX, _highX, _lowY, _highY, VisibleCellRange))
+                continue;
+
             cellSet.insert(_makeCell(x, y));
+        }
+    }
+
     instance->RemoveCellData(_object, cellSet, true);
 }
 
 void ObjectCellManager::ClearInRangeObjects(MapInstance *instance)
 {
-    _currX = _currY = 0;
+    _visRange = _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
 
     // Clear our visible spectrum,
@@ -661,7 +673,7 @@ void ObjectCellManager::OnUnitDeath(MapInstance *instance)
 
 void ObjectCellManager::PostRemoveFromWorld()
 {
-    _currX = _currY = 0;
+    _visRange = _currX = _currY = 0;
     _lowX = _lowY = _highX = _highY = 0;
 }
 
@@ -673,14 +685,23 @@ void ObjectCellManager::UpdateVisibility(MapInstance *instance)
 bool ObjectCellManager::hasCell(uint32 cellId)
 {
     std::pair<uint16, uint16> cellPair = unPack(cellId);
+    if(cutCorners && isCorner(cellPair.first, cellPair.second, _lowX, _highX, _lowY, _highY, VisibleCellRange))
+        return false;
     return (cellPair.first >= _lowX && cellPair.first <= _highX) && (cellPair.second >= _lowY && cellPair.second <= _highY);
 }
 
 void ObjectCellManager::FillCellRange(std::vector<uint32> *fillVector)
 {
     for(uint16 x = _lowX; x <= _highX; x++)
+    {
         for(uint16 y = _lowY; y <= _highY; y++)
+        {
+            if(cutCorners && isCorner(x, y, _lowX, _highX, _lowY, _highY, VisibleCellRange))
+                continue;
+
             fillVector->push_back(_makeCell(x, y));
+        }
+    }
 }
 
 void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, float range)
@@ -698,7 +719,6 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, float r
     for(uint16 x = lowX; x <= highX; x++)
         for(uint16 y = lowY; y <= highY; y++)
             fillVector->push_back(_makeCell(x, y));
-
 }
 
 void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 range)
@@ -714,7 +734,6 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 
     for(uint16 x = lowX; x <= highX; x++)
         for(uint16 y = lowY; y <= highY; y++)
             fillVector->push_back(_makeCell(x, y));
-
 }
 
 void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
@@ -724,6 +743,7 @@ void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
 
 void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
 {
+    _visRange = cellRange;
     _currX = newX;
     _currY = newY;
     _lowX = _currX >= cellRange ? _currX-cellRange : 0;

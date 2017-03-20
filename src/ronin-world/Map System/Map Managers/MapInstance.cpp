@@ -391,7 +391,7 @@ void MapInstance::PushObject(WorldObject* obj)
     // Update our cell manager with current position data
     // Skip cell loading for preloading maps or inactive objects
     bool skipCellLoad = m_mapPreloading || (obj->IsActiveObject() && !obj->IsActivated());
-    obj->GetCellManager()->SetCurrentCell(skipCellLoad ? NULL : this, objCell->GetPositionX(), objCell->GetPositionY(), 2);
+    obj->GetCellManager()->SetCurrentCell(skipCellLoad ? NULL : this, objCell->GetPositionX(), objCell->GetPositionY(), ObjectCellManager::VisibleCellRange);
     CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cx, cy));
 }
 
@@ -648,7 +648,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         }
 
         // Update our cell activity real quick
-        if(plObj) UpdateCellActivity(cellX, cellY, 2);
+        if(plObj) UpdateCellActivity(cellX, cellY, ObjectCellManager::VisibleCellRange+1);
 
         // Grab our new cell and store our old cell pointer
         MapCell *objCell = GetCellOrInit(cellX, cellY, plObj ? true : false, true), *pOldCell = obj->GetMapCell();
@@ -668,7 +668,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 obj->UpdateAreaInfo(this);
 
             // Set our cellId
-            obj->GetCellManager()->SetCurrentCell(this, cellX, cellY, 2);
+            obj->GetCellManager()->SetCurrentCell(this, cellX, cellY, ObjectCellManager::VisibleCellRange);
             CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cellX, cellY));
         }
     }

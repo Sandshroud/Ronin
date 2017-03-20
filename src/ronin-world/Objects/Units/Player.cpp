@@ -58,6 +58,7 @@ void PlayerCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
 void PlayerCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
 {
     // Current cell set
+    _visRange = cellRange;
     _currX = newX;
     _currY = newY;
 
@@ -122,8 +123,15 @@ void PlayerCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
                 {
                     for(uint16 y = _lowY; y <= _highY; y++)
                     {
-                        uint32 cellId = _makeCell(x, y);
+                        // View distance is rendered as a square that we fill data in from cells
+                        // If we've enabled corner cutting we can ignore the farthest points of the square
+                        // To improve functionality of the client and not affect how our view distance is
+                        // Actually perceived by the client, only really affects visibility since creatures
+                        // Can use cell walkers outside of their range set if needed
+                        if(cutCorners && isCorner(x, y, _lowX, _highX, _lowY, _highY, VisibleCellRange))
+                            continue;
 
+                        uint32 cellId = _makeCell(x, y);
                         // Check to see if we're a preprocessed cell
                         if(preProcessed.find(cellId) != preProcessed.end())
                         {

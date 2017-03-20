@@ -319,6 +319,10 @@ public:
     ObjectCellManager(WorldObject *obj) : _object(obj), _currX(0xFFFF), _currY(0xFFFF), _lowX(0xFFFF), _lowY(0xFFFF), _highX(0xFFFF), _highY(0xFFFF) {}
     ~ObjectCellManager() {}
 
+    // Settings for our cell manager, set in object.cpp
+    static unsigned int VisibleCellRange;
+    static bool cutCorners;
+
     virtual void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
     virtual void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
 
@@ -344,6 +348,28 @@ protected:
     static std::pair<uint16, uint16> unPack(uint32 cellId) { return std::make_pair(((uint16)(cellId>>16)), ((uint16)(cellId & 0x0000FFFF))); }
     uint32 _getCellId(float pos);
 
+    RONIN_INLINE bool isCorner(uint16 x, uint16 y, uint16 lX, uint16 hX, uint16 lY, uint16 hY, uint16 visRange = 0)
+    {
+        uint16 lowX = _lowX, highX = _highX, lowY = _lowY, highY = _highY;
+        if(visRange > 1)
+        {
+            // We can just add the range extension here
+            lowX += visRange-1;
+            lowY += visRange-1;
+            // We need to make sure we don't go negative
+            highX -= std::min<uint16>(highX, visRange-1);
+            highY -= std::min<uint16>(highY, visRange-1);
+        }
+
+        if((x < lowX && y < lowY)
+            || (x < lowX && y > highY)
+            || (x > highX && y < lowY)
+            || (x > highX && y > highY))
+            return true;
+        return false;
+    }
+
+    uint16 _visRange;
     uint16 _currX, _currY, _lowX, _lowY, _highX, _highY;
 
     WorldObject *_object;

@@ -47,6 +47,7 @@ RONIN_INLINE uint32 getId(float pos, float size, float max) { return (uint32)((m
 template < class Class >
 class CellHandler
 {
+    typedef std::map<std::pair<uint32, uint32>, Class*> CellStorageMap;
 public:
     CellHandler(Map *map);
     ~CellHandler();
@@ -74,7 +75,7 @@ public:
 protected:
     void _Init();
 
-    std::map<std::pair<uint32, uint32>, Class*> _cells;
+    CellStorageMap _cells;
 
     Map* _map;
 };
@@ -120,11 +121,15 @@ Class* CellHandler<Class>::Create(uint32 x, uint32 y)
 {
     if( x >= _sizeX ||  y >= _sizeY )
         return NULL;
-
     std::pair<uint32, uint32> cellPair = std::make_pair(x, y);
-    if(_cells.find(cellPair) == _cells.end())
-        _cells.insert(std::make_pair(cellPair, new Class()));
-    return _cells.at(cellPair);
+
+    Class *ret = NULL;
+    CellStorageMap::iterator itr;
+    if((itr = _cells.find(cellPair)) == _cells.end())
+        _cells.insert(std::make_pair(cellPair, ret = new Class()));
+    else ret = itr->second;
+
+    return ret;
 }
 
 template <class Class>
@@ -139,12 +144,12 @@ void CellHandler<Class>::Remove(uint32 x, uint32 y)
     if( x >= _sizeX ||  y >= _sizeY )
         return;
 
-    std::pair<uint32, uint32> cellPair = std::make_pair(x, y);
-    if(_cells.find(cellPair) == _cells.end())
+    CellStorageMap::iterator itr;
+    if((itr = _cells.find(std::make_pair(x, y))) == _cells.end())
         return;
 
-    delete _cells.at(cellPair);
-    _cells.erase(cellPair);
+    delete itr->second;
+    _cells.erase(itr);
 }
 
 template <class Class>
@@ -152,10 +157,10 @@ Class* CellHandler<Class>::GetCell(uint32 x, uint32 y)
 {
     if( x >= _sizeX ||  y >= _sizeY )
         return NULL;
-    std::pair<uint32, uint32> cellPair = std::make_pair(x, y);
-    if(_cells.find(cellPair) == _cells.end())
+    CellStorageMap::iterator itr;
+    if((itr = _cells.find(std::make_pair(x, y))) == _cells.end())
         return NULL;
-    return _cells.at(cellPair);
+    return itr->second;
 }
 
 template <class Class>
