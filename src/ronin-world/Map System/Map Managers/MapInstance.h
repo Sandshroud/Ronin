@@ -374,7 +374,7 @@ public:
 
     void BroadcastObjectUpdate(WorldObject *obj);
 
-    void UpdateObjectCellVisibility(WorldObject *obj, uint32 curX, uint32 curY, uint32 lowX, uint32 highX, uint32 lowY, uint32 highY);
+    void UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector);
 
 protected:
     // These are stored in MapInstance.cpp with functions

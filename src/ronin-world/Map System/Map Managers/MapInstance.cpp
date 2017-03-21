@@ -1210,11 +1210,13 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
     _broadcastObjectUpdateCallback.Unlock();
 }
 
-void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, uint32 curX, uint32 curY, uint32 lowX, uint32 highX, uint32 lowY, uint32 highY)
+void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector)
 {
-    for(uint16 x = lowX; x <= highX; x++)
-        for(uint16 y = lowY; y <= highY; y++)
-            UpdateCellData(obj, x, y, obj->IsPlayer(), true);
+    for(auto itr = cellVector->begin(); itr != cellVector->end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        UpdateCellData(obj, cellPair.first, cellPair.second, obj->IsPlayer(), true);
+    }
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)

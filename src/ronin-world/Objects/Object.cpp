@@ -679,7 +679,11 @@ void ObjectCellManager::PostRemoveFromWorld()
 
 void ObjectCellManager::UpdateVisibility(MapInstance *instance)
 {
-    instance->UpdateObjectCellVisibility(_object, _currX, _currY, _lowX, _highX, _lowY, _highY);
+    std::vector<uint32> cellSet;
+    // Use pre-existing cell range function
+    FillCellRange(&cellSet);
+    // Push cell set to map instance
+    instance->UpdateObjectCellVisibility(_object, &cellSet);
 }
 
 bool ObjectCellManager::hasCell(uint32 cellId)
