@@ -159,8 +159,15 @@ void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
     uint32 mapid;
     float x,y,z,o;
 
-    TeleportCoords* TC = TeleportCoordStorage.LookupEntry(id);
-    if(TC == NULL)
+    if(TeleportCoords* TC = TeleportCoordStorage.LookupEntry(id))
+    {
+        mapid = TC->mapId;
+        x = TC->x;
+        y = TC->y;
+        z = TC->z;
+        o = TC->o;
+    }
+    else
     {
         switch(id)
         {
@@ -224,14 +231,6 @@ void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
                 }
             }break;
         }
-    }
-    else
-    {
-        mapid = TC->mapId;
-        x = TC->x;
-        y = TC->y;
-        z = TC->z;
-        o = TC->o;
     }
 
     pTarget->EventAttackStop();
@@ -588,6 +587,8 @@ void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amo
 void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Teleport Units
 {
 
+    if(target->IsPlayer())
+        HandleTeleport(m_spellInfo->Id, castPtr<Player>(target));
 }
 
 void SpellEffectClass::SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Apply Aura

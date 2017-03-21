@@ -49,6 +49,10 @@ void WorldSession::HandleAttackSwingOpcode( WorldPacket & recv_data )
     // Implemented Hackfix for quest 1640
     if(!(pEnemy->GetEntry() == 6090 && _player->HasQuest(1640)) && sFactionSystem.AC_GetAttackableStatus(GetPlayer(), pEnemy))
     {
+        GetPlayer()->EventAttackStop();
+        if(GetPlayer()->hasGMTag())
+            return;
+
         sWorld.LogCheater(this, "Faction exploit detected. Damagetype: Melee.");
         GetPlayer()->BroadcastMessage("Faction exploit detected. You will be disconnected in 5 seconds.");
         GetPlayer()->Kick(5000);
