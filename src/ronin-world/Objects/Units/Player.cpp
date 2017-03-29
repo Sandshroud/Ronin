@@ -1207,9 +1207,6 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     // timestamps
     _SaveTimeStampData(buf);
 
-    // save quest progress
-    _SavePlayerQuestLog(buf);
-
     // GM Ticket
     if(GM_Ticket* ticket = sTicketMgr.GetGMTicketByPlayer(GetGUID()))
         sTicketMgr.SaveGMTicket(ticket, buf);
@@ -2196,7 +2193,7 @@ void Player::setLevel(uint32 level)
                 }
             }
 
-            UpdateNearbyQuestGivers(); // For quests that require levels
+            ProcessVisibleQuestGiverStatus(); // For quests that require levels
             SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
             SetPower(POWER_TYPE_MANA, GetMaxPower(POWER_TYPE_MANA));
         }
@@ -3362,7 +3359,7 @@ uint32 Player::GetQuestStatusForQuest(uint32 questid, uint8 type, bool skiplevel
     return sQuestMgr.CalcQuestStatus(this, GetQuestLogForEntry(questid)->GetQuest(), type, skiplevelcheck);
 }
 
-void Player::AddToCompletedQuests(uint32 quest_id)
+void Player::AddToCompletedQuests(uint32 quest_id, bool quickSave)
 {
     Quest *qst = sQuestMgr.GetQuestPointer(quest_id);
     if(qst == NULL)
@@ -3371,10 +3368,20 @@ void Player::AddToCompletedQuests(uint32 quest_id)
     if(qst->qst_is_repeatable == 0)
     {
         uint16 offset = ((uint16)quest_id / 64);
-        uint64 val = ((uint64)1) << ((uint64)(quest_id % 64));
-        if(m_completedQuests.find(offset) == m_completedQuests.end())
+        uint64 val = (((uint64)1) << ((uint64)(quest_id % 64)));
+        std::map<uint16, uint64>::iterator itr;
+        if((itr = m_completedQuests.find(offset)) == m_completedQuests.end())
             m_completedQuests.insert(std::make_pair(offset, val));
-        else m_completedQuests[val] |= val;
+        else
+        {
+            // Add the target value to our mask
+            val |= itr->second;
+            // Update the target mask with new value
+            itr->second = val;
+        }
+
+        // Push a character quest completion mask update
+        if(quickSave) CharacterDatabase.Execute("UPDATE character_quests_completion_masks SET mask = '%llu' WHERE index = '%u'", val, offset);
     }
     else if(qst->qst_is_repeatable == REPEATABLE_QUEST)
         m_completedRepeatableQuests.insert(std::make_pair(quest_id, UNIXTIME));
@@ -3404,7 +3411,7 @@ bool Player::HasFinishedQuest(uint32 quest_id)
     uint16 offset = ((uint16)quest_id / 64);
     if(m_completedQuests.find(offset) == m_completedQuests.end())
         return false;
-    return (m_completedQuests[offset] & ((uint64)1) << ((uint64)(quest_id % 64))) > 0;
+    return (m_completedQuests[offset] & (((uint64)1) << ((uint64)(quest_id % 64)))) > 0;
 }
 
 void Player::ResetDailyQuests()
@@ -3725,6 +3732,28 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
 void Player::ClearInRangeObjects()
 {
     m_visibleObjects.clear();
+}
+
+void Player::ProcessVisibleQuestGiverStatus()
+{
+    uint32 count = 0;
+    WorldPacket data(SMSG_QUESTGIVER_STATUS_MULTIPLE, 1000);
+    data << count;
+    for(std::set<WoWGuid>::iterator itr = m_visibleObjects.begin(); itr != m_visibleObjects.end(); itr++)
+    {
+        if(WorldObject *curObj = GetInRangeObject(*itr))
+        {
+            if(!sQuestMgr.hasQuests(curObj))
+                continue;
+
+            uint32 status = sQuestMgr.CalcStatus(curObj, this);
+            data << curObj->GetGUID();
+            data << status;
+            count++;
+        }
+    }
+    data.put<uint32>(0, count);
+    PushPacket(&data);
 }
 
 void Player::SetDrunk(uint16 value, uint32 itemId)
@@ -4305,11 +4334,6 @@ void Player::Reset_ToLevel1()
 void Player::UpdateNearbyGameObjects()
 {
     ByteBuffer buff(500);
-}
-
-void Player::UpdateNearbyQuestGivers()
-{
-
 }
 
 void Player::InitTaxiNodes()

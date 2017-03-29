@@ -112,7 +112,7 @@ WorldPacket* WorldSession::BuildQuestQueryResponse(Quest *qst)
     *data << qst->qst_objectivetext;    // Objectives / description
     *data << qst->qst_details;          // Details
     *data << qst->qst_endtext;          // Subdescription
-    *data << qst->qst_completiontext;
+    *data << qst->qst_finishedtext;     // Finished text
 
     // (loop 4 times)
     for(i = 0; i < 4; i++)

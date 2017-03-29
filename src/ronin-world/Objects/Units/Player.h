@@ -923,7 +923,7 @@ public:
 
     RONIN_INLINE uint32 GetFinishedDailiesCount() { return (uint32)m_completedDailyQuests.size(); }
 
-    void AddToCompletedQuests(uint32 quest_id);
+    void AddToCompletedQuests(uint32 quest_id, bool quickSave = false);
     bool HasFinishedQuest(uint32 quest_id);
     bool HasFinishedDailyQuest(uint32 quest_id);
     bool HasQuestForItem(uint32 itemid);
@@ -1188,6 +1188,8 @@ public:
     RONIN_INLINE std::set<WoWGuid>::iterator GetVisibleSetBegin() { return m_visibleObjects.begin(); }
     RONIN_INLINE std::set<WoWGuid>::iterator GetVisibleSetEnd() { return m_visibleObjects.end(); }
 
+    void ProcessVisibleQuestGiverStatus();
+
     // Misc
     void SetDrunk(uint16 value, uint32 itemId = 0);
     void EventHandleSobering();
@@ -1198,7 +1200,6 @@ public:
     void RetroactiveCompleteQuests();
 
     void UpdateNearbyGameObjects();
-    void UpdateNearbyQuestGivers();
     void EventMassSummonReset() { m_massSummonEnabled = false; }
 
     uint8 GetLastSwingError() { return m_lastSwingError; }

@@ -268,7 +268,7 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
     // Check the player hasn't already taken this quest, or
     // it isn't available.
     uint32 status = sQuestMgr.CalcQuestStatus(_player, qst, 3, bSkipLevelCheck);
-    if((!sQuestMgr.IsQuestRepeatable(qst) && _player->HasFinishedQuest(qst->id)) || ( status != QMGR_QUEST_CHAT && status != QMGR_QUEST_AVAILABLE && status != QMGR_QUEST_AVAILABLELOW_LEVEL ) || !hasquest)
+    if((!sQuestMgr.IsQuestRepeatable(qst) && _player->HasFinishedQuest(qst->id)) || ( status != QMGR_QUEST_CHAT && status != QMGR_QUEST_AVAILABLE ) || !hasquest)
     {
         // We've got a hacker. Disconnect them.
         //sWorld.LogCheater(this, "tried to accept incompatible quest %u from %u.", qst->id, qst_giver->GetEntry());
@@ -304,10 +304,6 @@ void WorldSession::HandleQuestgiverAcceptQuestOpcode( WorldPacket & recv_data )
         _player->UpdateNearbyGameObjects();
 
     sQuestMgr.OnQuestAccepted(_player,qst,qst_giver);
-
-    WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-    data << guid << sQuestMgr.CalcStatus(qst_giver, GetPlayer());
-    SendPacket( &data );
 }
 
 void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
@@ -355,7 +351,7 @@ void WorldSession::HandleQuestlogRemoveQuestOpcode(WorldPacket& recvPacket)
         if( qPtr->required_item[y] && qPtr->required_item[y] != srcItem )
             _player->GetInventory()->RemoveItemAmt(qPtr->required_item[y], qPtr->required_itemcount[y]);
 
-    _player->UpdateNearbyQuestGivers();
+    _player->ProcessVisibleQuestGiverStatus();
     _player->UpdateNearbyGameObjects();
 
     _player->SaveToDB(false);
@@ -435,7 +431,7 @@ void WorldSession::HandleQuestgiverRequestRewardOpcode( WorldPacket & recv_data 
         return;
     }
 
-    if (status == QMGR_QUEST_FINISHED)
+    if (status >= QMGR_QUEST_FINISHED_LOWLEVEL)
     {
         WorldPacket data;
         sQuestMgr.BuildOfferReward(&data, qst, qst_giver, 1, _player);
@@ -550,7 +546,7 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
     if( reward_slot >= 6 )
         return;
 
-    bool bValid = false;
+    bool bValid = false, bRegularGossip = true;
     Quest *qst = NULL;
     WorldObject* qst_giver = NULL;
     uint32 guidtype = GUID_HIPART(guid);
@@ -562,6 +558,7 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
             qst_giver = quest_giver;
         else
             return;
+
         bValid = quest_giver->isQuestGiver();
         if(bValid)
             qst = sQuestMgr.GetQuestPointer(quest_id);
@@ -620,13 +617,8 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
         WorldPacket data(CMSG_QUESTGIVER_QUERY_QUEST, 12);
         data << guid << qst->qst_next_quest_id;
         HandleQuestGiverQueryQuestOpcode(data);
-    }
-
-    _player->SaveToDB(false);
-
-    WorldPacket data(SMSG_QUESTGIVER_STATUS, 12);
-    data << guid << sQuestMgr.CalcStatus(qst_giver, GetPlayer());
-    SendPacket( &data );
+    } else if(bRegularGossip == false)
+        OutPacket(SMSG_GOSSIP_COMPLETE);
 }
 
 void WorldSession::HandlePushQuestToPartyOpcode(WorldPacket &recv_data)

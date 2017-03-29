@@ -409,10 +409,5 @@ void WorldSession::HandleInrangeQuestgiverQuery(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    uint32 count = 0;
-    WorldPacket data(SMSG_QUESTGIVER_STATUS_MULTIPLE, 1000);
-    data << count;
-
-    data.put<uint32>(0, count);
-    SendPacket(&data);
+    _player->ProcessVisibleQuestGiverStatus();
 }

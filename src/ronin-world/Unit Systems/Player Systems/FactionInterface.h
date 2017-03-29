@@ -61,8 +61,17 @@ struct FactionReputation
 
     // Macro functions
     RONIN_INLINE bool blockVisibility() { return isHidden() || isInvisibleForced(); }
-    RONIN_INLINE int32 CalcStanding() { return standing - baseStanding; }
-    RONIN_INLINE bool Positive() { return standing >= 0; }
+    // When sent to client, we need to subtract the base standing and send an offset
+    RONIN_INLINE int32 ClientStanding() { return standing - baseStanding; }
+    // Current
+    RONIN_INLINE int32 CurrentStanding() { return standing; }
+    RONIN_INLINE bool Positive() { return CurrentStanding() >= 0; }
+
+    static const int32 minRep = -42000;
+    static const int32 maxRep = 42999;
+
+    bool SetStanding(int32 amt);
+    bool ModStanding(int32 amt);
 };
 
 class SERVER_DECL FactionInterface

@@ -90,6 +90,7 @@ QuestMgr::~QuestMgr()
         free(MapQuestIterator->second->qst_details);
         free(MapQuestIterator->second->qst_objectivetext);
         free(MapQuestIterator->second->qst_completiontext);
+        free(MapQuestIterator->second->qst_finishedtext);
         free(MapQuestIterator->second->qst_endtext);
         free(MapQuestIterator->second->qst_incompletetext);
         for(uint8 i = 0; i < 4; i++)
@@ -135,6 +136,7 @@ void QuestMgr::LoadQuests()
         newQuest->qst_details = strdup(fields[f++].GetString());
         newQuest->qst_objectivetext = strdup(fields[f++].GetString());
         newQuest->qst_completiontext = strdup(fields[f++].GetString());
+        newQuest->qst_finishedtext = strdup(fields[f++].GetString());
         newQuest->qst_endtext = strdup(fields[f++].GetString());
         newQuest->qst_incompletetext = strdup(fields[f++].GetString());
         for(uint8 i = 0; i < 4; i++)
@@ -512,8 +514,7 @@ uint32 QuestMgr::CalcStatus(Object* quest_giver, Player* plr)
     std::list<QuestRelation *>::const_iterator itr, q_begin, q_end;
     if( quest_giver->GetTypeId() == TYPEID_GAMEOBJECT )
     {
-        bValid = castPtr<GameObject>(quest_giver)->HasQuests();
-        if(bValid)
+        if(bValid = castPtr<GameObject>(quest_giver)->HasQuests())
         {
             q_begin = castPtr<GameObject>(quest_giver)->QuestsBegin();
             q_end = castPtr<GameObject>(quest_giver)->QuestsEnd();
@@ -521,8 +522,7 @@ uint32 QuestMgr::CalcStatus(Object* quest_giver, Player* plr)
     }
     else if( quest_giver->GetTypeId() == TYPEID_UNIT )
     {
-        bValid = castPtr<Creature>( quest_giver )->HasQuests();
-        if(bValid)
+        if(bValid = castPtr<Creature>( quest_giver )->HasQuests())
         {
             q_begin = castPtr<Creature>(quest_giver)->QuestsBegin();
             q_end = castPtr<Creature>(quest_giver)->QuestsEnd();
@@ -841,12 +841,11 @@ void QuestMgr::BuildQuestComplete(Player* plr, Quest* qst)
     }
 
     WorldPacket data(SMSG_QUESTGIVER_QUEST_COMPLETE, 20);
-    data << uint8(0x80);
-    data << uint32(0); // rewSkillLineId
-    data << uint32(qst->id);
+    data << uint32(qst->id) << uint32(xp);
     data << uint32(GenerateRewardMoney(plr, qst));
+    data << uint32(0); // Honor
     data << uint32(qst->reward_talents);
-    data << uint32(0) << uint32(xp);
+    data << uint32(0); // Arena
     plr->GetSession()->SendPacket(&data);
 }
 
@@ -1236,7 +1235,7 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
                         plr->GetSession()->SendPacket(&data);
                         if(qle->CanBeFinished())
                         {
-                            plr->UpdateNearbyQuestGivers();
+                            plr->ProcessVisibleQuestGiverStatus();
                             plr->UpdateNearbyGameObjects();
                             qle->SendQuestComplete();
                         }
@@ -1345,6 +1344,8 @@ void QuestMgr::OnQuestAccepted(Player* plr, Quest* qst, Object* qst_giver)
 
     if(qst->srcitem && plr->GetInventory()->GetItemCount(qst->srcitem) < qst->srcitemcount)
         plr->GetInventory()->AddItemById(qst->srcitem, qst->srcitemcount, 0, ADDITEM_FLAG_GIFTED);
+
+    plr->ProcessVisibleQuestGiverStatus();
 }
 
 void QuestMgr::GiveQuestTitleReward(Player* plr, Quest* qst)
@@ -1499,7 +1500,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
     }
 
     //Add to finished quests
-    plr->AddToCompletedQuests(qst->id);
+    plr->AddToCompletedQuests(qst->id, true);
     if(qst->qst_is_repeatable == UNREPEATABLE_QUEST)
     {
         if(qst->qst_zone_id > 0)
@@ -1509,7 +1510,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST, 1, qst->id);
     }
 
-    plr->UpdateNearbyQuestGivers();
+    plr->ProcessVisibleQuestGiverStatus();
 }
 
 /////////////////////////////////////
@@ -1524,6 +1525,24 @@ void QuestMgr::LoadNPCQuests(Creature* qst_giver)
 void QuestMgr::LoadGOQuests(GameObject* go)
 {
     go->SetQuestList(GetGOQuestList(go->GetEntry()));
+}
+
+bool QuestMgr::hasQuests(WorldObject *curObj)
+{
+    switch(curObj->GetHighGUID())
+    {
+    case HIGHGUID_TYPE_UNIT:
+    case HIGHGUID_TYPE_VEHICLE:
+        if(m_npc_quests.find(curObj->GetEntry()) != m_npc_quests.end())
+            return true;
+        break;
+    case HIGHGUID_TYPE_GAMEOBJECT:
+        if(m_obj_quests.find(curObj->GetEntry()) != m_obj_quests.end())
+            return true;
+        break;
+    }
+
+    return false;
 }
 
 QuestRelationList* QuestMgr::GetGOQuestList(uint32 entryid)

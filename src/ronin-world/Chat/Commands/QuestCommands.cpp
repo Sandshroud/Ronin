@@ -80,7 +80,7 @@ std::string RemoveQuestFromPlayer(Player* plr, Quest *qst)
             for(uint32 i = 0; i < 4; i++)
                 if(qst->receive_items[i] && qst->receive_items[i] != srcItem)
                     plr->GetInventory()->RemoveItemAmt(qst->receive_items[i], qst->receive_itemcount[i] );
-            plr->UpdateNearbyQuestGivers();
+            plr->ProcessVisibleQuestGiverStatus();
             plr->UpdateNearbyGameObjects();
         }
         recout += "Quest removed from current quest log.";

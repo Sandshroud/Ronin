@@ -4,6 +4,25 @@
 
 #include "StdAfx.h"
 
+
+bool FactionReputation::SetStanding(int32 amt)
+{
+    int32 curStanding = standing;
+    standing = std::min<int32>(std::max<int32>(amt, minRep), maxRep);
+    if(curStanding == standing)
+        return false;
+    return true;
+}
+
+bool FactionReputation::ModStanding(int32 amt)
+{
+    int32 curStanding = standing;
+    standing = std::min<int32>(std::max<int32>(standing + amt, minRep), maxRep);
+    if(curStanding == standing)
+        return false;
+    return true;
+}
+
 FactionInterface::FactionInterface(Player *player) : m_player(player)
 {
 
@@ -95,7 +114,7 @@ void FactionInterface::BuildInitialFactions(ByteBuffer *buff)
         }
 
         FactionReputation *rep = &m_reputations.at(i);
-        *buff << uint8(rep->flag) << int32(rep->CalcStanding());
+        *buff << uint8(rep->flag) << int32(rep->ClientStanding());
         count++;
     }
 
@@ -109,7 +128,7 @@ uint32 FactionInterface::GetStanding(uint32 faction)
         return 0;
     if(!HasReputationData(factionEntry->RepListIndex))
         return 0;
-    return GetReputation(factionEntry->RepListIndex)->CalcStanding();
+    return GetReputation(factionEntry->RepListIndex)->CurrentStanding();
 }
 
 uint32 FactionInterface::GetBaseStanding(uint32 faction)
@@ -129,7 +148,7 @@ Standing FactionInterface::GetStandingRank(uint32 faction)
         return STANDING_NEUTRAL;
     if(!HasReputationData(factionEntry->RepListIndex))
         return STANDING_NEUTRAL;
-    return Player::GetReputationRankFromStanding(GetReputation(factionEntry->RepListIndex)->CalcStanding());
+    return Player::GetReputationRankFromStanding(GetReputation(factionEntry->RepListIndex)->CurrentStanding());
 }
 
 bool FactionInterface::IsHostileBasedOnReputation(FactionEntry *faction)
@@ -153,11 +172,20 @@ void FactionInterface::SetStanding(uint32 faction, int32 standing)
             m_player->GetSession()->OutPacket(SMSG_SET_FACTION_VISIBLE, 4, &factionEntry->RepListIndex);
     }
 
-    int32 oldValue = rep->standing;
-    rep->standing = std::min<int32>(std::max<int32>(standing, -42000), 42999);
-    //if(Player::GetReputationRankFromStanding(oldValue) != Player::GetReputationRankFromStanding(rep->standing))
-    //    UpdateInrangeSetsBasedOnReputation();
-    //OnModStanding( faction, itr->second );
+    Standing prevStanding = Player::GetReputationRankFromStanding(rep->CurrentStanding());
+    if(!rep->SetStanding(standing))
+        return; // No change means no packet
+
+    bool rankChanged;
+    if(rankChanged = (prevStanding == Player::GetReputationRankFromStanding(rep->CurrentStanding())))
+        ;//UpdateInrangeSetsBasedOnReputation();
+
+    // Send update packet
+    WorldPacket data(SMSG_SET_FACTION_STANDING, 12);
+    data << float(0.f) << uint8(rankChanged ? 1 : 0);
+    data << uint32(1); // Single faction update
+    data << uint32(factionEntry->RepListIndex) << rep->ClientStanding();
+    m_player->PushPacket(&data);
 }
 
 void FactionInterface::ModStanding(uint32 faction, int32 standing)
@@ -176,11 +204,20 @@ void FactionInterface::ModStanding(uint32 faction, int32 standing)
             m_player->GetSession()->OutPacket(SMSG_SET_FACTION_VISIBLE, 4, &factionEntry->RepListIndex);
     }
 
-    int32 oldValue = rep->CalcStanding();
-    rep->standing = std::min<int32>(std::max<int32>(oldValue + standing, -42000), 42999);
-    //if(Player::GetReputationRankFromStanding(oldValue) != Player::GetReputationRankFromStanding(rep->CalcStanding()))
-    //    UpdateInrangeSetsBasedOnReputation();
-    //OnModStanding( faction, itr->second );
+    Standing prevStanding = Player::GetReputationRankFromStanding(rep->CurrentStanding());
+    if(!rep->ModStanding(standing))
+        return; // No change means no packet
+
+    bool rankChanged;
+    if(rankChanged = (prevStanding == Player::GetReputationRankFromStanding(rep->CurrentStanding())))
+        ;//UpdateInrangeSetsBasedOnReputation();
+
+    // Send update packet
+    WorldPacket data(SMSG_SET_FACTION_STANDING, 12);
+    data << float(0.f) << uint8(rankChanged ? 1 : 0);
+    data << uint32(1); // Single faction update
+    data << uint32(factionEntry->RepListIndex) << rep->ClientStanding();
+    m_player->PushPacket(&data);
 }
 
 bool FactionInterface::IsAtWar(uint32 faction)
@@ -212,7 +249,7 @@ void FactionInterface::SetAtWar(uint32 faction, uint8 state)
         if(!rep->isVisible() || rep->blockVisibility() || rep->isPeaceForced())
             return;
         // Can't change at war state when standing is low
-        if(Player::GetReputationRankFromStanding(rep->CalcStanding()) <= STANDING_HOSTILE)
+        if(Player::GetReputationRankFromStanding(rep->CurrentStanding()) <= STANDING_HOSTILE)
             return;
         if(state == 1)
             rep->setAtWar();
@@ -307,8 +344,8 @@ void FactionInterface::CreateRepData(FactionEntry *faction)
     FactionReputation *rep = GetReputation(faction->RepListIndex);
     rep->repID = faction->RepListIndex;
     rep->flag = uint8(faction->repFlags[index]);
-    rep->baseStanding = faction->baseRepValue[index];
-    rep->standing = faction->baseRepValue[index];
+    // Set standing and base standing to stored base rep offset
+    rep->standing = rep->baseStanding = faction->baseRepValue[index];
 }
 
 Standing Player::GetReputationRankFromStanding(int32 Standing_)

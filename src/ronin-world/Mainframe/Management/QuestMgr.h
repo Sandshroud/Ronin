@@ -129,6 +129,7 @@ struct Quest
     char *qst_completiontext;
     char *qst_incompletetext;
     char *qst_endtext;
+    char *qst_finishedtext;
     char *qst_objectivetexts[4];
 
     uint32 qst_zone_id;
@@ -309,6 +310,7 @@ public:
     void LoadNPCQuests(Creature* qst_giver);
     void LoadGOQuests(GameObject* go);
 
+    bool hasQuests(WorldObject *curObj);
     QuestRelationList* GetCreatureQuestList(uint32 entryid);
     QuestRelationList* GetGOQuestList(uint32 entryid);
 
