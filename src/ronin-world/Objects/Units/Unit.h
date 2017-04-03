@@ -36,6 +36,7 @@
 
 class Aura;
 class Spell;
+class BaseSpell;
 class GameObject;
 class Creature;
 struct CreatureData;
@@ -556,7 +557,7 @@ public:
     bool canFly();
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
-    uint32 GetSpellDidHitResult( Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout);
+    uint32 GetSpellDidHitResult( Unit* pVictim, BaseSpell* pSpell, float *resistOut, uint8 *reflectout);
 
     float CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechance, float &parrychance, float &blockchance, float *critChance, float *crushingBlow, float *glancingBlow);
     void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );

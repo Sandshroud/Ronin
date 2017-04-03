@@ -182,6 +182,7 @@ extern size_t __line__;
 #include "Player.h"
 #include "BaseSpell.h"
 #include "SpellEffects.h"
+#include "SpellTarget.h"
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "ClassSpells.h"

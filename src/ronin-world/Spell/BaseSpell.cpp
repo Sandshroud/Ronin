@@ -110,6 +110,7 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
     m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
     m_triggeredByAura = NULL;
+    m_reflectedParent = NULL;
     m_missilePitch = m_missileSpeed = 0.f;
     m_isDelayedAOEMissile = false;
     m_missileTravelTime = 0;
@@ -536,4 +537,33 @@ void BaseSpell::SendResurrectRequest(Player* target)
     if (m_spellInfo->isResurrectionTimerIgnorant())
         data << uint32(0);
     target->PushPacket(&data);
+}
+
+bool BaseSpell::Reflect(Unit* refunit)
+{
+    uint32 refspellid = 0;
+    bool canreflect = false;
+//  bool remove = false;
+
+    if( m_reflectedParent != NULL || _unitCaster == refunit )
+        return false;
+
+    // if the spell to reflect is a reflect spell, do nothing.
+    for(int i=0; i<3; i++)
+    {
+        if( m_spellInfo->Effect[i] == 6 && (m_spellInfo->EffectApplyAuraName[i] == 74 || m_spellInfo->EffectApplyAuraName[i] == 28))
+            return false;
+    }
+
+    if( !refspellid || !canreflect )
+        return false;
+
+    SpellCastTargets targets(_unitCaster->GetGUID());
+    if(Spell* spell = new Spell(refunit, m_spellInfo))
+    {
+        spell->m_reflectedParent = this;
+        if(spell->prepare(&targets, true) == SPELL_CANCAST_OK)
+            return true;
+    }
+    return false;
 }

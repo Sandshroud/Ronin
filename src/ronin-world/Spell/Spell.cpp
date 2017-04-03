@@ -30,7 +30,7 @@ enum SpellTargetSpecification
     TARGET_SPEC_DEAD        = 2,
 };
 
-Spell::Spell(Unit* Caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid, Aura* aur) : SpellEffectClass(Caster, info, castNumber, itemGuid)
+Spell::Spell(Unit* Caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid, Aura* aur) : SpellTargetClass(Caster, info, castNumber, itemGuid)
 {
     ASSERT( Caster != NULL && info != NULL );
 
@@ -71,7 +71,7 @@ void Spell::Destruct()
 
     m_triggeredByAura = NULL;
     m_reflectedParent = NULL;
-    SpellEffectClass::Destruct();
+    SpellTargetClass::Destruct();
 }
 
 bool Spell::IsAuraApplyingSpell()
@@ -106,9 +106,9 @@ bool Spell::IsInvisibilitySpell()
     return false;
 }
 
-bool Spell::CanEffectTargetGameObjects(uint32 i)
+bool Spell::CanEffectTargetGameObjects(SpellEntry *sp, uint32 i)
 {
-    switch(m_spellInfo->Effect[i])
+    switch(sp->Effect[i])
     {
     case SPELL_EFFECT_DUMMY:
     case SPELL_EFFECT_OPEN_LOCK:
@@ -120,57 +120,6 @@ bool Spell::CanEffectTargetGameObjects(uint32 i)
         return true;
     }
     return false;
-}
-
-uint8 Spell::_DidHit(Unit* target, float *resistOut, uint8 *reflectout)
-{
-    //note resistchance is vise versa, is full hit chance
-    if( target == NULL )
-        return SPELL_DID_HIT_MISS;
-
-    /************************************************************************/
-    /* Can't can't miss your own spells                                     */
-    /************************************************************************/
-    if(_unitCaster == target)
-        return SPELL_DID_HIT_SUCCESS;
-
-    /************************************************************************/
-    /* Check if the unit is evading                                      */
-    /************************************************************************/
-    if(target->IsCreature() && castPtr<Creature>(target)->hasStateFlag(UF_EVADING))
-        return SPELL_DID_HIT_EVADE;
-
-    if(uint32 mechanic = m_spellInfo->MechanicsType)
-    {
-        /*************************************************************************/
-        /* Check if the target is immune to this mechanic                       */
-        /*************************************************************************/
-        if(target->GetMechanicDispels(mechanic))
-            return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
-
-        // Creature Aura Immune Flag Check
-        if (Creature* cTarget = target->IsCreature() ? castPtr<Creature>(target) : NULL)
-            if(cTarget->GetCreatureData()->auraMechanicImmunity && (cTarget->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<(mechanic-1))))
-                return SPELL_DID_HIT_IMMUNE;
-
-        /************************************************************************/
-        /* Check if the target has a % resistance to this mechanic            */
-        /************************************************************************/
-        if( mechanic < MECHANIC_COUNT)
-        {
-            float res = target->GetMechanicResistPCT(Spell::GetMechanic(m_spellInfo));
-            if( !m_spellInfo->isSpellResistanceIgnorant() && Rand(res))
-                return SPELL_DID_HIT_RESIST;
-        }
-    }
-
-    /************************************************************************/
-    /* Check if the spell is a melee attack and if it was missed/parried    */
-    /************************************************************************/
-    uint32 meleeResult = 0;
-    if( m_spellInfo->IsSpellWeaponSpell() && (meleeResult = _unitCaster->GetSpellDidHitResult(target, m_spellInfo->spellType, m_spellInfo)) )
-        return meleeResult;
-    return _unitCaster->GetSpellDidHitResult(target, this, resistOut, reflectout);
 }
 
 uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
@@ -817,35 +766,6 @@ void Spell::CreateItem(uint32 itemId)
 
 }
 
-bool Spell::Reflect(Unit* refunit)
-{
-    uint32 refspellid = 0;
-    bool canreflect = false;
-//  bool remove = false;
-
-    if( m_reflectedParent != NULL || _unitCaster == refunit )
-        return false;
-
-    // if the spell to reflect is a reflect spell, do nothing.
-    for(int i=0; i<3; i++)
-    {
-        if( m_spellInfo->Effect[i] == 6 && (m_spellInfo->EffectApplyAuraName[i] == 74 || m_spellInfo->EffectApplyAuraName[i] == 28))
-            return false;
-    }
-
-    if( !refspellid || !canreflect )
-        return false;
-
-    SpellCastTargets targets(_unitCaster->GetGUID());
-    if(Spell* spell = new Spell(refunit, m_spellInfo))
-    {
-        spell->m_reflectedParent = this;
-        if(spell->prepare(&targets, true) == SPELL_CANCAST_OK)
-            return true;
-    }
-    return false;
-}
-
 void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * spell)
 {
     /*uint32 status = GetDiminishingGroup(spell->NameHash);
@@ -933,114 +853,6 @@ uint32 GetDiminishingGroup(uint32 NameHash)
 {
     uint32 ret = 0;
     return ret;
-}
-
-AuraApplicationResult Spell::CheckAuraApplication(Unit *target)
-{
-    // If it's passive and we already have it, reject, should happen earlier than this though...
-    if(m_spellInfo->isPassiveSpell() && target->HasAura(m_spellInfo->Id))
-        return AURA_APPL_REJECTED;
-
-    // Check if we have the aura to be updated
-    if(Aura *aur = target->m_AuraInterface.FindActiveAuraWithNameHash(m_spellInfo->NameHash))
-    {
-        SpellEntry *targetEntry = aur->GetSpellProto();
-        // Check to see if we can just stack up our aura
-        if(targetEntry->maxstack > 1)
-            return AURA_APPL_STACKED;
-        // Just refresh the aura, part of cata changes is it doesn't matter what rank
-        if(targetEntry->procCharges || (m_spellInfo->RankNumber && targetEntry->RankNumber >= m_spellInfo->RankNumber))
-            return AURA_APPL_REFRESH;
-    }
-
-    // No aura or complications found, pass through
-    return AURA_APPL_SUCCESS;
-}
-
-bool isAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
-{
-    if(sp->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, effectMask))
-        return true;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA, effectMask))
-        return true;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_FRIEND, effectMask))
-        return true;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_ENEMY, effectMask))
-        return true;
-    return false;
-}
-
-void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
-{
-    // Check if we're in the current list already, and if so, don't readd us.
-    if(m_effectTargetMaps[effIndex].find(target->GetGUID()) != m_effectTargetMaps[effIndex].end())
-        return;
-
-    SpellTarget *tgt = NULL;
-    // look for the target in the list already
-    SpellTargetStorage::iterator itr = m_fullTargetMap.find(target->GetGUID());
-    if(itr != m_fullTargetMap.end())
-        tgt = itr->second;
-    else
-    {
-        tgt = new SpellTarget(target->GetGUID());
-        tgt->HitResult = target->IsUnit() ? _DidHit(castPtr<Unit>(target), &tgt->resistMod, &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
-
-        if( tgt->HitResult != SPELL_DID_HIT_SUCCESS )
-            m_spellMisses.push_back(std::make_pair(tgt->Guid, tgt->HitResult));
-
-        // Add us to the full target map
-        m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
-        // If we're a delayed spell push us into our delayed vector
-        if(m_missileSpeed > 0.f) m_delayTargets.insert(tgt->Guid);
-    }
-
-    if(tgt->HitResult != SPELL_DID_HIT_SUCCESS)
-        return;
-
-    // Effect mask used for storage
-    uint32 effectMask = (1<<effIndex);
-    // Add effect mask
-    tgt->EffectMask |= effectMask;
-    // Calculate effect amount
-    tgt->effectAmount[effIndex] = CalculateEffect(effIndex, target);
-    // Call to spell manager to modify the spell amount
-    tgt->moddedAmount[effIndex] = sSpellMgr.ModifyEffectAmount(this, effIndex, _unitCaster, target, tgt->effectAmount[effIndex]);
-    // Build any modifier data here, area auras are handled differently so make sure we don't handle these unless the effect is a different handler
-    if(m_spellInfo->isSpellAuraApplicator() && target->IsUnit() && !isAreaAuraApplicator(m_spellInfo, effectMask))
-    {
-        Unit *unitTarget = castPtr<Unit>(target);
-        if(tgt->resistMod)
-        {
-            tgt->AuraAddResult = AURA_APPL_RESISTED;
-            ASSERT(tgt->aura == NULL);
-        }
-        else
-        {
-            if(tgt->aura == NULL && tgt->AuraAddResult == AURA_APPL_NOT_RUN)
-            {
-                if((tgt->AuraAddResult = CheckAuraApplication(unitTarget)) == AURA_APPL_SUCCESS)
-                {
-                    uint16 auraFlags = m_spellInfo->isPassiveSpell() ? 0x0000 : (AFLAG_EFF_AMOUNT_SEND | (m_spellInfo->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
-                    int16 stackSize = 1;
-                    if(m_spellInfo->procCharges && m_spellInfo->SpellGroupType)
-                    {
-                        stackSize = (m_spellInfo->procCharges&0xFF);
-                        _unitCaster->SM_FIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
-                        _unitCaster->SM_PIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
-                        stackSize *= -1;
-                    }
-                    tgt->aura = new Aura(unitTarget, m_spellInfo, auraFlags, _unitCaster->getLevel(), stackSize, UNIXTIME, _unitCaster->GetGUID());
-                }
-            }
-
-            if(tgt->AuraAddResult == AURA_APPL_SUCCESS)
-                tgt->aura->AddMod(effIndex, m_spellInfo->EffectApplyAuraName[effIndex], tgt->effectAmount[effIndex]);
-        }
-    }
-
-    // add to the effect target map
-    m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
 }
 
 void Spell::DamageGosAround(uint32 i)

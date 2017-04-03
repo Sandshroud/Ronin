@@ -181,6 +181,8 @@ public:
         return m_radius[1][i];
     }
 
+    bool Reflect(Unit* refunit);
+
 protected:
     SpellTarget *GetSpellTarget(WoWGuid guid)
     {
@@ -212,6 +214,7 @@ protected:
 
     Aura* m_triggeredByAura;
     bool m_triggeredSpell;
+    BaseSpell* m_reflectedParent;
 
     bool m_isCasting;
 

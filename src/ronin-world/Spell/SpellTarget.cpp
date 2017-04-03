@@ -21,7 +21,23 @@
 
 #include "StdAfx.h"
 
-uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
+SpellTargetClass::SpellTargetClass(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid) : SpellEffectClass(caster, info, castNumber, itemGuid)
+{
+
+}
+
+SpellTargetClass::~SpellTargetClass()
+{
+
+}
+
+void SpellTargetClass::Destruct()
+{
+
+    SpellEffectClass::Destruct();
+}
+
+uint32 SpellTargetClass::GetTargetType(uint32 implicittarget, uint32 i)
 {
     uint32 type = m_implicitTargetFlags[implicittarget];
 
@@ -33,7 +49,166 @@ uint32 Spell::GetTargetType(uint32 implicittarget, uint32 i)
     return type;
 }
 
-void Spell::FillTargetMap(bool fromDelayed)
+uint8 SpellTargetClass::_DidHit(Unit* target, float *resistOut, uint8 *reflectout)
+{
+    //note resistchance is vise versa, is full hit chance
+    if( target == NULL )
+        return SPELL_DID_HIT_MISS;
+
+    /************************************************************************/
+    /* Can't can't miss your own spells                                     */
+    /************************************************************************/
+    if(_unitCaster == target)
+        return SPELL_DID_HIT_SUCCESS;
+
+    /************************************************************************/
+    /* Check if the unit is evading                                      */
+    /************************************************************************/
+    if(target->IsCreature() && castPtr<Creature>(target)->hasStateFlag(UF_EVADING))
+        return SPELL_DID_HIT_EVADE;
+
+    if(uint32 mechanic = m_spellInfo->MechanicsType)
+    {
+        /*************************************************************************/
+        /* Check if the target is immune to this mechanic                       */
+        /*************************************************************************/
+        if(target->GetMechanicDispels(mechanic))
+            return SPELL_DID_HIT_IMMUNE; // Moved here from Spell::CanCast
+
+        // Creature Aura Immune Flag Check
+        if (Creature* cTarget = target->IsCreature() ? castPtr<Creature>(target) : NULL)
+            if(cTarget->GetCreatureData()->auraMechanicImmunity && (cTarget->GetCreatureData()->auraMechanicImmunity & (uint32(1)<<(mechanic-1))))
+                return SPELL_DID_HIT_IMMUNE;
+
+        /************************************************************************/
+        /* Check if the target has a % resistance to this mechanic            */
+        /************************************************************************/
+        if( mechanic < MECHANIC_COUNT)
+        {
+            float res = target->GetMechanicResistPCT(Spell::GetMechanic(m_spellInfo));
+            if( !m_spellInfo->isSpellResistanceIgnorant() && Rand(res))
+                return SPELL_DID_HIT_RESIST;
+        }
+    }
+
+    /************************************************************************/
+    /* Check if the spell is a melee attack and if it was missed/parried    */
+    /************************************************************************/
+    uint32 meleeResult = 0;
+    if( m_spellInfo->IsSpellWeaponSpell() && (meleeResult = _unitCaster->GetSpellDidHitResult(target, m_spellInfo->spellType, m_spellInfo)) )
+        return meleeResult;
+    return _unitCaster->GetSpellDidHitResult(target, this, resistOut, reflectout);
+}
+
+AuraApplicationResult SpellTargetClass::CheckAuraApplication(Unit *target)
+{
+    // If it's passive and we already have it, reject, should happen earlier than this though...
+    if(m_spellInfo->isPassiveSpell() && target->HasAura(m_spellInfo->Id))
+        return AURA_APPL_REJECTED;
+
+    // Check if we have the aura to be updated
+    if(Aura *aur = target->m_AuraInterface.FindActiveAuraWithNameHash(m_spellInfo->NameHash))
+    {
+        SpellEntry *targetEntry = aur->GetSpellProto();
+        // Check to see if we can just stack up our aura
+        if(targetEntry->maxstack > 1)
+            return AURA_APPL_STACKED;
+        // Just refresh the aura, part of cata changes is it doesn't matter what rank
+        if(targetEntry->procCharges || (m_spellInfo->RankNumber && targetEntry->RankNumber >= m_spellInfo->RankNumber))
+            return AURA_APPL_REFRESH;
+    }
+
+    // No aura or complications found, pass through
+    return AURA_APPL_SUCCESS;
+}
+
+bool isAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
+{
+    if(sp->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_FRIEND, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_ENEMY, effectMask))
+        return true;
+    return false;
+}
+
+void SpellTargetClass::_AddTarget(WorldObject* target, const uint32 effIndex)
+{
+    // Check if we're in the current list already, and if so, don't readd us.
+    if(m_effectTargetMaps[effIndex].find(target->GetGUID()) != m_effectTargetMaps[effIndex].end())
+        return;
+
+    SpellTarget *tgt = NULL;
+    // look for the target in the list already
+    SpellTargetStorage::iterator itr = m_fullTargetMap.find(target->GetGUID());
+    if(itr != m_fullTargetMap.end())
+        tgt = itr->second;
+    else
+    {
+        tgt = new SpellTarget(target->GetGUID());
+        tgt->HitResult = target->IsUnit() ? _DidHit(castPtr<Unit>(target), &tgt->resistMod, &tgt->ReflectResult) : SPELL_DID_HIT_SUCCESS;
+
+        if( tgt->HitResult != SPELL_DID_HIT_SUCCESS )
+            m_spellMisses.push_back(std::make_pair(tgt->Guid, tgt->HitResult));
+
+        // Add us to the full target map
+        m_fullTargetMap.insert(std::make_pair(target->GetGUID(), tgt));
+        // If we're a delayed spell push us into our delayed vector
+        if(m_missileSpeed > 0.f) m_delayTargets.insert(tgt->Guid);
+    }
+
+    if(tgt->HitResult != SPELL_DID_HIT_SUCCESS)
+        return;
+
+    // Effect mask used for storage
+    uint32 effectMask = (1<<effIndex);
+    // Add effect mask
+    tgt->EffectMask |= effectMask;
+    // Calculate effect amount
+    tgt->effectAmount[effIndex] = CalculateEffect(effIndex, target);
+    // Call to spell manager to modify the spell amount
+    tgt->moddedAmount[effIndex] = sSpellMgr.ModifyEffectAmount(this, effIndex, _unitCaster, target, tgt->effectAmount[effIndex]);
+    // Build any modifier data here, area auras are handled differently so make sure we don't handle these unless the effect is a different handler
+    if(m_spellInfo->isSpellAuraApplicator() && target->IsUnit() && !isAreaAuraApplicator(m_spellInfo, effectMask))
+    {
+        Unit *unitTarget = castPtr<Unit>(target);
+        if(tgt->resistMod)
+        {
+            tgt->AuraAddResult = AURA_APPL_RESISTED;
+            ASSERT(tgt->aura == NULL);
+        }
+        else
+        {
+            if(tgt->aura == NULL && tgt->AuraAddResult == AURA_APPL_NOT_RUN)
+            {
+                if((tgt->AuraAddResult = CheckAuraApplication(unitTarget)) == AURA_APPL_SUCCESS)
+                {
+                    uint16 auraFlags = m_spellInfo->isPassiveSpell() ? 0x0000 : (AFLAG_EFF_AMOUNT_SEND | (m_spellInfo->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
+                    int16 stackSize = 1;
+                    if(m_spellInfo->procCharges && m_spellInfo->SpellGroupType)
+                    {
+                        stackSize = (m_spellInfo->procCharges&0xFF);
+                        _unitCaster->SM_FIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
+                        _unitCaster->SM_PIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
+                        stackSize *= -1;
+                    }
+                    tgt->aura = new Aura(unitTarget, m_spellInfo, auraFlags, _unitCaster->getLevel(), stackSize, UNIXTIME, _unitCaster->GetGUID());
+                }
+            }
+
+            if(tgt->AuraAddResult == AURA_APPL_SUCCESS)
+                tgt->aura->AddMod(effIndex, m_spellInfo->EffectApplyAuraName[effIndex], tgt->effectAmount[effIndex]);
+        }
+    }
+
+    // add to the effect target map
+    m_effectTargetMaps[effIndex].insert(std::make_pair(target->GetGUID(), tgt));
+}
+
+void SpellTargetClass::FillTargetMap(bool fromDelayed)
 {
     bool ignoreAOE = m_isDelayedAOEMissile && fromDelayed == false;
     uint32 targetTypes[3] = {SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED};
@@ -131,7 +306,7 @@ void Spell::FillTargetMap(bool fromDelayed)
     }
 }
 
-void Spell::HandleTargetNoObject()
+void SpellTargetClass::HandleTargetNoObject()
 {
     float dist = 3;
     float srcX = _unitCaster->GetPositionX(), newx = srcX + cosf(_unitCaster->GetOrientation()) * dist;
@@ -146,7 +321,7 @@ void Spell::HandleTargetNoObject()
     m_targets.m_dest.ChangeCoords(newx, newy, newz);
 }
 
-bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
+bool SpellTargetClass::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
 {
     if(obj == NULL || (obj != _unitCaster && !obj->IsInWorld()))
         return false;
@@ -207,7 +382,7 @@ bool Spell::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
     return true;
 }
 
-bool Spell::GenerateTargets(SpellCastTargets *t)
+bool SpellTargetClass::GenerateTargets(SpellCastTargets *t)
 {
     if(!_unitCaster->IsInWorld())
         return false;
@@ -382,14 +557,18 @@ bool Spell::GenerateTargets(SpellCastTargets *t)
     return result;
 }
 
-void Spell::FillSpecifiedTargetsInArea( float srcx, float srcy, float srcz, uint32 ind, uint32 specification )
+void SpellTargetClass::FillSpecifiedTargetsInArea( float srcx, float srcy, float srcz, uint32 ind, uint32 specification )
 {
     FillSpecifiedTargetsInArea( ind, srcx, srcy, srcz, GetRadius(ind), specification );
 }
 
 // for the moment we do invisible targets
-void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, uint32 specification)
+void SpellTargetClass::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, uint32 specification)
 {
+    if(!_unitCaster->IsInWorld())
+        return;
+
+    //_unitCaster->GetMapInstance()->FillTargetsInArea(srcX
     float r = range * range;
     WorldObject *wObj = NULL;
     /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
@@ -424,24 +603,24 @@ void Spell::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz
     }*/
 }
 
-void Spell::FillAllTargetsInArea(LocationVector & location,uint32 ind)
+void SpellTargetClass::FillAllTargetsInArea(LocationVector & location,uint32 ind)
 {
     FillAllTargetsInArea(ind,location.x,location.y,location.z,GetRadius(ind));
 }
 
-void Spell::FillAllTargetsInArea(float srcx,float srcy,float srcz,uint32 ind)
+void SpellTargetClass::FillAllTargetsInArea(float srcx,float srcy,float srcz,uint32 ind)
 {
     FillAllTargetsInArea(ind,srcx,srcy,srcz,GetRadius(ind));
 }
 
 /// We fill all the targets in the area, including the stealth ed one's
-void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, bool includegameobjects)
+void SpellTargetClass::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, bool includegameobjects)
 {
     float r = range*range;
     uint32 placeholder = 0;
     WorldObject *wObj = NULL;
     std::vector<WorldObject*> ChainTargetContainer;
-    bool canAffectGameObjects = CanEffectTargetGameObjects(i);
+    //bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
@@ -501,11 +680,11 @@ void Spell::FillAllTargetsInArea(uint32 i,float srcx,float srcy,float srcz, floa
 }
 
 // We fill all the targets in the area, including the stealthed one's
-void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz, float range )
+void SpellTargetClass::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz, float range )
 {
     float r = range*range;
     WorldObject *wObj = NULL;
-    bool canAffectGameObjects = CanEffectTargetGameObjects(i);
+    //bool canAffectGameObjects = CanEffectTargetGameObjects(i);
     /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
     {
         if((wObj = itr->second) == NULL)
@@ -537,7 +716,7 @@ void Spell::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz,
 }
 
 /// We fill all the gameobject targets in the area
-void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range)
+void SpellTargetClass::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range)
 {
     float r = range*range;
 
@@ -552,7 +731,7 @@ void Spell::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float 
     }*/
 }
 
-uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
+uint64 SpellTargetClass::GetSinglePossibleEnemy(uint32 i,float prange)
 {
     float rMin = m_spellInfo->minRange[0], rMax = prange;
     if(rMax == 0.f)
@@ -584,7 +763,7 @@ uint64 Spell::GetSinglePossibleEnemy(uint32 i,float prange)
     return 0;
 }
 
-uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
+uint64 SpellTargetClass::GetSinglePossibleFriend(uint32 i,float prange)
 {
     float rMin = m_spellInfo->minRange[1], rMax = prange;
     if(rMax == 0.f)
@@ -616,7 +795,7 @@ uint64 Spell::GetSinglePossibleFriend(uint32 i,float prange)
     return 0;
 }
 
-void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
+void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     LocationVector source;
 
@@ -653,7 +832,7 @@ void Spell::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtarget
     }*/
 }
 
-void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets)
+void SpellTargetClass::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets)
 {
     WorldObject* u = _unitCaster->GetInRangeObject(m_targets.m_unitTarget);
     if(u == NULL && (u = _unitCaster) == NULL)
@@ -680,7 +859,7 @@ void Spell::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 ma
     }*/
 }
 
-void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets, bool partylimit)
+void SpellTargetClass::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets, bool partylimit)
 {
     WorldObject* u = _unitCaster->GetInRangeObject(m_targets.m_unitTarget);
     if(u == NULL && (u = _unitCaster) == NULL)
@@ -707,7 +886,7 @@ void Spell::AddRaidTargets(uint32 i, uint32 TargetType, float radius, uint32 max
     }*/
 }
 
-void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
+void SpellTargetClass::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     if(!_unitCaster->IsInWorld())
         return;
@@ -783,7 +962,7 @@ void Spell::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarg
     }*/
 }
 
-void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
+void SpellTargetClass::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     /*WorldObject::InRangeArray::iterator itr;
     for(itr = m_caster->GetInRangeUnitSetBegin(); itr != m_caster->GetInRangeUnitSetEnd(); itr++)
@@ -805,7 +984,7 @@ void Spell::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtarge
     }*/
 }
 
-void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
+void SpellTargetClass::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     /*for(WorldObject::InRangeArray::iterator itr = m_caster->GetInRangeGameObjectSetBegin(); itr != m_caster->GetInRangeGameObjectSetEnd(); itr++ )
     {
@@ -824,7 +1003,7 @@ void Spell::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r,
 }
 
 // returns Guid of lowest percentage health friendly party or raid target within sqrt('dist') yards
-uint64 Spell::FindLowestHealthRaidMember(Player* Target, uint32 dist)
+uint64 SpellTargetClass::FindLowestHealthRaidMember(Player* Target, uint32 dist)
 {
     if(!Target || !Target->IsInWorld())
         return 0;

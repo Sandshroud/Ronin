@@ -1534,7 +1534,7 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, Spe
     return roll_results[r];
 }
 
-uint32 Unit::GetSpellDidHitResult( Unit* pVictim, Spell* pSpell, float *resistOut, uint8 *reflectout )
+uint32 Unit::GetSpellDidHitResult( Unit* pVictim, BaseSpell* pSpell, float *resistOut, uint8 *reflectout )
 {
     SpellEntry* m_spellEntry = pSpell->GetSpellProto();
     int32 levelDiff = pVictim->getLevel() - getLevel();

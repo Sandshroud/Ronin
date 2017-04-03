@@ -34,7 +34,7 @@ enum SpellEffectTargetFlags
 #define SPELL_SPELL_CHANNEL_UPDATE_INTERVAL 1000
 
 // Spell instance
-class SERVER_DECL Spell : public SpellEffectClass
+class SERVER_DECL Spell : public SpellTargetClass
 {
 public:
     Spell( Unit* Caster, SpellEntry *info, uint8 castNumber = 0, WoWGuid itemCaster = 0, Aura* aur = NULL);
@@ -49,28 +49,6 @@ public:
         dest = m_targets.m_dest;
     }
 
-    // Fills specified targets at the area of effect
-    void FillSpecifiedTargetsInArea(float srcx,float srcy,float srcz,uint32 ind, uint32 specification);
-    // Fills specified targets at the area of effect. We suppose we already inited this spell and know the details
-    void FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, uint32 specification);
-    // Fills the targets at the area of effect
-    void FillAllTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float range, bool includegameobjects = false);
-    // Fills the targets at the area of effect. We suppose we already inited this spell and know the details
-    void FillAllTargetsInArea(float srcx,float srcy,float srcz,uint32 ind);
-    // Fills the targets at the area of effect. We suppose we already inited this spell and know the details
-    void FillAllTargetsInArea(LocationVector & location,uint32 ind);
-    // Fills the targets at the area of effect. We suppose we already inited this spell and know the details
-    void FillAllFriendlyInArea(uint32 i, float srcx,float srcy,float srcz, float range);
-    // Fills the gameobject targets at the area of effect
-    void FillAllGameObjectTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float range);
-    //get single Enemy as target
-    uint64 GetSinglePossibleEnemy(uint32 i, float prange=0);
-    //get single Enemy as target
-    uint64 GetSinglePossibleFriend(uint32 i, float prange=0);
-    //generate possible target list for a spell. Use as last resort since it is not acurate
-    bool GenerateTargets(SpellCastTargets *);
-    // Fills the target map of the spell effects
-    void FillTargetMap(bool fromDelayed);
     // Prepares the spell thats going to cast to targets
     uint8 prepare(SpellCastTargets *targets, bool triggered);
     // Cancels the current spell
@@ -101,30 +79,13 @@ public:
     void DetermineSkillUp();
     // Increases cast time of the spell
     void AddTime(uint32 type);
-    // Get Target Type
-    uint32 GetTargetType(uint32 implicittarget, uint32 i);
     void AddCooldown();
     void AddStartCooldown();
-
-    bool Reflect(Unit* refunit);
 
     RONIN_INLINE uint32 getState() { return m_spellState; }
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
 
     void CreateItem(uint32 itemId);
-
-    // Spell Targets
-    void HandleTargetNoObject();
-    bool AddTarget(uint32 i, uint32 TargetType, WorldObject* obj);
-    void AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
-    void AddPartyTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
-    void AddRaidTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets, bool partylimit = false);
-    void AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
-    void AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
-    void AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
-
-    uint64 static FindLowestHealthRaidMember(Player* Target, uint32 dist);
-
     bool SpellEffectUpdateQuest(uint32 questid);
 
     // 15007 = resurecting sickness
@@ -168,11 +129,11 @@ public:
             return sp->MechanicsType;
         return 0;
     }
+    static bool CanEffectTargetGameObjects(SpellEntry *sp, uint32 i);
 
     bool IsAuraApplyingSpell();
     bool IsStealthSpell();
     bool IsInvisibilitySpell();
-    bool CanEffectTargetGameObjects(uint32 i);
 
     int32 damage;
     Aura* m_triggeredByAura;
@@ -195,8 +156,6 @@ public:
     {
         m_cancelled = true;
     }
-
-    Spell* m_reflectedParent;
 
     // Returns true iff spellEffect's effectNum effect affects testSpell based on EffectSpellClassMask
     RONIN_INLINE static bool EffectAffectsSpell(SpellEntry* spellEffect, uint32 effectNum, SpellEntry* testSpell)
@@ -238,19 +197,6 @@ protected:
                 return true;
         return false;
     }
-
-private:
-
-    // adds a target to the list, performing DidHit checks on units
-    void _AddTarget(WorldObject* target, const uint32 effIndex);
-
-    AuraApplicationResult CheckAuraApplication(Unit *target);
-
-    // didhit checker
-    uint8 _DidHit(Unit* target, float *resistOut = NULL, uint8 *reflectout = NULL);
-
-public:
-    static std::map<uint8, uint32> m_implicitTargetFlags;
 };
 
 void ApplyDiminishingReturnTimer(int32 * Duration, Unit* Target, SpellEntry * spell);
