@@ -562,45 +562,37 @@ void SpellTargetClass::FillSpecifiedTargetsInArea( float srcx, float srcy, float
     FillSpecifiedTargetsInArea( ind, srcx, srcy, srcz, GetRadius(ind), specification );
 }
 
+void FillSpecificTargetsCallback::operator()(SpellTargetClass *spell, uint32 i, WorldObject *target)
+{
+    Unit *unitCaster = spell->GetCaster();
+    if(target->IsUnit())
+    {
+        if(!castPtr<Unit>(target)->isAlive())
+            return;
+        if(spell->GetSpellProto()->TargetCreatureType)
+        {
+            Unit* Target = castPtr<Unit>(target);
+            if(uint32 creatureType = Target->GetCreatureType())
+            {
+                if(((1<<(creatureType-1)) & spell->GetSpellProto()->TargetCreatureType) == 0)
+                    return;
+            } else return;
+        }
+    } else if(target->IsGameObject() && !Spell::CanEffectTargetGameObjects(spell->GetSpellProto(), i))
+        return;
+
+    if( !target->IsUnit() || sFactionSystem.CanEitherUnitAttack(unitCaster, castPtr<Unit>(target), !spell->GetSpellProto()->isSpellStealthTargetCapable()) )
+        spell->_AddTarget(target, i);
+}
+
 // for the moment we do invisible targets
 void SpellTargetClass::FillSpecifiedTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float range, uint32 specification)
 {
     if(!_unitCaster->IsInWorld())
         return;
 
-    //_unitCaster->GetMapInstance()->FillTargetsInArea(srcX
-    float r = range * range;
-    WorldObject *wObj = NULL;
-    /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
-    {
-        if((wObj = itr->second) == NULL)
-            continue;
-
-        if(wObj->IsUnit())
-        {
-            if(!castPtr<Unit>(wObj)->isAlive())
-                continue;
-            if(m_spellInfo->TargetCreatureType)
-            {
-                Unit* Target = castPtr<Unit>(wObj);
-                if(uint32 creatureType = Target->GetCreatureType())
-                {
-                    if(((1<<(creatureType-1)) & m_spellInfo->TargetCreatureType) == 0)
-                        continue;
-                } else continue;
-            }
-        } else if(wObj->IsGameObject() && !CanEffectTargetGameObjects(i))
-            continue;
-
-        if(!IsInrange(srcx, srcy, srcz, wObj, r))
-            continue;
-
-        if( !wObj->IsUnit() || sFactionSystem.CanEitherUnitAttack(castPtr<Unit>(m_caster), castPtr<Unit>(wObj), !m_spellInfo->isSpellStealthTargetCapable()) )
-            _AddTarget(wObj, i);
-
-        if(m_spellInfo->MaxTargets && m_effectTargetMaps[i].size() >= m_spellInfo->MaxTargets)
-            break;
-    }*/
+    static FillSpecificTargetsCallback _fillCallback;
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillCallback, this, i, srcx, srcy, srcz, range*range);
 }
 
 void SpellTargetClass::FillAllTargetsInArea(LocationVector & location,uint32 ind)

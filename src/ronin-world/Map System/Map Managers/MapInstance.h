@@ -37,6 +37,8 @@ class Transporter;
 class Corpse;
 class CBattleground;
 class Transporter;
+class MapTargetCallback;
+class SpellTargetClass;
 
 enum ObjectActiveState
 {
@@ -301,6 +303,29 @@ private:
     uint32 _langPos, _guidPos;
 };
 
+class MapInstanceSpellTargetMappingCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceSpellTargetMappingCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void SetData(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range)
+    {
+        _callback = callback;
+        _spell = spell;
+        _effIndex = i;
+        _x = x; _y = y; _z = z;
+        _range = range;
+    }
+
+private:
+    MapInstance *_instance;
+    MapTargetCallback *_callback;
+    SpellTargetClass *_spell;
+
+    uint32 _effIndex;
+    float _x, _y, _z, _range;
+};
+
 /// Map instance class for processing different map instances(duh)
 class SERVER_DECL MapInstance : public CellHandler <MapCell>
 {
@@ -376,6 +401,9 @@ public:
 
     void UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector);
 
+    // Spell targetting functions
+    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range);
+
 protected:
     // These are stored in MapInstance.cpp with functions
     friend class MapInstanceObjectProcessCallback;
@@ -403,6 +431,10 @@ protected:
     std::vector<uint32> _BroadcastObjectUpdateCellVector;
     friend class MapInstanceBroadcastObjectUpdateCallback;
     MapInstanceBroadcastObjectUpdateCallback _broadcastObjectUpdateCallback;
+
+    std::vector<uint32> _SpellTargetMappingCellVector;
+    friend class MapInstanceSpellTargetMappingCallback;
+    MapInstanceSpellTargetMappingCallback _SpellTargetMappingCallback;
 
     // These are stored in SpellTargets.cpp with functions
 public:

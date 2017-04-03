@@ -338,6 +338,7 @@ public:
     void FillCellRange(std::vector<uint32> *fillVector);
     void CreateCellRange(std::vector<uint32> *fillVector, float range);
     void CreateCellRange(std::vector<uint32> *fillVector, uint32 range);
+    static void ConstructCellData(float x, float y, float range, std::vector<uint32> *fillVector);
 
     void AddVisibleBy(WoWGuid guid) { m_visibleTo.insert(guid); }
     void RemoveVisibleBy(WoWGuid guid) { m_visibleTo.erase(guid); }
@@ -346,7 +347,7 @@ protected:
     friend class MapInstance;
     static uint32 _makeCell(uint16 x, uint16 y) { return (((uint32)x)<<16) | ((uint32)y); }
     static std::pair<uint16, uint16> unPack(uint32 cellId) { return std::make_pair(((uint16)(cellId>>16)), ((uint16)(cellId & 0x0000FFFF))); }
-    uint32 _getCellId(float pos);
+    static uint32 _getCellId(float pos);
 
     RONIN_INLINE bool isCorner(uint16 x, uint16 y, uint16 lX, uint16 hX, uint16 lY, uint16 hY, uint16 visRange = 0)
     {

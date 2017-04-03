@@ -1,6 +1,10 @@
 
 #pragma once
 
+class SpellTargetClass;
+class MapTargetCallback { public: virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target) = 0; };
+class FillSpecificTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
+
 class SpellTargetClass : public SpellEffectClass
 {
 public:
@@ -8,7 +12,7 @@ public:
     ~SpellTargetClass();
     virtual void Destruct();
 
-private:
+protected:
     // Get Target Type
     uint32 GetTargetType(uint32 implicittarget, uint32 i);
 
@@ -55,6 +59,9 @@ public:
 
     static std::map<uint8, uint32> m_implicitTargetFlags;
 
-private:
+protected:
     AuraApplicationResult CheckAuraApplication(Unit *target);
+
+    friend class MapTargetCallback;
+    friend class FillSpecificTargetsCallback;
 };

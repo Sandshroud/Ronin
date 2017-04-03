@@ -740,6 +740,18 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 
             fillVector->push_back(_makeCell(x, y));
 }
 
+void ObjectCellManager::ConstructCellData(float x, float y, float range, std::vector<uint32> *fillVector)
+{
+    // Update pos pair
+    uint32 lowX = _getCellId(x-range), highX = _getCellId(x+range), lowY = _getCellId(y-range), highY = _getCellId(y+range);
+    if(highX < lowX) std::swap(lowX, highX);
+    if(highY < lowY) std::swap(lowY, highY);
+    for(uint16 x = lowX; x <= highX; x++)
+        for(uint16 y = lowY; y <= highY; y++)
+            fillVector->push_back(_makeCell(x, y));
+
+}
+
 void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDiff)
 {
     //Ny

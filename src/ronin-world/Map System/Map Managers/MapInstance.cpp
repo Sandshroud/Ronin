@@ -25,7 +25,8 @@
 extern bool bServerShutdown;
 
 MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
-_processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this)
+_processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this),
+_SpellTargetMappingCallback(this)
 {
     m_mapPreloading = false;
     iInstanceMode = 0;
@@ -1217,6 +1218,29 @@ void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint3
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         UpdateCellData(obj, cellPair.first, cellPair.second, obj->IsPlayer(), true);
     }
+}
+
+void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{
+    if(curObj->GetDistanceSq(_x, _y, _z) > _range)
+        return;
+
+    (*_callback)(_spell, _effIndex, curObj);
+}
+
+void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range)
+{
+    _SpellTargetMappingCallback.Lock();
+    _SpellTargetMappingCallback.SetData(callback, spell, i, x, y, z, range);
+    ObjectCellManager::ConstructCellData(x, y, range, &_SpellTargetMappingCellVector);
+    for(auto itr = _SpellTargetMappingCellVector.begin(); itr != _SpellTargetMappingCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(NULL, &_SpellTargetMappingCallback);
+    }
+    _SpellTargetMappingCellVector.clear();
+    _SpellTargetMappingCallback.Unlock();
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)
