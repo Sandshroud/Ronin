@@ -787,7 +787,12 @@ uint64 SpellTargetClass::GetSinglePossibleFriend(uint32 i,float prange)
     return 0;
 }
 
-void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
+void FillInRangeTargetsCallback::operator()(SpellTargetClass *spell, uint32 i, WorldObject *target)
+{
+    spell->_AddTarget(target, i);
+}
+
+void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets)
 {
     LocationVector source;
 
@@ -807,21 +812,8 @@ void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float r, uint3
         source = m_targets.m_dest;
     }
 
-    float range = r*r; //caster might be in the aoe LOL
-    if(_unitCaster->GetDistanceSq(source) <= range)
-        AddTarget(i, TargetType, _unitCaster);
-
-    WorldObject *wObj = NULL;
-    /*for(WorldObject::InRangeHashMap::iterator itr = m_caster->GetInRangeMapBegin(); itr != m_caster->GetInRangeMapEnd(); itr++ )
-    {
-        if((wObj = itr->second) == NULL)
-            continue;
-        if(maxtargets != 0 && m_effectTargetMaps[i].size() >= maxtargets)
-            break;
-        if(wObj->GetDistanceSq(source) > range)
-            continue;
-        AddTarget(i, TargetType, wObj);
-    }*/
+    static FillInRangeTargetsCallback _inRangeCallback;
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeCallback, this, i, source.x, source.y, source.z, radius*radius);
 }
 
 void SpellTargetClass::AddPartyTargets(uint32 i, uint32 TargetType, float radius, uint32 maxtargets)

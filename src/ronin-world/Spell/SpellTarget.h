@@ -4,6 +4,7 @@
 class SpellTargetClass;
 class MapTargetCallback { public: virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target) = 0; };
 class FillSpecificTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
+class FillInRangeTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
 
 class SpellTargetClass : public SpellEffectClass
 {
@@ -64,4 +65,5 @@ protected:
 
     friend class MapTargetCallback;
     friend class FillSpecificTargetsCallback;
+    friend class FillInRangeTargetsCallback;
 };
