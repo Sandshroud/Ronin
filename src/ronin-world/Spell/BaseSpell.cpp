@@ -535,5 +535,5 @@ void BaseSpell::SendResurrectRequest(Player* target)
     data << uint8(_unitCaster->IsCreature() ? 1 : 0);
     if (m_spellInfo->isResurrectionTimerIgnorant())
         data << uint32(0);
-    target->GetSession()->SendPacket(&data);
+    target->PushPacket(&data);
 }

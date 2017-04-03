@@ -31,6 +31,7 @@ public:
     void LaunchSpell(SpellEntry *info, uint8 castNumber, SpellCastTargets &targets);
     void LaunchSpell(SpellEntry *info, float posX, float posY, float posZ);
     void LaunchSpell(SpellEntry *info, Unit *target = NULL);
+    void TriggerSpell(SpellEntry *info, float posX, float posY, float posZ);
     void TriggerSpell(SpellEntry *info, Unit *target);
 
     // Next melee spells

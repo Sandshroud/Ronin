@@ -1503,7 +1503,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
             data << uint32( 0xFFFFFFFF );
             data << uint8( 0 );
             data << uint32( m_spellProto->Id );     // ???
-            pTarget->GetSession()->SendPacket( &data );
+            pTarget->PushPacket( &data );
 
             data.Initialize(SMSG_CLEAR_TARGET);
             data << pTarget->GetGUID();
@@ -1525,7 +1525,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
                             castPtr<Player>(pObject)->SetUInt64Value(UNIT_FIELD_TARGET, 0);
                         }
 
-                        castPtr<Player>( pObject )->GetSession()->SendPacket( &data );
+                        castPtr<Player>( pObject )->PushPacket( &data );
                     }
                 }
             }*/
@@ -1540,7 +1540,7 @@ void Aura::SpellAuraFeignDeath(bool apply)
             //pTarget->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
             data.SetOpcode(SMSG_STOP_MIRROR_TIMER);
             data << uint32(2);
-            pTarget->GetSession()->SendPacket(&data);
+            pTarget->PushPacket(&data);
         }
     }
 }
@@ -2060,7 +2060,7 @@ void Aura::SpellAuraForceReaction( bool apply )
         data << itr->second;
     }
 
-    p_target->GetSession()->SendPacket( &data );
+    p_target->PushPacket( &data );
 }
 
 void Aura::SpellAuraModRangedHaste(bool apply)
@@ -2482,7 +2482,7 @@ void Aura::SendInterrupted(uint8 result, WorldObject* m_ocaster)
         data << uint8(0); //extra_cast_number
         data << uint32(m_spellProto->Id);
         data << uint8( result );
-        castPtr<Player>( m_ocaster )->GetSession()->SendPacket( &data );
+        castPtr<Player>( m_ocaster )->PushPacket( &data );
     }
 
     data.Initialize( SMSG_SPELL_FAILED_OTHER );

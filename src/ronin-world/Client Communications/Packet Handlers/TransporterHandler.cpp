@@ -370,7 +370,7 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
                 plr->RemoteRevive();
 
             plr->GetMovementInterface()->LockTransportData();
-            plr->GetSession()->SendPacket(&Pending);
+            plr->PushPacket(&Pending);
             plr->_Relocate(mapid, v, true, 0);
         }
     }

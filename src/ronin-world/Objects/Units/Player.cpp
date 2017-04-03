@@ -2385,7 +2385,7 @@ void Player::smsg_InitialSpells()
     }
 
     data.put<uint16>(pos, cooldownCount);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data, true);
 }
 
 SpellEntry* Player::FindLowerRankSpell(SpellEntry* sp, int32 rankdiff)
@@ -3771,7 +3771,7 @@ void Player::SetDrunk(uint16 value, uint32 itemId)
     data << GetGUID();
     data << newDrunkenState;
     data << itemId;
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::EventHandleSobering()
@@ -4001,7 +4001,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                                         canusemask |= ROLLMASK_DISENCHANT;
 
                                     data2.put<uint8>(maskpos, canusemask);
-                                    plr->GetSession()->SendPacket(&data2);
+                                    plr->PushPacket(&data2);
                                 }
                             }// else iter->roll->PlayerRolled( (*itr), PASS );       // passed
                         }
@@ -4018,7 +4018,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
                             canusemask |= ROLLMASK_DISENCHANT;
 
                     data2 << canusemask;
-                    GetSession()->SendPacket(&data2);
+                    PushPacket(&data2);
                 }
             }
         }
@@ -4026,7 +4026,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     }
     data.put<uint8>(13, count);
 
-    GetSession ()->SendPacket(&data);
+    PushPacket(&data);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOOTING);
 }
 
@@ -4049,7 +4049,7 @@ void Player::SendTalentResetConfirm()
     WorldPacket data(MSG_TALENT_WIPE_CONFIRM, 12);
     data << GetGUID();
     data << CalcTalentResetCost(m_talentInterface.GetTalentResets());
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::ResetAllInstanceLinks()
@@ -4256,14 +4256,14 @@ void Player::SendInitialLogonPackets()
     //if (HasRestrictedLevel)
     //    data << uint32(20);               // RestrictedLevel (starter accounts)
     data << uint64(sWorld.GetWeekStart());  // LastWeeklyReset (not instance reset)
-    GetSession()->SendPacket(&data); 
+    PushPacket(&data, true);
 
     //Initial Spells
     smsg_InitialSpells();
 
     data.Initialize(SMSG_SEND_UNLEARN_SPELLS, 4);
     data << uint32(0); // count, for (count) uint32;
-    GetSession()->SendPacket(&data);
+    PushPacket(&data, true);
 
     // Send our action bar
     m_talentInterface.SendInitialActions();
@@ -4271,17 +4271,17 @@ void Player::SendInitialLogonPackets()
     //Factions
     data.Initialize(SMSG_INITIALIZE_FACTIONS);
     m_factionInterface.BuildInitialFactions(&data);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data, true);
 
     data.Initialize(SMSG_ALL_ACHIEVEMENT_DATA);
     AchieveMgr.BuildAchievementData(GetGUID(), &data, getLevel() <= 9);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data, true);
 
     // Login speed
     data.Initialize(SMSG_LOGIN_SETTIMESPEED);
     data << uint32(RONIN_UTIL::secsToTimeBitFields(UNIXTIME));
     data << float(0.01666667f) << uint32(0);//getMSTime());
-    GetSession()->SendPacket( &data );
+    PushPacket( &data, true );
 
     m_currency.SendInitialCurrency();
 
@@ -4482,18 +4482,12 @@ void Player::JumpToEndTaxiNode(TaxiPath * path)
 
 void Player::RemoveSpellsFromLine(uint16 skill_line)
 {
-    uint32 cnt = dbcSkillLineSpell.GetNumRows();
-    for(uint32 i = 0; i < cnt; i++)
-    {
-        if(SkillLineAbilityEntry* sp = dbcSkillLineSpell.LookupRow(i))
-        {
-            if(sp->skilline == skill_line)
-            {
-                // Check ourselves for this spell, and remove it..
-                removeSpell(sp->spell);
-            }
-        }
-    }
+    std::vector<uint32> *skillLine = sSpellMgr.GetSkillLineEntries(skill_line);
+    if(skillLine == NULL)
+        return;
+
+    for(auto itr = skillLine->begin(); itr != skillLine->end(); ++itr)
+        removeSpell(*itr);
 }
 
 void Player::RegeneratePower(bool is_interrupted)
@@ -4644,7 +4638,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         data.WriteBitString(2, 0, 0);
         data.FlushBits();
         data << mapid;
-        GetSession()->SendPacket(&data);
+        PushPacket(&data);
     }
 
     LocationVector destination(v);
@@ -4658,7 +4652,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
             data << mapid << status;
-            GetSession()->SendPacket(&data);
+            PushPacket(&data);
             return;
         }
 
@@ -4666,7 +4660,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
             data << mapid << uint32(INSTANCE_ABORT_ERROR_ERROR);
-            GetSession()->SendPacket(&data);
+            PushPacket(&data);
             return;
         }
 
@@ -4746,7 +4740,7 @@ void Player::ClearCooldownForSpell(uint32 spell_id)
     {
         WorldPacket data(SMSG_CLEAR_COOLDOWN, 12);
         data << spell_id << GetGUID();
-        GetSession()->SendPacket(&data);
+        PushPacket(&data);
     }
 
     // remove cooldown data from Server side lists
@@ -5264,7 +5258,7 @@ void Player::RequestDuel(Player* pTarget)
         WorldPacket data(SMSG_DUEL_REQUESTED, 16);
         data << pGameObj->GetGUID();
         data << GetGUID();
-        pTarget->GetSession()->SendPacket(&data);
+        pTarget->PushPacket(&data);
 
         pGameObj->PushToWorld(m_mapInstance);
     }
@@ -5532,7 +5526,7 @@ void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
     WorldPacket data(SMSG_TRANSFER_PENDING, 20);
     data.WriteBitString(2, 0, 0); // Unk and transport transfer
     data.append<uint32>(mapId);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 
     // Send transfers via movement interface to set target location and avoid issues with return data
     m_movementInterface.TeleportToPosition(mapId, instanceId, vec);
@@ -5652,7 +5646,7 @@ void Player::CompleteLoading()
     {
         WorldPacket data2(SMSG_RAID_GROUP_ONLY, 8);
         data2 << uint32(0xFFFFFFFF) << uint32(0);
-        GetSession()->SendPacket(&data2);
+        PushPacket(&data2);
         raidgrouponlysent=false;
     }
 

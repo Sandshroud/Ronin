@@ -846,7 +846,7 @@ void QuestMgr::BuildQuestComplete(Player* plr, Quest* qst)
     data << uint32(0); // Honor
     data << uint32(qst->reward_talents);
     data << uint32(0); // Arena
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void QuestMgr::BuildQuestList(WorldPacket *data, Object* qst_giver, Player* plr)
@@ -944,7 +944,7 @@ void QuestMgr::SendQuestUpdateAddKill(Player* plr, uint32 questid, uint32 entry,
     data << count;
     data << tcount;
     data << guid;
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void QuestMgr::BuildQuestUpdateComplete(WorldPacket* data, Quest* qst)
@@ -960,7 +960,7 @@ void QuestMgr::SendPushToPartyResponse(Player* plr, Player* pTarget, uint32 resp
     data << pTarget->GetGUID();
     data << response;
     data << uint8(0);
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 bool QuestMgr::OnGameObjectActivate(Player* plr, GameObject* go)
@@ -1232,7 +1232,7 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
                     {
                         WorldPacket data(SMSG_QUESTUPDATE_ADD_ITEM, 8);
                         data << qle->GetQuest()->required_item[j] << uint32(1);
-                        plr->GetSession()->SendPacket(&data);
+                        plr->PushPacket(&data);
                         if(qle->CanBeFinished())
                         {
                             plr->ProcessVisibleQuestGiverStatus();
@@ -1459,7 +1459,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
         {
             // "Teaching" effect
             WorldPacket data(SMSG_SPELL_GO, 42);
-            data << qst_giver->GetGUID() << qst_giver->GetGUID();
+            data << qst_giver->GetGUID().asPacked() << qst_giver->GetGUID().asPacked();
             data << uint8(0);
             data << uint32(7763);   // spellID
             data << uint32(256);    // flags
@@ -1469,7 +1469,7 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
             data << uint8(0);
             data << uint16(2);
             data << plr->GetGUID().asPacked();
-            plr->GetSession()->SendPacket( &data );
+            plr->PushPacket( &data );
 
             // Teach the spell
             plr->addSpell(qst->reward_spell);
@@ -1667,7 +1667,7 @@ void QuestMgr::SendQuestFailed(FAILED_REASON failed, Quest * qst, Player* plyr)
     WorldPacket data(SMSG_QUESTGIVER_QUEST_FAILED, 8);
     data << uint32(qst->id);
     data << uint32(failed);
-    plyr->GetSession()->SendPacket(&data);
+    plyr->PushPacket(&data);
     sLog.outDebug("WORLD:Sent SMSG_QUESTGIVER_QUEST_FAILED");
 }
 
@@ -1762,27 +1762,27 @@ bool QuestMgr::OnActivateQuestGiver(Object* qst_giver, Player* plr)
         if (status == QMGR_QUEST_FINISHED || ((*itr)->qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE))
         {
             sQuestMgr.BuildOfferReward(&data, (*itr)->qst, qst_giver, 1, plr);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             //ss
             sLog.Debug( "WORLD"," Sent SMSG_QUESTGIVER_OFFER_REWARD." );
         }
         else if (status == QMGR_QUEST_CHAT || status == QMGR_QUEST_AVAILABLE)
         {
             sQuestMgr.BuildQuestDetails(&data, (*itr)->qst, qst_giver, 1, plr);     // 1 because we have 1 quest, and we want goodbye to function
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             sLog.Debug( "WORLD"," Sent SMSG_QUESTGIVER_QUEST_DETAILS." );
         }
         else if (status == QMGR_QUEST_NOT_FINISHED)
         {
             sQuestMgr.BuildRequestItems(&data, (*itr)->qst, qst_giver, status);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             sLog.Debug( "WORLD"," Sent SMSG_QUESTGIVER_REQUEST_ITEMS." );
         }
     }
     else
     {
         sQuestMgr.BuildQuestList(&data, qst_giver ,plr);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         sLog.Debug( "WORLD"," Sent SMSG_QUESTGIVER_QUEST_LIST." );
     }
     return true;

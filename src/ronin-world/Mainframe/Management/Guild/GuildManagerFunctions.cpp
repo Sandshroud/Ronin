@@ -221,7 +221,7 @@ void GuildMgr::Packet_HandleGuildInvite(WorldSession* m_session, std::string inv
     data.append(newGuildName.c_str(), newGuildName.length());
     data.WriteSeqByteString(2, newGuild, 5, 3);
     data.WriteSeqByteString(1, oldGuild, 4);
-    thatplr->GetSession()->SendPacket(&data);
+    thatplr->PushPacket(&data);
 
     thatplr->SetGuildInvitersGuid( thisplr->GetLowGUID() );
 }

@@ -463,7 +463,7 @@ void WorldManager::BuildSavedInstancesForPlayer(Player* plr)
 
     WorldPacket data(SMSG_UPDATE_INSTANCE_OWNERSHIP, 4);
     data << uint32(mapIds.size() ? 0x01 : 0x00);
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 
     for(std::set<uint32>::iterator itr = mapIds.begin(); itr != mapIds.end(); itr++)
         plr->GetSession()->OutPacket(SMSG_UPDATE_LAST_INSTANCE, 4, ((uint8*)&(*itr)));
@@ -474,8 +474,8 @@ void WorldManager::BuildSavedRaidInstancesForPlayer(Player* plr)
     uint32 counter = 0;
     WorldPacket data(SMSG_RAID_INSTANCE_INFO, 200);
     data << counter;
-    *(uint32*)&data.contents()[0] = counter;
-    plr->GetSession()->SendPacket(&data);
+    data.put<uint32>(0, counter);
+    plr->PushPacket(&data);
 }
 
 void WorldManager::PlayerLeftGroup(Group * pGroup, Player* pPlayer)

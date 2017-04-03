@@ -5,6 +5,7 @@
 #pragma once
 
 class Creature;
+class ItemPrototype;
 class SpellEffectClass;
 class SpellCastTargets;
 
@@ -35,6 +36,9 @@ public:
     void LoadSpellFixes();
     void PoolSpellData();
 
+    bool CanTriggerInstantKillEffect(Unit *caster, Unit *target, SpellEntry *sp);
+    ItemPrototype *GetCreateItemForSpell(Player *target, SpellEntry *info, uint32 effIndex, int32 amount, uint32 &count);
+
     bool HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result);
     // Modifiers for effect amounts and dummy effect handlers
     bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
@@ -42,6 +46,14 @@ public:
 
     bool CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr);
     bool GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
+
+    // Skill line processing functions
+    std::vector<uint32> *GetSkillLineEntries(uint32 skillLine)
+    {
+        if(m_skillLineEntriesBySkillLine.find(skillLine) != m_skillLineEntriesBySkillLine.end())
+            return &m_skillLineEntriesBySkillLine.at(skillLine);
+        return NULL;
+    }
 
 private:    // Spell fixes, start with class then continue to zones, items, quests
     void _RegisterWarriorFixes();
@@ -98,6 +110,8 @@ private:
     std::map<std::string, SkillLineEntry*> m_skillLinesByName;
     // Language spells
     std::set<std::pair<char*, uint16>> m_languageSkillIds;
+    // Skill line processors
+    std::map<uint32, std::vector<uint32>> m_skillLineEntriesBySkillLine;
 };
 
 #define sSpellMgr SpellManager::getSingleton()

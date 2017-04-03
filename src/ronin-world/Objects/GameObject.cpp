@@ -505,11 +505,10 @@ void GameObject::EndFishing(Player* player, bool abort )
 
 void GameObject::FishHooked(Player* player)
 {
-    WorldPacket  data(12);
-    data.Initialize(SMSG_GAMEOBJECT_CUSTOM_ANIM);
+    WorldPacket data(SMSG_GAMEOBJECT_CUSTOM_ANIM, 12);
     data << GetGUID();
     data << (uint32)0; // value < 4
-    player->GetSession()->SendPacket(&data);
+    player->PushPacket(&data);
     SetFlags(32);
  }
 
@@ -1004,7 +1003,7 @@ void GameObject::Use(Player *p)
             {
                 WorldPacket data(SMSG_TRIGGER_CINEMATIC, 4);
                 data << uint32(cinematic);
-                p->GetSession()->SendPacket(&data);
+                p->PushPacket(&data);
             }
             else
                 sLog.outError("Gameobject Type Camera doesn't have a cinematic to play id, entry %u", goinfo->ID);
@@ -1048,7 +1047,7 @@ void GameObject::Use(Player *p)
             p->Dismount();
 
             WorldPacket data(SMSG_ENABLE_BARBER_SHOP, 0);
-            p->GetSession()->SendPacket(&data);
+            p->PushPacket(&data);
         }break;
     }
 }

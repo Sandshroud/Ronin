@@ -150,11 +150,11 @@ bool ChatHandler::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession
     // Notify player about removing ticket
     WorldPacket data(SMSG_GMTICKET_DELETETICKET, 4);
     data << uint32(9);
-    plr->GetSession()->SendPacket( &data );
+    plr->PushPacket( &data );
     // Response - Send GM Survey
     WorldPacket datab(SMSG_GM_TICKET_STATUS_UPDATE, 1);
     datab << uint32(3);
-    plr->GetSession()->SendPacket( &datab );
+    plr->PushPacket( &datab );
 
     return true;
 }
@@ -299,11 +299,11 @@ bool ChatHandler::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession
     // Notify player about removing ticket
     WorldPacket data( SMSG_GMTICKET_DELETETICKET, 4 );
     data << uint32(9);
-    plr->GetSession()->SendPacket( &data );
+    plr->PushPacket( &data );
     // Response - Send GM Survey
     WorldPacket datab( SMSG_GM_TICKET_STATUS_UPDATE, 1 );
     datab << uint32(3);
-    plr->GetSession()->SendPacket( &datab );
+    plr->PushPacket( &datab );
     return true;
 }
 
@@ -388,7 +388,7 @@ bool ChatHandler::HandleGMTicketAssignToCommand(const char* args, WorldSession *
     //data << float(0.0);//updateTime - days | How recent is the data for oldest ticket time, measured in days.  If this number 1 hour, we have bad data.
     //data << unit64(2);//assignedToGM |0 - ticket is not currently assigned to a gm | 1 - ticket is assigned to a normal gm |  2 - ticket is in the escalation queue
     //data << uint64(1);//openedByGM | 0 - ticket has never been opened by a gm | 1 - ticket has been opened by a gm
-    //mplr->GetSession()->SendPacket( &data );
+    //mplr->PushPacket( &data );
     SystemMessageToPlr(mplr, "SYSTEM: Your ticket has been escalated. A Senior Game Master will be with you shortly!");
     return true;
 }
@@ -534,12 +534,12 @@ bool ChatHandler::HandleGMTicketDeletePermanentCommand(const char* args, WorldSe
         // Notify player about removing ticket
         WorldPacket data(SMSG_GMTICKET_DELETETICKET, 4);
         data << uint32(9);
-        plr->GetSession()->SendPacket( &data );
+        plr->PushPacket( &data );
 
         // Response - Send GM Survey
         WorldPacket datab(SMSG_GM_TICKET_STATUS_UPDATE, 1);
         datab << uint32(3);
-        plr->GetSession()->SendPacket( &datab );
+        plr->PushPacket( &datab );
     }
 
     return true;

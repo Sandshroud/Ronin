@@ -374,8 +374,6 @@ protected:
     TrainerDataMap mTrainerData;
     TrainerSpellStorage mTrainerSpellStorage;
 
-    SLMap               mSpellSkills;
-
     std::map<std::string, uint32> m_creatureFamilyNameToID;
 
     //Corpse Collector

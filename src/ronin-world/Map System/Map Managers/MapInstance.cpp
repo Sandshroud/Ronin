@@ -248,7 +248,7 @@ void MapInstance::PushObject(WorldObject* obj)
                 obj->GetPositionV()->ChangeCoords(plObj->GetBindPositionX(),plObj->GetBindPositionY(),plObj->GetBindPositionZ(),0);
                 plObj->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
                 WorldPacket * data = plObj->BuildTeleportAckMsg(plObj->GetPosition());
-                plObj->GetSession()->SendPacket(data);
+                plObj->PushPacket(data);
                 delete data;
             }
         }
@@ -635,7 +635,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                     obj->GetPositionV()->ChangeCoords(plObj->GetBindPositionX(),plObj->GetBindPositionY(),plObj->GetBindPositionZ(),0);
                     plObj->GetSession()->SystemMessage("Teleported you to your hearthstone location as you were out of the map boundaries.");
                     WorldPacket * data = plObj->BuildTeleportAckMsg(plObj->GetPosition());
-                    plObj->GetSession()->SendPacket(data);
+                    plObj->PushPacket(data);
                     delete data;
                 }
             }
@@ -1279,8 +1279,8 @@ void MapInstance::BeginInstanceExpireCountdown()
         ptr = __player_iterator->second;;
         ++__player_iterator;
 
-        if(!ptr->raidgrouponlysent && ptr->GetSession())
-            ptr->GetSession()->SendPacket(&data);
+        if(!ptr->raidgrouponlysent)
+            ptr->PushPacket(&data);
     }
 
     // set our expire time to 60 seconds.
@@ -1905,7 +1905,7 @@ GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
     return go;
 }
 
-DynamicObject* MapInstance::CreateDynamicObject()
+DynamicObject* MapInstance::AllocateDynamicObject(WoWGuid source)
 {
     DynamicObject* dyn = new DynamicObject(HIGHGUID_TYPE_DYNAMICOBJECT, (++m_DynamicObjectHighGuid));
     dyn->Init();
@@ -1932,7 +1932,7 @@ void MapInstance::SendPacketToPlayers(int32 iZoneMask, int32 iFactionMask, World
             if( iFactionMask != FACTION_MASK_ALL && ptr->GetTeam() != (uint32)iFactionMask )
                 continue;
 
-            ptr->GetSession()->SendPacket(pData);
+            ptr->PushPacket(pData);
         }
     }
 }
@@ -2021,7 +2021,7 @@ void MapInstance::SendPvPCaptureMessage(int32 iZoneMask, uint32 ZoneId, const ch
             if( ( iZoneMask != ZONE_MASK_ALL && ptr->GetZoneId() != (uint32)iZoneMask) )
                 continue;
 
-            ptr->GetSession()->SendPacket(&data);
+            ptr->PushPacket(&data);
         }
     }
 }

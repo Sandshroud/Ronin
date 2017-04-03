@@ -122,6 +122,13 @@ void SpellInterface::LaunchSpell(SpellEntry *info, Unit *target)
         spell->prepare(&targets, false);
 }
 
+void SpellInterface::TriggerSpell(SpellEntry *info, float posX, float posY, float posZ)
+{
+    SpellCastTargets targets(m_Unit, posX, posY, posZ);
+    if(Spell *spell = new Spell(m_Unit, info))
+        spell->prepare(&targets, true);
+}
+
 void SpellInterface::TriggerSpell(SpellEntry *info, Unit *target)
 {
     SpellCastTargets targets(target->GetGUID());
@@ -262,7 +269,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
     if(unitTarget != NULL)
     {
         // GM flagged players should be immune to other players' casts, but not their own.
-        if(unitTarget->IsPlayer() && m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->hasGMTag())
+        if(unitTarget->IsPlayer() && m_Unit->IsPlayer() && unitTarget != m_Unit && castPtr<Player>(m_Unit)->hasGMTag())
         {
             errorOut =SPELL_FAILED_BM_OR_INVISGOD;
             return false;

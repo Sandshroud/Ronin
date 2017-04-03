@@ -708,10 +708,9 @@ void Creature::EnslaveExpire()
     {
         caster->SetUInt64Value(UNIT_FIELD_CHARM, 0);
         caster->SetUInt64Value(UNIT_FIELD_SUMMON, 0);
-        WorldPacket data(8);
-        data.Initialize(SMSG_PET_SPELLS);
+        WorldPacket data(SMSG_PET_SPELLS, 8);
         data << uint64(0);
-        caster->GetSession()->SendPacket(&data);
+        caster->PushPacket(&data);
     }
 
     SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);

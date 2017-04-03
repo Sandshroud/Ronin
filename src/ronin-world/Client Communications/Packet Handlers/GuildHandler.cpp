@@ -507,7 +507,7 @@ void SendShowSignatures(Charter * c, uint64 i, Player * p)
         data << uint64(c->Signatures[j]) << uint32(1);
     }
     data << uint8(0);
-    p->GetSession()->SendPacket(&data);
+    p->PushPacket(&data);
 }
 
 void WorldSession::HandleCharterShowSignatures(WorldPacket & recv_data)
@@ -641,7 +641,7 @@ void WorldSession::HandleCharterSign( WorldPacket & recv_data )
 
     WorldPacket data(SMSG_PETITION_SIGN_RESULTS, 100);
     data << item_guid << _player->GetGUID() << uint32(0);
-    l->GetSession()->SendPacket(&data);
+    l->PushPacket(&data);
     data.clear();
     data << item_guid << (uint64)c->GetLeader() << uint32(0);
     SendPacket(&data);

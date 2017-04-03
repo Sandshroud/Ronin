@@ -142,7 +142,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
                 continue;
 
             (*itr)->ModUnsigned32Value(PLAYER_FIELD_COINAGE, share);
-            (*itr)->GetSession()->SendPacket(&pkt);
+            (*itr)->PushPacket(&pkt);
         }
     }
 }
@@ -1088,7 +1088,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recv_data)
     data << slotid;
     for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
         if(Player *plr = _player->GetMapInstance()->GetPlayer(*itr))
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
 }
 
 void WorldSession::HandleLootRollOpcode(WorldPacket& recv_data)
@@ -1195,7 +1195,7 @@ void WorldSession::HandleDungeonDifficultyOpcode(WorldPacket& recv_data)
                 if((*itr)->m_loggedInPlayer)
                 {
                     (*itr)->m_loggedInPlayer->iInstanceType = data;
-                    (*itr)->m_loggedInPlayer->GetSession()->SendPacket(&pData);
+                    (*itr)->m_loggedInPlayer->PushPacket(&pData);
                 }
             }
         }
@@ -1231,7 +1231,7 @@ void WorldSession::HandleRaidDifficultyOpcode(WorldPacket& recv_data)
                 if((*itr)->m_loggedInPlayer)
                 {
                     (*itr)->m_loggedInPlayer->iRaidType = data;
-                    (*itr)->m_loggedInPlayer->GetSession()->SendPacket(&pData);
+                    (*itr)->m_loggedInPlayer->PushPacket(&pData);
                 }
             }
         }

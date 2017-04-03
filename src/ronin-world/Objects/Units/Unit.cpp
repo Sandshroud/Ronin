@@ -1319,6 +1319,12 @@ void Unit::resetAttackDelay(uint8 typeMask)
     }
 }
 
+void Unit::QueueExtraAttacks(uint32 spellId, uint32 amount)
+{
+    for(uint32 i = 0; i < amount; i++)
+        m_extraAttacks.push_back(spellId);
+}
+
 float Unit::ModDetectedRange(Unit *detector, float base)
 {
     // "The maximum Aggro Radius has a cap of 25 levels under. Example: A level 35 char has the same Aggro Radius of a level 5 char on a level 60 mob."
@@ -2199,6 +2205,20 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_START_ATTACK);
 
 //--------------------------extra strikes processing----------------------------------------
+    if(!m_extraAttacks.empty())
+    {
+        std::vector<uint32> attacks(m_extraAttacks.begin(), m_extraAttacks.end());
+        m_extraAttacks.clear();
+
+        while(!attacks.empty())
+        {
+            if(SpellEntry *sp = dbcSpell.LookupEntry(*attacks.begin()))
+            {
+                Strike(pVictim, weapon_damage_type, NULL, 0, true, false);
+            }
+            attacks.erase(attacks.begin());
+        }
+    }
 }
 
 bool Unit::UpdateAutoAttackState()
@@ -2446,7 +2466,7 @@ void Unit::SendChatMessageToPlayer(uint8 type, uint32 lang, const char *msg, Pla
 
     WorldPacket data;
     sChatHandler.FillMessageData(&data, false, type, lang, GetGUID(), 0, name, msg, "", 0);
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void Unit::SendChatMessageAlternateEntry(uint32 entry, uint8 type, uint32 lang, const char * msg)

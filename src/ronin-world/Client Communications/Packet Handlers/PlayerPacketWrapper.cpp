@@ -25,7 +25,7 @@ void Player::SendWorldStateUpdate(uint32 WorldState, uint32 Value)
 {
     WorldPacket data(SMSG_UPDATE_WORLD_STATE, 15);
     data << uint32(WorldState) << uint32(Value);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::Gossip_SendPOI(float X, float Y, uint32 Icon, uint32 Flags, uint32 Data, const char* Name)
@@ -33,7 +33,7 @@ void Player::Gossip_SendPOI(float X, float Y, uint32 Icon, uint32 Flags, uint32 
     WorldPacket data(SMSG_GOSSIP_POI, 50);
     data << Flags << X << Y << Icon << Data;
     data << Name;
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::SendLevelupInfo(uint32 level, uint32 Hp, uint32 Mana, uint32 *Stats)
@@ -43,7 +43,7 @@ void Player::SendLevelupInfo(uint32 level, uint32 Hp, uint32 Mana, uint32 *Stats
     data << uint32(0) << uint32(0) << uint32(0) << uint32(0);
     for(uint8 i = 0; i < 5; i++)
         data << uint32(Stats[i]);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 void Player::SendLogXPGain(WoWGuid victimGuid, uint32 totalXP, uint32 RestedXP)
@@ -52,7 +52,7 @@ void Player::SendLogXPGain(WoWGuid victimGuid, uint32 totalXP, uint32 RestedXP)
     data << victimGuid << uint32(totalXP) << uint8(victimGuid.empty() ? 0 : 1);
     if(!victimGuid.empty()) data << uint32(RestedXP) << float(1.f);
     data << uint8(0);
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 // this one needs to be send inrange...
@@ -69,7 +69,7 @@ void Player::SendCastResult(uint32 SpellId, uint8 ErrorMessage, uint8 MultiCast,
     data << MultiCast << SpellId;
     data << ErrorMessage;
     if(Extra) data << Extra;
-    GetSession()->SendPacket(&data);
+    PushPacket(&data);
 }
 
 

@@ -435,6 +435,7 @@ public:
     bool __fastcall validateAttackTarget(WorldObject *target);
     bool __fastcall calculateAttackRange(WeaponDamageType type, float &minRange, float &maxRange, SpellEntry *sp = NULL);
     bool __fastcall canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32 spellId = 0);
+
     void resetAttackTimer(uint8 attackType);
     void resetAttackDelay(uint8 typeMask);
     void interruptAttackTimer(int16 delay)
@@ -449,6 +450,8 @@ public:
             m_attackInterrupt += delay;
         else m_attackInterrupt = 0x7FFF;
     }
+
+    void QueueExtraAttacks(uint32 spellId, uint32 amount);
 
     float ModDetectedRange(Unit *detector, float base);
 
@@ -964,6 +967,7 @@ public:
     bool m_dualWield, m_autoShot;
     uint32 m_attackUpdateTimer;
     uint16 m_attackInterrupt, m_attackTimer[2], m_attackDelay[2];
+    std::vector<uint32> m_extraAttacks;
     SpellEntry *m_autoShotSpell;
 
     /// Combat

@@ -1282,6 +1282,63 @@ AddItemResult PlayerInventory::AddItemToFreeSlot(Item* item)
     return ADD_ITEM_RESULT_ERROR;
 }
 
+bool PlayerInventory::countDownFreeSlots(ItemPrototype *proto, uint32 requiredSpace)
+{
+    uint32 count = requiredSpace;
+
+    if(proto && proto->BagFamily)
+    {
+        if(proto->BagFamily & ITEM_TYPE_CURRENCY )
+        {
+            if(--count == 0)
+                return true;
+        }
+        else
+        {
+            for(uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END;++i)
+            {
+                if(m_pItems[i] && m_pItems[i]->IsContainer())
+                {
+                    if (m_pItems[i]->GetProto()->BagFamily == proto->BagFamily)
+                    {
+                        int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot();
+                        if(slot != ITEM_NO_SLOT_AVAILABLE)
+                        {
+                            if(--count == 0)
+                                return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for(uint32 i=INVENTORY_SLOT_ITEM_START;i<INVENTORY_SLOT_ITEM_END;++i)
+        if(m_pItems[i] == NULL)
+            if(--count == 0)
+                return true;
+
+    for(uint32 i=INVENTORY_SLOT_BAG_START;i<INVENTORY_SLOT_BAG_END;++i)
+    {
+        if(m_pItems[i] != NULL )
+        {
+            if(m_pItems[i]->IsContainer() && !m_pItems[i]->GetProto()->BagFamily)
+            {
+                for (int32 j =0; j < m_pItems[i]->GetProto()->ContainerSlots;j++)
+                {
+                    Item* item2 = castPtr<Container>(m_pItems[i])->GetItem(j);
+                    if (item2 == NULL)
+                    {
+                        if(--count == 0)
+                            return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 //-------------------------------------------------------------------//
 //Description: Calculates inventory free slots, bag inventory slots not included
 //-------------------------------------------------------------------//
@@ -1290,27 +1347,24 @@ uint32 PlayerInventory::CalculateFreeSlots(ItemPrototype *proto)
     uint32 count = 0;
     uint32 i;
 
-    if(proto)
+    if(proto && proto->BagFamily)
     {
-        if(proto->BagFamily)
+        if(proto->BagFamily & ITEM_TYPE_CURRENCY )
         {
-            if(proto->BagFamily & ITEM_TYPE_CURRENCY )
+            count++;
+        }
+        else
+        {
+            for(uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END;++i)
             {
-                count++;
-            }
-            else
-            {
-                for(uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END;++i)
+                if(m_pItems[i] && m_pItems[i]->IsContainer())
                 {
-                    if(m_pItems[i] && m_pItems[i]->IsContainer())
+                    if (m_pItems[i]->GetProto()->BagFamily == proto->BagFamily)
                     {
-                        if (m_pItems[i]->GetProto()->BagFamily == proto->BagFamily)
+                        int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot();
+                        if(slot != ITEM_NO_SLOT_AVAILABLE)
                         {
-                            int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot();
-                            if(slot != ITEM_NO_SLOT_AVAILABLE)
-                            {
-                                count++;
-                            }
+                            count++;
                         }
                     }
                 }
@@ -1702,6 +1756,20 @@ int8 PlayerInventory::CanReceiveItem(ItemPrototype * item, uint32 amount, ItemEx
         if(count == item->Unique || ((count + amount) > (uint32)item->Unique))
             return INV_ERR_ITEM_MAX_COUNT;
     }
+
+    if(amount > item->MaxCount)
+    { // Check if we have enough slots
+        uint32 requiredStackSpace = ceil(((float)amount)/((float)item->MaxCount));
+        if(!countDownFreeSlots(item, requiredStackSpace))
+            return INV_ERR_BAG_FULL;
+    }
+    else
+    {
+        SlotResult result = FindFreeInventorySlot(item);
+        if(result.Result == false)
+            return INV_ERR_BAG_FULL;
+    }
+
     return 0;
 }
 
@@ -1985,7 +2053,7 @@ void PlayerInventory::BuildInventoryChangeError(Item* SrcItem, Item* DstItem, ui
         }
     }
 
-    m_pOwner->GetSession()->SendPacket( &data );
+    m_pOwner->PushPacket( &data );
 }
 
 void PlayerInventory::EmptyBuyBack()

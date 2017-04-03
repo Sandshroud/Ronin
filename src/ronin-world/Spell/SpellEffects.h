@@ -48,7 +48,7 @@ public:
     void Heal(Unit *target, uint8 effIndex, int32 amount);
     // Handles skill up
     void DetermineSkillUp(Player *target, uint32 skillid,uint32 targetlevel, uint32 multiplicator = 1);
-    void DetermineSkillUp(Player *target, uint32 skillid);
+    void DetermineSkillUp(Player *target, uint32 skillLine);
 
     static void InitializeSpellEffectClass();
     typedef void (SpellEffectClass::*pSpellEffect)(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
@@ -72,7 +72,6 @@ protected: // Effect Handlers
     void SpellEffectRestoreHealthPct(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectRestoreManaPct(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectTeleportUnits(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
-    void SpellEffectApplyAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectPowerDrain(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectHealthLeech(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectHeal(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
@@ -175,7 +174,6 @@ protected: // Effect Handlers
     void SpellEffectActivateTalentSpec(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectDisengage(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectClearFinishedQuest(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
-    void SpellEffectApplyDemonAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
     void SpellEffectRemoveAura(uint32 i, WorldObject *target, int32 amount, bool rawAmt);
 
     // Summons

@@ -123,6 +123,7 @@ public:
     void RemoveAllConjured();
     void BuyItem(ItemPrototype *item, uint32 total_amount, Creature* pVendor, ItemExtendedCostEntry *ec);
 
+    bool countDownFreeSlots(ItemPrototype *proto, uint32 requiredSpace);
     uint32 CalculateFreeSlots(ItemPrototype *proto);
     void ReduceItemDurability();
 

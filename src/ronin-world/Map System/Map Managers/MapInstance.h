@@ -633,7 +633,7 @@ public:
 ////////////////////////////////////////////
     uint32 m_DynamicObjectHighGuid;
     DynamicObjectStorageMap m_DynamicObjectStorage;
-    DynamicObject* CreateDynamicObject();
+    DynamicObject* AllocateDynamicObject(WoWGuid source);
 
     RONIN_INLINE DynamicObject* GetDynamicObject(WoWGuid guid)
     {

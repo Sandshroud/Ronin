@@ -598,7 +598,7 @@ void Object::DestroyForPlayer(Player* target, bool anim)
     WorldPacket data(SMSG_DESTROY_OBJECT, 9);
     data << GetGUID();
     data << uint8(anim ? 1 : 0);
-    target->GetSession()->SendPacket( &data );
+    target->PushPacket( &data );
 }
 
 void Object::ClearLoot()
@@ -1900,7 +1900,7 @@ void WorldObject::PlaySoundToPlayer( Player* plr, uint32 sound_entry )
 
     WorldPacket data(SMSG_PLAY_SOUND, 4);
     data << sound_entry << GetGUID();
-    plr->GetSession()->SendPacket( &data );
+    plr->PushPacket( &data );
 }
 
 void WorldObject::PlaySoundToSet(uint32 sound_entry)

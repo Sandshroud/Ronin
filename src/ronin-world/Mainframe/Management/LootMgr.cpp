@@ -671,8 +671,7 @@ void LootRoll::Finalize()
         {
             if(_player->InGroup())
                 _player->GetGroup()->SendPacketToAll(&data);
-            else
-                _player->GetSession()->SendPacket(&data);
+            else _player->PushPacket(&data);
         }
 
         /* item can now be looted by anyone :) */
@@ -687,7 +686,7 @@ void LootRoll::Finalize()
     data << _player->GetGUID() << uint8(highest) << uint8(hightype);
     if(_player->InGroup())
         _player->GetGroup()->SendPacketToAll(&data);
-    else _player->GetSession()->SendPacket(&data);
+    else _player->PushPacket(&data);
 
     if(hightype == DISENCHANT)
     {
@@ -701,7 +700,7 @@ void LootRoll::Finalize()
         data << uint8(_slotid);
         for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
             if(Player *plr = _player->GetMapInstance()->GetPlayer(*itr))
-                plr->GetSession()->SendPacket(&data);
+                plr->PushPacket(&data);
         delete this;    //end here and skip the rest
         return;
     }
@@ -716,7 +715,7 @@ void LootRoll::Finalize()
     data << uint8(_slotid);
     for(LooterSet::iterator itr = pLoot->looters.begin(); itr != pLoot->looters.end(); itr++)
         if(Player *plr = _player->GetMapInstance()->GetPlayer(*itr))
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
     delete this;
 }
 
@@ -795,7 +794,7 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
     if(pInfo->m_Group)
         pInfo->m_Group->SendPacketToAll(&data);
     else if(pInfo->m_loggedInPlayer)
-        pInfo->m_loggedInPlayer->GetSession()->SendPacket(&data);
+        pInfo->m_loggedInPlayer->PushPacket(&data);
 
     // check for early completion
     if(!--_remaining)

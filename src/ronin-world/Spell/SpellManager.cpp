@@ -46,9 +46,15 @@ void SpellManager::ParseSpellDBC()
     }
 
     for(uint32 i = 0; i < dbcSkillLineSpell.GetNumRows(); i++)
+    {
         if (SkillLineAbilityEntry *skillLineAbility = dbcSkillLineSpell.LookupRow(i))
+        {
             if(SpellEntry *sp = dbcSpell.LookupEntry(skillLineAbility->spell))
                 sp->SpellSkillLine = skillLineAbility->skilline;
+
+            m_skillLineEntriesBySkillLine[skillLineAbility->skilline].push_back(skillLineAbility->Id);
+        }
+    }
 }
 
 void SpellManager::LoadSpellFixes()
@@ -209,6 +215,8 @@ void SpellManager::PoolSpellData()
         SpellEntry* spellInfo = dbcSpell.LookupRow(i);
         if(spellInfo == NULL)
             continue;
+        if(spellInfo->HasEffect(SPELL_EFFECT_CREATE_ITEM) && spellInfo->SpellReagentsId == 0)
+            printf("");
 
         //SpellAuraOptionsEntry
         if(SpellAuraOptionsEntry* AuraOptions = dbcSpellAuraOptions.LookupEntry(spellInfo->SpellAuraOptionsId))
@@ -418,6 +426,73 @@ void SpellManager::PoolSpellData()
     dbcSpellShapeshift.Unload();
     dbcSpellTargetRestrictions.Unload();
     dbcSpellTotems.Unload();
+}
+
+bool SpellManager::CanTriggerInstantKillEffect(Unit *unitCaster, Unit *unitTarget, SpellEntry *sp)
+{
+    if(unitCaster->IsPlayer() && unitTarget->IsPlayer())
+        return false; // Don't allow players to instant kill each other
+
+    // These should be handled at cast checks
+    if(sp->NameHash == SPELL_HASH_ENCAPSULATE_VOIDWALKER)
+        if( unitTarget->GetEntry() != 16975 )
+            return false;
+    if(sp->NameHash == SPELL_HASH_KILL_LEGION_HOLD_INFERNALS)
+        if( unitTarget->GetEntry() != 21316 )
+            return false;
+    if(sp->NameHash == SPELL_HASH_DESTROY_SPIRIT)
+        if( unitTarget->GetEntry() != 23109 )
+            return false;
+    if(sp->NameHash == SPELL_HASH_KARAZHAN___CHESS___KILL_CHEST_BUNNY)
+        if( unitTarget->GetEntry() != 25213 )
+            return false;
+
+    // Don't handle these spells
+    if(sp->NameHash == SPELL_HASH_POWER_BURN)
+        return false;
+    if(sp->NameHash == SPELL_HASH_MANA_BURN)
+        return false;
+    return true;
+}
+
+ItemPrototype *SpellManager::GetCreateItemForSpell(Player *target, SpellEntry *info, uint32 effIndex, int32 amount, uint32 &count)
+{
+    ItemPrototype *proto = NULL;
+    if(info->Id == 3286) // Create Hearthstone
+        proto = sItemMgr.LookupEntry(6948);
+    else if(uint32 itemId = info->EffectItemType[effIndex])
+        proto = sItemMgr.LookupEntry(itemId);
+
+    if(proto != NULL)
+    {
+        if(proto->Class != ITEM_CLASS_CONSUMABLE || info->SpellFamilyName != SPELLFAMILY_MAGE)
+            count = amount;
+        else if(target->getLevel() >= info->spellLevelBaseLevel)
+        {
+            count = ((target->getLevel() - (info->spellLevelBaseLevel-1))*amount);
+            if((proto->MaxCount > 0) && count > proto->MaxCount)
+                count = proto->MaxCount;
+        } else count = 1;
+    }
+
+    if(info->SpellSkillLine)
+    {
+        switch(info->SpellSkillLine)
+        {
+        case SKILL_ALCHEMY:
+            //TODO: Specializations
+            break;
+        }
+
+        //TODO: Discoveries
+    }
+
+    if(count == 0)
+        count = amount;
+    if(proto && proto->Unique && count > proto->Unique)
+        count = proto->Unique;
+
+    return proto;
 }
 
 bool SpellManager::HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result)

@@ -147,7 +147,7 @@ void WeatherMgr::SendWeather(Player* plr)
     {
         WorldPacket data(SMSG_WEATHER, 9);
         BuildWeatherPacket(&data, 0, 0);
-        plr->GetSession()->SendPacket( &data );
+        plr->PushPacket( &data );
     } else itr->second->SendUpdate(plr);
 }
 

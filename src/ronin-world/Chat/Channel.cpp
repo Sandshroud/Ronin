@@ -121,14 +121,14 @@ void Channel::AttemptJoin(Player* plr, const char * password)
     if(!m_password.empty() && strcmp(m_password.c_str(), password) != 0)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_WRONGPASS);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(m_bannedMembers.find(plr->GetLowGUID()) != m_bannedMembers.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOURBANNED);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -137,7 +137,7 @@ void Channel::AttemptJoin(Player* plr, const char * password)
         if( !m_general )
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_ALREADY_ON);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
         }
 
         return;
@@ -158,7 +158,7 @@ void Channel::AttemptJoin(Player* plr, const char * password)
 
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOUJOINED);
     data << m_flags << m_typeId << uint32(0);
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 
     UserListJoinNotify(plr);
 }
@@ -175,7 +175,7 @@ void Channel::Part(Player* plr, bool silent, bool keepData)
     if(itr == m_members.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         m_lock.Release();
         return;
     }
@@ -197,7 +197,7 @@ void Channel::Part(Player* plr, bool silent, bool keepData)
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOULEFT);
             data << m_typeId << uint8(keepData ? 0x1 : 0x0);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
         }
     }
 
@@ -225,14 +225,14 @@ void Channel::SetOwner(Player* oldpl, Player* plr)
         if(m_members.end() == itr)
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             return;
         }
 
         if(!(itr->second & CHANNEL_FLAG_OWNER))
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_OWNER);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             return;
         }
     }
@@ -317,11 +317,11 @@ void Channel::Invite(Player* plr, Player* new_player)
     WorldPacket data(100);
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_INVITED);
     data << plr->GetGUID();
-    new_player->GetSession()->SendPacket(&data);
+    new_player->PushPacket(&data);
 
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOU_INVITED);
     data << new_player->GetGUID();
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void Channel::Moderate(Player* plr)
@@ -332,14 +332,14 @@ void Channel::Moderate(Player* plr)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR) && !plr->GetSession()->CanUseCommand('c'))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -359,21 +359,21 @@ void Channel::Say(Player* plr, const char * message, Player* for_gm_client, bool
         if(m_members.end() == itr)
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             return;
         }
 
         if(itr->second & CHANNEL_FLAG_MUTED)
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOUCANTSPEAK);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             return;
         }
 
         if(m_muted && !(itr->second & CHANNEL_FLAG_VOICED) && !(itr->second & CHANNEL_FLAG_MODERATOR) && !(itr->second & CHANNEL_FLAG_OWNER))
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOUCANTSPEAK);
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             return;
         }
     }
@@ -389,7 +389,7 @@ void Channel::Say(Player* plr, const char * message, Player* for_gm_client, bool
     data << message;
     data << (uint8)(plr->GetChatTag());
     if(for_gm_client != NULL)
-        for_gm_client->GetSession()->SendPacket(&data);
+        for_gm_client->PushPacket(&data);
     else SendToAll(&data);
 }
 
@@ -397,7 +397,7 @@ void Channel::SendNotOn(Player* plr)
 {
     WorldPacket data(100);
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void Channel::SendAlreadyOn(Player* plr, Player* plr2)
@@ -405,7 +405,7 @@ void Channel::SendAlreadyOn(Player* plr, Player* plr2)
     WorldPacket data(100);
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_ALREADY_ON);
     data << plr2->GetGUID();
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void Channel::Kick(Player* plr, Player* die_player, bool ban)
@@ -419,7 +419,7 @@ void Channel::Kick(Player* plr, Player* die_player, bool ban)
     if(me_itr == m_members.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -427,14 +427,14 @@ void Channel::Kick(Player* plr, Player* die_player, bool ban)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << die_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(me_itr->second & CHANNEL_FLAG_OWNER || me_itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -460,7 +460,7 @@ void Channel::Kick(Player* plr, Player* die_player, bool ban)
 
     MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_YOULEFT);
     data << m_typeId << uint32(0) << uint8(0);
-    die_player->GetSession()->SendPacket(&data);
+    die_player->PushPacket(&data);
 }
 
 void Channel::Unban(Player* plr, PlayerInfo * bplr)
@@ -471,14 +471,14 @@ void Channel::Unban(Player* plr, PlayerInfo * bplr)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -487,7 +487,7 @@ void Channel::Unban(Player* plr, PlayerInfo * bplr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << bplr->charGuid;
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -506,7 +506,7 @@ void Channel::Voice(Player* plr, Player* v_player)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -514,14 +514,14 @@ void Channel::Voice(Player* plr, Player* v_player)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << v_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -541,7 +541,7 @@ void Channel::Devoice(Player* plr, Player* v_player)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -549,14 +549,14 @@ void Channel::Devoice(Player* plr, Player* v_player)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << v_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -576,7 +576,7 @@ void Channel::Mute(Player* plr, Player* die_player)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -584,14 +584,14 @@ void Channel::Mute(Player* plr, Player* die_player)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << die_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -611,7 +611,7 @@ void Channel::Unmute(Player* plr, Player* die_player)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -619,14 +619,14 @@ void Channel::Unmute(Player* plr, Player* die_player)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << die_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -646,7 +646,7 @@ void Channel::GiveModerator(Player* plr, Player* new_player)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -654,14 +654,14 @@ void Channel::GiveModerator(Player* plr, Player* new_player)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << new_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -681,7 +681,7 @@ void Channel::TakeModerator(Player* plr, Player* new_player)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -689,14 +689,14 @@ void Channel::TakeModerator(Player* plr, Player* new_player)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOT_ON_2);
         data << new_player->GetGUID();
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -715,14 +715,14 @@ void Channel::Announce(Player* plr)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -740,14 +740,14 @@ void Channel::Password(Player* plr, const char * pass)
     if(m_members.end() == itr)
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
     if(!(itr->second & CHANNEL_FLAG_OWNER || itr->second & CHANNEL_FLAG_MODERATOR))
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTMOD);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -765,7 +765,7 @@ void Channel::List(Player* plr)
     if(itr == m_members.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -789,7 +789,7 @@ void Channel::List(Player* plr)
         data << flags;
     }
 
-    plr->GetSession()->SendPacket(&data);
+    plr->PushPacket(&data);
 }
 
 void Channel::GetOwner(Player* plr)
@@ -800,7 +800,7 @@ void Channel::GetOwner(Player* plr)
     if(itr == m_members.end())
     {
         MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_NOTON);
-        plr->GetSession()->SendPacket(&data);
+        plr->PushPacket(&data);
         return;
     }
 
@@ -810,7 +810,7 @@ void Channel::GetOwner(Player* plr)
         {
             MakeNotifyPacket(&data, CHANNEL_NOTIFY_FLAG_WHO_OWNER);
             data << itr->first->GetGUID();
-            plr->GetSession()->SendPacket(&data);
+            plr->PushPacket(&data);
             return;
         }
     }
@@ -824,8 +824,7 @@ void Channel::SendToAll(WorldPacket * data, Player* plr)
         if(plr != NULL && itr->first == plr)
             continue;
 
-        if ( itr->first->GetSession() )
-            itr->first->GetSession()->SendPacket(data);
+        itr->first->PushPacket(data);
     }
 }
 

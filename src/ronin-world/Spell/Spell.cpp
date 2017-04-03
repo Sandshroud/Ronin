@@ -369,7 +369,7 @@ void Spell::cast(bool check)
 
     m_isCasting = true;
 
-    if(m_triggeredSpell == false)
+    if(m_triggeredSpell == false && !HasSpellEffect(SPELL_EFFECT_CREATE_ITEM))
         AddCooldown();
 
     SendSpellGo();
@@ -957,6 +957,19 @@ AuraApplicationResult Spell::CheckAuraApplication(Unit *target)
     return AURA_APPL_SUCCESS;
 }
 
+bool isAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
+{
+    if(sp->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_FRIEND, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_ENEMY, effectMask))
+        return true;
+    return false;
+}
+
 void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
 {
     // Check if we're in the current list already, and if so, don't readd us.
@@ -993,8 +1006,8 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
     tgt->effectAmount[effIndex] = CalculateEffect(effIndex, target);
     // Call to spell manager to modify the spell amount
     tgt->moddedAmount[effIndex] = sSpellMgr.ModifyEffectAmount(this, effIndex, _unitCaster, target, tgt->effectAmount[effIndex]);
-    // Build any modifier data here
-    if(m_spellInfo->isSpellAuraApplicator() && target->IsUnit())
+    // Build any modifier data here, area auras are handled differently so make sure we don't handle these unless the effect is a different handler
+    if(m_spellInfo->isSpellAuraApplicator() && target->IsUnit() && !isAreaAuraApplicator(m_spellInfo, effectMask))
     {
         Unit *unitTarget = castPtr<Unit>(target);
         if(tgt->resistMod)
@@ -1008,7 +1021,7 @@ void Spell::_AddTarget(WorldObject* target, const uint32 effIndex)
             {
                 if((tgt->AuraAddResult = CheckAuraApplication(unitTarget)) == AURA_APPL_SUCCESS)
                 {
-                    uint16 auraFlags = m_spellInfo->isPassiveSpell() ? 0 : (AFLAG_EFF_AMOUNT_SEND | (m_spellInfo->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
+                    uint16 auraFlags = m_spellInfo->isPassiveSpell() ? 0x0000 : (AFLAG_EFF_AMOUNT_SEND | (m_spellInfo->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
                     int16 stackSize = 1;
                     if(m_spellInfo->procCharges && m_spellInfo->SpellGroupType)
                     {

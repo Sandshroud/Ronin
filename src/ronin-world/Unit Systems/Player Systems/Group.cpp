@@ -382,8 +382,8 @@ void SubGroup::Disband()
                 Player* plr = (*itr)->m_loggedInPlayer;
                 if( plr->GetSession() != NULL )
                 {
-                    plr->GetSession()->SendPacket(&data);
-                    plr->GetSession()->SendPacket(&data2);
+                    plr->PushPacket(&data);
+                    plr->PushPacket(&data2);
                     //are we in an instance?
                     if( plr->GetGroup() && plr->GetInstanceID())
                     {
@@ -484,11 +484,11 @@ void Group::RemovePlayer(PlayerInfo * info)
             SendNullUpdate( pPlayer );
 
             data.SetOpcode( SMSG_GROUP_DESTROYED );
-            pPlayer->GetSession()->SendPacket( &data );
+            pPlayer->PushPacket( &data );
 
             data.Initialize( SMSG_PARTY_COMMAND_RESULT );
             data << uint32(2) << uint8(0) << uint32(0);  // you leave the group
-            pPlayer->GetSession()->SendPacket( &data );
+            pPlayer->PushPacket( &data );
         }
 
         //Remove some party auras.
@@ -561,8 +561,8 @@ void Group::SendPacketToAllButOne(WorldPacket *packet, Player* pSkipTarget)
     {
         for(itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd(); itr++)
         {
-            if((*itr)->m_loggedInPlayer != NULL && (*itr)->m_loggedInPlayer->GetSession() && (*itr)->m_loggedInPlayer != pSkipTarget)
-                (*itr)->m_loggedInPlayer->GetSession()->SendPacket(packet);
+            if((*itr)->m_loggedInPlayer != NULL && (*itr)->m_loggedInPlayer != pSkipTarget)
+                (*itr)->m_loggedInPlayer->PushPacket(packet);
         }
     }
 
@@ -984,7 +984,7 @@ void Group::UpdateAllOutOfRangePlayersFor(Player* pPlayer)
             if(!plr->IsVisible(pPlayer))
             {
                 UpdateOutOfRangePlayer(plr, GROUP_UPDATE_TYPE_FULL_CREATE, false, &data);
-                pPlayer->GetSession()->SendPacket(&data);
+                pPlayer->PushPacket(&data);
             }
         }
     }

@@ -357,7 +357,7 @@ void QuestLogEntry::SendQuestComplete()
 {
     WorldPacket data(SMSG_QUESTUPDATE_COMPLETE, 4);
     data << m_quest->id;
-    m_Player->GetSession()->SendPacket(&data);
+    m_Player->PushPacket(&data);
     TRIGGER_QUEST_EVENT(m_quest->id, OnQuestComplete)(m_Player, this);
 }
 

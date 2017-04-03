@@ -44,7 +44,7 @@ void WorldSession::HandleDuelAccepted(WorldPacket & recv_data)
     data << uint32( 3000 );
 
     SendPacket( &data );
-    _player->DuelingWith->m_session->SendPacket( &data );
+    _player->DuelingWith->PushPacket( &data );
 
     _player->m_duelCountdownTimer = 3000;
 }
@@ -64,7 +64,7 @@ void WorldSession::HandleDuelCancelled(WorldPacket & recv_data)
     data << uint8( 1 );
 
     SendPacket( &data );
-    _player->DuelingWith->m_session->SendPacket( &data );
+    _player->DuelingWith->PushPacket( &data );
 
     if( GameObject* arbiter = _player->GetMapInstance() ? _player->GetMapInstance()->GetGameObject( _player->GetUInt64Value( PLAYER_DUEL_ARBITER ) ) : NULL )
     {
