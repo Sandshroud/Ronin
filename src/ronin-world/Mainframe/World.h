@@ -606,8 +606,10 @@ public:
     void LogChat(WorldSession* session, std::string message, ...);
 
     time_t GetLastDailyResetTime() { return m_lastDailyReset; }
+    float GetAverageCPUUsage();
 
 protected:
+    void UpdateServerPerformance(uint32 uiDiff);
     void UpdateServerTimers(uint32 diff);
 
     //! Timers
@@ -624,6 +626,11 @@ private:
     Mutex m_worldPushLock;
     std::map<WorldSession*, std::pair<WoWGuid, uint32> > m_worldPushQueue;
 
+    double GetCPUUsage();
+#ifdef WIN32
+    uint32 m_cpuUsageTimer;
+    std::vector<double> m_cpuPercentages;
+#endif
 protected:
     float regen_values[MAX_RATES];
 
@@ -678,13 +685,11 @@ public:
     bool QueryLog;
 
 public:
-    float GetCPUUsage(bool external = false);
     float GetRAMUsage(bool external = false);
 
 #ifdef WIN32
 
 private:
-    bool m_bFirstTime;
     __int64 m_lnOldValue;
     LARGE_INTEGER m_OldPerfTime100nSec;
     uint32 number_of_cpus;

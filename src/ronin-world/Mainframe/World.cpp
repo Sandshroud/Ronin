@@ -50,7 +50,7 @@ World::World() : m_eventHandler(NULL)
     m_pushUpdateTimer = 0;
 
 #ifdef WIN32
-    m_bFirstTime = true;
+    m_cpuUsageTimer = 0;
     m_lnOldValue = 0;
     memset( &m_OldPerfTime100nSec, 0, sizeof( m_OldPerfTime100nSec ) );
     SYSTEM_INFO si;
@@ -639,6 +639,9 @@ bool World::SetInitialWorldSettings()
 
 void World::Update(uint32 diff)
 {
+    // Push a new CPU usage percentage
+    UpdateServerPerformance(diff);
+
     // Through main thread, we calculate our timers for weekday and event timers etc
     UpdateServerTimers(diff);
 
@@ -661,6 +664,34 @@ void World::Update(uint32 diff)
     UpdateSessions(diff);
 
     UpdateShutdownStatus();
+}
+
+float World::GetAverageCPUUsage()
+{
+    float val = 0.f;
+#ifdef WIN32
+    for(auto itr = m_cpuPercentages.begin(); itr != m_cpuPercentages.end(); itr++)
+        val += (*itr);
+    val /= m_cpuPercentages.size();
+#endif
+    return val;
+}
+
+void World::UpdateServerPerformance(uint32 uiDiff)
+{
+#ifdef WIN32
+    if((m_cpuUsageTimer += uiDiff) < 1000)
+        return;
+
+    m_cpuUsageTimer = 0;
+    double currentUsage = GetCPUUsage();
+    m_cpuPercentages.push_back(currentUsage);
+    if(m_cpuPercentages.size() <= 10)
+        return;
+
+    // Pop front if we have more than 10
+    m_cpuPercentages.erase(m_cpuPercentages.begin());
+#endif
 }
 
 void World::UpdateServerTimers(uint32 diff)
@@ -1065,7 +1096,7 @@ void World::SaveAllPlayers()
     sLog.outString("Saved %u players.", count);
 }
 
-float World::GetCPUUsage(bool external)
+double World::GetCPUUsage()
 {
 #ifdef WIN32
     CPerfCounters<LONGLONG> PerfCounters;
@@ -1078,13 +1109,6 @@ float World::GetCPUUsage(bool external)
 
     lnNewValue = PerfCounters.GetCounterValueForProcessID(&pPerfData, dwObjectIndex, dwCpuUsageIndex, GetCurrentProcessId());
     NewPerfTime100nSec = pPerfData->PerfTime100nSec;
-    if (external && m_bFirstTime)
-    {
-        m_bFirstTime = false;
-        m_lnOldValue = lnNewValue;
-        m_OldPerfTime100nSec = NewPerfTime100nSec;
-        return 0.0f;
-    }
 
     LONGLONG lnValueDelta = lnNewValue - m_lnOldValue;
     double DeltaPerfTime100nSec = (double)NewPerfTime100nSec.QuadPart - (double)m_OldPerfTime100nSec.QuadPart;
@@ -1094,7 +1118,7 @@ float World::GetCPUUsage(bool external)
 
     double a = (double)lnValueDelta / DeltaPerfTime100nSec;
     a /= double(number_of_cpus);
-    return float(a * 100.0);
+    return ceil(a * 10000.0)/100.0;
 #else
     return 0.0f;
 #endif

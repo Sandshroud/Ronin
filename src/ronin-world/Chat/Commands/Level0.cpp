@@ -241,7 +241,7 @@ bool ChatHandler::HandleInfoCommand(const char* args, WorldSession *m_session)
     GreenSystemMessage(m_session, "Server Revision: SS Ronin(%s::%s) r%u/%s-%s-%s", BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, PLATFORM_TEXT, ARCH);
     GreenSystemMessage(m_session, "Server Uptime: |r%s", sWorld.GetUptimeString().c_str());
     if(m_session->CanUseCommand('z'))
-        GreenSystemMessage(m_session, "Useage(Win only): RAM:(%f), CPU:(%f)", sWorld.GetRAMUsage(), sWorld.GetCPUUsage());
+        GreenSystemMessage(m_session, "Useage(Win only): RAM:(%f), CPU:(%f)", sWorld.GetRAMUsage(), sWorld.GetAverageCPUUsage());
     GreenSystemMessage(m_session, "Players: (%u Alliance/%u Horde/%u GMs)",sWorld.AlliancePlayers, sWorld.HordePlayers, gm);
     GreenSystemMessage(m_session, "Average Latency: |r%.3fms", (float)((float)avg / (float)count));
     return true;

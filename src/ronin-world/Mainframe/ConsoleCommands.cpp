@@ -45,7 +45,7 @@ bool HandleInfoCommand(BaseConsole * pConsole, int argc, const char * argv[])
     pConsole->Write("======================================================================\r\n");
     pConsole->Write("Server Revision: SS Ronin(%s::%s) r%u/%s-%s-%s\r\n", BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, PLATFORM_TEXT, ARCH);
     pConsole->Write("Server Uptime: %s\r\n", sWorld.GetUptimeString().c_str());
-    pConsole->Write("Useage(Win only): RAM:(%f), CPU:(%f)\r\n", sWorld.GetRAMUsage(), sWorld.GetCPUUsage());
+    pConsole->Write("Useage(Win only): RAM:(%f), CPU:(%f)\r\n", sWorld.GetRAMUsage(), sWorld.GetAverageCPUUsage());
     pConsole->Write("SQL Query Cache Size: (W: %u/C: %u) queries delayed\r\n", WorldDatabase.GetQueueSize(), CharacterDatabase.GetQueueSize());
     pConsole->Write("Active Thread Count: %u\r\n", ThreadPool.GetActiveThreadCount());
     pConsole->Write("Players Online: (%u Alliance/%u Horde/%u GMs)\r\n",sWorld.AlliancePlayers, sWorld.HordePlayers, gm);
