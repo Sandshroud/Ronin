@@ -1245,7 +1245,6 @@ void SpellEffectClass::SpellEffectThreat(uint32 i, WorldObject *target, int32 am
 
 void SpellEffectClass::SpellEffectTriggerSpell(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Trigger Spell
 {
-    return;
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitTarget == NULL)
         return;
@@ -2068,7 +2067,6 @@ void SpellEffectClass::SpellEffectForceCast(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectTriggerSpellWithValue(uint32 i, WorldObject *target, int32 amount, bool rawAmt)
 {
-    return;
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL )
         return;

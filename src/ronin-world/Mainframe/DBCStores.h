@@ -1008,7 +1008,10 @@ struct SpellEntry
     // Functions
     bool HasAttribute(uint8 index, uint32 attributeFlag) { if(index >= 11) return false; return (Attributes[index] & attributeFlag); }
     bool HasCustomAttribute(uint8 index, uint32 attributeFlag) { if(index >= 2) return false; return (CustomAttributes[index] & attributeFlag); }
+
     bool AppliesAura(uint32 auraName) { return (EffectApplyAuraName[0] == auraName || EffectApplyAuraName[1] == auraName || EffectApplyAuraName[2] == auraName); }
+    uint32 GetAuraApplicationMask() { return (EffectApplyAuraName[0] ? 0x01 : 0x00) | (EffectApplyAuraName[1] ? 0x02 : 0x00) | (EffectApplyAuraName[2] ? 0x04 : 0x00); }
+
     bool HasEffect(uint32 spellEffect, uint8 effectMask = 0xFF) { return ((Effect[0] == spellEffect && effectMask&0x01) || (Effect[1] == spellEffect && effectMask&0x02) || (Effect[2] == spellEffect && effectMask&0x04)); }
     bool GetEffectIndex(uint32 spellEffect, uint8 &index)
     {
@@ -1157,6 +1160,7 @@ struct SpellEntry
     bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
     bool IsSpellWeaponSpell() { return spellType <= 3; }
 
+    bool isSpellAuraApplicator(uint32 effIndex) { return EffectApplyAuraName[effIndex] != 0; }
     bool isSpellAuraApplicator() { return (EffectApplyAuraName[0] || EffectApplyAuraName[1] || EffectApplyAuraName[2]); }
     bool isSpellInterruptOnMovement() { return (InterruptFlags & 0x08) || (IsSpellChannelSpell() && (ChannelInterruptFlags & 0x08)); }
     bool isSpellAttackInterrupting() { return !IsSpellChannelSpell() || (IsSpellChannelSpell() && isAttackInterrupting()); }

@@ -759,6 +759,21 @@ void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
 
 void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
 {
+    std::set<uint32> prev;
+    std::vector<uint32> newCells;
+    if(instance && _visRange)
+    {
+        for(uint16 x = _lowX; x <= _highX; x++)
+        {
+            for(uint16 y = _lowY; y <= _highY; y++)
+            {
+                if(cutCorners && isCorner(x, y, _lowX, _highX, _lowY, _highY, VisibleCellRange))
+                    continue;
+                prev.insert(_makeCell(x, y));
+            }
+        }
+    }
+
     _visRange = cellRange;
     _currX = newX;
     _currY = newY;
@@ -766,6 +781,33 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
     _lowY = _currY >= cellRange ? _currY-cellRange : 0;
     _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
     _highY = std::min<uint16>(_currY+cellRange, _sizeY-1);
+
+    // Return here if we're a soft load(instance == NULL)
+    if(instance == NULL)
+        return;
+
+    for(uint16 x = _lowX; x <= _highX; x++)
+    {
+        for(uint16 y = _lowY; y <= _highY; y++)
+        {
+            if(cutCorners && isCorner(x, y, _lowX, _highX, _lowY, _highY, VisibleCellRange))
+                continue;
+            uint32 cellId = _makeCell(x, y);
+            if(prev.find(cellId) != prev.end())
+            {   // We already have this cell, remove from previous cell removal set
+                prev.erase(cellId); 
+                continue;
+            }
+
+            // Add new cells to processing vector
+            newCells.push_back(cellId);
+        }
+    }
+
+    // Update for our current cell here, other cell updates will occur in WorldObject::Update
+    instance->UpdateObjectCellVisibility(_object, &newCells);
+    // Push calls to remove cell data
+    instance->RemoveCellData(_object, prev, false);
 }
 
 uint32 ObjectCellManager::_getCellId(float pos)

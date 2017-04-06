@@ -1222,13 +1222,15 @@ void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint3
 
 void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
 {
+    if(!curObj->IsUnit() && !castPtr<Unit>(curObj)->isAlive())
+        return;
     if(curObj->GetDistanceSq(_x, _y, _z) > _range)
         return;
 
     (*_callback)(_spell, _effIndex, curObj);
 }
 
-void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range)
+void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range, uint32 typeMask)
 {
     _SpellTargetMappingCallback.Lock();
     _SpellTargetMappingCallback.SetData(callback, spell, i, x, y, z, range);
@@ -1237,7 +1239,7 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(NULL, &_SpellTargetMappingCallback);
+            cell->ProcessObjectSets(NULL, &_SpellTargetMappingCallback, typeMask);
     }
     _SpellTargetMappingCellVector.clear();
     _SpellTargetMappingCallback.Unlock();
@@ -1897,8 +1899,6 @@ Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
 
 Summon* MapInstance::CreateSummon(uint32 entry)
 {
-    return NULL;
-
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL)
     {

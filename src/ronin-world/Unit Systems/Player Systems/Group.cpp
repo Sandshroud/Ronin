@@ -553,6 +553,31 @@ void Group::SetLooter(Player* pPlayer, uint8 method, uint16 threshold)
     Update();
 }
 
+void Group::AddMemberTargets(SpellTargetClass *spell, uint32 effIndex, bool subGroupOnly, Player *plr, uint32 TargetType, float range, uint32 maxTargets, uint32 classMask)
+{
+    GroupMembersSet::iterator itr;
+    m_groupLock.Acquire();
+    uint32 min = subGroupOnly ? plr->GetSubGroup() : 0, max = subGroupOnly ? plr->GetSubGroup() : m_SubGroupCount;
+    for(uint8 i = min; i < max; i++)
+    {
+        for(itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd(); itr++)
+        {
+            Player *target = (*itr)->m_loggedInPlayer;
+            if(target == NULL || target == plr)
+                continue;
+            if(target->GetMapInstance() != plr->GetMapInstance())
+                continue;
+            if(classMask && (target->getClassMask() & classMask) == 0)
+                continue;
+            if(!plr->isInRange(target, range))
+                continue;
+            spell->AddTarget(effIndex, TargetType, target);
+        }
+    }
+
+    m_groupLock.Release();
+}
+
 void Group::SendPacketToAllButOne(WorldPacket *packet, Player* pSkipTarget)
 {
     GroupMembersSet::iterator itr;

@@ -122,6 +122,19 @@ bool Spell::CanEffectTargetGameObjects(SpellEntry *sp, uint32 i)
     return false;
 }
 
+bool Spell::IsAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
+{
+    if(sp->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_FRIEND, effectMask))
+        return true;
+    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_ENEMY, effectMask))
+        return true;
+    return false;
+}
+
 uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 {
     uint8 ccr = SPELL_CANCAST_OK;

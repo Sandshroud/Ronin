@@ -402,7 +402,7 @@ public:
     void UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector);
 
     // Spell targetting functions
-    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range);
+    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range, uint32 typeMask = 0);
 
 protected:
     // These are stored in MapInstance.cpp with functions

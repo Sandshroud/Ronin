@@ -416,7 +416,7 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         u_caster->AddSummonToSlot(slot, s);
         s->CreateAs(new GuardianSummon());
         s->Load(u_caster, SpawnLocation, m_spellInfo->Id, slot);
-        s->PushToWorld(u_caster->GetMapInstance());
+        u_caster->GetMapInstance()->AddObject(s);
 
         if(u_caster->IsPlayer() && (slot != 0))
         {

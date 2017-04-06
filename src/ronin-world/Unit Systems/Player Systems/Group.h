@@ -21,6 +21,12 @@
 
 #pragma once
 
+class Group;
+class Player;
+class Arena;
+class SpellTargetClass;
+struct PlayerInfo;
+
 enum PartyErrors
 {
     ERR_PARTY_NO_ERROR                  = 0,
@@ -65,15 +71,11 @@ enum GroupFlags
     GROUP_FLAG_BATTLEGROUND_GROUP                   = 4,
 };
 
-struct PlayerInfo;
 typedef struct
 {
     PlayerInfo * player_info;
     Player* player;
 }GroupMember;
-
-class Group;
-class Player;
 
 typedef std::set<PlayerInfo*> GroupMembersSet;
 
@@ -114,7 +116,6 @@ protected:
 
 };
 
-class Arena;
 class SERVER_DECL Group
 {
 public:
@@ -135,6 +136,8 @@ public:
 
     // Transferring data to clients
     void Update();
+
+    void AddMemberTargets(SpellTargetClass *spell, uint32 effIndex, bool subGroupOnly, Player *plr, uint32 TargetType, float range, uint32 maxTargets, uint32 classMask = 0);
 
     RONIN_INLINE void SendPacketToAll(WorldPacket *packet) { SendPacketToAllButOne(packet, NULL); }
     void SendPacketToAllButOne(WorldPacket *packet, Player* pSkipTarget);

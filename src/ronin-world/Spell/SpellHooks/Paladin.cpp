@@ -14,7 +14,7 @@ bool PaladinBlessingApplicator(SpellEntry *sp, uint32 effIndex, Unit *caster, Wo
         GroupMembersSet::iterator itr;
         for(uint8 i = 0; i < grp->GetSubGroupCount(); i++)
             for(itr = grp->GetSubGroup(i)->GetGroupMembersBegin(); itr != grp->GetSubGroup(i)->GetGroupMembersEnd(); itr++)
-                if((*itr)->m_loggedInPlayer && false)//caster->IsInRangeSet((*itr)->m_loggedInPlayer))
+                if((*itr)->m_loggedInPlayer && ((caster == (*itr)->m_loggedInPlayer) || (*itr)->m_loggedInPlayer->IsVisible(caster)))
                     caster->GetSpellInterface()->TriggerSpell(triggerSpell, (*itr)->m_loggedInPlayer);
         grp->Unlock();
     } else if(triggerSpell && target->IsUnit())
