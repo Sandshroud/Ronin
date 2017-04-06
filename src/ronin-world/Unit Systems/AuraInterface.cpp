@@ -59,10 +59,15 @@ void AuraInterface::Update(uint32 diff)
 
 void AppendAuraAndModifierData(std::stringstream *ss, uint32 lowGuid, uint32 auraSlot, Aura *aur, Modifier **mods)
 {
+    uint16 auraFlags = aur->GetAuraFlags() & 0xFF;
+    for(uint8 i = 0; i < 3; i++)
+        if(mods[i] != NULL)
+            auraFlags |= (1<<(i+8));
+
     *ss << "(" << lowGuid
         << ", " << auraSlot
         << ", " << aur->GetSpellId()
-        << ", " << uint32(aur->GetAuraFlags())
+        << ", " << uint32(auraFlags)
         << ", " << uint32(aur->GetAuraLevel())
         << ", " << int32(aur->getStackSizeOrProcCharges())
         << ", " << uint64(aur->GetCasterGUID())
@@ -212,7 +217,7 @@ void AuraInterface::SendAuraData()
     }
 
     if(empty == false)
-        plr->PushPacket(&data, true);
+        plr->PushPacket(&data);
 
     for(uint8 i = 0; i < 2; i++)
     {
@@ -239,9 +244,62 @@ void AuraInterface::SendAuraData()
         if(modCount)
         {
             data.put<uint32>(0, modCount);
-            plr->PushPacket(&data, true);
+            plr->PushPacket(&data);
         }
     }
+}
+
+void AuraInterface::BuildOutOfRangeAuraUpdate(WorldPacket *data)
+{
+    // We're cutting off the last auras above index 32
+    static uint32 indexOffset = MAX_POSITIVE_AURAS-32;
+
+    *data << uint16(0) << uint8(1); // Full update
+    size_t pos = data->wpos();
+    uint64 auraMask = 0;
+    *data << auraMask;
+    *data << uint32(MAX_AURAS-indexOffset);
+    for(uint8 i = 0; i < std::min<uint8>(m_maxPosAuraSlot, 32); i++)
+    {
+        Aura *aur = m_auras[i];
+        if(aur == NULL)
+            continue;
+
+        auraMask |= (((uint64)1)<<((uint64)i));
+        *data << aur->GetSpellId();
+        uint16 auraFlags = aur->GetAuraFlags();
+        *data << auraFlags;
+        if (auraFlags & AFLAG_EFF_AMOUNT_SEND)
+        {
+            for (uint8 i = 0; i < 3; ++i)
+            {
+                Modifier *mod = aur->GetMod(i);
+                *data << uint32(mod ? mod->m_amount : 0);
+            }
+        }
+    }
+
+    for(uint8 i = MAX_POSITIVE_AURAS; i < m_maxNegAuraSlot; i++)
+    {
+        Aura *aur = m_auras[i];
+        if(aur == NULL)
+            continue;
+
+        auraMask |= (((uint64)1)<<((uint64)(i-indexOffset)));
+        *data << aur->GetSpellId();
+        uint16 auraFlags = aur->GetAuraFlags();
+        *data << auraFlags;
+        if (auraFlags & AFLAG_EFF_AMOUNT_SEND)
+        {
+            for (uint8 i = 0; i < 3; ++i)
+            {
+                Modifier *mod = aur->GetMod(i);
+                *data << uint32(mod ? mod->m_amount : 0);
+            }
+        }
+    }
+
+    data->put<uint64>(pos, auraMask);
 }
 
 bool AuraInterface::BuildAuraUpdateAllPacket(WorldPacket* data)

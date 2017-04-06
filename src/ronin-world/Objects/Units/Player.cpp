@@ -390,6 +390,8 @@ bool Player::Initialize()
 
     // Add event handler for saving to database
     m_eventHandler.AddStaticEvent(this, &Player::SaveToDB, false, 120000);
+    // Update group's out of range players every 10 seconds
+    m_eventHandler.AddStaticEvent(this, &Player::EventGroupFullUpdate, 10000);
 
     // Construct storage pointers
     if(m_session->HasGMPermissions())
@@ -1453,12 +1455,12 @@ void Player::_LoadPlayerAuras(QueryResult *result)
                 continue;
         }
 
-        Aura *aur = new Aura(this, sp, auraFlags, auraLevel, auraStackCharge, expiration, casterGuid);
+        Aura *aur = new Aura(this, sp, (auraFlags & 0xFF), auraLevel, auraStackCharge, expiration, casterGuid);
         for(uint8 x = 0; x < 3; x++)
         {
-            if(sp->Effect[x] != SPELL_EFFECT_APPLY_AURA)
-                continue;
-            aur->AddMod(x, sp->EffectApplyAuraName[x], fields[8+x].GetInt32(), fields[11+x].GetUInt32(), fields[14+x].GetInt32(), fields[17+x].GetFloat());
+            // We either have the aura mod index saved, or we have no index saved and we can go on auraname application
+            if((auraFlags & (1<<(x+8))) || ((auraFlags & 0xFF00) == 0 && sp->EffectApplyAuraName[x] != 0))
+                aur->AddMod(x, sp->EffectApplyAuraName[x], fields[8+x].GetInt32(), fields[11+x].GetUInt32(), fields[14+x].GetInt32(), fields[17+x].GetFloat());
         }
         m_loadAuras.push_back(std::make_pair(auraSlot, aur));
     }while(result->NextRow());
@@ -6413,8 +6415,9 @@ void Player::EventGroupFullUpdate()
 {
     if(m_playerInfo->m_Group)
     {
-        //m_playerInfo->m_Group->Update();
-        m_playerInfo->m_Group->UpdateAllOutOfRangePlayersFor(castPtr<Player>(this));
+        if(m_playerInfo->m_Group->GetLeader() == m_playerInfo)
+            m_playerInfo->m_Group->Update();
+        m_playerInfo->m_Group->UpdateAllOutOfRangePlayersFor(m_playerInfo);
     }
 }
 

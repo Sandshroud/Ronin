@@ -1162,6 +1162,7 @@ public:
 
     // Visible objects
     bool CanSee(WorldObject* obj);
+    RONIN_INLINE bool IsVisible(WoWGuid guid) { return !(m_visibleObjects.find(guid) == m_visibleObjects.end()); }
     RONIN_INLINE bool IsVisible(WorldObject* pObj) { return !(m_visibleObjects.find(pObj->GetGUID()) == m_visibleObjects.end()); }
 
     void ClearInRangeObjects();

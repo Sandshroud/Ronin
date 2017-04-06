@@ -532,6 +532,7 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
     int32 amount = a;
     if(m_stackSizeorProcCharges >= 0)
         amount *= m_stackSizeorProcCharges;
+    amount += b;
 
     m_modList[m_modcount].i = i;
     m_modList[m_modcount].m_type = t;

@@ -69,6 +69,7 @@ public:
     bool IsPoisoned();
     void UpdateDuelAuras();
     void SendAuraData();
+    void BuildOutOfRangeAuraUpdate(WorldPacket *data);
     bool BuildAuraUpdateAllPacket(WorldPacket* data);
     void SpellStealAuras(Unit* caster, int32 MaxSteals);
     void UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS);

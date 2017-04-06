@@ -192,8 +192,8 @@ public:
     RONIN_INLINE uint8 GetGroupType() { return m_GroupType; }
     RONIN_INLINE uint32 GetID() { return m_Id; }
 
-    void UpdateOutOfRangePlayer(Player* pPlayer, uint32 Flags, bool Distribute, WorldPacket * Packet);
-    void UpdateAllOutOfRangePlayersFor(Player* pPlayer);
+    void UpdateOutOfRangePlayer(PlayerInfo *info, uint32 Flags, bool Distribute, WorldPacket * Packet);
+    void UpdateAllOutOfRangePlayersFor(PlayerInfo *info);
     void HandleUpdateFieldChange(uint32 Index, Player* pPlayer);
     void HandlePartialChange(uint32 Type, Player* pPlayer);
 
