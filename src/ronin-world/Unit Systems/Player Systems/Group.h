@@ -59,8 +59,7 @@ enum MaxGroupCount
 
 enum QuickGroupUpdateFlags
 {
-    PARTY_UPDATE_FLAG_POSITION          = 1,
-    PARTY_UPDATE_FLAG_ZONEID            = 2,
+    PARTY_UPDATE_FLAG_LOCATION          = 1,
 //  GROUP_UPDATE_FLAG_VEHICLE_SEAT
 };
 
@@ -146,6 +145,8 @@ public:
     void OutPacketToAllButOne(uint16 op, uint16 len, const void* data, Player* pSkipTarget);
 
     void SendNullUpdate(Player* pPlayer);
+
+    void SendLFGLockInfo(Player *pPlayer);
 
     bool QualifiesForGuildXP(Creature *cVictim);
 

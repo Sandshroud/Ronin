@@ -222,8 +222,8 @@ void World::Destruct()
     sLog.Notice("LootMgr", "~LootMgr()");
     delete LootMgr::getSingletonPtr();
 
-    sLog.Notice("LfgMgr", "~LfgMgr()");
-    delete LfgMgr::getSingletonPtr();
+    sLog.Notice("GroupFinder", "~GroupFinderMgr()");
+    delete GroupFinderMgr::getSingletonPtr();
 
     sLog.Notice("ChannelMgr", "~ChannelMgr()");
     delete ChannelMgr::getSingletonPtr();
@@ -458,7 +458,7 @@ bool World::SetInitialWorldSettings()
     new GossipManager();
     new TicketMgr();
     new LootMgr();
-    new LfgMgr();
+    new GroupFinderMgr();
     new WeatherMgr();
     new TaxiMgr();
     new AddonMgr();
@@ -479,6 +479,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(FactionSystem, LoadFactionInteractionData);
     MAKE_TASK(SpellManager, ParseSpellDBC);
     MAKE_TASK(WorldManager, ParseMapDBC);
+    MAKE_TASK(GroupFinderMgr, Initialize);
 
     tl.wait(); // Load all the storage first
     MAKE_TASK(SpellManager, PoolSpellData);
@@ -492,7 +493,7 @@ bool World::SetInitialWorldSettings()
     ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
 
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
-    MAKE_TASK(LfgMgr, LoadRandomDungeonRewards);
+    MAKE_TASK(GroupFinderMgr, LoadRewards);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, ProcessTitles);
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
@@ -1625,6 +1626,33 @@ std::string World::GetUptimeString()
     return std::string(str);
 }
 
+bool World::ShutdownQueued()
+{
+    if(m_shutdownTime)
+        return true;
+    return false;
+}
+
+void World::QueueShutdown(uint32 delay, uint32 type)
+{
+    // set parameters
+    m_shutdownLastTime = 0;
+    m_shutdownTime = (uint32)UNIXTIME + delay;
+    m_shutdownType = type;
+
+    // send message
+    char buf[1000];
+    snprintf(buf, 1000, "Server %s initiated. Server will save and shut down in approx. %u seconds.", type == SERVER_SHUTDOWN_TYPE_RESTART ? "restart" : "shutdown", delay);
+    SendWorldText(buf, NULL);
+}
+
+void World::CancelShutdown()
+{
+    m_shutdownTime = 0;
+    m_shutdownType = 0;
+    m_shutdownLastTime = 0;
+}
+
 void World::UpdateShutdownStatus()
 {
     if(m_shutdownTime == 0)
@@ -1692,26 +1720,6 @@ void World::UpdateShutdownStatus()
             SendGlobalMessage(&data, NULL);
         }
     }
-}
-
-void World::CancelShutdown()
-{
-    m_shutdownTime = 0;
-    m_shutdownType = 0;
-    m_shutdownLastTime = 0;
-}
-
-void World::QueueShutdown(uint32 delay, uint32 type)
-{
-    // set parameters
-    m_shutdownLastTime = 0;
-    m_shutdownTime = (uint32)UNIXTIME + delay;
-    m_shutdownType = type;
-
-    // send message
-    char buf[1000];
-    snprintf(buf, 1000, "Server %s initiated. Server will save and shut down in approx. %u seconds.", type == SERVER_SHUTDOWN_TYPE_RESTART ? "restart" : "shutdown", delay);
-    SendWorldText(buf, NULL);
 }
 
 void World::BackupDB()

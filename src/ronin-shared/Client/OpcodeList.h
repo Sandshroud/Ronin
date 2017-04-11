@@ -267,16 +267,16 @@ enum Opcodes
     CMSG_LEARN_TALENT,                                          // 4.3.4:0x0306
     CMSG_LEAVE_CHANNEL,                                         // 4.3.4:0x2D56
     CMSG_LFG_GET_STATUS,                                        // 4.3.4:0x2581
+    CMSG_LFG_LOCK_INFO_REQUEST,                                 // 4.3.4:0x0412
+    CMSG_LFG_SET_ROLES,                                         // 4.3.4:0x0480
+    CMSG_LFG_TELEPORT,                                          // 4.3.4:0x2482
     CMSG_LFG_JOIN,                                              // 4.3.4:0x2430
     CMSG_LFG_LEAVE,                                             // 4.3.4:0x2433
     CMSG_LFG_LFR_JOIN,                                          // 4.3.4:0x0531
     CMSG_LFG_LFR_LEAVE,                                         // 4.3.4:0x0500
-    CMSG_LFG_LOCK_INFO_REQUEST,                                 // 4.3.4:0x0412
     CMSG_LFG_PROPOSAL_RESULT,                                   // 4.3.4:0x0403
     CMSG_LFG_SET_BOOT_VOTE,                                     // 4.3.4:0x04B3
     CMSG_LFG_SET_COMMENT,                                       // 4.3.4:0x0530
-    CMSG_LFG_SET_ROLES,                                         // 4.3.4:0x0480
-    CMSG_LFG_TELEPORT,                                          // 4.3.4:0x2482
     CMSG_LF_GUILD_ADD_RECRUIT,                                  // 4.3.4:0x4448
     CMSG_LF_GUILD_BROWSE,                                       // 4.3.4:0x0548
     CMSG_LF_GUILD_DECLINE_RECRUIT,                              // 4.3.4:0x1031

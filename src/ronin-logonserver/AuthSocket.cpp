@@ -145,7 +145,7 @@ void AuthSocket::OnRecvData()
 
     last_recv = UNIXTIME;
     AuthPacketHandler *Handler = NULL;
-    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset(), intCommand = 0xFF;
+    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset();
     for(uint8 i = 0; Handlers[i].command != 0xFF; i++)
         if(Handlers[i].command == Command)
             Handler = &Handlers[i].func;
@@ -160,6 +160,23 @@ void AuthSocket::OnRecvData()
 
 bool AuthSocket::HandleRealmlist()
 {
+    if(GetReadBuffer()->GetSize() < sizeof(sRealmlistChallenge_C))
+        return true;
+
+    // Check the rest of the packet is complete.
+    uint8 * ReceiveBuffer = (uint8*)GetReadBuffer()->GetBufferOffset();
+    uint32 full_size = 5;
+    if((full_size += (*(uint32*)&ReceiveBuffer[1])) > 5)
+        if(GetReadBuffer()->GetSize() < full_size)
+            return true;
+    GetReadBuffer()->Remove(full_size);
+
+    // First realmlist request is for auto connect
+    // Ignore, client pushes auth challenge after
+    if(m_state == STATE_NEED_CHALLENGE)
+        return true;
+
+    // If we're not at either state of authentication(full or non) return an error
     if(m_state != STATE_AUTHENTICATED)
     {
         sLog.Notice("AuthSocket","Realmlist without auth\n");

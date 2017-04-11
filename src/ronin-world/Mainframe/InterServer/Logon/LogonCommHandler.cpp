@@ -122,7 +122,8 @@ void LogonCommHandler::Connect()
 
     if(ReConCounter >= 10)
     { // Attempt to connect 5 times, if not able to, shut down.
-        sWorld.QueueShutdown(5, SERVER_SHUTDOWN_TYPE_SHUTDOWN);
+        if(!sWorld.ShutdownQueued())
+            sWorld.QueueShutdown(5, SERVER_SHUTDOWN_TYPE_SHUTDOWN);
         return;
     }
 
@@ -134,8 +135,7 @@ void LogonCommHandler::Connect()
     server->Registered = false;
 
     mapLock.Acquire();
-    logon = ConnectToLogon(server->Address, server->Port);
-    if(logon == NULL)
+    if((logon = ConnectToLogon(server->Address, server->Port)) == NULL)
     {
         sLog.Notice("LogonCommClient", "Connection failed. Will try again in 10 seconds.");
         mapLock.Release();

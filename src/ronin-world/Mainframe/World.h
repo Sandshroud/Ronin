@@ -660,6 +660,7 @@ public:
     // shutdown
     uint32 m_shutdownTime, m_shutdownType, m_shutdownLastTime;
 
+    bool ShutdownQueued();
     void QueueShutdown(uint32 delay, uint32 type);
     void CancelShutdown();
     void UpdateShutdownStatus();

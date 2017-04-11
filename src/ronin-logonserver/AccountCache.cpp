@@ -523,21 +523,20 @@ void InformationCore::SendRealms(AuthSocket * Socket)
 
             data << uint32(realm->Icon);
             uint8 realmflags = realm->Flag;
-            if(realm->RequiredBuild)
-            {
-                if(realm->RequiredBuild != Socket->GetBuild())
-                    realmflags = REALM_FLAG_OFFLINE;
-            }
+            if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
+                realmflags = REALM_FLAG_OFFLINE;
 
             // This part is the same for all.
             data << realmflags;
             data << realm->Name;
             data << realm->Address;
-            data << realm->Population;
+            data << uint32(realm->Population);
 
             /* Get our character count */
-            it = realm->CharacterMap.find(Socket->GetAccountID());
-            data << uint8( (it == realm->CharacterMap.end()) ? 0 : it->second ); //We can fix this later, character count. 
+            if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
+                data << uint8(it->second); // cached character count. 
+            else uint8(0);
+
             data << uint8(1);
             data << uint8(0);
         }
@@ -574,21 +573,21 @@ void InformationCore::SendRealms(AuthSocket * Socket)
     {
         realm = itr->second;
 
-        data << realm->Icon;
+        data << uint8(realm->Icon);
         uint8 flag = realm->Flag;
         if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
             flag = (REALM_FLAG_SPECIFYBUILD|REALM_FLAG_OFFLINE);
 
-        data << uint8(0);
-        data << flag;
+        data << uint8(0) << flag;
         data << realm->Name;
         data << realm->Address;
-        data << realm->Population;
+        data << uint32(realm->Population);
 
         /* Get our character count */
-        it = realm->CharacterMap.find(Socket->GetAccountID());
-        data << uint8( (it == realm->CharacterMap.end()) ? 0 : it->second );
-        data << realm->WorldRegion;
+        if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
+            data << uint8(it->second); // cached character count. 
+        else uint8(0);
+        data << uint8(realm->WorldRegion);
         data << uint8(GetRealmIdByName(realm->Name));       //Realm ID
         if(flag & REALM_FLAG_SPECIFYBUILD)
         {
@@ -607,7 +606,7 @@ void InformationCore::SendRealms(AuthSocket * Socket)
     data << uint8(0);
 
     // Re-calculate size.
-    *(uint16*)&data.contents()[1] = uint16(data.size() - 3);
+    data.put<uint16>(1, data.size() - 3);
 
     // Send to the socket.
     Socket->Send((const uint8*)data.contents(), uint32(data.size()));

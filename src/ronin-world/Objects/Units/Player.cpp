@@ -563,9 +563,6 @@ void Player::EventExploration(MapInstance *instance)
         EventDBCChatUpdate();
 
         instance->GetStateManager().SendWorldStates(this);
-
-        if(Group *grp = GetGroup())
-            grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, this );
     }
 
     if(HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
@@ -2764,6 +2761,9 @@ void Player::OnPushToWorld()
     // send world states
     m_mapInstance->GetStateManager().SendWorldStates(this);
 
+    // Push a group update
+    EventGroupFullUpdate();
+
     TRIGGER_INSTANCE_EVENT( m_mapInstance, OnZoneChange )(this, m_zoneId, 0);
     TRIGGER_INSTANCE_EVENT( m_mapInstance, OnPlayerEnter )(this);
 
@@ -3367,7 +3367,7 @@ void Player::AddToCompletedQuests(uint32 quest_id, bool quickSave)
     if(qst == NULL)
         return;
 
-    if(qst->qst_is_repeatable == 0)
+    if(qst->qst_is_repeatable == UNREPEATABLE_QUEST)
     {
         uint16 offset = ((uint16)quest_id / 64);
         uint64 val = (((uint64)1) << ((uint64)(quest_id % 64)));
@@ -3408,6 +3408,16 @@ void Player::AddToCompletedQuests(uint32 quest_id, bool quickSave)
     }
 }
 
+bool Player::HasCompletedQuest(Quest *qst)
+{
+    if(qst->qst_is_repeatable == REPEATABLE_WEEKLY)
+        return m_completedWeeklyQuests.find(qst->id) != m_completedWeeklyQuests.end();
+    else if(qst->qst_is_repeatable == REPEATABLE_DAILY)
+        return HasFinishedDailyQuest(qst->id);
+    else if(qst->qst_is_repeatable == UNREPEATABLE_QUEST)
+        return HasFinishedQuest(qst->id);
+    return false;
+}
 bool Player::HasFinishedQuest(uint32 quest_id)
 {
     uint16 offset = ((uint16)quest_id / 64);

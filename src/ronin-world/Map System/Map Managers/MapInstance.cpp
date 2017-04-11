@@ -513,7 +513,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     obj->EventExploration(this);
 
     if(Group *grp = plObj ? plObj->GetGroup() : NULL)
-        grp->HandlePartialChange( PARTY_UPDATE_FLAG_POSITION, plObj );
+        grp->HandlePartialChange( PARTY_UPDATE_FLAG_LOCATION, plObj );
 
     /*
     ////////////////////////////////////////
@@ -558,9 +558,6 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 }
             }
         }
-
-        if(Group *grp = plObj ? plObj->GetGroup() : NULL)
-            grp->HandlePartialChange( PARTY_UPDATE_FLAG_ZONEID, plObj );
     }
     obj->SetLastMovementZone(currZone);
 

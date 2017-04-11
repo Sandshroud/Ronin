@@ -924,6 +924,8 @@ public:
     RONIN_INLINE uint32 GetFinishedDailiesCount() { return (uint32)m_completedDailyQuests.size(); }
 
     void AddToCompletedQuests(uint32 quest_id, bool quickSave = false);
+
+    bool HasCompletedQuest(Quest *qst);
     bool HasFinishedQuest(uint32 quest_id);
     bool HasFinishedDailyQuest(uint32 quest_id);
     bool HasQuestForItem(uint32 itemid);

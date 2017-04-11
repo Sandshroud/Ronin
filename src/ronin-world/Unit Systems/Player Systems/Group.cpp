@@ -47,6 +47,9 @@ enum PartyUpdateFlags
     GROUP_UPDATE_FLAG_VEHICLE_ENTRY             = 0x00100000,   //
     GROUP_UPDATE_FLAG_PHASE                     = 0x00200000,   //
 
+    GROUP_UPDATE_LOCATION = GROUP_UPDATE_FLAG_ZONEID
+    | GROUP_UPDATE_FLAG_POSITION,
+
     GROUP_UPDATE_PET = GROUP_UPDATE_FLAG_PET_GUID |
         GROUP_UPDATE_FLAG_PET_NAME |
         GROUP_UPDATE_FLAG_PET_DISPLAYID |
@@ -58,17 +61,17 @@ enum PartyUpdateFlags
         GROUP_UPDATE_FLAG_PET_AURAS,
 
     GROUP_UPDATE_FULL = GROUP_UPDATE_PET
-    | GROUP_UPDATE_FLAG_ONLINE
-    | GROUP_UPDATE_FLAG_HEALTH
-    | GROUP_UPDATE_FLAG_MAXHEALTH
-    | GROUP_UPDATE_FLAG_POWER_TYPE
-    | GROUP_UPDATE_FLAG_POWER
-    | GROUP_UPDATE_FLAG_MAXPOWER
-    | GROUP_UPDATE_FLAG_LEVEL
-    | GROUP_UPDATE_FLAG_ZONEID
-    | GROUP_UPDATE_FLAG_POSITION
-    | GROUP_UPDATE_FLAG_PLAYER_AURAS
-    | GROUP_UPDATE_FLAG_PHASE
+        | GROUP_UPDATE_FLAG_ONLINE
+        | GROUP_UPDATE_FLAG_HEALTH
+        | GROUP_UPDATE_FLAG_MAXHEALTH
+        | GROUP_UPDATE_FLAG_POWER_TYPE
+        | GROUP_UPDATE_FLAG_POWER
+        | GROUP_UPDATE_FLAG_MAXPOWER
+        | GROUP_UPDATE_FLAG_LEVEL
+        | GROUP_UPDATE_FLAG_ZONEID
+        | GROUP_UPDATE_FLAG_POSITION
+        | GROUP_UPDATE_FLAG_PLAYER_AURAS
+        | GROUP_UPDATE_FLAG_PHASE
 };
 
 Group::Group(bool Assign)
@@ -175,6 +178,7 @@ bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */)
             info->subGroup = (int8)subgroup->GetID();
 
             m_groupLock.Release();
+            UpdateOutOfRangePlayer(info, GROUP_UPDATE_FULL, true, NULL);
             return true;
         }
         else
@@ -762,6 +766,11 @@ void Group::SendNullUpdate( Player* pPlayer )
     pPlayer->GetSession()->OutPacket( SMSG_GROUP_LIST, 28, buffer );
 }
 
+void Group::SendLFGLockInfo(Player *pPlayer)
+{
+    // Long and tiring code for writing dungeon locks
+}
+
 bool Group::QualifiesForGuildXP(Creature *cVictim)
 {
     // Only boss kills allow guild XP gain
@@ -897,6 +906,12 @@ void Group::UpdateOutOfRangePlayer(PlayerInfo *info, uint32 Flags, bool Distribu
         *data << info->charGuid.asPacked();
         *data << uint32(GROUP_UPDATE_FLAG_ONLINE);
         *data << uint16(0);
+    }
+    else if(Flags == GROUP_UPDATE_LOCATION)
+    {
+        *data << info->charGuid.asPacked();
+        *data << uint32(GROUP_UPDATE_LOCATION);
+        *data << uint16(pPlayer->GetZoneId()) << uint16(pPlayer->GetPositionX()) << uint16(pPlayer->GetPositionY());
     }
     else
     {
@@ -1089,7 +1104,7 @@ void Group::HandleUpdateFieldChange(uint32 Index, Player* pPlayer)
     }
 
     if( Flags != 0 )
-        UpdateOutOfRangePlayer( pPlayer->getPlayerInfo(), Flags, true, 0 );
+        UpdateOutOfRangePlayer( pPlayer->getPlayerInfo(), Flags, true, NULL );
 
     m_groupLock.Release();
 }
@@ -1101,12 +1116,8 @@ void Group::HandlePartialChange(uint32 Type, Player* pPlayer)
 
     switch(Type)
     {
-    case PARTY_UPDATE_FLAG_POSITION:
-        Flags = GROUP_UPDATE_FLAG_POSITION;
-        break;
-
-    case PARTY_UPDATE_FLAG_ZONEID:
-        Flags = GROUP_UPDATE_FLAG_ZONEID;
+    case PARTY_UPDATE_FLAG_LOCATION:
+        Flags = GROUP_UPDATE_LOCATION;
         break;
     }
 

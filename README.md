@@ -6,9 +6,10 @@ There is no database, sorry. Creating one from a mangos based cataclysm project 
 
 Hardware this core's fulltilt mode is (over)optimized for:
 
-Intel(R) Core(TM) i7-4700MQ CPU @ 2.40GHz
-12.0GB RAM
-64-bit Operating System
+64-bit Server Enviroment
+Intel® Core™ i7-5820K CPU @ 3.27GHz
+AMD Ryzen™ 5 1600 CPU @ 3.19GHz
+8GB RAM Minimum (12 Recommended)
 
 Recent Contributors
 Karasu(Thetruecrow)

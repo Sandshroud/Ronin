@@ -29,6 +29,11 @@
 #endif 
 
 typedef struct {
+    uint8 cmd;
+    uint32 size;
+} sRealmlistChallenge_C;
+
+typedef struct {
     uint8   cmd;
     uint8   error;              // 0x00
     uint16  size;               // 0x0026

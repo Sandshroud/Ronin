@@ -317,7 +317,7 @@ void WorldSession::LogoutPlayer()
 
         plr->GetInventory()->EmptyBuyBack();
 
-        sLfgMgr.RemovePlayerFromLfgQueues( plr );
+        sGroupFinder.RemovePlayer(plr);
 
         objmgr.RemovePlayer( plr );
         plr->ok_to_remove = true;
@@ -513,7 +513,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_READY_FOR_ACCOUNT_DATA_TIMES].status           = STATUS_AUTHED;
 
     // Queries
-    WorldPacketHandlers[MSG_CORPSE_QUERY].handler                           = &WorldSession::HandleCorpseQueryOpcode;
     WorldPacketHandlers[CMSG_NAME_QUERY].handler                            = &WorldSession::HandleNameQueryOpcode;
     WorldPacketHandlers[CMSG_QUERY_TIME].handler                            = &WorldSession::HandleQueryTimeOpcode;
     WorldPacketHandlers[CMSG_CREATURE_QUERY].handler                        = &WorldSession::HandleCreatureQueryOpcode;
@@ -523,6 +522,11 @@ void WorldSession::InitPacketHandlerTable()
 
     WorldPacketHandlers[CMSG_REQUEST_HOTFIX].handler                        = &WorldSession::HandleItemHotfixQueryOpcode;
     WorldPacketHandlers[CMSG_REQUEST_HOTFIX].status                         = STATUS_WHENEVER;
+
+    // Corpse codes
+    WorldPacketHandlers[MSG_CORPSE_QUERY].handler                           = &WorldSession::HandleCorpseQueryOpcode;
+    WorldPacketHandlers[CMSG_RECLAIM_CORPSE].handler                        = &WorldSession::HandleCorpseReclaimOpcode;
+    WorldPacketHandlers[CMSG_RESURRECT_RESPONSE].handler                    = &WorldSession::HandleResurrectResponseOpcode;
 
     // Movement
     WorldPacketHandlers[MSG_MOVE_HEARTBEAT].handler                         = &WorldSession::HandleMovementOpcodes;
@@ -585,8 +589,8 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_MOVE_FALL_RESET].handler                       = &WorldSession::HandleMoveFallResetOpcode;
 
     // Action Buttons
-    WorldPacketHandlers[CMSG_SET_ACTION_BUTTON].handler                      = &WorldSession::HandleSetActionButtonOpcode;
-    WorldPacketHandlers[CMSG_REPOP_REQUEST].handler                          = &WorldSession::HandleRepopRequestOpcode;
+    WorldPacketHandlers[CMSG_SET_ACTION_BUTTON].handler                     = &WorldSession::HandleSetActionButtonOpcode;
+    WorldPacketHandlers[CMSG_REPOP_REQUEST].handler                         = &WorldSession::HandleRepopRequestOpcode;
 
     // Loot
     WorldPacketHandlers[CMSG_AUTOSTORE_LOOT_ITEM].handler                   = &WorldSession::HandleAutostoreLootItemOpcode;
@@ -680,6 +684,19 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_REQUEST_PARTY_MEMBER_STATS].handler            = &WorldSession::HandlePartyMemberStatsOpcode;
     WorldPacketHandlers[MSG_PARTY_ASSIGNMENT].handler                       = &WorldSession::HandleGroupPromote;
 
+    // Dungeon Finder codes
+    WorldPacketHandlers[CMSG_LFG_GET_STATUS].handler                        = &WorldSession::HandleLFGGetStatusOpcode;
+    WorldPacketHandlers[CMSG_LFG_LOCK_INFO_REQUEST].handler                 = &WorldSession::HandleLFGLockInfoRequestOpcode;
+    WorldPacketHandlers[CMSG_LFG_SET_ROLES].handler                         = &WorldSession::HandleLFGSetRolesOpcode;
+    WorldPacketHandlers[CMSG_LFG_TELEPORT].handler                          = &WorldSession::HandleLFGTeleportOpcode;
+    WorldPacketHandlers[CMSG_LFG_JOIN].handler                              = &WorldSession::HandleLFGJoinOpcode;
+    WorldPacketHandlers[CMSG_LFG_LEAVE].handler                             = &WorldSession::HandleLFGLeaveOpcode;
+    WorldPacketHandlers[CMSG_LFG_LFR_JOIN].handler                          = &WorldSession::HandleLFGRaidJoinOpcode;
+    WorldPacketHandlers[CMSG_LFG_LFR_LEAVE].handler                         = &WorldSession::HandleLFGRaidLeaveOpcode;
+    WorldPacketHandlers[CMSG_LFG_PROPOSAL_RESULT].handler                   = &WorldSession::HandleLFGProposalResultOpcode;
+    WorldPacketHandlers[CMSG_LFG_SET_BOOT_VOTE].handler                     = &WorldSession::HandleLFGSetBootVoteOpcode;
+    WorldPacketHandlers[CMSG_LFG_SET_COMMENT].handler                       = &WorldSession::HandleLFGSetCommentOpcode;
+
     // Taxi / NPC Interaction
     WorldPacketHandlers[CMSG_ENABLETAXI].handler                            = &WorldSession::HandleTaxiQueryAvaibleNodesOpcode;
     WorldPacketHandlers[CMSG_TAXINODE_STATUS_QUERY].handler                 = &WorldSession::HandleTaxiNodeStatusQueryOpcode;
@@ -763,8 +780,6 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_QUESTGIVER_QUERY_QUEST].handler                = &WorldSession::HandleQuestGiverQueryQuestOpcode;
     WorldPacketHandlers[CMSG_QUESTGIVER_COMPLETE_QUEST].handler             = &WorldSession::HandleQuestgiverCompleteQuestOpcode;
     WorldPacketHandlers[CMSG_QUESTLOG_REMOVE_QUEST].handler                 = &WorldSession::HandleQuestlogRemoveQuestOpcode;
-    WorldPacketHandlers[CMSG_RECLAIM_CORPSE].handler                        = &WorldSession::HandleCorpseReclaimOpcode;
-    WorldPacketHandlers[CMSG_RESURRECT_RESPONSE].handler                    = &WorldSession::HandleResurrectResponseOpcode;
     WorldPacketHandlers[CMSG_PUSHQUESTTOPARTY].handler                      = &WorldSession::HandlePushQuestToPartyOpcode;
     WorldPacketHandlers[MSG_QUEST_PUSH_RESULT].handler                      = &WorldSession::HandleQuestPushResult;
     WorldPacketHandlers[CMSG_QUEST_POI_QUERY].handler                       = &WorldSession::HandleQuestPOI;

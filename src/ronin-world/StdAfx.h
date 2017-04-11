@@ -162,7 +162,7 @@ extern size_t __line__;
 #include "Container.h"
 #include "AuctionHouse.h"
 #include "AuctionMgr.h"
-#include "LfgMgr.h"
+#include "GroupFinder.h"
 #include "MailSystem.h"
 #include "MapCell.h"
 #include "FactionSystem.h"

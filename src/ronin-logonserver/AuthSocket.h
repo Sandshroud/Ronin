@@ -87,6 +87,7 @@ public:
     RONIN_INLINE uint32 GetAccountID() { return m_account ? m_account->AccountId : 0; }
     RONIN_INLINE std::string GetAccountName() { return AccountName; }
 
+    bool isAuthed() { return m_state == STATE_AUTHENTICATED; }
     uint8 GetClientExpansion() { return m_challenge.version[0]; };
     uint8 GetClientPatch() { return m_challenge.version[1]; };
     uint8 GetClientVersion() { return m_challenge.version[2]; };
