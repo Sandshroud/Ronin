@@ -440,7 +440,7 @@ public:
     std::string GetUptimeString();
 
     // update the world server every frame
-    void Update(uint32 diff);
+    void Update(uint32 msTime, uint32 uiDiff);
     void UpdateSessions(uint32 diff);
 
     RONIN_INLINE void setRate(int index,float value) { regen_values[index] = value; }

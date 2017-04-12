@@ -21,41 +21,6 @@
 
 #include "StdAfx.h"
 
-void SendQueueCommandResult(Player *plr, uint8 type, uint32 queueId, bool groupUnk, bool joinPending, bool inQueue, std::vector<uint32> dungeonSet, time_t unkTime, std::string unkComment)
-{
-    WoWGuid guid = plr->GetGUID();
-
-    WorldPacket data(SMSG_LFG_UPDATE_STATUS, 200);
-    data.WriteBit(guid[1]);
-    data.WriteBit(groupUnk);
-    data.WriteBits<uint32>(dungeonSet.size(), 24);
-    data.WriteBit(guid[6]);
-    data.WriteBit(!dungeonSet.empty());
-    data.WriteBits(unkComment.length(), 9);
-    data.WriteBit(guid[4]);
-    data.WriteBit(guid[7]);
-    data.WriteBit(guid[2]);
-    data.WriteBit(joinPending);
-    data.WriteBit(guid[0]);
-    data.WriteBit(guid[3]);
-    data.WriteBit(guid[5]);
-    data.WriteBit(inQueue);
-    data.FlushBits();
-    data << uint8(type);
-    data.WriteString(unkComment);
-    data << uint32(queueId);
-    data << uint32(unkTime);
-    data.WriteByteSeq(guid[6]);
-    for(uint8 i = 0; i < 3; i++)
-        data << uint8(0);
-    data.WriteSeqByteString(6, guid, 1, 2, 4, 3, 5, 0);
-    data << uint32(42);
-    data.WriteByteSeq(guid[7]);
-    for(auto itr = dungeonSet.begin(); itr != dungeonSet.end(); itr++)
-        data << uint32(*itr);
-    plr->PushPacket(&data);
-}
-
 void WorldSession::HandleLFGGetStatusOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
@@ -63,14 +28,14 @@ void WorldSession::HandleLFGGetStatusOpcode(WorldPacket& recvPacket)
     uint8 queueStatus;
     uint32 queueId, queueStep = 0;
     time_t dataTimer = UNIXTIME;
-    std::vector<uint32> dungeonSet;
+    std::vector<uint32> *dungeonSet;
     if(!sGroupFinder.GetPlayerQueueStatus(_player, queueStatus, queueId, queueStep, &dungeonSet, dataTimer))
         return;
 
     // Status sending is interesting, we need to send two status packets, one with current data
     // And the other to clear out the opposite data
-    SendQueueCommandResult(_player, queueStatus, queueId, _player->InGroup(), false, false, dungeonSet, dataTimer, "");
-    SendQueueCommandResult(_player, queueStatus, queueId, !_player->InGroup(), false, false, dungeonSet, dataTimer, "");
+    sGroupFinder.SendQueueCommandResult(_player, queueStep, queueId, _player->InGroup(), queueStatus, dungeonSet, dataTimer, "");
+    sGroupFinder.SendQueueCommandResult(_player, queueStep, queueId, !_player->InGroup(), queueStatus, dungeonSet, dataTimer, "");
 }
 
 void WorldSession::HandleLFGLockInfoRequestOpcode(WorldPacket& recvPacket)
@@ -93,45 +58,139 @@ void WorldSession::HandleLFGLockInfoRequestOpcode(WorldPacket& recvPacket)
 
 void WorldSession::HandleLFGSetRolesOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    uint8 roleMask;
+    recvPacket >> roleMask;
+
+    sGroupFinder.UpdateRoles(_player, roleMask);
+    sLog.outDebug("PLAYER %u ROLE UPDATED: %u | Leader: %s", _player->GetLowGUID(), ((roleMask & ROLEMASK_ROLE_TYPE) >> 1), (roleMask&0x01) ? "Yes" : "No");
 }
 
 void WorldSession::HandleLFGTeleportOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    // Teleport us to our dungeon or out of it
+    sGroupFinder.TeleportPlayer(_player, recvPacket.read<uint8>() == 0);
 }
 
 void WorldSession::HandleLFGJoinOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    uint32 roleMask = recvPacket.read<uint32>();
+    recvPacket.read_skip<uint32>();
+    recvPacket.read_skip<uint64>();
+    uint32 commLength = recvPacket.ReadBits(9);
+    uint32 count = recvPacket.ReadBits(24);
+    if(count == 0 || count >= 155)
+        return;
+
+    std::string comment = recvPacket.ReadString(commLength);
+    std::vector<uint32> dungeonSet;
+    for(uint32 i = 0; i < count; i++)
+    {
+        uint32 dungeonId = (recvPacket.read<uint32>() & 0x00FFFFFF);
+        if(dungeonId == 0) // Pushing a type only
+            continue;
+        dungeonSet.push_back(dungeonId);
+    }
+
+    sGroupFinder.HandleDungeonJoin(_player, roleMask, &dungeonSet, comment);
 }
 
 void WorldSession::HandleLFGLeaveOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    recvPacket.read_skip<uint64>();
+    recvPacket.read_skip<uint32>();
+    uint32 queueId = recvPacket.read<uint32>();
+
+    WoWGuid guid;
+    recvPacket.ReadGuidBitString(8, guid, 4, 5, 0, 6, 2, 7, 1, 3);
+    recvPacket.ReadGuidByteString(8, guid, 7, 4, 3, 2, 6, 0, 1, 5);
+
+    sGroupFinder.HandleDungeonLeave(_player, guid, queueId);
 }
 
 void WorldSession::HandleLFGRaidJoinOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    return;
+    uint32 roleMask = recvPacket.read<uint32>();
+    recvPacket.read_skip<uint32>();
+    recvPacket.read_skip<uint64>();
+    uint32 commLength = recvPacket.ReadBits(9);
+    uint32 count = recvPacket.ReadBits(24);
+    if(count == 0 || count >= 155)
+        return;
+
+    std::string comment = recvPacket.ReadString(commLength);
+    std::vector<uint32> dungeonSet;
+    for(uint32 i = 0; i < count; i++)
+    {
+        uint32 dungeonId = (recvPacket.read<uint32>() & 0x00FFFFFF);
+        if(dungeonId == 0) // Pushing a type only
+            continue;
+        dungeonSet.push_back(dungeonId);
+    }
+
+    sGroupFinder.HandleRaidJoin(_player, roleMask, &dungeonSet, comment);
 }
 
 void WorldSession::HandleLFGRaidLeaveOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    return;
+    recvPacket.read_skip<uint64>();
+    recvPacket.read_skip<uint32>();
+    uint32 queueId = recvPacket.read<uint32>();
+
+    WoWGuid guid;
+    recvPacket.ReadGuidBitString(8, guid, 4, 5, 0, 6, 2, 7, 1, 3);
+    recvPacket.ReadGuidByteString(8, guid, 7, 4, 3, 2, 6, 0, 1, 5);
+
+    sGroupFinder.HandleRaidLeave(_player, guid, queueId);
 }
 
 void WorldSession::HandleLFGProposalResultOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    // Our counterId
+    uint32 proposalCounter = recvPacket.read<uint32>();
+    recvPacket.read_skip<uint64>();
+    recvPacket.read_skip<uint32>();
+
+    WoWGuid guid, guid2;
+    recvPacket.ReadGuidBitString(8, guid, 4, 5, 0, 6, 2, 7, 1, 3);
+    recvPacket.ReadGuidByteString(8, guid, 7, 4, 3, 2, 6, 0, 1, 5);
+
+    guid2[7] = recvPacket.ReadBit();
+    bool result = recvPacket.ReadBit();
+    recvPacket.ReadGuidBitString(7, guid2, 1, 3, 0, 5, 4, 6, 2);
+    recvPacket.ReadGuidByteString(8, guid2, 7, 1, 5, 6, 3, 4, 0, 2);
+
+    sGroupFinder.UpdateProposal(_player, proposalCounter, result, guid, guid2);
 }
 
 void WorldSession::HandleLFGSetBootVoteOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    sGroupFinder.UpdateBootVote(_player, recvPacket.read<uint8>() > 0);
 }
 
 void WorldSession::HandleLFGSetCommentOpcode(WorldPacket& recvPacket)
 {
+    CHECK_INWORLD_RETURN();
 
+    uint32 length = recvPacket.ReadBits(9);
+    std::string comment = recvPacket.ReadString(length);
+
+    sGroupFinder.UpdateComment(_player, comment);
 }

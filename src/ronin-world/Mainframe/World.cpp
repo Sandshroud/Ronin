@@ -76,7 +76,7 @@ bool World::run()
         uint32 diff = std::min<uint32>(500, mstime - lastUpdate);
         lastUpdate = mstime;
 
-        Update( diff );
+        Update( mstime, diff );
         if(!SetThreadState(THREADSTATE_SLEEPING))
             break;
 
@@ -638,16 +638,20 @@ bool World::SetInitialWorldSettings()
     return true;
 }
 
-void World::Update(uint32 diff)
+void World::Update(uint32 msTime, uint32 uiDiff)
 {
     // Push a new CPU usage percentage
-    UpdateServerPerformance(diff);
+    UpdateServerPerformance(uiDiff);
 
     // Through main thread, we calculate our timers for weekday and event timers etc
-    UpdateServerTimers(diff);
+    UpdateServerTimers(uiDiff);
 
     // Update our queued sessions
-    UpdateQueuedSessions(diff);
+    UpdateQueuedSessions(uiDiff);
+
+    // Update our group finder
+    if(GroupFinderMgr::getSingletonPtr() != NULL)
+        sGroupFinder.Update(msTime, uiDiff);
 
     // Auction updates
     if(AuctionMgr::getSingletonPtr() != NULL)
@@ -655,14 +659,14 @@ void World::Update(uint32 diff)
 
     // Mail updates
     if(MailSystem::getSingletonPtr() != NULL)
-        sMailSystem.UpdateMessages(diff);
+        sMailSystem.UpdateMessages(uiDiff);
 
     // Guild updates
     if(GuildMgr::getSingletonPtr() != NULL)
-        guildmgr.Update(diff);
+        guildmgr.Update(uiDiff);
 
     // Update sessions
-    UpdateSessions(diff);
+    UpdateSessions(uiDiff);
 
     UpdateShutdownStatus();
 }
