@@ -505,17 +505,13 @@ void InformationCore::SendRealms(AuthSocket * Socket)
     realmLock.Acquire();
     std::map<uint32, uint8>::iterator it;
     std::map<uint32, Realm*>::iterator itr = m_realms.begin();
+
+    ByteBuffer data(350);
+    data << uint8(0x10);
+    data << uint16(0);    // Size Placeholder
+    data << uint32(0); // Send Counter
     if(Socket->GetBuild() <= 6005) // PreBC
     {
-        // packet header
-        ByteBuffer data(m_realms.size() * 150 + 20);
-        data << uint8(0x10);
-        data << uint16(0);    // Size Placeholder
-
-        // dunno what this is..
-        data << uint32(0);
-
-        // loop realms :/
         data << uint8(m_realms.size());
         for(; itr != m_realms.end(); ++itr)
         {
@@ -527,7 +523,7 @@ void InformationCore::SendRealms(AuthSocket * Socket)
                 realmflags = REALM_FLAG_OFFLINE;
 
             // This part is the same for all.
-            data << realmflags;
+            data << uint8(realmflags);
             data << realm->Name;
             data << realm->Address;
             data << uint32(realm->Population);
@@ -542,72 +538,48 @@ void InformationCore::SendRealms(AuthSocket * Socket)
         }
         realmLock.Release();
 
-        data << uint8(0x15);
         data << uint8(0);
-
-        // Re-calculate size.
-#ifdef USING_BIG_ENDIAN
-        *(uint16*)&data.contents()[1] = swap16(uint16(data.size() - 3));
-#else
-        *(uint16*)&data.contents()[1] = uint16(data.size() - 3);
-#endif
-
-        // Send to the socket.
-        Socket->Send((const uint8*)data.contents(), uint32(data.size()));
-        return;
+        data << uint8(0x02);
     }
-
-    // packet header
-    ByteBuffer data(m_realms.size() * 150 + 20);
-    data << uint8(0x10);
-    data << uint16(0);    // Size Placeholder
-
-    // dunno what this is..
-    data << uint32(0);
-    size_t count_pos = data.wpos();
-    uint16 count = uint16(m_realms.size());
-    data << uint16(count);
-
-    // loop realms :/
-    for(; itr != m_realms.end(); ++itr)
+    else
     {
-        realm = itr->second;
-
-        data << uint8(realm->Icon);
-        uint8 flag = realm->Flag;
-        if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
-            flag = (REALM_FLAG_SPECIFYBUILD|REALM_FLAG_OFFLINE);
-
-        data << uint8(0) << flag;
-        data << realm->Name;
-        data << realm->Address;
-        data << uint32(realm->Population);
-
-        /* Get our character count */
-        if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
-            data << uint8(it->second); // cached character count. 
-        else uint8(0);
-        data << uint8(realm->WorldRegion);
-        data << uint8(GetRealmIdByName(realm->Name));       //Realm ID
-        if(flag & REALM_FLAG_SPECIFYBUILD)
+        data << uint16(m_realms.size());
+        for(; itr != m_realms.end(); ++itr)
         {
-            data << uint8(realm->RequiredCV[0]);
-            data << uint8(realm->RequiredCV[1]);
-            data << uint8(realm->RequiredCV[2]);
-            data << uint16(realm->RequiredBuild);
+            realm = itr->second;
+
+            data << uint8(realm->Icon);
+            uint8 realmflags = realm->Flag;
+            if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
+                realmflags = (REALM_FLAG_SPECIFYBUILD|REALM_FLAG_OFFLINE);
+
+            data << uint8(0) << uint8(realmflags);
+            data << realm->Name;
+            data << realm->Address;
+            data << uint32(realm->Population);
+
+            /* Get our character count */
+            if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
+                data << uint8(it->second); // cached character count. 
+            else uint8(0);
+            data << uint8(realm->WorldRegion);
+            data << uint8(GetRealmIdByName(realm->Name));       //Realm ID
+            if(realmflags & REALM_FLAG_SPECIFYBUILD)
+            {
+                data << uint8(realm->RequiredCV[0]);
+                data << uint8(realm->RequiredCV[1]);
+                data << uint8(realm->RequiredCV[2]);
+                data << uint16(realm->RequiredBuild);
+            }
         }
-        realm = NULL;
+        realmLock.Release();
+
+        data << uint8(0x10);
+        data << uint8(0);
     }
-    realmLock.Release();
-
-    data.put<uint16>(count_pos, count);
-
-    data << uint8(0x17);
-    data << uint8(0);
 
     // Re-calculate size.
     data.put<uint16>(1, data.size() - 3);
-
     // Send to the socket.
     Socket->Send((const uint8*)data.contents(), uint32(data.size()));
 }

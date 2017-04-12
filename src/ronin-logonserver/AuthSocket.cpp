@@ -545,7 +545,6 @@ bool AuthSocket::HandleReconnectChallenge()
     sLog.Debug("ReconnectChallenge", "got full packet.");
 
     // Copy the data into our cached challenge structure
-    memcpy(&m_challenge, ReceiveBuffer, full_size + 4);
     GetReadBuffer()->Read(&m_challenge, full_size + 4);
 
     // Check client build.
@@ -618,6 +617,9 @@ bool AuthSocket::HandleReconnectChallenge()
         return true;
     }
 
+    ByteBuffer pkt;
+    pkt << (uint8)  0x02;   //ReconnectChallenge
+    pkt << (uint8)  0x00;
     // Mangos is original source for both version builds, many thanks
     ///- Sending response
     if(GetBuild() <= 6005)
@@ -627,23 +629,19 @@ bool AuthSocket::HandleReconnectChallenge()
         MD5_Update(&ctx, m_account->SessionKey, 40);
         uint8 buffer[20];
         MD5_Final(buffer, &ctx);
-        ByteBuffer buf;
-        buf << uint16(2);
-        buf.append(buffer, 20);
-        buf << uint64(0);
-        buf << uint64(0);
-        Send(buf.contents(), 34);
+
+        pkt << uint16(2);
+        pkt.append(buffer, 20);
     }
     else
     {
-        ByteBuffer pkt;
-        pkt << (uint8)  0x02;   //ReconnectChallenge
-        pkt << (uint8)  0x00;
         rs.SetRand(16*8);
         pkt.append(rs.AsByteArray(), 16);    // 16 bytes random
-        pkt << uint64(0x00) << uint64(0x00);    // 16 bytes zeros
-        Send(pkt.contents(), uint32(pkt.size()));
     }
+
+    // 16 bytes of zero
+    pkt << uint64(0) << uint64(0);
+    Send(pkt.contents(), uint32(pkt.size()));
 
     // Now we wait for reconnect proof
     m_state = STATE_NEED_REPROOF;
