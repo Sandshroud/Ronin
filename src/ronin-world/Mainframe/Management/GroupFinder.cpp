@@ -23,7 +23,7 @@
 
 initialiseSingleton( GroupFinderMgr );
 
-GroupFinderMgr::GroupFinderMgr() : m_updateTimer(0), m_maxReqExpansion(0), updateTeamIndex(0)
+GroupFinderMgr::GroupFinderMgr() : m_updateTimer(0), m_maxReqExpansion(0), updateTeamIndex(0), m_queueIdHigh(0x000000FF), m_propIdHigh(0x00000F0F)
 {
 
 }
@@ -94,6 +94,7 @@ void GroupFinderMgr::LoadRewards()
 
 bool RoleChoiceHelper(Player *plr, uint8 plrRoleMask, uint32 plrItemLevel, uint8 currentRole, WoWGuid curRole, uint32 curRoleIL, uint8 curRoleMask, WoWGuid otherRole, uint32 otherRoleIL)
 {
+    // TODO: Check if our target is their position mask only, and we have a secondary, if so push us to secondary based on IL
     // Check if we need a healer instead of a tank
     if(currentRole == ROLEMASK_TANK && !curRole.empty())
     {
@@ -119,215 +120,505 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
         LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(itr->first);
         QueueGroupStack *stack = itr->second;
 
-        // Check if we only have singles groups, then we can cut down on processing
-        if(stack->m_groupQueues.empty())
-        { // Quick handle any single queue chances
-            if(stack->m_singleQueues.size() < dungeonTeamSize)
-                continue; // no use if we're below the required size of singles
+        // We have 3 processing types, combining groups, combining a group with singles, or combining singles
+        if(stack->m_groupQueues.size())
+        {
+            // First we're going to process our single queue to group up what we need... Why didn't we preprocess this
+            std::set<uint32> talentedPool, tankGroups, tankDPSGroups, healGroups, healDPSGroups, tankHealGroups, dpsGroups;
+            std::vector<std::set<uint32>*> setVector;
+            // Fill our sets into our set vector for easier removal processing
+            setVector.push_back(&talentedPool);
+            setVector.push_back(&tankGroups);
+            setVector.push_back(&tankDPSGroups);
+            setVector.push_back(&healGroups);
+            setVector.push_back(&healDPSGroups);
+            setVector.push_back(&tankHealGroups);
+            setVector.push_back(&dpsGroups);
+            // Begin the single queue processing!
+            for(std::vector<QueueGroupHolder*>::iterator sItr = stack->m_singleQueues.begin(); sItr != stack->m_singleQueues.end();)
+            {
+                // If we have a null group, we're queued for cleanup
+                if((*sItr)->group == NULL)
+                    sItr = stack->m_singleQueues.erase(sItr);
+                else
+                {   // Check the single group for the player in map
+                    QueueGroup *group = (*sItr)->group;
+                    ++sItr;
 
-            // We need to find a tank and healer, then push anyone who isn't either into DPS if they have the flag
-            WoWGuid tank(0), heal(0);
-            uint32 tankIL = 0, healIL = 0;
-            uint32 tankRoles = 0, healRoles = 0;
-            std::set<WoWGuid> unselectedDPS;
-            // Start processing through our single queues
-            for(std::vector<QueueGroupHolder*>::iterator gItr = stack->m_singleQueues.begin(); gItr != stack->m_singleQueues.end();)
+                    uint8 roleMask = (group->memberRoles.begin()->second & ROLEMASK_ROLE_TYPE);
+                    // Push us into our individual roles based on mask
+                    if(roleMask == (ROLEMASK_TANK|ROLEMASK_HEALER|ROLEMASK_DPS))
+                        talentedPool.insert(group->queueId);
+                    else if(roleMask == ROLEMASK_TANK)
+                        tankGroups.insert(group->queueId);
+                    else if(roleMask == (ROLEMASK_TANK|ROLEMASK_DPS))
+                        tankDPSGroups.insert(group->queueId);
+                    else if(roleMask == (ROLEMASK_TANK|ROLEMASK_HEALER))
+                        tankHealGroups.insert(group->queueId);
+                    else if(roleMask == ROLEMASK_HEALER)
+                        healGroups.insert(group->queueId);
+                    else if(roleMask == (ROLEMASK_HEALER|ROLEMASK_DPS))
+                        healDPSGroups.insert(group->queueId);
+                    else dpsGroups.insert(group->queueId);
+                }
+            }
+
+            // Create calculated bools ahead of iteration to easily check if we can fill from single queue
+            bool noSingleTanks = talentedPool.empty() && tankGroups.empty() && tankDPSGroups.empty();
+            bool noSingleHeals = talentedPool.empty() && healGroups.empty() && tankHealGroups.empty();
+            bool noSingleDPS = talentedPool.empty() && dpsGroups.empty() && tankDPSGroups.empty() && healDPSGroups.empty();
+
+            // If we have more than one group, try and combine
+            if(stack->m_groupQueues.size() > 1)
+            {   // If we have more than one group, we're gonna process our queue list to see if we can combine any
+                for(std::vector<QueueGroupHolder*>::iterator gItr = stack->m_groupQueues.begin(); gItr != stack->m_groupQueues.end();)
+                {
+                    // If we have a null group, we're queued for cleanup
+                    if((*gItr)->group == NULL)
+                        gItr = stack->m_groupQueues.erase(gItr);
+                    else
+                    {   // Check the single group for the player in map
+                        QueueGroup *group = (*gItr)->group;
+                        ++gItr;
+
+                        std::vector<WoWGuid> gTanks, gTankOnly, gHeals, gHealOnly, gTankHeals, gDPS;
+                        for(Loki::AssocVector<WoWGuid, uint8>::iterator mItr = group->memberRoles.begin(); mItr != group->memberRoles.end(); mItr++)
+                        {
+                            // If we're only tank or heals, insert us into tankHeals grouping
+                            if(mItr->second == (ROLEMASK_TANK|ROLEMASK_HEALER))
+                            {
+                                gTankHeals.push_back(mItr->first);
+                                continue;
+                            }
+
+                            // Push us into our individual roles based on mask
+                            if(mItr->second == ROLEMASK_TANK)
+                                gTankOnly.push_back(mItr->first);
+                            else if(mItr->second & ROLEMASK_TANK)
+                                gTanks.push_back(mItr->first);
+                            if(mItr->second == ROLEMASK_HEALER)
+                                gHealOnly.push_back(mItr->first);
+                            else if(mItr->second & ROLEMASK_HEALER)
+                                gHeals.push_back(mItr->first);
+                            if(mItr->second & ROLEMASK_DPS)
+                                gDPS.push_back(mItr->first);
+                        }
+
+                        // If we have 4 members just fill from singles, do that later
+                        if(group->memberRoles.size() < 4)
+                        {
+                            // start at our current iterator to improve processing speed
+                            std::vector<QueueGroupHolder*>::iterator tItr = gItr;
+                            for(; tItr != stack->m_groupQueues.end(); ++tItr)
+                            {
+                                QueueGroup *tGroup = (*tItr)->group;
+                                // Ignore us and any invalid groups for now, main iteration will clean those up
+                                if(tGroup == group || tGroup == NULL)
+                                    continue;
+                                // Now we need to see if our target group is compatible with our main group
+                                std::vector<WoWGuid> tTanks, tTankOnly, tHeals, tHealOnly, tTankHeals, tDPS;
+                                for(Loki::AssocVector<WoWGuid, uint8>::iterator mItr = tGroup->memberRoles.begin(); mItr != tGroup->memberRoles.end(); mItr++)
+                                {
+                                    // If we're only tank or heals, insert us into tankHeals grouping
+                                    if(mItr->second == (ROLEMASK_TANK|ROLEMASK_HEALER))
+                                    {
+                                        tTankHeals.push_back(mItr->first);
+                                        continue;
+                                    }
+
+                                    // Push us into our individual roles based on mask
+                                    if(mItr->second == ROLEMASK_TANK)
+                                        tTankOnly.push_back(mItr->first);
+                                    else if(mItr->second & ROLEMASK_TANK)
+                                        tTanks.push_back(mItr->first);
+                                    if(mItr->second == ROLEMASK_HEALER)
+                                        tHealOnly.push_back(mItr->first);
+                                    else if(mItr->second & ROLEMASK_HEALER)
+                                        tHeals.push_back(mItr->first);
+                                    if(mItr->second & ROLEMASK_DPS)
+                                        tDPS.push_back(mItr->first);
+                                }
+
+                                // Check tank only count
+                                if(gTankOnly.size() && tTankOnly.size())
+                                    continue; // Can't have two tanks
+                                if(gTankOnly.empty() && tTankOnly.empty() && noSingleTanks)
+                                    continue; // We need a tank
+                                // Check heal only count
+                                if(gHealOnly.size() && tHealOnly.size())
+                                    continue; // Can't have two heals
+                                if(gHealOnly.empty() && tHealOnly.empty() && noSingleHeals)
+                                    continue; // We need a healer
+                                if((gDPS.size() + tDPS.size()) < 3 && noSingleDPS)
+                                    continue; // We need 3 dps
+
+                                // Check tankHeal only with tankOnly or healOnly
+                                if((tTankHeals.size() || gTankHeals.size())
+                                    && ((gTankOnly.size() && gHealOnly.size()) || (tTankOnly.size() && tHealOnly.size())
+                                    || (gTankOnly.size() && tHealOnly.size()) || (tTankOnly.size() && gHealOnly.size())))
+                                    continue; // Can't have two heals or two tanks because someone doesn't want to be a DPS(why tho)
+                                // Check if we have too many tank and heal combos
+                                if(tTankHeals.size() + gTankHeals.size() > 2)
+                                    continue;
+
+                                // Thank god for macros
+#define SET_TARGET_IL_CHECK_ETC(t, tIL, iterator)\
+                                uint32 itemLevel = 1;/*entry->minItemLevel;*/\
+                                if(Player *plr = objmgr.GetPlayer(*iterator))\
+                                    itemLevel = plr->GetTotalItemLevel();\
+                                if(t.empty() || (tIL < itemLevel))\
+                                    t = *mItr, tIL = itemLevel;
+                                // End macro
+
+                                std::vector<uint32> groupIds;
+                                // Push our group queueIds into our vector
+                                groupIds.push_back(group->queueId);
+                                groupIds.push_back(tGroup->queueId);
+                                // Now we need to assign our roles
+                                WoWGuid tank(0), heal(0);
+                                std::set<WoWGuid> unselectedDPS;
+                                // See if we have a specified tank
+                                if(gTankOnly.size())
+                                    tank = *gTankOnly.begin();
+                                else if(tTankOnly.size())
+                                    tank = *tTankOnly.begin();
+                                // See if we have a specified healer
+                                if(gHealOnly.size())
+                                    heal = *gHealOnly.begin();
+                                else if(tHealOnly.size())
+                                    heal = *tHealOnly.begin();
+                                else if(gTankHeals.size() || tTankHeals.size())
+                                {   // Check now if we can find a tankHeal healer
+                                    uint32 healIL = 0;
+                                    for(std::vector<WoWGuid>::iterator mItr = gTankHeals.begin(); mItr != gTankHeals.end(); ++mItr)
+                                    { SET_TARGET_IL_CHECK_ETC(heal, healIL, mItr); }
+
+                                    for(std::vector<WoWGuid>::iterator mItr = tTankHeals.begin(); mItr != tTankHeals.end(); ++mItr)
+                                    { SET_TARGET_IL_CHECK_ETC(heal, healIL, mItr); }
+                                }
+
+                                // Check which tank we pick(the one who isn't a healer)
+                                if(tank.empty() && (gTankHeals.size() || tTankHeals.size()))
+                                {   // Check to see if we can find a tank that isn't our healer
+                                    uint32 tankIL = 0;
+                                    for(std::vector<WoWGuid>::iterator mItr = gTankHeals.begin(); mItr != gTankHeals.end(); ++mItr)
+                                    {
+                                        if((*mItr) == heal)
+                                            continue;
+                                        SET_TARGET_IL_CHECK_ETC(tank, tankIL, mItr);
+                                    }
+
+                                    for(std::vector<WoWGuid>::iterator mItr = tTankHeals.begin(); mItr != tTankHeals.end(); ++mItr)
+                                    {
+                                        if((*mItr) == heal)
+                                            continue;
+                                        SET_TARGET_IL_CHECK_ETC(tank, tankIL, mItr);
+                                    }
+                                }
+
+                                if(heal.empty() && (gHeals.size() || tHeals.size()))
+                                {   // Check to see if we can find a healer from either heal groups
+                                    uint32 healIL = 0;
+                                    for(std::vector<WoWGuid>::iterator mItr = gHeals.begin(); mItr != gHeals.end(); ++mItr)
+                                    { SET_TARGET_IL_CHECK_ETC(heal, healIL, mItr) }
+
+                                    for(std::vector<WoWGuid>::iterator mItr = tHeals.begin(); mItr != tHeals.end(); ++mItr)
+                                    { SET_TARGET_IL_CHECK_ETC(heal, healIL, mItr) }
+                                }
+
+                                if(tank.empty() && (gTanks.size() || tTanks.size()))
+                                {   // Check to see if we can find a tank from either tank groups
+                                    uint32 tankIL = 0;
+                                    for(std::vector<WoWGuid>::iterator mItr = gTanks.begin(); mItr != gTanks.end(); ++mItr)
+                                    { SET_TARGET_IL_CHECK_ETC(tank, tankIL, mItr); }
+
+                                    for(std::vector<WoWGuid>::iterator mItr = tTanks.begin(); mItr != tTanks.end(); ++mItr)
+                                    { SET_TARGET_IL_CHECK_ETC(tank, tankIL, mItr); }
+                                }
+#undef SET_TARGET_IL_CHECK_ETC
+
+                                // Fill the rest into our DPS pool
+                                for(std::vector<WoWGuid>::iterator mItr = group->members.begin(); mItr != group->members.end(); mItr++)
+                                {
+                                    WoWGuid member = (*mItr);
+                                    if(member == heal || member == tank)
+                                        continue;
+                                    unselectedDPS.insert(member);
+                                }
+                                for(std::vector<WoWGuid>::iterator mItr = tGroup->members.begin(); mItr != tGroup->members.end(); mItr++)
+                                {
+                                    WoWGuid member = (*mItr);
+                                    if(member == heal || member == tank)
+                                        continue;
+                                    unselectedDPS.insert(member);
+                                }
+
+                                // More macros
+#define SET_GROUP_CACHE_POOL(pool, iterator)\
+                                if(m_queueGroupMap.find(*iterator) == m_queueGroupMap.end())\
+                                    continue;\
+                                group = m_queueGroupMap.at(*iterator);\
+                                break;
+                                // End macro
+
+                                // See what we need
+                                if(tank.empty())
+                                {   // Find a tank in our pool
+                                    QueueGroup *group = NULL;
+                                    if(talentedPool.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = talentedPool.begin(); mItr != talentedPool.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(talentedPool, mItr); }
+                                    }
+                                    else if(tankGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = tankGroups.begin(); mItr != tankGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(tankGroups, mItr); }
+                                    }
+                                    else if(tankDPSGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = tankDPSGroups.begin(); mItr != tankDPSGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(tankDPSGroups, mItr); }
+                                    }
+
+                                    if(group == NULL)
+                                        continue; // we failed
+
+                                    tank = *group->members.begin();
+                                    // check to see if we pass now
+                                    if(tank.empty() || heal.empty() || (unselectedDPS.size() < 3))
+                                        continue;
+                                    groupIds.push_back(group->queueId);
+                                    // Remove us from all our pooled sets
+                                    for(auto sVItr = setVector.begin(); sVItr != setVector.end(); ++sVItr)
+                                        (*sVItr)->erase(group->queueId);
+                                }
+                                else if(heal.empty())
+                                {   // Find a healer in our pool
+                                    QueueGroup *group = NULL;
+                                    std::set<uint32> *fromPool;
+                                    if(talentedPool.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = talentedPool.begin(); mItr != talentedPool.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(talentedPool, mItr); }
+                                    }
+                                    else if(healGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = healGroups.begin(); mItr != healGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(healGroups, mItr); }
+                                    }
+                                    else if(tankHealGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = tankHealGroups.begin(); mItr != tankHealGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(tankHealGroups, mItr); }
+                                    }
+
+                                    if(group == NULL)
+                                        continue; // we failed
+
+                                    heal = *group->members.begin();
+                                    // check to see if we pass now
+                                    if(tank.empty() || heal.empty() || (unselectedDPS.size() < 3))
+                                        continue;
+                                    groupIds.push_back(group->queueId);
+                                    // Remove us from all our pooled sets
+                                    for(auto sVItr = setVector.begin(); sVItr != setVector.end(); ++sVItr)
+                                        (*sVItr)->erase(group->queueId);
+                                }
+                                else if(unselectedDPS.size() < 3)
+                                {   // Find a dps in our pool
+                                    QueueGroup *group = NULL;
+                                    std::set<uint32> *fromPool;
+                                    if(talentedPool.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = talentedPool.begin(); mItr != talentedPool.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(talentedPool, mItr); }
+                                    }
+                                    else if(dpsGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = dpsGroups.begin(); mItr != dpsGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(dpsGroups, mItr); }
+                                    }
+                                    else if(tankDPSGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = tankDPSGroups.begin(); mItr != tankDPSGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(tankDPSGroups, mItr); }
+                                    }
+                                    else if(healDPSGroups.size())
+                                    {
+                                        for(std::set<uint32>::iterator mItr = healDPSGroups.begin(); mItr != healDPSGroups.end(); mItr++)
+                                        { SET_GROUP_CACHE_POOL(healDPSGroups, mItr); }
+                                    }
+
+                                    if(group == NULL)
+                                        continue; // we failed
+
+                                    unselectedDPS.insert(*group->members.begin());
+                                    // check to see if we pass now
+                                    if(tank.empty() || heal.empty() || (unselectedDPS.size() < 3))
+                                        continue;
+                                    groupIds.push_back(group->queueId);
+                                    // Remove us from all our pooled sets
+                                    for(auto sVItr = setVector.begin(); sVItr != setVector.end(); ++sVItr)
+                                        (*sVItr)->erase(group->queueId);
+                                }
+#undef SET_GROUP_CACHE_POOL     // Thank you based macro
+
+                                // We win, see if we can properly create our group from these retards
+                                if(tank.empty() || heal.empty() || (unselectedDPS.size() < 3))
+                                    continue;
+
+                                WoWGuid dps1, dps2, dps3;
+                                // Grab our first DPS
+                                dps1 = *unselectedDPS.begin();
+                                unselectedDPS.erase(unselectedDPS.begin());
+                                // Grab our second DPS
+                                dps2 = *unselectedDPS.begin();
+                                unselectedDPS.erase(unselectedDPS.begin());
+                                // Grab our third DPS
+                                dps3 = *unselectedDPS.begin();
+                                unselectedDPS.erase(unselectedDPS.begin());
+
+                                // Launch our dungeon proposition, this will handle random and clearing of players from other queues
+                                _LaunchProposition(itr->first, &groupIds, tank, heal, dps1, dps2, dps3);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Process our groups with single queued groups
+            for(std::vector<QueueGroupHolder*>::iterator gItr = stack->m_groupQueues.begin(); gItr != stack->m_groupQueues.end();)
             {
                 // If we have a null group, we're queued for cleanup
                 if((*gItr)->group == NULL)
-                    gItr = stack->m_singleQueues.erase(gItr);
+                    gItr = stack->m_groupQueues.erase(gItr);
                 else
                 {   // Check the single group for the player in map
                     QueueGroup *group = (*gItr)->group;
                     ++gItr;
 
-                    Player *plr = objmgr.GetPlayer(*group->members.begin());
-                    if(plr == NULL) // That ends the group for us
-                        continue;
-                    // Limit our player item level to the recommended item level for the dungeon
-                    // so that players over the cap don't get too much of an advantage
-                    uint32 plrIL = std::min<uint32>(plr->GetAverageItemLevel(), 0xFFFFFFFF);//entry->recomItemLevel);
-
-                    // Quick store our role for easier use later
-                    uint8 role = group->memberRoles.begin()->second;
-                    // First check is for tank, role choice helper is used to efficiently detect the need for a tank or healer based on existing selection
-                    if(role & ROLEMASK_TANK && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_TANK, tank, tankIL, tankRoles, heal, healIL))
-                    {   // If we passed helper checks, see if our current tank can be pushed to a different queue spot
-                        if(!tank.empty() && (tankRoles & ~ROLEMASK_TANK) != 0)
-                        {   // If we are also queued a healer then try and fit us into healer spot
-                            if(tankRoles & ROLEMASK_HEALER && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_HEALER, heal, healIL, 0, 0, 0))
-                            {
-                                // Push our current healer into DPS role if we can, never back up to tank
-                                if(!heal.empty() && (healRoles & ROLEMASK_DPS))
-                                    unselectedDPS.insert(heal);
-                                // Set our current tank to our healer before we update our new tank's data
-                                heal = tank, healIL = tankIL, healRoles = tankRoles;
-                                // Make sure our healer isn't in our unselected DPS set
-                                std::set<WoWGuid>::iterator hItr;
-                                if((hItr = unselectedDPS.find(heal)) != unselectedDPS.end())
-                                    unselectedDPS.erase(hItr);
-                            } else if(tankRoles & ROLEMASK_DPS) // If we aren't being pushed into healer
-                                unselectedDPS.insert(tank);     // Check if we can fit as an unselected DPS
-                        }
-
-                        // Set our current tank data to this player's info, store IL, and role as well
-                        tank = plr->GetGUID(), tankIL = plrIL, tankRoles = role;
-                        std::set<WoWGuid>::iterator tItr; // Make sure we aren't in our DPS set
-                        if((tItr = unselectedDPS.find(tank)) != unselectedDPS.end())
-                            unselectedDPS.erase(tItr);
-                    }  // Oh boy, here's the healer checks, do a role helper and update if needed
-                    else if(role & ROLEMASK_HEALER && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_HEALER, heal, healIL, healRoles, tank, tankIL))
-                    {
-                        if(!heal.empty() && (healRoles & ~ROLEMASK_HEALER) != 0)
-                        {   // Check if we're a better match for tank, but role helper isn't as nice to wannabe tanks that heal
-                            if(healRoles & ROLEMASK_TANK && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_TANK, tank, tankIL, 0, 0, 0))
-                            {
-                                if(!tank.empty() && (tankRoles & ROLEMASK_DPS))
-                                    unselectedDPS.insert(tank);
-                                tank = heal, tankIL = healIL, tankRoles = healRoles;
-                                std::set<WoWGuid>::iterator hItr;
-                                if((hItr = unselectedDPS.find(tank)) != unselectedDPS.end())
-                                    unselectedDPS.erase(hItr);
-                            } else if(healRoles & ROLEMASK_DPS)
-                                unselectedDPS.insert(heal);
-                        }
-
-                        // Set our current healer data to current player's info, store IL and role as usual
-                        heal = plr->GetGUID(), healIL = plrIL, healRoles = role;
-                        std::set<WoWGuid>::iterator hItr; // MAke sure we aren't in our DPS set
-                        if((hItr = unselectedDPS.find(heal)) != unselectedDPS.end())
-                            unselectedDPS.erase(hItr);
-                    } else if(role & ROLEMASK_DPS) // Queue us up for DPS deployment
-                        unselectedDPS.insert(plr->GetGUID());
                 }
             }
+        }
 
-            // Make sure we weren't resized to less than required size
-            if(stack->m_singleQueues.size() < dungeonTeamSize)
-                continue;
+        // Quick handle any single queue chances
+        if(stack->m_singleQueues.size() < dungeonTeamSize)
+            continue; // no use if we're below the required size of singles
 
-            // We win, see if we can properly create our group from these retards
+        // We need to find a tank and healer, then push anyone who isn't either into DPS if they have the flag
+        WoWGuid tank(0), heal(0);
+        uint32 tankIL = 0, healIL = 0;
+        uint32 tankRoles = 0, healRoles = 0;
+        std::set<WoWGuid> unselectedDPS;
+        // Start processing through our single queues
+        for(std::vector<QueueGroupHolder*>::iterator gItr = stack->m_singleQueues.begin(); gItr != stack->m_singleQueues.end();)
+        {
+            // Stop iteration if we have a group ready to queue
             if(!(tank.empty() || heal.empty() || (unselectedDPS.size() < 3)))
-            {
-                std::vector<uint32> groupIds;
-                // Grab our tank
-                QueueGroup *tankGroup = m_queueGroupPlayerMap.at(tank);
-                groupIds.push_back(tankGroup->queueId);
-                // Grab our healer
-                QueueGroup *healGroup = m_queueGroupPlayerMap.at(heal);
-                groupIds.push_back(healGroup->queueId);
-                WoWGuid dps1, dps2, dps3;
-                // Grab our first DPS
-                QueueGroup *dpsGroup = m_queueGroupPlayerMap.at(dps1 = *unselectedDPS.begin());
-                unselectedDPS.erase(unselectedDPS.begin());
-                groupIds.push_back(dpsGroup->queueId);
-                // Grab our second DPS
-                dpsGroup = m_queueGroupPlayerMap.at(dps2 = *unselectedDPS.begin());
-                unselectedDPS.erase(unselectedDPS.begin());
-                groupIds.push_back(dpsGroup->queueId);
-                // Grab our third DPS
-                dpsGroup = m_queueGroupPlayerMap.at(dps3 = *unselectedDPS.begin());
-                unselectedDPS.erase(unselectedDPS.begin());
-                groupIds.push_back(dpsGroup->queueId);
-                // Clear out our unselected dps
-                unselectedDPS.clear();
-                // Launch our dungeon, this will handle random and clearing of players from other queues
-                _LaunchDungeon(itr->first, &groupIds, tank, heal, dps1, dps2, dps3);
-            }
-
-            continue;
-        }
-
-        /*std::vector<QueueGroup*> validQueues, validGroups;
-        for(std::vector<QueueGroupHolder*>::iterator itr = stack->m_singleQueues.begin(); itr != stack->m_singleQueues.end();)
-        {
-            if((*itr)->group == NULL)
-                itr = stack->m_singleQueues.erase(itr);
-            else validQueues.push_back((*itr++)->group);
-        }
-
-        for(std::vector<QueueGroupHolder*>::iterator itr = stack->m_groupQueues.begin(); itr != stack->m_groupQueues.end();)
-        {
-            if((*itr)->group == NULL)
-                itr = stack->m_groupQueues.erase(itr);
-            else validGroups.push_back((*itr++)->group);
-        }
-
-        for(std::vector<QueueGroup*>::iterator itr = validGroups.begin(); itr != validGroups.end(); itr++)
-        {
-            QueueGroup *group = *itr;
-            bool isValidGroup = true;
-            uint32 highestGroupTankIL = 0;
-            WoWGuid tankOnlyMember, healOnlyMember, tankHealOnlyMember, nonFullTank;
-            for(Loki::AssocVector<WoWGuid, uint8>::iterator mItr = group->memberRoles.begin(); mItr != group->memberRoles.end(); mItr++)
-            {
-                Player *plr = objmgr.GetPlayer((*mItr).first);
-                if(plr == NULL) // That ends the group for us
-                {
-                    isValidGroup = false;
-                    break;
-                }
-
-                if(((*mItr).second & ROLEMASK_ROLE_TYPE) == (ROLEMASK_TANK|ROLEMASK_HEALER))
-                    tankHealOnlyMember = (*mItr).first; // Member must be either tank or healer
-                else if(((*mItr).second & ROLEMASK_ROLE_TYPE) == ROLEMASK_TANK)
-                    tankOnlyMember = (*mItr).first; // Member must be tank
-                else if(((*mItr).second & ROLEMASK_ROLE_TYPE) == ROLEMASK_HEALER)
-                    healOnlyMember = (*mItr).first; // Member must be healer
-
-                if((*mItr).second & ROLEMASK_TANK)
-                {
-                    if((*mItr).first != tankOnlyMember)
-                    {
-                        nonFullTank = (*mItr).first;
-                        if(plr->GetAverageItemLevel() > highestGroupTankIL)
-                            highestGroupTankIL = plr->GetAverageItemLevel();
-                    }
-                }
-            }
-            if(!isValidGroup)
-                continue;
-
-            WoWGuid tank(nonFullTank.empty() ? tankOnlyMember.empty() ? tankHealOnlyMember : tankOnlyMember : nonFullTank), heal(healOnlyMember.empty() ? (tank != tankHealOnlyMember ? tankHealOnlyMember : 0) : healOnlyMember);
-
-            std::vector<std::vector<WoWGuid>> unselectedDPS;
-            uint32 tankIL = 0, healIL = 0, lowestDPSIL = 0xFFFFFFFF;
-            for(std::vector<QueueGroup*>::iterator vItr = validQueues.begin(); vItr != validQueues.end(); vItr++)
-            {
-                uint32 groupDPS;
-                std::vector<std::pair<WoWGuid, uint32>> availableDPS;
-                for(Loki::AssocVector<WoWGuid, uint8>::iterator mItr = (*vItr)->memberRoles.begin(); mItr != (*vItr)->memberRoles.end(); mItr++)
-                {
-                    Player *plr = objmgr.GetPlayer((*mItr).first);
-                    if(plr == NULL) // That ends the group for us
-                        break;
-
-                    if((*mItr).second & ROLEMASK_TANK && tankOnlyMember.empty() && RoleChoiceHelper(plr, (*mItr).second, ROLEMASK_TANK, tank, tankIL, (*vItr)->memberRoles[tank], heal, healIL))
-                    {
-                        if(!tank.empty() && ((*vItr)->memberRoles[tank] & ROLEMASK_DPS))
-                            availableDPS.push_back(std::make_pair((*mItr).first, (*vItr)->queueId));
-
-                        tank = (*mItr).first, tankIL = plr->GetAverageItemLevel();
-                    }
-                    else if((*mItr).second & ROLEMASK_HEALER && healOnlyMember.empty() && RoleChoiceHelper(plr, (*mItr).second, ROLEMASK_HEALER, heal, healIL, (*vItr)->memberRoles[tank], tank, tankIL))
-                    {
-                        if(!heal.empty() && ((*vItr)->memberRoles[heal] & ROLEMASK_DPS))
-                            availableDPS.push_back(std::make_pair((*mItr).first, (*vItr)->queueId));
-
-                        heal = (*mItr).first, healIL = plr->GetAverageItemLevel();
-                    }
-                    else if((*mItr).second & ROLEMASK_DPS)
-                        availableDPS.push_back(std::make_pair((*mItr).first, (*vItr)->queueId));
-                }
-            }
-
-            if(!(tank.empty() || heal.empty() || (unselectedDPS.size() < 3)))
-            {
-                // Queue successful, start dungeon
                 break;
-            } // Add our group to the back to test against other groups
-            else validQueues.push_back(group);
-        }*/
+
+            // If we have a null group, we're queued for cleanup
+            if((*gItr)->group == NULL)
+                gItr = stack->m_singleQueues.erase(gItr);
+            else
+            {   // Check the single group for the player in map
+                QueueGroup *group = (*gItr)->group;
+                ++gItr;
+
+                Player *plr = objmgr.GetPlayer(*group->members.begin());
+                if(plr == NULL) // That ends the group for us
+                    continue;
+                // Limit our player item level to the recommended item level for the dungeon
+                // so that players over the cap don't get too much of an advantage
+                uint32 plrIL = std::min<uint32>(plr->GetAverageItemLevel(), 0xFFFFFFFF);//entry->recomItemLevel);
+
+                // Quick store our role for easier use later
+                uint8 role = group->memberRoles.begin()->second;
+                // First check is for tank, role choice helper is used to efficiently detect the need for a tank or healer based on existing selection
+                if(role & ROLEMASK_TANK && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_TANK, tank, tankIL, tankRoles, heal, healIL))
+                {   // If we passed helper checks, see if our current tank can be pushed to a different queue spot
+                    if(!tank.empty() && (tankRoles & ~ROLEMASK_TANK) != 0)
+                    {   // If we are also queued a healer then try and fit us into healer spot
+                        if(tankRoles & ROLEMASK_HEALER && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_HEALER, heal, healIL, 0, 0, 0))
+                        {
+                            // Push our current healer into DPS role if we can, never back up to tank
+                            if(!heal.empty() && (healRoles & ROLEMASK_DPS))
+                                unselectedDPS.insert(heal);
+                            // Set our current tank to our healer before we update our new tank's data
+                            heal = tank, healIL = tankIL, healRoles = tankRoles;
+                            // Make sure our healer isn't in our unselected DPS set
+                            std::set<WoWGuid>::iterator hItr;
+                            if((hItr = unselectedDPS.find(heal)) != unselectedDPS.end())
+                                unselectedDPS.erase(hItr);
+                        } else if(tankRoles & ROLEMASK_DPS) // If we aren't being pushed into healer
+                            unselectedDPS.insert(tank);     // Check if we can fit as an unselected DPS
+                    }
+
+                    // Set our current tank data to this player's info, store IL, and role as well
+                    tank = plr->GetGUID(), tankIL = plrIL, tankRoles = role;
+                    std::set<WoWGuid>::iterator tItr; // Make sure we aren't in our DPS set
+                    if((tItr = unselectedDPS.find(tank)) != unselectedDPS.end())
+                        unselectedDPS.erase(tItr);
+                }  // Oh boy, here's the healer checks, do a role helper and update if needed
+                else if(role & ROLEMASK_HEALER && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_HEALER, heal, healIL, healRoles, tank, tankIL))
+                {
+                    if(!heal.empty() && (healRoles & ~ROLEMASK_HEALER) != 0)
+                    {   // Check if we're a better match for tank, but role helper isn't as nice to wannabe tanks that heal
+                        if(healRoles & ROLEMASK_TANK && RoleChoiceHelper(plr, role, plrIL, ROLEMASK_TANK, tank, tankIL, 0, 0, 0))
+                        {
+                            if(!tank.empty() && (tankRoles & ROLEMASK_DPS))
+                                unselectedDPS.insert(tank);
+                            tank = heal, tankIL = healIL, tankRoles = healRoles;
+                            std::set<WoWGuid>::iterator hItr;
+                            if((hItr = unselectedDPS.find(tank)) != unselectedDPS.end())
+                                unselectedDPS.erase(hItr);
+                        } else if(healRoles & ROLEMASK_DPS)
+                            unselectedDPS.insert(heal);
+                    }
+
+                    // Set our current healer data to current player's info, store IL and role as usual
+                    heal = plr->GetGUID(), healIL = plrIL, healRoles = role;
+                    std::set<WoWGuid>::iterator hItr; // MAke sure we aren't in our DPS set
+                    if((hItr = unselectedDPS.find(heal)) != unselectedDPS.end())
+                        unselectedDPS.erase(hItr);
+                } else if(role & ROLEMASK_DPS) // Queue us up for DPS deployment
+                    unselectedDPS.insert(plr->GetGUID());
+            }
+        }
+
+        // Make sure we weren't resized to less than required size
+        if(stack->m_singleQueues.size() < dungeonTeamSize)
+            continue;
+
+        // We win, see if we can properly create our group from these retards
+        if(tank.empty() || heal.empty() || (unselectedDPS.size() < 3))
+            continue;
+
+        std::vector<uint32> groupIds;
+        // Grab our tank
+        QueueGroup *tankGroup = m_queueGroupPlayerMap.at(tank);
+        groupIds.push_back(tankGroup->queueId);
+        // Grab our healer
+        QueueGroup *healGroup = m_queueGroupPlayerMap.at(heal);
+        groupIds.push_back(healGroup->queueId);
+        WoWGuid dps1, dps2, dps3;
+        // Grab our first DPS
+        QueueGroup *dpsGroup = m_queueGroupPlayerMap.at(dps1 = *unselectedDPS.begin());
+        unselectedDPS.erase(unselectedDPS.begin());
+        groupIds.push_back(dpsGroup->queueId);
+        // Grab our second DPS
+        dpsGroup = m_queueGroupPlayerMap.at(dps2 = *unselectedDPS.begin());
+        unselectedDPS.erase(unselectedDPS.begin());
+        groupIds.push_back(dpsGroup->queueId);
+        // Grab our third DPS
+        dpsGroup = m_queueGroupPlayerMap.at(dps3 = *unselectedDPS.begin());
+        unselectedDPS.erase(unselectedDPS.begin());
+        groupIds.push_back(dpsGroup->queueId);
+        // Clear out our unselected dps
+        unselectedDPS.clear();
+        // Launch our dungeon proposition, this will handle random and clearing of players from other queues
+        _LaunchProposition(itr->first, &groupIds, tank, heal, dps1, dps2, dps3);
     }
 
     _queueGroupLock.Release();
@@ -349,7 +640,7 @@ void GroupFinderMgr::RemovePlayer(Player *plr)
 
     QueueGroup *group = itr->second;
     std::vector<WoWGuid>::iterator vItr;
-    if(group->queueState == LFG_STATE_INQUEUE)
+    if(group->queueState <= LFG_STATE_INQUEUE)
         _CleanupQueueGroup(group);
     else if((vItr = std::find(group->members.begin(), group->members.end(), plr->GetGUID())) != group->members.end())
     {
@@ -496,7 +787,13 @@ void GroupFinderMgr::HandleDungeonJoin(Player *plr, uint32 roleMask, std::vector
 
     _SendLFGJoinResult(plr, error, queueGroup);
     if(error == LFG_ERROR_NONE && queueGroup)
-        SendQueueCommandResult(plr, queueGroup->queueStep, queueGroup->queueId, queueGroup->queueState, grp != NULL, &queueGroup->dungeonIds, queueGroup->timeStamp, "");
+    {
+        for(auto itr = queueGroup->members.begin(); itr != queueGroup->members.end(); ++itr)
+        {
+            if(Player *member = objmgr.GetPlayer(*itr))
+                SendQueueCommandResult(member, queueGroup->queueStep, queueGroup->queueId, queueGroup->queueState, grp != NULL, &queueGroup->dungeonIds, queueGroup->timeStamp, "");
+        }
+    }
 }
 
 void GroupFinderMgr::HandleDungeonLeave(Player *plr, WoWGuid guid, uint32 queueId)
@@ -678,6 +975,66 @@ void GroupFinderMgr::SendQueueCommandResult(Player *plr, uint8 type, uint32 queu
     plr->PushPacket(&data);
 }
 
+void GroupFinderMgr::SendProposalUpdate(Player *plr, QueueGroup *group, QueueProposition *proposition)
+{
+    WorldPacket data(SMSG_LFG_PROPOSAL_UPDATE, 235);
+    data << uint32(group->timeStamp);
+    data << uint32(proposition->encounterMask);
+    data << uint32(group->queueId);
+    data << uint32(3);
+    data << uint32(*group->dungeonIds.begin());
+    data << uint32(proposition->propId);
+    data << uint8(proposition->propState);
+
+    WoWGuid guid = plr->GetGUID();
+    WoWGuid groupId = (plr->GetGroup() ? MAKE_NEW_GUID(plr->GetGroup()->GetID(), 0, HIGHGUID_TYPE_GROUP) : 0);
+    data.WriteBit(groupId[4]);
+    data.WriteGuidBitString(3, guid, 3, 7, 0);
+    data.WriteBit(groupId[1]);
+    data.WriteBit(false);
+    data.WriteGuidBitString(2, guid, 4, 5);
+    data.WriteBit(groupId[3]);
+    data.WriteBits<uint32>(0, 23);
+    data.WriteBit(groupId[7]);
+    // Todo: fill here
+    // writeBit(alreadyInDGroup)
+    // writeBit(sameGroup)
+    // writeBit(agreed)
+    // writeBit(notPending)
+    // writeBit(isMemberUs)
+    // End fill
+    data.WriteBit(groupId[5]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(groupId[2]);
+    data.WriteBit(groupId[6]);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[1]);
+    data.WriteBit(groupId[0]);
+
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(groupId[3]);
+    data.WriteByteSeq(groupId[6]);
+    data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(groupId[5]);
+    data.WriteByteSeq(guid[1]);
+
+    // Todo: fill here
+    // uint32(proposedRole);
+    // End fill
+    data.WriteByteSeq(groupId[7]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(groupId[0]);
+    data.WriteByteSeq(groupId[1]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(groupId[2]);
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(groupId[4]);
+
+    plr->PushPacket(&data);
+}
+
 void GroupFinderMgr::_BuildRandomDungeonData(Player *plr, WorldPacket *data, LFGDungeonsEntry *entry)
 {
     bool isDone = false;
@@ -771,7 +1128,7 @@ void GroupFinderMgr::_CleanupQueueGroup(QueueGroup *group)
         WoWGuid guid = *group->members.begin();
         group->members.erase(group->members.begin());
         if(Player *plr = objmgr.GetPlayer(guid))
-            SendQueueCommandResult(plr, LFG_STEP_REMOVED_FROM_QUEUE, group->queueId, LFG_STATE_INQUEUE, group->groupType >= 2, NULL, UNIXTIME, "");
+            SendQueueCommandResult(plr, LFG_STEP_REMOVED_FROM_QUEUE, group->queueId, LFG_STATE_NONE, group->groupType >= 2, NULL, UNIXTIME, "");
         m_queueGroupPlayerMap.erase(guid);
     }
     m_queueGroupMap.erase(group->queueId);
@@ -827,26 +1184,35 @@ void GroupFinderMgr::_SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *g
     plr->PushPacket(&data);
 }
 
-void GroupFinderMgr::_LaunchDungeon(uint32 dungeonId, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3)
+void GroupFinderMgr::_LaunchProposition(uint32 dungeonId, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3)
 {
-    bool forcedCleanup = true;//false;
+    QueueProposition *proposition = NULL;
     if(LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(dungeonId))
     {
         // Launch our dungeon entry
-
-    } else forcedCleanup = true;
+        proposition = new QueueProposition();
+        proposition->propId = _GeneratePropositionId();
+        proposition->propState = LFG_PROP_STATE_START;
+        proposition->encounterMask = 0;
+    }
 
     for(std::vector<uint32>::iterator itr = groupIds->begin(); itr != groupIds->end(); itr++)
     {
         QueueGroup *group = m_queueGroupMap.at(*itr);
         if(group == NULL)
             continue;
+
         group->dungeonIds.clear();
         group->dungeonIds.push_back(dungeonId);
-        if(forcedCleanup)
-        {
+        if(proposition)
+        {   // We did it, set our queue state
+            group->queueStep = LFG_STEP_PROPOSAL_BEGIN;
+            group->queueState = LFG_STATE_PROPOSAL;
+        }
+        else
+        {   // We failed to initialize, just remove us all from queue
             group->queueStep = LFG_STEP_REMOVED_FROM_QUEUE;
-            group->queueState = LFG_STATE_INQUEUE;
+            group->queueState = LFG_STATE_NONE;
         }
 
         group->timeStamp = UNIXTIME;
@@ -854,8 +1220,8 @@ void GroupFinderMgr::_LaunchDungeon(uint32 dungeonId, std::vector<uint32> *group
         {
             if(Player *plr = objmgr.GetPlayer(*itr))
             {
-
                 SendQueueCommandResult(plr, group->queueStep, group->queueId, group->queueState, group->groupType >= 2, &group->dungeonIds, group->timeStamp, "");
+                if(proposition) SendProposalUpdate(plr, group, proposition);
             }
         }
 

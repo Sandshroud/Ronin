@@ -7026,7 +7026,7 @@ uint16 Player::FindQuestSlot( uint32 questid )
 
 uint32 Player::GetTotalItemLevel()
 {
-    uint32 playertotalitemlevel = 0;
+    uint32 playertotalitemlevel = 1;
     return playertotalitemlevel;
 }
 

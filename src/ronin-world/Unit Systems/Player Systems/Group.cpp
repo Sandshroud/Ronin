@@ -306,7 +306,7 @@ void Group::Update()
                 if(m_GroupType & GROUP_TYPE_LFD)
                     data << uint8(0) << uint32(0) << uint8(0);
                 // Group guid
-                data << WoWGuid(MAKE_NEW_GUID(0x4BC0CULL, 0, HIGHGUID_TYPE_GUILD));
+                data << WoWGuid(MAKE_NEW_GUID(GetID(), 0, HIGHGUID_TYPE_GROUP));
                 data << uint32(0); // Update counter
                 data << uint32(m_MemberCount-1);    // we don't include self
                 for( j = 0; j < m_SubGroupCount; j++ )

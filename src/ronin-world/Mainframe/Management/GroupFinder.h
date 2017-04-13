@@ -111,10 +111,23 @@ enum ClientLFGUpdateStep
     LFG_STEP_LFG_OBJECTIVE_FAILED   = 45
 };
 
+enum ClientPropositionStates
+{
+    LFG_PROP_STATE_START = 0,
+    LFG_PROP_STATE_FAILED = 1,
+    LFG_PROP_STATE_SUCCESS = 2
+
+};
+
 static const uint32 dungeonTeamSize = 5;
 
 class GroupFinderMgr : public Singleton < GroupFinderMgr >
 {
+    struct QueueGroup;
+    struct QueueGroupHolder;
+    struct QueueGroupStack;
+    struct QueueProposition;
+
 public:
     GroupFinderMgr();
     ~GroupFinderMgr();
@@ -151,6 +164,7 @@ public:
     void BuildPlayerLockInfo(Player *plr, WorldPacket *data);
 
     void SendQueueCommandResult(Player *plr, uint8 type, uint32 queueId, uint32 queueStatus, bool groupUnk, std::vector<uint32> *dungeonSet, time_t unkTime, std::string unkComment);
+    void SendProposalUpdate(Player *plr, QueueGroup *group, QueueProposition *proposition);
 
 protected:
     void _BuildRandomDungeonData(Player *plr, WorldPacket *data, LFGDungeonsEntry *entry);
@@ -194,7 +208,6 @@ private:
     /// Dungeon Queue functionality
     ////////////////////////////////
 private: // None of this needs to be public
-    struct QueueGroup;
     struct QueueGroupHolder { QueueGroup *group; };
 
     struct QueueGroup
@@ -240,7 +253,19 @@ private: // None of this needs to be public
     DungeonGroupStackMap m_dungeonQueues[2];
 
 protected:
-    void _LaunchDungeon(uint32 dungeonId, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3);
+    struct QueueProposition
+    {
+        uint32 propId;
+        uint32 encounterMask;
+        uint8 propState;
+        std::vector<uint32> queueGroups;
+    };
+
+    Mutex propIdLock;
+    uint32 m_propIdHigh;
+    RONIN_INLINE uint32 _GeneratePropositionId() { propIdLock.Acquire(); uint32 lockId = ++m_propIdHigh; propIdLock.Release(); return lockId; }
+
+    void _LaunchProposition(uint32 dungeonId, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3);
 
 };
 
