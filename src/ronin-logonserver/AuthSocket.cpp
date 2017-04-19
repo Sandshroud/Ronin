@@ -144,17 +144,25 @@ void AuthSocket::OnRecvData()
     }
 
     last_recv = UNIXTIME;
-    AuthPacketHandler *Handler = NULL;
-    uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset();
-    for(uint8 i = 0; Handlers[i].command != 0xFF; i++)
-        if(Handlers[i].command == Command)
-            Handler = &Handlers[i].func;
-    if(Handler == NULL)
-        sLog.Debug("AuthSocket", "Unknown cmd %u", Command);
-    else if(!(this->*(*Handler))())
+    while(GetReadBuffer()->GetSize())
     {
-        m_state = STATE_CLOSED;
-        Disconnect();
+        uint32 size = GetReadBuffer()->GetSize();
+        AuthPacketHandler *Handler = NULL;
+        uint8 Command = *(uint8*)GetReadBuffer()->GetBufferOffset();
+        for(uint8 i = 0; Handlers[i].command != 0xFF; i++)
+            if(Handlers[i].command == Command)
+                Handler = &Handlers[i].func;
+        if(Handler == NULL)
+            sLog.Debug("AuthSocket", "Unknown cmd %u", Command);
+        else if(!(this->*(*Handler))())
+        {
+            m_state = STATE_CLOSED;
+            Disconnect();
+        }
+
+        // We're waiting for more, end here
+        if(size == GetReadBuffer()->GetSize())
+            break;
     }
 }
 
@@ -163,13 +171,7 @@ bool AuthSocket::HandleRealmlist()
     if(GetReadBuffer()->GetSize() < sizeof(sRealmlistChallenge_C))
         return true;
 
-    // Check the rest of the packet is complete.
-    uint8 * ReceiveBuffer = (uint8*)GetReadBuffer()->GetBufferOffset();
-    uint32 full_size = 5;
-    if((full_size += (*(uint32*)&ReceiveBuffer[1])) > 5)
-        if(GetReadBuffer()->GetSize() < full_size)
-            return true;
-    GetReadBuffer()->Remove(full_size);
+    GetReadBuffer()->Remove(sizeof(sRealmlistChallenge_C));
 
     // First realmlist request is for auto connect
     // Ignore, client pushes auth challenge after
@@ -480,9 +482,8 @@ bool AuthSocket::HandleProof()
     if(memcmp(lp.M1, M.AsByteArray(), 20) != 0)
     {
         // Authentication failed.
-        //SendProofError(4, 0);
         sLog.Debug("AuthLogonProof","M1 values don't match.");
-        SendChallengeError(CE_NO_ACCOUNT);
+        SendProofError(4, 0);
         m_state = STATE_CLOSED;
         return true;
     }
@@ -653,9 +654,12 @@ bool AuthSocket::HandleReconnectProof()
     if( m_state != STATE_NEED_REPROOF || m_account == NULL )
         return false;
 
-    if(GetReadBuffer()->GetSize() < sizeof(sAuthLogonProofKey_C))
+    uint32 size, size2;
+    if((size = GetReadBuffer()->GetSize()) < (size2 = sizeof(sAuthLogonProofKey_C)))
         return true;
 
+    sLog.Notice("ReconnectChallenge","Account Id: \"%u\"", m_account->AccountId);
+    uint32 response = 0x03;
     // Load sessionkey from account database.
     if(QueryResult *result = sLogonSQL->Query ("SELECT SessionKey FROM accounts WHERE acct = %u", m_account->AccountId))
     {
@@ -665,9 +669,12 @@ bool AuthSocket::HandleReconnectProof()
     }
     else
     {
+        response |= 0x00010000;
         // Disconnect if the sessionkey invalid or not found
         sLog.Debug("AuthReConnectProof","No matching SessionKey found while user %s tried to login.", AccountName.c_str());
-        return false;
+        Send((const uint8*)&response, 4);
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     sAuthLogonProofKey_C lp;
@@ -684,20 +691,16 @@ bool AuthSocket::HandleReconnectProof()
 
     if (memcmp(sha.GetDigest(), lp.R2, SHA_DIGEST_LENGTH))
     {
+        response |= 0x00010000;
         sLog.Debug("AuthReConnectProof","Authentication Failed.");
-        return false;
+        Send((const uint8*)&response, 4);
+        m_state = STATE_CLOSED;
+        return true;
     }
 
     sLog.Debug("AuthReConnectProof","Authentication Success.");
 
-    ///- Sending response
-    ByteBuffer pkt;
-    pkt << (uint8)  0x03;   //ReconnectProof
-    pkt << (uint8)  0x00;
-    if(GetBuild() > 6141)
-        pkt << (uint16) 0x0000;   // 2 bytes zeros
-    Send(pkt.contents(), uint32(pkt.size()));
-
+    Send((const uint8*)&response, 4);
     // we're authenticated now :)
     m_state = STATE_AUTHENTICATED;
     return true;

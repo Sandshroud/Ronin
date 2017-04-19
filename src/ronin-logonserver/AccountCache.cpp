@@ -510,73 +510,46 @@ void InformationCore::SendRealms(AuthSocket * Socket)
     data << uint8(0x10);
     data << uint16(0);    // Size Placeholder
     data << uint32(0); // Send Counter
+
     if(Socket->GetBuild() <= 6005) // PreBC
-    {
         data << uint8(m_realms.size());
-        for(; itr != m_realms.end(); ++itr)
-        {
-            realm = itr->second;
-
-            data << uint32(realm->Icon);
-            uint8 realmflags = realm->Flag;
-            if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
-                realmflags = REALM_FLAG_OFFLINE;
-
-            // This part is the same for all.
-            data << uint8(realmflags);
-            data << realm->Name;
-            data << realm->Address;
-            data << uint32(realm->Population);
-
-            /* Get our character count */
-            if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
-                data << uint8(it->second); // cached character count. 
-            else uint8(0);
-
-            data << uint8(1);
-            data << uint8(0);
-        }
-        realmLock.Release();
-
-        data << uint8(0);
-        data << uint8(0x02);
-    }
-    else
+    else data << uint16(m_realms.size());
+    for(; itr != m_realms.end(); ++itr)
     {
-        data << uint16(m_realms.size());
-        for(; itr != m_realms.end(); ++itr)
+        realm = itr->second;
+
+        if(Socket->GetBuild() >= 8606)
+            data << uint8(realm->Icon) << uint8(0);
+        else data << uint32(realm->Icon);
+
+        uint8 realmflags = realm->Flag;
+        if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
+            realmflags = (REALM_FLAG_SPECIFYBUILD|REALM_FLAG_OFFLINE);
+
+        data << uint8(realmflags);
+        data << realm->Name;
+        data << realm->Address;
+        data << uint32(realm->Population);
+
+        /* Get our character count */
+        if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
+            data << uint8(it->second); // cached character count. 
+        else data << uint8(0);
+
+        data << uint8(realm->WorldRegion);
+        data << uint8(GetRealmIdByName(realm->Name));       //Realm ID
+        if(realmflags & REALM_FLAG_SPECIFYBUILD)
         {
-            realm = itr->second;
-
-            data << uint8(realm->Icon);
-            uint8 realmflags = realm->Flag;
-            if(realm->RequiredBuild && realm->RequiredBuild != Socket->GetBuild())
-                realmflags = (REALM_FLAG_SPECIFYBUILD|REALM_FLAG_OFFLINE);
-
-            data << uint8(0) << uint8(realmflags);
-            data << realm->Name;
-            data << realm->Address;
-            data << uint32(realm->Population);
-
-            /* Get our character count */
-            if((it = realm->CharacterMap.find(Socket->GetAccountID())) != realm->CharacterMap.end())
-                data << uint8(it->second); // cached character count. 
-            else uint8(0);
-            data << uint8(realm->WorldRegion);
-            data << uint8(GetRealmIdByName(realm->Name));       //Realm ID
-            if(realmflags & REALM_FLAG_SPECIFYBUILD)
-            {
-                data << uint8(realm->RequiredCV[0]);
-                data << uint8(realm->RequiredCV[1]);
-                data << uint8(realm->RequiredCV[2]);
-                data << uint16(realm->RequiredBuild);
-            }
+            data << uint8(realm->RequiredCV[0]);
+            data << uint8(realm->RequiredCV[1]);
+            data << uint8(realm->RequiredCV[2]);
+            data << uint16(realm->RequiredBuild);
         }
-        realmLock.Release();
-
-        data << uint8(0x10);
-        data << uint8(0);
     }
+    realmLock.Release();
+
+    data << uint8(0x10);
+    data << uint8(0);
 
     // Re-calculate size.
     data.put<uint16>(1, data.size() - 3);
