@@ -472,7 +472,7 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
     {
         Creature* critter = u_caster->GetMapInstance()->GetCreature(u_caster->GetSummonedCritterGUID());
         uint32 currententry = critter->GetEntry();
-        critter->RemoveFromWorld();
+        critter->Cleanup();
         u_caster->SetSummonedCritterGUID(0);
 
         // Before WOTLK when you casted the companion summon spell the second time it removed the companion

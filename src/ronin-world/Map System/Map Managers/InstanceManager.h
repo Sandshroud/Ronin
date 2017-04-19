@@ -38,14 +38,18 @@ public:
     void Launch();
     void Prepare();
 
+    // Loading instances for LFD system
+    void LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::GroupFinderDungeon *dungeon, Group *grp);
+
     // Quick storage of map data for checking instance allocation later
     void AddMapData(MapEntry *entry, Map *map) { mapDataLock.Acquire(); m_mapData.insert(std::make_pair(entry->MapID, map)); mapDataLock.Release(); }
 
     // Grab that instance stuff
     MapInstance *GetInstanceForObject(WorldObject *obj);
+
     // Pre teleport check for instance creation 
     uint32 PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate = true);
-    
+
     uint32 AllocateCreatureGuid() { counterLock.Acquire(); uint32 ret = ++m_creatureGUIDCounter; counterLock.Release(); return ret; };
     uint32 AllocateGameObjectGuid() { counterLock.Acquire(); uint32 ret = ++m_gameObjectGUIDCounter; counterLock.Release(); return ret; };
 

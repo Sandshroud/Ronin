@@ -272,8 +272,8 @@ enum Opcodes
     CMSG_LFG_TELEPORT,                                          // 4.3.4:0x2482
     CMSG_LFG_JOIN,                                              // 4.3.4:0x2430
     CMSG_LFG_LEAVE,                                             // 4.3.4:0x2433
-    CMSG_LFG_LFR_JOIN,                                          // 4.3.4:0x0531
-    CMSG_LFG_LFR_LEAVE,                                         // 4.3.4:0x0500
+    CMSG_LFG_RAIDLIST_QUERY,                                    // 4.3.4:0x0531
+    CMSG_LFG_RAIDLIST_LEAVE,                                    // 4.3.4:0x0500
     CMSG_LFG_PROPOSAL_RESULT,                                   // 4.3.4:0x0403
     CMSG_LFG_SET_BOOT_VOTE,                                     // 4.3.4:0x04B3
     CMSG_LFG_SET_COMMENT,                                       // 4.3.4:0x0530

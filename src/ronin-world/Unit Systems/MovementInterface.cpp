@@ -50,6 +50,10 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
     pitching = splineElevation = 0.f;
     m_jumpZSpeed = m_jump_XYSpeed = m_jump_sin = m_jump_cos = 0.f;
 
+    m_pendingDest = false;
+    m_destMapId = m_destInstanceId = 0;
+    m_teleportLocation.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+
     m_underwaterState = 0;
     m_LastUnderwaterState = 0;
     m_MirrorTimer[0] = m_MirrorTimer[1] = m_MirrorTimer[2] = -1;
@@ -1025,7 +1029,7 @@ void MovementInterface::TeleportToPosition(LocationVector destination)
         data2.WriteByteSeq(m_moverGuid[0]);
         data2.WriteByteSeq(m_moverGuid[6]);
         data2 << float(destination.y);
-        plr->PushPacket(&data2);
+        plr->PushPacket(&data2, !plr->IsInWorld());
     } else m_Unit->SetPosition(destination);
 
     // Broadcast the packet to everyone except self.
@@ -1041,10 +1045,16 @@ void MovementInterface::TeleportToPosition(uint32 mapId, uint32 instanceId, Loca
     m_destInstanceId = instanceId;
     m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z, NormAngle(destination.o));
 
+    if(m_Unit->IsInWorld())
+    {
+        m_pendingDest = true;
+        return;
+    }
+
     WorldPacket data(SMSG_NEW_WORLD, 20);
-    data << destination.x << destination.o << destination.y;
-    data << mapId << destination.z;
-    castPtr<Player>(m_Unit)->PushPacket( &data );
+    data << m_teleportLocation.x << m_teleportLocation.o << m_teleportLocation.y;
+    data << m_destMapId << m_teleportLocation.z;
+    castPtr<Player>(m_Unit)->PushPacket( &data, true );
 }
 
 bool MovementInterface::CanProcessTimeSyncCounter(uint32 counter)
@@ -1232,6 +1242,15 @@ void MovementInterface::OnRemoveFromWorld()
     removeServerFlag(MOVEMENTFLAG_MASK_E_ON_RFW);
     removeServerFlag(MOVEMENTFLAG_MASK_F_ON_RFW);
     ClearOptionalMovementData();
+
+    if(m_Unit->IsPlayer() && m_pendingDest)
+    {
+        WorldPacket data(SMSG_NEW_WORLD, 20);
+        data << m_teleportLocation.x << m_teleportLocation.o << m_teleportLocation.y;
+        data << m_destMapId << m_teleportLocation.z;
+        castPtr<Player>(m_Unit)->PushPacket( &data, true );
+        m_pendingDest = false;
+    }
 }
 
 void MovementInterface::OnFirstTimeSync()

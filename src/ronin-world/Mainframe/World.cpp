@@ -476,6 +476,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(TaxiMgr, Initialize);
     MAKE_TASK(ItemManager, InitializeItemPrototypes);
     MAKE_TASK(CreatureDataManager, LoadFromDB);
+    MAKE_TASK(ObjectMgr, LoadAreaTriggerData);
     MAKE_TASK(FactionSystem, LoadFactionInteractionData);
     MAKE_TASK(SpellManager, ParseSpellDBC);
     MAKE_TASK(WorldManager, ParseMapDBC);
@@ -493,7 +494,7 @@ bool World::SetInitialWorldSettings()
     ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
 
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
-    MAKE_TASK(GroupFinderMgr, LoadRewards);
+    MAKE_TASK(GroupFinderMgr, LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, ProcessTitles);
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);

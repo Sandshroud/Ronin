@@ -930,6 +930,77 @@ void ObjectMgr::LoadTrainers()
     }
 }
 
+ObjectMgr::AreaTriggerData *ObjectMgr::GetAreaTriggerData(uint32 entry)
+{
+    std::map<uint32, AreaTriggerData*>::iterator itr;
+    if((itr = m_areaTriggerData.find(entry)) != m_areaTriggerData.end())
+        return itr->second;
+    return NULL;
+}
+
+bool ObjectMgr::GetDungeonEntrance(uint32 mapId, LocationVector *entrance)
+{
+    std::multimap<uint32, AreaTriggerData*>::iterator lower, upper;
+    lower = m_areaTriggerDungeonEntrances.lower_bound(mapId);
+    upper = m_areaTriggerDungeonEntrances.upper_bound(mapId);
+    while(lower != upper)
+    {
+        AreaTriggerData *data = lower->second;
+        if(data->destination->x == 0.f && data->destination->y == 0.f)
+        {
+            ++lower;
+            continue;
+        }
+
+        entrance->ChangeCoords(data->destination->x, data->destination->y, data->destination->z, data->destination->o);
+        return true;
+    }
+
+    return false;
+}
+
+void ObjectMgr::LoadAreaTriggerData()
+{
+    QueryResult *result = WorldDatabase.Query("SELECT entry, type, reqTeam, reqLevel, name, targetMapId, tPosX, tPosY, tPosZ, tPosO FROM world_areatriggers");
+    if(result == NULL)
+    {
+        sLog.Error("ObjectMgr", "Area trigger data missing, server will not function properly!");
+        return;
+    }
+
+    do
+    {
+        Field *fields = result->Fetch();
+        uint32 areaTrigger = fields[0].GetUInt32();
+        if(m_areaTriggerData.find(areaTrigger) != m_areaTriggerData.end())
+            continue;
+        AreaTriggerData *data = new AreaTriggerData();
+        data->Id = areaTrigger;
+        data->type = fields[1].GetUInt8();
+        data->reqTeam = fields[2].GetUInt8();
+        data->reqLevel = fields[3].GetUInt32();
+        data->name = fields[4].GetString();
+        if(data->type == AREATRIGGER_TYPE_DUNGEON || data->type == AREATRIGGER_TYPE_TELEPORT)
+        {
+            data->destination = new AreaTriggerData::TeleportDest();
+            data->destination->mapId = fields[5].GetUInt32();
+            data->destination->x = fields[6].GetFloat();
+            data->destination->y = fields[7].GetFloat();
+            data->destination->z = fields[8].GetFloat();
+            data->destination->o = fields[9].GetFloat();
+
+            if(data->type == AREATRIGGER_TYPE_DUNGEON)
+            {
+                MapEntry *map = NULL;
+                if((map = dbcMap.LookupEntry(data->destination->mapId)) != NULL && map->IsDungeon())
+                    m_areaTriggerDungeonEntrances.insert(std::make_pair(map->MapID, data));
+            }
+        } else data->destination = NULL;
+
+        m_areaTriggerData.insert(std::make_pair(areaTrigger, data));
+    }while(result->NextRow());
+}
+
 void ObjectMgr::FillVendorList(uint32 entry, uint32 vendorMask, std::vector<AvailableCreatureItem> &toFill)
 {
     if(mVendors.find(entry) == mVendors.end())
@@ -1079,13 +1150,7 @@ void ObjectMgr::CorpseCollectorUnload(bool saveOnly)
     {
         Corpse* c = itr->second;
         ++itr;
-        if(c != NULL)
-        {
-            if(c->IsInWorld())
-                c->RemoveFromWorld();
-            c->Destruct();
-            c = NULL;
-        }
+        c->Cleanup();
     }
     m_corpses.clear();
     _corpseslock.Release();

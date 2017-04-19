@@ -39,9 +39,17 @@ void GroupFinderMgr::Initialize()
     {
         if(LFGDungeonsEntry *entry = dbcLFGDungeons.LookupRow(i))
         {
+            entry->mapEntry = entry->mapId >= 0 ? dbcMap.LookupEntry(entry->mapId) : NULL;
+
             m_maxReqExpansion = std::max<uint32>(m_maxReqExpansion, entry->reqExpansion);
             m_lfgDungeonsByExpansion.insert(std::make_pair(entry->reqExpansion, entry));
             m_lfgDungeonsByLFGType.insert(std::make_pair(entry->LFGType, entry));
+            if(entry->LFGType != DBC_LFG_TYPE_RANDOM && entry->LFGFaction != -1)
+                m_lfgDungeonsByLFGFaction.insert(std::make_pair(entry->LFGFaction, entry));
+
+            // Don't cache raids into our level grouping
+            if(entry->LFGType == DBC_LFG_TYPE_RAIDLIST)
+                continue;
             for(uint32 level = entry->minLevel; level <= entry->maxLevel; ++level)
             {
                 m_lfgDungeonsByLevel.insert(std::make_pair(level, entry));
@@ -52,11 +60,12 @@ void GroupFinderMgr::Initialize()
     }
 }
 
-void GroupFinderMgr::LoadRewards()
+void GroupFinderMgr::LoadFromDB()
 {
     uint32 count = 0;
-    QueryResult* result = WorldDatabase.Query("SELECT * FROM groupfinder_rewards ORDER BY dungeonId");
-    if(result != NULL)
+
+    // Load group finder rewards
+    if(QueryResult* result = WorldDatabase.Query("SELECT * FROM groupfinder_rewards ORDER BY dungeonId"))
     {
         do
         {
@@ -87,9 +96,52 @@ void GroupFinderMgr::LoadRewards()
             count++;
         }while(result->NextRow());
         delete result;
+
+        sLog.Notice("GroupFinder", "%u GroupFinder rewards loaded.", count);
     }
 
-    sLog.Notice("LfgMgr", "%u LFD rewards loaded.", count);
+    // Load group finder dungeons
+    if(QueryResult* result = WorldDatabase.Query("SELECT * FROM groupfinder_dungeons ORDER BY dungeonId"))
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            uint32 dungeonid = fields[0].GetUInt32();
+            LFGDungeonsEntry *entry = NULL;
+            if((entry = dbcLFGDungeons.LookupEntry(dungeonid)) == NULL)
+                continue;
+            if(m_dungeonData.find(dungeonid) != m_dungeonData.end())
+                continue;
+
+            GroupFinderDungeonData *dungeonData = new GroupFinderDungeonData();
+            dungeonData->entry = entry;
+            dungeonData->reqItemLevel = fields[2].GetUInt32();
+            dungeonData->recomItemLevel = fields[3].GetUInt32();
+            dungeonData->x = fields[4].GetFloat();
+            dungeonData->y = fields[5].GetFloat();
+            dungeonData->z = fields[6].GetFloat();
+            dungeonData->o = fields[7].GetFloat();
+            if(entry->LFGType != DBC_LFG_TYPE_RANDOM && dungeonData->x == 0.f && dungeonData->y == 0.f)
+            {
+                LocationVector entrance;
+                if(!objmgr.GetDungeonEntrance(dungeonData->entry->mapId, &entrance))
+                {
+                    delete dungeonData;
+                    continue;
+                }
+
+                dungeonData->x = entrance.x;
+                dungeonData->y = entrance.y;
+                dungeonData->z = entrance.z;
+                dungeonData->o = entrance.o;
+            }
+            m_dungeonData.insert(std::make_pair(dungeonid, dungeonData));
+            count++;
+        }while(result->NextRow());
+        delete result;
+
+        sLog.Notice("GroupFinder", "%u GroupFinder rewards loaded.", count);
+    }
 }
 
 bool RoleChoiceHelper(Player *plr, uint8 plrRoleMask, uint32 plrItemLevel, uint8 currentRole, WoWGuid curRole, uint32 curRoleIL, uint8 curRoleMask, WoWGuid otherRole, uint32 otherRoleIL)
@@ -114,9 +166,22 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
         return;
 
     _queueGroupLock.Acquire();
+    // Process proposition timeouts
+    std::vector<uint32> failedPropositions;
+    for(auto itr = m_propositionTimeouts[updateTeamIndex].begin(); itr != m_propositionTimeouts[updateTeamIndex].end(); itr++)
+        if((itr->second = std::max<int32>(0, itr->second - m_updateTimer)) == 0)
+            failedPropositions.push_back(itr->first);
+
     // Time to process through our map of dungeons with queued player groups
     for(DungeonGroupStackMap::iterator itr = m_dungeonQueues[updateTeamIndex].begin(); itr != m_dungeonQueues[updateTeamIndex].end(); itr++)
     {
+        // Only allow one queue pop per dungeon iteration
+        bool success = false;
+        DungeonDataMap::iterator dDItr;
+        GroupFinderDungeonData *dungeonData = NULL;
+        if((dDItr = m_dungeonData.find(itr->first)) != m_dungeonData.end())
+            dungeonData = dDItr->second;
+
         LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(itr->first);
         QueueGroupStack *stack = itr->second;
 
@@ -173,6 +238,9 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
             {   // If we have more than one group, we're gonna process our queue list to see if we can combine any
                 for(std::vector<QueueGroupHolder*>::iterator gItr = stack->m_groupQueues.begin(); gItr != stack->m_groupQueues.end();)
                 {
+                    if(success == true)
+                        break;
+
                     // If we have a null group, we're queued for cleanup
                     if((*gItr)->group == NULL)
                         gItr = stack->m_groupQueues.erase(gItr);
@@ -480,12 +548,21 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
                                 unselectedDPS.erase(unselectedDPS.begin());
 
                                 // Launch our dungeon proposition, this will handle random and clearing of players from other queues
-                                _LaunchProposition(itr->first, &groupIds, tank, heal, dps1, dps2, dps3);
+                                _LaunchProposition(itr->first, updateTeamIndex, &groupIds, tank, heal, dps1, dps2, dps3);
+                                success = true;
+                                break; // End iteration when we succeed
                             }
                         }
                     }
                 }
             }
+
+            if(success == true)
+                continue;
+
+            // We don't need to process group queues against single groups if we have none
+            if(stack->m_singleQueues.empty())
+                continue;
 
             // Process our groups with single queued groups
             for(std::vector<QueueGroupHolder*>::iterator gItr = stack->m_groupQueues.begin(); gItr != stack->m_groupQueues.end();)
@@ -500,6 +577,9 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
 
                 }
             }
+
+            if(success == true)
+                continue;
         }
 
         // Quick handle any single queue chances
@@ -531,7 +611,7 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
                     continue;
                 // Limit our player item level to the recommended item level for the dungeon
                 // so that players over the cap don't get too much of an advantage
-                uint32 plrIL = std::min<uint32>(plr->GetAverageItemLevel(), 0xFFFFFFFF);//entry->recomItemLevel);
+                uint32 plrIL = std::min<uint32>(plr->GetAverageItemLevel(), ((dungeonData && dungeonData->recomItemLevel) ? dungeonData->recomItemLevel : 0xFFFFFFFF));
 
                 // Quick store our role for easier use later
                 uint8 role = group->memberRoles.begin()->second;
@@ -618,7 +698,76 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
         // Clear out our unselected dps
         unselectedDPS.clear();
         // Launch our dungeon proposition, this will handle random and clearing of players from other queues
-        _LaunchProposition(itr->first, &groupIds, tank, heal, dps1, dps2, dps3);
+        _LaunchProposition(itr->first, updateTeamIndex, &groupIds, tank, heal, dps1, dps2, dps3);
+    }
+
+    while(m_completedPropositions[updateTeamIndex].size())
+    {
+        QueueProposition *prop = *m_completedPropositions[updateTeamIndex].begin();
+        m_completedPropositions[updateTeamIndex].erase(m_completedPropositions[updateTeamIndex].begin());
+
+        int32 mapId = -1;
+        GroupFinderDungeon *dungeon = NULL;
+        DungeonDataMap::iterator dDataItr;
+        GroupFinderDungeonData *dungeonData = NULL;
+
+        uint32 dungeonId = prop->propDungeonId;
+        if(LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(dungeonId))
+        {
+            if((dungeonId = GetRealDungeon(entry)) > 0 && prop->propState == LFG_PROP_STATE_SUCCESS && ((dDataItr = m_dungeonData.find(dungeonId)) != m_dungeonData.end()) != NULL)
+            {
+                dungeonData = dDataItr->second;
+                mapId = dungeonData->entry->mapId;
+
+                dungeon = new GroupFinderDungeon();
+                dungeon->origDungeonId = prop->propDungeonId;
+                dungeon->dungeonId = dungeonId;
+                dungeon->instanceId = 0;
+                dungeon->groupId = prop->targetGroupId;
+                dungeon->dataEntry = dungeonData;
+            }
+        }
+
+        for(std::vector<QueueGroup*>::iterator itr = prop->queueGroups.begin(); itr != prop->queueGroups.end(); itr++)
+        {
+            QueueGroup *group = *itr;
+            if(group == NULL)
+                continue;
+            group->queueId = 0;
+            group->dungeonIds.clear();
+            group->queueStep = LFG_STEP_GROUP_FOUND;
+            group->queueState = LFG_STATE_NONE;
+            group->timeStamp = UNIXTIME;
+
+            std::vector<Player*> toRemove;
+            for(Loki::AssocVector<WoWGuid, uint8>::iterator itr = group->memberRoles.begin(); itr != group->memberRoles.end(); itr++)
+            {
+                if(dungeon != NULL)
+                    dungeon->memberRoles.insert(std::make_pair(objmgr.GetPlayerInfo(itr->first), itr->second));
+
+                if(Player *plr = objmgr.GetPlayer(itr->first))
+                {
+                    SendQueueCommandResult(plr, LFG_STEP_NONE, group->queueId, LFG_STATE_NONE, true, &group->dungeonIds, 0, "");
+                    SendQueueCommandResult(plr, dungeon ? LFG_STEP_UPDATE_STATE : LFG_STEP_NONE, group->queueId, dungeon ? LFG_STATE_ACTIVE : LFG_STATE_NONE, false, &group->dungeonIds, 0, "");
+                    SendProposalUpdate(NULL, plr);
+                    toRemove.push_back(plr);
+                }
+            }
+            for(std::vector<Player*>::iterator itr = toRemove.begin(); itr != toRemove.end(); itr++)
+                RemovePlayer(*itr, dungeon != NULL);
+            _CleanupQueueGroup(group, true);
+        }
+        prop->queueGroups.clear();
+        delete prop;
+
+        if(dungeon == NULL)
+            continue;
+
+        Group *grp = Group::Init(prop->targetGroupId, dungeonId, GROUP_TYPE_LFD|((dungeonData->entry->LFGType == 5) ? GROUP_TYPE_HEROIC : 0));
+        grp->FillLFDMembers(&dungeon->memberRoles);
+        grp->Update();
+
+        sInstanceMgr.LaunchGroupFinderDungeon(mapId, dungeon, grp);
     }
 
     _queueGroupLock.Release();
@@ -627,7 +776,7 @@ void GroupFinderMgr::Update(uint32 msTime, uint32 uiDiff)
     m_updateTimer = 0;
 }
 
-void GroupFinderMgr::RemovePlayer(Player *plr)
+void GroupFinderMgr::RemovePlayer(Player *plr, bool silent)
 {
     _queueGroupLock.Acquire();
     // Check if we're linked to a group
@@ -641,13 +790,13 @@ void GroupFinderMgr::RemovePlayer(Player *plr)
     QueueGroup *group = itr->second;
     std::vector<WoWGuid>::iterator vItr;
     if(group->queueState <= LFG_STATE_INQUEUE)
-        _CleanupQueueGroup(group);
+        _CleanupQueueGroup(group, silent);
     else if((vItr = std::find(group->members.begin(), group->members.end(), plr->GetGUID())) != group->members.end())
     {
         group->members.erase(vItr);
         group->memberRoles.erase(plr->GetGUID());
         m_queueGroupPlayerMap.erase(plr->GetGUID());
-        SendQueueCommandResult(plr, LFG_STEP_REMOVED_FROM_QUEUE, group->queueId, group->queueState, group->groupType >= 2, NULL, UNIXTIME, "");
+        if(silent == false) SendQueueCommandResult(plr, LFG_STEP_REMOVED_FROM_QUEUE, group->queueId, group->queueState, group->groupType >= 2, NULL, UNIXTIME, "");
     }
     _queueGroupLock.Release();
 }
@@ -785,7 +934,7 @@ void GroupFinderMgr::HandleDungeonJoin(Player *plr, uint32 roleMask, std::vector
         m_queueGroupMap[queueGroup->queueId] = queueGroup;
     }
 
-    _SendLFGJoinResult(plr, error, queueGroup);
+    SendLFGJoinResult(plr, error, queueGroup);
     if(error == LFG_ERROR_NONE && queueGroup)
     {
         for(auto itr = queueGroup->members.begin(); itr != queueGroup->members.end(); ++itr)
@@ -828,16 +977,6 @@ void GroupFinderMgr::HandleDungeonLeave(Player *plr, WoWGuid guid, uint32 queueI
     RemovePlayer(plr);
 }
 
-void GroupFinderMgr::HandleRaidJoin(Player *plr, uint32 roleMask, std::vector<uint32> *raidSet, std::string comment)
-{
-
-}
-
-void GroupFinderMgr::HandleRaidLeave(Player *plr, WoWGuid guid, uint32 queueId)
-{
-
-}
-
 void GroupFinderMgr::UpdateProposal(Player *plr, uint32 proposalId, bool result, WoWGuid guid, WoWGuid guid2)
 {
     _queueGroupLock.Acquire();
@@ -846,6 +985,70 @@ void GroupFinderMgr::UpdateProposal(Player *plr, uint32 proposalId, bool result,
     {
         _queueGroupLock.Release();
         return;
+    }
+
+    DungeonPropositionMap::iterator propItr;
+    if((propItr = m_dungeonPropositionsByPropId.find(proposalId)) == m_dungeonPropositionsByPropId.end())
+    {
+        _queueGroupLock.Release();
+        return;
+    }
+
+    QueueProposition *prop = propItr->second;
+    if(std::find(prop->queueGroups.begin(), prop->queueGroups.end(), itr->second) == prop->queueGroups.end())
+    {
+        plr->Kick(5, false);
+        _queueGroupLock.Release();
+        return;
+    }
+
+    if(result)
+        prop->acceptedMembers.insert(plr->GetGUID());
+    else
+    {
+        prop->rejectedMembers.insert(plr->GetGUID());
+        prop->members.erase(plr->GetGUID());
+        RemovePlayer(plr);
+    }
+
+    if((prop->acceptedMembers.size() + prop->rejectedMembers.size()) == prop->memberCount)
+    {
+        prop->propState = prop->rejectedMembers.empty() ? LFG_PROP_STATE_SUCCESS : LFG_PROP_STATE_FAILED;
+        // Queue us for finished prop handling
+        m_completedPropositions[prop->propTeam].push_back(prop);
+        // Remove our timeout, not necessary anymore
+        m_propositionTimeouts[prop->propTeam].erase(prop->propId);
+        // Remove us from our proposition map
+        m_dungeonPropositionsByPropId.erase(prop->propId);
+        // Remove us from assigned queue groups
+        for(std::vector<QueueGroup*>::iterator itr = prop->queueGroups.begin(); itr != prop->queueGroups.end(); itr++)
+            m_currentQueueGroupProposals.erase((*itr)->queueId);
+    }
+
+    SendProposalUpdate(prop, NULL);
+    if(prop->propState == LFG_PROP_STATE_SUCCESS)
+    {
+        for(std::vector<QueueGroup*>::iterator itr = prop->queueGroups.begin(); itr != prop->queueGroups.end(); itr++)
+        {
+            QueueGroup *group = *itr;
+            if(group == NULL)
+                continue;
+
+            group->queueStep = LFG_STEP_GROUP_FOUND;
+            group->queueState = LFG_STATE_PROPOSAL;
+            group->groupType = 0;
+
+            group->timeStamp = UNIXTIME;
+            for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
+            {
+                if(Player *plr = objmgr.GetPlayer(*itr))
+                {
+                    SendQueueCommandResult(plr, group->queueStep, group->queueId, group->queueState, group->groupType >= 2, &group->dungeonIds, group->timeStamp, "");
+                }
+            }
+
+            group->queueState = LFG_STATE_ACTIVE;
+        }
     }
 
     _queueGroupLock.Release();
@@ -897,30 +1100,115 @@ void GroupFinderMgr::BuildRandomDungeonData(Player *plr, WorldPacket *data)
 
     for(auto itr = m_currentSeasonDungeons.begin(); itr != m_currentSeasonDungeons.end(); itr++)
     {
-        LFGDungeonsEntry *entry = *itr;
-        if(entry->reqExpansion > expansion)
-            continue;
-        if(plr->getLevel() < entry->minLevel || plr->getLevel() > entry->maxLevel)
-            continue;
-        _BuildRandomDungeonData(plr, data, entry);
-        ++count;
+        if(LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(*itr))
+        {
+            if(entry->reqExpansion > expansion)
+                continue;
+            if(plr->getLevel() < entry->minLevel || plr->getLevel() > entry->maxLevel)
+                continue;
+            _BuildRandomDungeonData(plr, data, entry);
+            ++count;
+        }
     }
     data->put<uint8>(pos, count);
 }
 
-void GroupFinderMgr::BuildPlayerLockInfo(Player *plr, WorldPacket *data)
+void GroupFinderMgr::BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool writeCount)
 {
-    *data << uint32(0);
-    if(0 > 0)
+    LFGDungeonMultiMap::iterator lower, upper;
+    if((lower = m_lfgDungeonsByLevel.lower_bound(plr->getLevel())) != (upper = m_lfgDungeonsByLevel.upper_bound(plr->getLevel())))
     {
-        for(uint32 i = 0; i < 0; i++)
+        size_t pos = data->wpos();
+        if(writeCount) *data << uint32(0);
+        uint32 level = plr->getLevel();
+        uint32 count = 0, avgItemLvl = plr->GetAverageItemLevel();
+        uint8 expansion = plr->GetSession()->GetHighestExpansion();
+        for(LFGDungeonMultiMap::iterator itr = lower; itr != upper; itr++)
         {
-            *data << uint32(0); // Dungeon entry
-            *data << uint32(0); // Lock status
-            *data << uint32(0); // Item Level req
-            *data << uint32(0); // dumb player max item level
+            DungeonDataMap::iterator dDataItr;
+            GroupFinderDungeonData *dungeonData = NULL;
+            if((dDataItr = m_dungeonData.find(itr->second->Id)) != m_dungeonData.end())
+                dungeonData = dDataItr->second;
+
+            LFGDungeonsEntry *dungeon = itr->second;
+            uint32 lockStatus = 0;
+            if (dungeon->reqExpansion > expansion)
+                lockStatus = 1;
+            else if (dungeon->mapDifficulty > 0 && true)//sInstanceMgr.IsPlayerLockedToHeroic(plr, dungeon->mapId)
+                lockStatus = 6;
+            else if (dungeon->minLevel > level)
+                lockStatus = 2;
+            else if (dungeon->maxLevel < level)
+                lockStatus = 3;
+            else if ((dungeon->LFGFlags&0x04) && m_currentSeasonDungeons.find(dungeon->Id) == m_currentSeasonDungeons.end())
+                lockStatus = 1031;
+            else if (dungeonData && dungeonData->reqItemLevel > avgItemLvl)
+                lockStatus = 4;
+
+            if(lockStatus)
+            {
+                *data << uint32(dungeon->Id); // Dungeon entry
+                *data << uint32(lockStatus); // Lock status
+                *data << uint32(dungeonData ? dungeonData->reqItemLevel : 0); // Item Level req
+                *data << uint32(avgItemLvl); // Player current average item level
+                ++count;
+            }
+        }
+        if(writeCount) data->put<uint32>(pos, count);
+    } else if(writeCount) *data << uint32(0);
+}
+
+void GroupFinderMgr::SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *group)
+{
+    WoWGuid guid = plr->GetGUID();
+
+    WorldPacket data(SMSG_LFG_JOIN_RESULT, 2000);
+    data << uint32(3);
+    data << uint8(result);
+    data << uint32(group ? group->queueId : 0);
+    data << uint8(group ? group->queueState : 0);
+    data << uint32(group ? group->timeStamp : 0);
+    data.WriteGuidBitString(4, guid, 2, 7, 3, 0);
+    if(group == NULL)
+    {
+        data.WriteBits<uint32>(0, 24);
+        data.WriteGuidBitString(4, guid, 4, 5, 1, 6);
+    }
+    else
+    {
+        uint8 index = 0;
+        std::vector<ByteBuffer> lockVector(group->members.size());
+        data.WriteBits(group->members.size(), 24);
+        for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
+        {
+            WoWGuid memberGuid = (*itr);
+            data.WriteGuidBitString(8, memberGuid, 7, 5, 3, 6, 0, 2, 4, 1);
+            if(Player *plr = objmgr.GetPlayer(memberGuid))
+            {
+                ByteBuffer &buff = lockVector[index++];
+                BuildPlayerLockInfo(plr, &buff, false);
+                data.WriteBits<uint32>((buff.size()/4), 22);
+            } else data.WriteBits(0, 22);
+        }
+
+        data.WriteGuidBitString(4, guid, 4, 5, 1, 6);
+
+        index = 0;
+        for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
+        {
+            WoWGuid memberGuid = (*itr);
+            if(Player *plr = objmgr.GetPlayer(memberGuid))
+            {
+                ByteBuffer &buff = lockVector[index++];
+                data.append(buff.contents(), buff.size());
+            }
+
+            data.WriteSeqByteString(8, memberGuid, 2, 5, 1, 0, 4, 3, 6, 7);
         }
     }
+
+    data.WriteSeqByteString(8, guid, 1, 4, 3, 5, 0, 7, 2, 6);
+    plr->PushPacket(&data);
 }
 
 void GroupFinderMgr::SendQueueCommandResult(Player *plr, uint8 type, uint32 queueId, uint32 queueStatus, bool groupUnk, std::vector<uint32> *dungeonSet, time_t unkTime, std::string unkComment)
@@ -975,64 +1263,92 @@ void GroupFinderMgr::SendQueueCommandResult(Player *plr, uint8 type, uint32 queu
     plr->PushPacket(&data);
 }
 
-void GroupFinderMgr::SendProposalUpdate(Player *plr, QueueGroup *group, QueueProposition *proposition)
+void GroupFinderMgr::SendProposalUpdate(QueueProposition *proposition, Player *plr)
 {
-    WorldPacket data(SMSG_LFG_PROPOSAL_UPDATE, 235);
-    data << uint32(group->timeStamp);
-    data << uint32(proposition->encounterMask);
-    data << uint32(group->queueId);
-    data << uint32(3);
-    data << uint32(*group->dungeonIds.begin());
-    data << uint32(proposition->propId);
-    data << uint8(proposition->propState);
+    std::vector<Player*> toSend;
+    if(plr == NULL && proposition == NULL)
+        return;
+    else if(plr == NULL)
+    {
+        for(std::set<WoWGuid>::iterator itr = proposition->members.begin(); itr != proposition->members.end(); itr++)
+            toSend.push_back(objmgr.GetPlayer(*itr));
+    } else toSend.push_back(plr);
 
-    WoWGuid guid = plr->GetGUID();
-    WoWGuid groupId = (plr->GetGroup() ? MAKE_NEW_GUID(plr->GetGroup()->GetID(), 0, HIGHGUID_TYPE_GROUP) : 0);
-    data.WriteBit(groupId[4]);
-    data.WriteGuidBitString(3, guid, 3, 7, 0);
-    data.WriteBit(groupId[1]);
-    data.WriteBit(false);
-    data.WriteGuidBitString(2, guid, 4, 5);
-    data.WriteBit(groupId[3]);
-    data.WriteBits<uint32>(0, 23);
-    data.WriteBit(groupId[7]);
-    // Todo: fill here
-    // writeBit(alreadyInDGroup)
-    // writeBit(sameGroup)
-    // writeBit(agreed)
-    // writeBit(notPending)
-    // writeBit(isMemberUs)
-    // End fill
-    data.WriteBit(groupId[5]);
-    data.WriteBit(guid[6]);
-    data.WriteBit(groupId[2]);
-    data.WriteBit(groupId[6]);
-    data.WriteBit(guid[2]);
-    data.WriteBit(guid[1]);
-    data.WriteBit(groupId[0]);
+    while(!toSend.empty())
+    {
+        Player *player = *toSend.begin();
+        toSend.erase(toSend.begin());
+        if(player == NULL)
+            continue;
 
-    data.WriteByteSeq(guid[5]);
-    data.WriteByteSeq(groupId[3]);
-    data.WriteByteSeq(groupId[6]);
-    data.WriteByteSeq(guid[6]);
-    data.WriteByteSeq(guid[0]);
-    data.WriteByteSeq(groupId[5]);
-    data.WriteByteSeq(guid[1]);
+        QueueGroup *plrGroup = NULL;
+        WoWGuid guid = player->GetGUID();
+        WoWGuid groupId = (player->GetGroup() ? MAKE_NEW_GUID(player->GetGroup()->GetID(), 0, HIGHGUID_TYPE_GROUP) : 0);
+        if(m_queueGroupPlayerMap.find(guid) != m_queueGroupPlayerMap.end())
+            plrGroup = m_queueGroupPlayerMap.at(guid);
 
-    // Todo: fill here
-    // uint32(proposedRole);
-    // End fill
-    data.WriteByteSeq(groupId[7]);
-    data.WriteByteSeq(guid[4]);
-    data.WriteByteSeq(groupId[0]);
-    data.WriteByteSeq(groupId[1]);
-    data.WriteByteSeq(guid[2]);
-    data.WriteByteSeq(guid[7]);
-    data.WriteByteSeq(groupId[2]);
-    data.WriteByteSeq(guid[3]);
-    data.WriteByteSeq(groupId[4]);
+        WorldPacket data(SMSG_LFG_PROPOSAL_UPDATE, 350);
+        data << uint32(plrGroup ? plrGroup->timeStamp : UNIXTIME);
+        data << uint32(proposition ? proposition->encounterMask : 0);
+        data << uint32(plrGroup ? plrGroup->queueId : 0);
+        data << uint32(3);
+        data << uint32(proposition ? proposition->propDungeonId : 0);
+        data << uint32(proposition ? proposition->propId : 0);
+        data << uint8(proposition ? proposition->propState : 0);
+        data.WriteBit(groupId[4]);
+        data.WriteGuidBitString(3, guid, 3, 7, 0);
+        data.WriteBit(groupId[1]);
+        data.WriteBit(false);
+        data.WriteGuidBitString(2, guid, 4, 5);
+        data.WriteBit(groupId[3]);
+        data.WriteBits<uint32>(proposition ? proposition->memberRoles.size() : 0, 23);
+        data.WriteBit(groupId[7]);
+        if(proposition)
+        {
+            for(Loki::AssocVector<WoWGuid, uint32>::iterator itr = proposition->memberRoles.begin(); itr != proposition->memberRoles.end(); itr++)
+            {
+                data.WriteBit(player->GetGroup() && player->GetGroupID() == proposition->targetGroupId);
+                data.WriteBit(plrGroup && plrGroup->memberRoles.find(itr->first) != plrGroup->memberRoles.end());
+                if(proposition->acceptedMembers.find(itr->first) != proposition->acceptedMembers.end())
+                    data.WriteBits(0xFF, 2);
+                else if(proposition->rejectedMembers.find(itr->first) != proposition->rejectedMembers.end())
+                    data.WriteBits(0x02, 2);
+                else data.WriteBits(0x00, 2);
+                data.WriteBit(player->GetGUID() == itr->first);
+            }
+        }
+        data.WriteBit(groupId[5]);
+        data.WriteBit(guid[6]);
+        data.WriteBit(groupId[2]);
+        data.WriteBit(groupId[6]);
+        data.WriteBit(guid[2]);
+        data.WriteBit(guid[1]);
+        data.WriteBit(groupId[0]);
 
-    plr->PushPacket(&data);
+        data.WriteByteSeq(guid[5]);
+        data.WriteByteSeq(groupId[3]);
+        data.WriteByteSeq(groupId[6]);
+        data.WriteByteSeq(guid[6]);
+        data.WriteByteSeq(guid[0]);
+        data.WriteByteSeq(groupId[5]);
+        data.WriteByteSeq(guid[1]);
+        if(proposition)
+        {
+            for(Loki::AssocVector<WoWGuid, uint32>::iterator itr = proposition->memberRoles.begin(); itr != proposition->memberRoles.end(); itr++)
+                data << uint32(itr->second);
+        }
+        data.WriteByteSeq(groupId[7]);
+        data.WriteByteSeq(guid[4]);
+        data.WriteByteSeq(groupId[0]);
+        data.WriteByteSeq(groupId[1]);
+        data.WriteByteSeq(guid[2]);
+        data.WriteByteSeq(guid[7]);
+        data.WriteByteSeq(groupId[2]);
+        data.WriteByteSeq(guid[3]);
+        data.WriteByteSeq(groupId[4]);
+
+        player->PushPacket(&data);
+    }
 }
 
 void GroupFinderMgr::_BuildRandomDungeonData(Player *plr, WorldPacket *data, LFGDungeonsEntry *entry)
@@ -1107,6 +1423,49 @@ bool GroupFinderMgr::_BuildDungeonQuestData(Player *plr, WorldPacket *data, uint
     return true;
 }
 
+uint32 GroupFinderMgr::GetRealDungeon(LFGDungeonsEntry *entry)
+{
+    if(entry->LFGType != 6)
+        return entry->Id;
+
+    uint32 ret = 0;
+    LFGDungeonMultiMap::iterator lower, upper;
+    if(entry->LFGFaction != -1)
+    {
+        lower = m_lfgDungeonsByLFGFaction.lower_bound(entry->LFGFaction);
+        upper = m_lfgDungeonsByLFGFaction.upper_bound(entry->LFGFaction);
+    }
+    else
+    {
+        lower = m_lfgDungeonsByExpansion.lower_bound(entry->reqExpansion);
+        upper = m_lfgDungeonsByExpansion.upper_bound(entry->reqExpansion);
+    }
+
+    if(lower != upper)
+    {
+        std::vector<uint32> set;
+        for(LFGDungeonMultiMap::iterator itr = lower; itr != upper; itr++)
+        {
+            LFGDungeonsEntry *current = itr->second;
+            if(entry == current)
+                continue;
+            if(entry->mapDifficulty != current->mapDifficulty)
+                continue;
+            if(m_dungeonData.find(current->Id) == m_dungeonData.end())
+                continue;
+            MapEntry *map = dbcMap.LookupEntry(current->mapId);
+            if(map == NULL || !map->IsDungeon())
+                continue; // Skip anything not a dungeon
+
+            set.push_back(ret = current->Id);
+        }
+
+        if(set.size() > 1)
+            ret = set[RandomUInt(set.size())];
+    }
+    return ret;
+}
+
 Quest *GroupFinderMgr::GetDungeonQuest(uint32 dungeonId, uint32 level, bool secondary)
 {
     Quest *ret = NULL;
@@ -1121,13 +1480,14 @@ Quest *GroupFinderMgr::GetCallToArmsRole(uint32 dungeonId, uint8 roleIndex, uint
     return NULL;
 }
 
-void GroupFinderMgr::_CleanupQueueGroup(QueueGroup *group)
+void GroupFinderMgr::_CleanupQueueGroup(QueueGroup *group, bool silent)
 {
+    Player *plr;
     while(!group->members.empty())
     {
         WoWGuid guid = *group->members.begin();
         group->members.erase(group->members.begin());
-        if(Player *plr = objmgr.GetPlayer(guid))
+        if(silent == false && (plr = objmgr.GetPlayer(guid)))
             SendQueueCommandResult(plr, LFG_STEP_REMOVED_FROM_QUEUE, group->queueId, LFG_STATE_NONE, group->groupType >= 2, NULL, UNIXTIME, "");
         m_queueGroupPlayerMap.erase(guid);
     }
@@ -1137,63 +1497,58 @@ void GroupFinderMgr::_CleanupQueueGroup(QueueGroup *group)
     m_queueGroupDeletionQueue.push_back(group);
 }
 
-void GroupFinderMgr::_SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *group)
-{
-    WoWGuid guid = plr->GetGUID();
-
-    WorldPacket data(SMSG_LFG_JOIN_RESULT, 2000);
-    data << uint32(3);
-    data << uint8(result);
-    data << uint32(group ? group->queueId : 0);
-    data << uint8(group ? group->queueState : 0);
-    data << uint32(group ? group->timeStamp : 0);
-    data.WriteGuidBitString(4, guid, 2, 7, 3, 0);
-    if(group == NULL)
-    {
-        data.WriteBits<uint32>(0, 24);
-        data.WriteGuidBitString(4, guid, 4, 5, 1, 6);
-    }
-    else
-    {
-        data.WriteBits(group->members.size(), 24);
-        for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
-        {
-            WoWGuid memberGuid = (*itr);
-            data.WriteGuidBitString(8, memberGuid, 7, 5, 3, 6, 0, 2, 4, 1);
-            data.WriteBits<uint32>(0, 22);
-        }
-
-        data.WriteGuidBitString(4, guid, 4, 5, 1, 6);
-
-        for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
-        {
-            WoWGuid memberGuid = (*itr);
-            for(uint32 i = 0; i < 0; i++)
-            {
-                data << uint32(0); // Lock state
-                data << uint32(0); // ItemLevel
-                data << uint32(0); // ReqItemLvl
-                data << uint32(0); // dungeonId
-            }
-
-            data.WriteSeqByteString(8, memberGuid, 2, 5, 1, 0, 4, 3, 6, 7);
-        }
-    }
-
-    data.WriteSeqByteString(8, guid, 1, 4, 3, 5, 0, 7, 2, 6);
-    plr->PushPacket(&data);
-}
-
-void GroupFinderMgr::_LaunchProposition(uint32 dungeonId, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3)
+void GroupFinderMgr::_LaunchProposition(uint32 dungeonId, uint8 propTeam, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3)
 {
     QueueProposition *proposition = NULL;
     if(LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(dungeonId))
     {
         // Launch our dungeon entry
         proposition = new QueueProposition();
+        proposition->propDungeonId = dungeonId;
         proposition->propId = _GeneratePropositionId();
         proposition->propState = LFG_PROP_STATE_START;
+        proposition->propTeam = propTeam;
         proposition->encounterMask = 0;
+        proposition->targetGroupId = objmgr.GenerateGroupId();
+        for(std::vector<uint32>::iterator itr = groupIds->begin(); itr != groupIds->end(); itr++)
+        {
+            if(m_queueGroupMap.find(*itr) == m_queueGroupMap.end())
+            {
+                delete proposition;
+                proposition = NULL;
+                break;
+            }
+
+            QueueGroup *group = m_queueGroupMap.at(*itr);
+            proposition->memberCount += group->members.size();
+            for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
+            {
+                if((*itr) == tank)
+                    proposition->memberRoles.insert(std::make_pair(*itr, ROLEMASK_TANK));
+                else if((*itr) == heal)
+                    proposition->memberRoles.insert(std::make_pair(*itr, ROLEMASK_HEALER));
+                else if((*itr) == dps1)
+                    proposition->memberRoles.insert(std::make_pair(*itr, ROLEMASK_DPS));
+                else if((*itr) == dps2)
+                    proposition->memberRoles.insert(std::make_pair(*itr, ROLEMASK_DPS));
+                else if((*itr) == dps3)
+                    proposition->memberRoles.insert(std::make_pair(*itr, ROLEMASK_DPS));
+
+                proposition->members.insert(*itr);
+            }
+
+            // Push our group into our proposition vector
+            proposition->queueGroups.push_back(group);
+        }
+
+        if(proposition)
+        {
+            for(std::vector<uint32>::iterator itr = groupIds->begin(); itr != groupIds->end(); itr++)
+                m_currentQueueGroupProposals.insert(std::make_pair(*itr, proposition->propId));
+            m_dungeonPropositionsByPropId.insert(std::make_pair(proposition->propId, proposition));
+
+            SendProposalUpdate(proposition, NULL);
+        }
     }
 
     for(std::vector<uint32>::iterator itr = groupIds->begin(); itr != groupIds->end(); itr++)
@@ -1221,7 +1576,6 @@ void GroupFinderMgr::_LaunchProposition(uint32 dungeonId, std::vector<uint32> *g
             if(Player *plr = objmgr.GetPlayer(*itr))
             {
                 SendQueueCommandResult(plr, group->queueStep, group->queueId, group->queueState, group->groupType >= 2, &group->dungeonIds, group->timeStamp, "");
-                if(proposition) SendProposalUpdate(plr, group, proposition);
             }
         }
 

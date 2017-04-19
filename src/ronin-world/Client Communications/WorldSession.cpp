@@ -691,8 +691,8 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_LFG_TELEPORT].handler                          = &WorldSession::HandleLFGTeleportOpcode;
     WorldPacketHandlers[CMSG_LFG_JOIN].handler                              = &WorldSession::HandleLFGJoinOpcode;
     WorldPacketHandlers[CMSG_LFG_LEAVE].handler                             = &WorldSession::HandleLFGLeaveOpcode;
-    WorldPacketHandlers[CMSG_LFG_LFR_JOIN].handler                          = &WorldSession::HandleLFGRaidJoinOpcode;
-    WorldPacketHandlers[CMSG_LFG_LFR_LEAVE].handler                         = &WorldSession::HandleLFGRaidLeaveOpcode;
+    WorldPacketHandlers[CMSG_LFG_RAIDLIST_QUERY].handler                    = &WorldSession::HandleLFGRaidListQueryOpcode;
+    WorldPacketHandlers[CMSG_LFG_RAIDLIST_LEAVE].handler                    = &WorldSession::HandleLFGRaidListLeaveOpcode;
     WorldPacketHandlers[CMSG_LFG_PROPOSAL_RESULT].handler                   = &WorldSession::HandleLFGProposalResultOpcode;
     WorldPacketHandlers[CMSG_LFG_SET_BOOT_VOTE].handler                     = &WorldSession::HandleLFGSetBootVoteOpcode;
     WorldPacketHandlers[CMSG_LFG_SET_COMMENT].handler                       = &WorldSession::HandleLFGSetCommentOpcode;

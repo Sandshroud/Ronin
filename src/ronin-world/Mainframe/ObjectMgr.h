@@ -133,6 +133,8 @@ struct RecallLocation
 
 class SERVER_DECL ObjectMgr : public Singleton < ObjectMgr >
 {
+    struct AreaTriggerData;
+
 public:
     ObjectMgr();
     ~ObjectMgr();
@@ -295,6 +297,10 @@ public:
 
     void LoadTrainers();
 
+    ObjectMgr::AreaTriggerData *GetAreaTriggerData(uint32 entry);
+    bool GetDungeonEntrance(uint32 mapId, LocationVector *entrance);
+    void LoadAreaTriggerData();
+
     void SetHighestGuids();
     void ListGuidAmounts();
     uint32 GeneratePlayerGuid();
@@ -382,6 +388,35 @@ protected:
     TransportMap mTransports;
 
     ItemSetContentMap mItemSets;
+
+public:
+    enum AreaTriggerType
+    {
+        AREATRIGGER_TYPE_BASIC = 0,
+        AREATRIGGER_TYPE_DUNGEON,
+        AREATRIGGER_TYPE_UNK,
+        AREATRIGGER_TYPE_INN,
+        AREATRIGGER_TYPE_TELEPORT,
+    };
+
+    struct AreaTriggerData
+    {
+        uint32 Id;
+        uint8 type;
+        uint8 reqTeam;
+        uint32 reqLevel;
+        std::string name;
+        struct TeleportDest
+        {
+            uint32 mapId;
+            float x, y, z, o;
+        } *destination;
+    };
+
+private:
+    std::map<uint32, AreaTriggerData*> m_areaTriggerData;
+    std::multimap<uint32, AreaTriggerData*> m_areaTriggerDungeonEntrances;
+
 };
 
 

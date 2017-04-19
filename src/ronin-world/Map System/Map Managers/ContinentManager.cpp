@@ -65,7 +65,7 @@ bool ContinentManager::run()
         sVMapInterface.UpdateSingleMap(m_mapId, diff);
 
         // Process all pending removals in sequence
-        m_continent->_PerformPlayerRemovals();
+        m_continent->_PerformPendingRemovals();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Process all pending inputs in sequence
@@ -113,7 +113,7 @@ bool ContinentManager::run()
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Process secondary pending removals in sequence
-        m_continent->_PerformPlayerRemovals();
+        m_continent->_PerformPendingRemovals();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
         // Perform all pending object updates in sequence

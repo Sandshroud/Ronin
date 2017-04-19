@@ -127,8 +127,7 @@ bool ChatHandler::HandleDeleteCommand(const char* args, WorldSession *m_session)
             }
         }
     }
-    unit->RemoveFromWorld();
-    unit->Destruct();
+    unit->Cleanup();
 
     m_session->GetPlayer()->SetSelection(NULL);
     return true;

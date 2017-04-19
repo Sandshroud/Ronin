@@ -56,12 +56,41 @@ void InstanceManager::Prepare()
     } else m_instanceCounter = 0x3FF;
 }
 
+void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::GroupFinderDungeon *dungeon, Group *grp)
+{
+    Map *mapData = GetMapData(mapId);
+    ASSERT(mapData != NULL && mapData->GetEntry()->IsDungeon());
+
+    // Instance ID generation occurs inside mutex
+    counterLock.Acquire();
+    dungeon->instanceId = ++m_instanceCounter;
+    counterLock.Release();
+
+    MapInstance *instance = new MapInstance(mapData, mapId, dungeon->instanceId);
+    _AddInstance(dungeon->instanceId, instance);
+
+    LocationVector destination(dungeon->dataEntry->x, dungeon->dataEntry->y, dungeon->dataEntry->z, dungeon->dataEntry->o);
+    for(uint32 i = 0; i < grp->GetSubGroupCount(); ++i)
+    {
+        SubGroup *sub = grp->GetSubGroup(i);
+        if(sub == NULL)
+            continue;
+
+        for(auto itr = sub->GetGroupMembersBegin(); itr != sub->GetGroupMembersEnd(); ++itr)
+            (*itr)->m_loggedInPlayer->SafeTeleport(instance, destination);
+    }
+}
+
 MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
 {
     Map *mapData = NULL;
     MapInstance *ret = NULL;
-    instanceStorageLock.Acquire();
     uint32 mapId = obj->GetMapId(), instanceId = obj->GetInstanceID();
+    // If we're a player without a group, we can't load into raids so just return here to prevent loading an instance we won't use
+    if((mapData = GetMapData(mapId)) && obj->IsPlayer() && mapData->GetEntry()->IsRaid() && castPtr<Player>(obj)->GetGroup() == NULL)
+        return ret;
+
+    instanceStorageLock.Acquire();
     if(instanceId != 0)
     {
         // Check to see if we have the instance ID in storage
@@ -70,7 +99,7 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
         else ret = _LoadInstance(mapId, instanceId);
         // If not, then we can return nothing
     }
-    else if(obj->IsPlayer() && (mapData = GetMapData(mapId)))
+    else if(obj->IsPlayer() && mapData)
     {
         Player *plr = castPtr<Player>(obj);
         if(instanceId = castPtr<Player>(obj)->GetLinkedInstanceID(mapData->GetEntry()))
@@ -183,8 +212,27 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
         {
             if(MapInstance *instance = container->Get())
             {
+                // Update our collision system via instanced map system
+                sVMapInterface.UpdateSingleMap(instance->GetMapId(), diff, instance->GetInstanceID());
+
+                // Process all pending removals in sequence
+                instance->_PerformPendingRemovals();
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
                 // Process all pending inputs in sequence
                 instance->_ProcessInputQueue();
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
+                // Perform all combat state updates before any unit updates
+                instance->_PerformCombatUpdates(msTimer, diff);
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
+                // Perform all delayed spell updates before object updates
+                instance->_PerformDelayedSpellUpdates(msTimer, diff);
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
+                // Perform all unit path updates in sequence
+                instance->_PerformUnitPathUpdates(msTimer, diff);
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
                 // Perform all player updates in sequence
@@ -203,8 +251,20 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
                 instance->_PerformObjectUpdates(msTimer, diff);
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
+                // Perform all movement updates in sequence without player data
+                instance->_PerformMovementUpdates(false);
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
                 // Perform all session updates in sequence
                 instance->_PerformSessionUpdates();
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
+                // Perform all movement updates in sequence with player data
+                instance->_PerformMovementUpdates(true);
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
+                // Process secondary pending removals in sequence
+                instance->_PerformPendingRemovals();
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
                 // Perform all pending object updates in sequence

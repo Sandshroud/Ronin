@@ -55,12 +55,12 @@ void VMapInterface::DeInit()
         delete it.second;
 }
 
-void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time)
+void VMapInterface::UpdateSingleMap(uint32 mapId, uint32 p_time, int32 instanceId)
 {
     if( vMapMgr == NULL )
         return;
 
-    vMapMgr->updateDynamicMapTree(p_time, mapId);
+    vMapMgr->updateDynamicMapTree(p_time, mapId, instanceId);
 }
 
 bool VMapInterface::ActivateMap(uint32 mapId, FILE *mapFile)

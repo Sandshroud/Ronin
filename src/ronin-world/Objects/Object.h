@@ -387,8 +387,11 @@ class SERVER_DECL WorldObject : public Object
 public:
     WorldObject(WoWGuid guid, uint32 fieldCount = OBJECT_END);
     virtual ~WorldObject( );
+
     virtual void Init();
     virtual void Destruct();
+
+    void Cleanup();
 
     virtual void Update(uint32 msTime, uint32 uiDiff);
     void InactiveUpdate(uint32 msTime, uint32 uiDiff);

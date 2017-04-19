@@ -102,7 +102,7 @@ namespace VMAP
 
             const char *GetManagerVersion() { return VMAP_MANAGER_VERSION; }
 
-            void updateDynamicMapTree(unsigned int t_diff, int mapid = -1);
+            void updateDynamicMapTree(unsigned int t_diff, int mapid, int instanceId = -1);
             void LoadGameObjectModelList();
 
             // Static collision

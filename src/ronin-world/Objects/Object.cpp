@@ -876,6 +876,13 @@ void WorldObject::Destruct()
     Object::Destruct();
 }
 
+void WorldObject::Cleanup()
+{
+    if(m_mapInstance)
+        m_mapInstance->QueueCleanup(this);
+    else Destruct();
+}
+
 void WorldObject::Update(uint32 msTime, uint32 uiDiff)
 {
     Object::Update(msTime, uiDiff);
@@ -1480,8 +1487,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                         WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
                         data << dObj->GetGUID();
                         dObj->SendMessageToSet(&data, false);
-                        dObj->RemoveFromWorld();
-                        dObj->Destruct();
+                        dObj->Cleanup();
                     }
                 }
 

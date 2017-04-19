@@ -2937,9 +2937,7 @@ void Unit::SummonExpireSlot(uint8 Slot)
             {
                 mSum = *itr;
                 mSum->m_AuraInterface.RemoveAllAuras();
-                if(mSum->IsInWorld())
-                    mSum->RemoveFromWorld();
-                mSum->DeleteMe();
+                mSum->Cleanup();
             }
             m_Summons[Slot].clear();
             m_Summons.erase(Slot);

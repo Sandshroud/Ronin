@@ -391,8 +391,8 @@ protected:
     void HandleLFGTeleportOpcode(WorldPacket& recvPacket);
     void HandleLFGJoinOpcode(WorldPacket& recvPacket);
     void HandleLFGLeaveOpcode(WorldPacket& recvPacket);
-    void HandleLFGRaidJoinOpcode(WorldPacket& recvPacket);
-    void HandleLFGRaidLeaveOpcode(WorldPacket& recvPacket);
+    void HandleLFGRaidListQueryOpcode(WorldPacket& recvPacket);
+    void HandleLFGRaidListLeaveOpcode(WorldPacket& recvPacket);
     void HandleLFGProposalResultOpcode(WorldPacket& recvPacket);
     void HandleLFGSetBootVoteOpcode(WorldPacket& recvPacket);
     void HandleLFGSetCommentOpcode(WorldPacket& recvPacket);

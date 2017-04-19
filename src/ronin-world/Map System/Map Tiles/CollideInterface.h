@@ -46,7 +46,7 @@ public:
     void Init();
     void DeInit();
 
-    void UpdateSingleMap(uint32 mapId, uint32 p_time);
+    void UpdateSingleMap(uint32 mapId, uint32 p_time, int32 instanceId = -1);
 
     int ActivateTile(uint32 mapId, uint32 tileX, uint32 tileY, FILE *file);
     void DeactivateTile(uint32 mapId, uint32 tileX, uint32 tileY);

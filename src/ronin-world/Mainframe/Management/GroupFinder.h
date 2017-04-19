@@ -21,28 +21,14 @@
 
 #pragma once
 
-struct GroupFinderStatus
-{
-
-};
-
-struct GroupFinderReward
-{
-    uint32 dungeonId;
-    uint32 maxLevel;
-    uint32 questId[2];
-    uint32 moneyReward[2];
-    uint32 xpReward[2];
-};
-
 /// Determines the type of instance
 enum LfgType
 {
-    DBC_LFG_TYPE_NONE   = 0,
-    DBC_LFG_TYPE_DUNGEON= 1,
-    DBC_LFG_TYPE_RAID   = 2,
-    DBC_LFG_TYPE_HEROIC = 5,
-    DBC_LFG_TYPE_RANDOM = 6
+    DBC_LFG_TYPE_NONE       = 0,
+    DBC_LFG_TYPE_DUNGEON    = 1,
+    DBC_LFG_TYPE_RAIDLIST   = 2,
+    DBC_LFG_TYPE_HEROIC     = 5,
+    DBC_LFG_TYPE_RANDOM     = 6
 };
 
 enum
@@ -127,19 +113,20 @@ class GroupFinderMgr : public Singleton < GroupFinderMgr >
     struct QueueGroupHolder;
     struct QueueGroupStack;
     struct QueueProposition;
+    struct GroupFinderDungeon;
+    struct GroupFinderReward;
 
 public:
     GroupFinderMgr();
     ~GroupFinderMgr();
 
     void Initialize(); // Initialize is all parsing, no database loading
-    void LoadRewards();
+    void LoadFromDB();
 
     void Update(uint32 msTime, uint32 uiDiff);
 
     // Player Interaction
-    void AddPlayer(Player *plr);
-    void RemovePlayer(Player *plr);
+    void RemovePlayer(Player *plr, bool silent = false);
 
     void TeleportPlayer(Player *plr, bool toDungeon);
 
@@ -152,23 +139,30 @@ public:
     void HandleDungeonJoin(Player *plr, uint32 roleMask, std::vector<uint32> *dungeonSet, std::string comment);
     void HandleDungeonLeave(Player *plr, WoWGuid guid, uint32 queueId);
 
-    void HandleRaidJoin(Player *plr, uint32 roleMask, std::vector<uint32> *raidSet, std::string comment);
-    void HandleRaidLeave(Player *plr, WoWGuid guid, uint32 queueId);
-
     void UpdateProposal(Player *plr, uint32 proposalId, bool result, WoWGuid guid, WoWGuid guid2);
     void UpdateBootVote(Player *plr, bool vote);
     void UpdateComment(Player *plr, std::string comment);
 
     // Packet building functions
     void BuildRandomDungeonData(Player *plr, WorldPacket *data);
-    void BuildPlayerLockInfo(Player *plr, WorldPacket *data);
+    void BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool writeCount = true);
 
+    void SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *group);
     void SendQueueCommandResult(Player *plr, uint8 type, uint32 queueId, uint32 queueStatus, bool groupUnk, std::vector<uint32> *dungeonSet, time_t unkTime, std::string unkComment);
-    void SendProposalUpdate(Player *plr, QueueGroup *group, QueueProposition *proposition);
+    void SendProposalUpdate(QueueProposition *proposition, Player *plr);
 
 protected:
     void _BuildRandomDungeonData(Player *plr, WorldPacket *data, LFGDungeonsEntry *entry);
     bool _BuildDungeonQuestData(Player *plr, WorldPacket *data, uint32 dungeonId, uint8 roleIndex, bool isDone);
+
+    struct GroupFinderReward
+    {
+        uint32 dungeonId;
+        uint32 maxLevel;
+        uint32 questId[2];
+        uint32 moneyReward[2];
+        uint32 xpReward[2];
+    };
 
     GroupFinderReward *GetReward(uint32 dungeonId, uint32 level)
     {
@@ -188,13 +182,24 @@ protected:
         return NULL;
     }
 
+    struct GroupFinderDungeonData
+    {
+        LFGDungeonsEntry *entry;
+        uint32 reqItemLevel, recomItemLevel;
+        float x, y, z, o;
+    };
+    typedef std::map<uint32, GroupFinderDungeonData*> DungeonDataMap;
+
+    DungeonDataMap m_dungeonData;
+
 private:
+    uint32 GetRealDungeon(LFGDungeonsEntry *entry);
     Quest *GetDungeonQuest(uint32 dungeonId, uint32 level, bool secondary);
     Quest *GetCallToArmsRole(uint32 dungeonId, uint8 roleIndex, uint32 &roleMask);
 
     uint32 m_updateTimer;
     uint32 m_maxReqExpansion;
-    std::vector<LFGDungeonsEntry*> m_currentSeasonDungeons;
+    std::set<uint32> m_currentSeasonDungeons;
 
     std::map<uint32, Loki::AssocVector<uint32, GroupFinderReward*>> m_dungeonRewards;
 
@@ -203,6 +208,7 @@ private:
     LFGDungeonMultiMap m_lfgDungeonsByRecommended;
     LFGDungeonMultiMap m_lfgDungeonsByExpansion;
     LFGDungeonMultiMap m_lfgDungeonsByLFGType;
+    LFGDungeonMultiMap m_lfgDungeonsByLFGFaction;
 
     ////////////////////////////////
     /// Dungeon Queue functionality
@@ -232,8 +238,7 @@ private: // None of this needs to be public
     uint32 m_queueIdHigh;
     RONIN_INLINE uint32 _GenerateQueueId() { queueIdLock.Acquire(); uint32 lockId = ++m_queueIdHigh; queueIdLock.Release(); return lockId; }
 
-    void _CleanupQueueGroup(QueueGroup *group);
-    void _SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *group);
+    void _CleanupQueueGroup(QueueGroup *group, bool silent);
 
     Mutex _queueGroupLock;
     QueueGroupIdStorage m_queueGroupMap;
@@ -257,16 +262,50 @@ protected:
     {
         uint32 propId;
         uint32 encounterMask;
-        uint8 propState;
-        std::vector<uint32> queueGroups;
+        uint32 propDungeonId;
+        uint8 propState, propTeam;
+        uint32 timeLeft;
+
+        uint32 memberCount;
+        std::vector<QueueGroup*> queueGroups;
+        Loki::AssocVector<WoWGuid, uint32> memberRoles;
+
+        std::set<WoWGuid> members, acceptedMembers, rejectedMembers;
+
+        uint32 targetGroupId;
     };
+    typedef std::map<uint32, QueueProposition*> DungeonPropositionMap;
+    typedef std::map<uint32, uint32> QueueProposalIdsByGroupId;
 
     Mutex propIdLock;
     uint32 m_propIdHigh;
     RONIN_INLINE uint32 _GeneratePropositionId() { propIdLock.Acquire(); uint32 lockId = ++m_propIdHigh; propIdLock.Release(); return lockId; }
 
-    void _LaunchProposition(uint32 dungeonId, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3);
+    void _LaunchProposition(uint32 dungeonId, uint8 propTeam, std::vector<uint32> *groupIds, WoWGuid tank, WoWGuid heal, WoWGuid dps1, WoWGuid dps2, WoWGuid dps3);
 
+    std::map<uint32, int32> m_propositionTimeouts[2];
+    std::vector<QueueProposition*> m_completedPropositions[2];
+    DungeonPropositionMap m_dungeonPropositionsByPropId;
+    QueueProposalIdsByGroupId m_currentQueueGroupProposals;
+
+public:
+    struct GroupFinderDungeon
+    {
+        uint32 origDungeonId;
+        uint32 dungeonId;
+        uint32 instanceId;
+        uint32 groupId;
+
+        GroupFinderDungeonData *dataEntry;
+        Loki::AssocVector<PlayerInfo*, uint8> memberRoles;
+    };
+
+private:
+    typedef std::map<WoWGuid, GroupFinderDungeon*> GroupFinderDungeonMapByGuid;
+    typedef std::map<uint32, GroupFinderDungeon*> GroupFinderDungeonMapByInstanceId;
+
+    GroupFinderDungeonMapByGuid m_playerGroupFinderDungeon;
+    GroupFinderDungeonMapByInstanceId m_groupFinderDungeons;
 };
 
 #define sGroupFinder GroupFinderMgr::getSingleton()

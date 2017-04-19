@@ -363,6 +363,10 @@ public:
 
     void PushObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
+
+    void QueueRemoval(WorldObject *obj);
+    void QueueCleanup(WorldObject *obj);
+
     void QueueSoftDisconnect(Player *plr);
 
     virtual void ChangeObjectLocation(WorldObject* obj); // update inrange lists
@@ -484,7 +488,7 @@ public:
     void _PerformMovementUpdates(bool includePlayers);
     void _PerformSessionUpdates();
     void _PerformPendingUpdates();
-    void _PerformPlayerRemovals();
+    void _PerformPendingRemovals();
 
     void EventCorpseDespawn(uint64 guid);
 
@@ -558,7 +562,7 @@ protected:
 
     /* Update System */
     Mutex m_updateMutex;
-    ObjectSet _updates, _movedObjects;
+    ObjectSet _updates, _movedObjects, _pendingRemoval, _pendingCleanup;
     PlayerSet _processQueue, _movedPlayers, _softDCPlayers;
 
     /* Sessions */

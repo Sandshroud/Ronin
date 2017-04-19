@@ -74,6 +74,16 @@ enum PartyUpdateFlags
         | GROUP_UPDATE_FLAG_PHASE
 };
 
+Group* Group::Create()
+{
+    return new Group(true);
+}
+
+Group* Group::Init(uint32 groupId, uint32 dungeonId, uint16 groupType)
+{
+    return new Group(groupId, dungeonId, groupType);
+}
+
 Group::Group(bool Assign)
 {
     m_GroupType = GROUP_TYPE_PARTY;  // Always init as party
@@ -103,6 +113,40 @@ Group::Group(bool Assign)
     memset(m_targetIcons, 0, sizeof(uint64) * 8);
     m_isqueued=false;
     m_assistantLeader=m_mainAssist=m_mainTank=NULL;
+    m_lfdData = NULL;
+}
+
+Group::Group(uint32 groupId, uint32 dungeonId, uint16 groupType) : m_Id(groupId), m_GroupType((groupType&GROUP_TYPE_MASK))
+{
+    // Create initial subgroup
+    memset(m_SubGroups,0, sizeof(SubGroup*)*8);
+    m_SubGroups[0] = new SubGroup(this, 0);
+
+    m_Leader = NULL;
+    m_Looter = NULL;
+    m_LootMethod = PARTY_LOOT_GROUP;
+    m_LootThreshold = 2;
+    m_SubGroupCount = 1;
+    m_MemberCount = 0;
+    m_difficulty = (groupType&GROUP_TYPE_HEROIC) ? MODE_5PLAYER_HEROIC : MODE_5PLAYER_NORMAL;
+    m_raiddifficulty = MODE_10PLAYER_NORMAL;
+
+    m_dirty=false;
+    m_updateblock=false;
+    m_groupFlags = 0;
+    memset(m_targetIcons, 0, sizeof(uint64) * 8);
+    m_isqueued=false;
+    m_assistantLeader=m_mainAssist=m_mainTank=NULL;
+    m_lfdData = NULL;
+    if(groupType & GROUP_TYPE_LFD)
+    {
+        m_lfdData = new LFDDungeonData();
+        m_lfdData->dungeonId = dungeonId;
+        m_lfdData->encounterMask = 0xFF;
+    }
+
+    objmgr.AddGroup(this);
+    SaveToDB();
 }
 
 Group::~Group()
@@ -148,7 +192,7 @@ SubGroup * Group::FindFreeSubGroup()
     return NULL;
 }
 
-bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */)
+bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */, bool silent/* = false */)
 {
     m_groupLock.Acquire();
     Player* pPlayer = info->m_loggedInPlayer;
@@ -167,7 +211,7 @@ bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */)
         {
             m_dirty=true;
             ++m_MemberCount;
-            Update();   // Send group update
+            if(silent == false) Update();   // Send group update
             if(info->m_Group && info->m_Group != this)
                 info->m_Group->RemovePlayer(info);
 
@@ -178,7 +222,7 @@ bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */)
             info->subGroup = (int8)subgroup->GetID();
 
             m_groupLock.Release();
-            UpdateOutOfRangePlayer(info, GROUP_UPDATE_FULL, true, NULL);
+            if(silent == false) UpdateOutOfRangePlayer(info, GROUP_UPDATE_FULL, true, NULL);
             return true;
         }
         else
@@ -302,9 +346,15 @@ void Group::Update()
                 if( (*itr1) == m_mainAssist ) flags |= 4;
                 data << flags;
 
-                data << uint8(0);   // BG Group
-                if(m_GroupType & GROUP_TYPE_LFD)
-                    data << uint8(0) << uint32(0) << uint8(0);
+                if(m_lfdData)
+                {
+                    Loki::AssocVector<WoWGuid, uint8>::iterator itr;
+                    if((itr = m_lfdData->memberRoles.find((*itr1)->charGuid)) != m_lfdData->memberRoles.end())
+                        data << itr->second;
+                    else data << uint8(0);
+                    data << uint8(m_lfdData->encounterMask == 0xFF ? 2 : 0) << uint32(m_lfdData->dungeonId) << uint8(0);
+                } else data << uint8(0); // No roles
+
                 // Group guid
                 data << WoWGuid(MAKE_NEW_GUID(GetID(), 0, HIGHGUID_TYPE_GROUP));
                 data << uint32(0); // Update counter
@@ -337,7 +387,10 @@ void Group::Update()
                                 flags |= 4;
 
                             data << flags;
-                            data << uint8(0);
+                            Loki::AssocVector<WoWGuid, uint8>::iterator itr;
+                            if(m_lfdData && ((itr = m_lfdData->memberRoles.find((*itr1)->charGuid)) != m_lfdData->memberRoles.end()))
+                                data << itr->second;
+                            else data << uint8(0);
                         }
                     }
                 }
@@ -769,6 +822,30 @@ void Group::SendNullUpdate( Player* pPlayer )
 void Group::SendLFGLockInfo(Player *pPlayer)
 {
     // Long and tiring code for writing dungeon locks
+    m_groupLock.Acquire();
+    uint8 count = 0;
+    WorldPacket data(SMSG_LFG_PARTY_INFO, 200);
+    data << count;
+    for(uint32 i = 0; i < m_SubGroupCount; i++)
+    {
+        if(m_SubGroups[i] == NULL)
+            continue;
+
+        for(GroupMembersSet::iterator itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd();)
+        {
+            Player *plr = (*itr)->m_loggedInPlayer;
+            ++itr;
+            if(plr == NULL)
+                continue;
+
+            ++count;
+            data << plr->GetGUID();
+            sGroupFinder.BuildPlayerLockInfo(plr, &data);
+        }
+    }
+    data.put<uint8>(0, count);
+    m_groupLock.Release();
+    pPlayer->PushPacket(&data);
 }
 
 bool Group::QualifiesForGuildXP(Creature *cVictim)
@@ -790,51 +867,6 @@ void Group::SendPartyKillLog( WorldObject* player, WorldObject* Unit )
     data << player->GetGUID();
     data << Unit->GetGUID();
     SendPacketToAll( &data );
-}
-
-void Group::LoadFromDB(Field *fields)
-{
-#define LOAD_ASSISTANT(__i, __d) g = fields[__i].GetUInt32(); if(g != 0) { __d = objmgr.GetPlayerInfo(g); }
-
-    uint32 g;
-    m_updateblock=true;
-    m_Id = fields[0].GetUInt32();
-
-    ObjectMgr::getSingleton().AddGroup( this );
-
-    m_GroupType = fields[1].GetUInt8();
-    m_SubGroupCount = fields[2].GetUInt8();
-    m_LootMethod = fields[3].GetUInt8();
-    m_LootThreshold = fields[4].GetUInt8();
-    m_difficulty = fields[5].GetUInt8();
-    m_raiddifficulty = fields[6].GetUInt8();
-
-    LOAD_ASSISTANT(7, m_assistantLeader);
-    LOAD_ASSISTANT(8, m_mainTank);
-    LOAD_ASSISTANT(9, m_mainAssist);
-
-    // create groups
-    for(int i = 1; i < m_SubGroupCount; i++)
-        m_SubGroups[i] = new SubGroup(this, i);
-
-    // assign players into groups
-    for(int i = 0; i < m_SubGroupCount; i++)
-    {
-        for(int j = 0; j < 5; ++j)
-        {
-            uint32 guid = fields[9 + (i*5) + j].GetUInt32();
-            if( guid == 0 )
-                continue;
-
-            PlayerInfo * inf = objmgr.GetPlayerInfo(guid);
-            if(inf == NULL)
-                continue;
-
-            AddMember(inf);
-            m_dirty=false;
-        }
-    }
-    m_updateblock=false;
 }
 
 void Group::SaveToDB()
@@ -891,6 +923,51 @@ void Group::SaveToDB()
     ss << (uint32)UNIXTIME << ")";
     /*sLog.printf("==%s==\n", ss.str().c_str());*/
     CharacterDatabase.Execute(ss.str().c_str());
+}
+
+void Group::LoadFromDB(Field *fields)
+{
+#define LOAD_ASSISTANT(__i, __d) g = fields[__i].GetUInt32(); if(g != 0) { __d = objmgr.GetPlayerInfo(g); }
+
+    uint32 g;
+    m_updateblock=true;
+    m_Id = fields[0].GetUInt32();
+
+    ObjectMgr::getSingleton().AddGroup( this );
+
+    m_GroupType = fields[1].GetUInt8();
+    m_SubGroupCount = fields[2].GetUInt8();
+    m_LootMethod = fields[3].GetUInt8();
+    m_LootThreshold = fields[4].GetUInt8();
+    m_difficulty = fields[5].GetUInt8();
+    m_raiddifficulty = fields[6].GetUInt8();
+
+    LOAD_ASSISTANT(7, m_assistantLeader);
+    LOAD_ASSISTANT(8, m_mainTank);
+    LOAD_ASSISTANT(9, m_mainAssist);
+
+    // create groups
+    for(int i = 1; i < m_SubGroupCount; i++)
+        m_SubGroups[i] = new SubGroup(this, i);
+
+    // assign players into groups
+    for(int i = 0; i < m_SubGroupCount; i++)
+    {
+        for(int j = 0; j < 5; ++j)
+        {
+            uint32 guid = fields[9 + (i*5) + j].GetUInt32();
+            if( guid == 0 )
+                continue;
+
+            PlayerInfo * inf = objmgr.GetPlayerInfo(guid);
+            if(inf == NULL)
+                continue;
+
+            AddMember(inf);
+            m_dirty=false;
+        }
+    }
+    m_updateblock=false;
 }
 
 void Group::UpdateOutOfRangePlayer(PlayerInfo *info, uint32 Flags, bool Distribute, WorldPacket * Packet)
@@ -1052,7 +1129,7 @@ void Group::UpdateAllOutOfRangePlayersFor(PlayerInfo *info)
 
         for(GroupMembersSet::iterator itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd(); itr++)
         {
-            if((*itr) == info)
+            if((*itr) == info || info->m_loggedInPlayer == NULL)
                 continue;
 
             UpdateOutOfRangePlayer((*itr), GROUP_UPDATE_FULL, false, &data);
@@ -1127,6 +1204,23 @@ void Group::HandlePartialChange(uint32 Type, Player* pPlayer)
     m_groupLock.Release();
 }
 
+void Group::FillLFDMembers(Loki::AssocVector<PlayerInfo*, uint8> *members)
+{
+    if(m_lfdData == NULL)
+        return;
+
+    PlayerInfo *leader = NULL;
+    for(Loki::AssocVector<PlayerInfo*, uint8>::iterator itr = members->begin(); itr != members->end(); itr++)
+    {
+        AddMember(itr->first, -1, true);
+        m_lfdData->memberRoles.insert(std::make_pair(itr->first->charGuid, itr->second));
+        if((itr->second & ROLEMASK_TANK) && leader == NULL)
+            leader = itr->first;
+        else if((itr->second & ROLEMASK_LEADER) && leader == NULL)
+            leader = itr->first;
+    }
+}
+
 void WorldSession::HandlePartyMemberStatsOpcode(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
@@ -1164,11 +1258,6 @@ void WorldSession::HandlePartyMemberStatsOpcode(WorldPacket & recv_data)
     _player->GetGroup()->UpdateOutOfRangePlayer(plr->getPlayerInfo(), GROUP_UPDATE_FULL, false, &data);
     data.SetOpcode(SMSG_PARTY_MEMBER_STATS_FULL);
     SendPacket(&data);
-}
-
-Group* Group::Create()
-{
-    return new Group(true);
 }
 
 void Group::SetMainAssist(PlayerInfo * pMember)

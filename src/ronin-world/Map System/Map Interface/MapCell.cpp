@@ -204,9 +204,6 @@ void MapCell::UnloadCellData(bool preDestruction)
                 continue;
         }
 
-        if( obj->IsInWorld())
-            obj->RemoveFromWorld();
-
         deletionSet.insert(obj);
     }
     m_nonPlayerSet.clear();
@@ -215,7 +212,7 @@ void MapCell::UnloadCellData(bool preDestruction)
     {
         WorldObject *obj = *deletionSet.begin();
         deletionSet.erase(deletionSet.begin());
-        obj->Destruct();
+        obj->Cleanup();
     }
 
     // Start calldown for cell map unloading

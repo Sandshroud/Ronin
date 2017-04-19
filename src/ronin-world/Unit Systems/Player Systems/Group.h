@@ -47,8 +47,9 @@ enum GroupTypes
     GROUP_TYPE_BG       = 0x01,
     GROUP_TYPE_RAID     = 0x02,
     GROUP_TYPE_BGRAID   = GROUP_TYPE_BG | GROUP_TYPE_RAID,
-    GROUP_TYPE_LFD      = 0x08,
-    // 0x10 Leaving battleground, going to normal group
+    GROUP_TYPE_LFD      = 0x04 | 0x08,
+    GROUP_TYPE_MASK     = 0x0F,
+    GROUP_TYPE_HEROIC   = 0x20,
 };
 
 enum MaxGroupCount
@@ -120,13 +121,15 @@ class SERVER_DECL Group
 public:
     friend class SubGroup;
 
-    static Group* Create();
+    static Group *Create();
+    static Group *Init(uint32 groupId, uint32 dungeonId, uint16 groupType);
 
     Group(bool Assign);
+    Group(uint32 groupId, uint32 dungeonId, uint16 groupType);
     ~Group();
 
     // Adding/Removal Management
-    bool AddMember(PlayerInfo * info, int32 subgroupid=-1);
+    bool AddMember(PlayerInfo * info, int32 subgroupid=-1, bool silent = false);
     void RemovePlayer(PlayerInfo * info);
 
     // Leaders and Looting
@@ -198,6 +201,8 @@ public:
     void HandleUpdateFieldChange(uint32 Index, Player* pPlayer);
     void HandlePartialChange(uint32 Type, Player* pPlayer);
 
+    void FillLFDMembers(Loki::AssocVector<PlayerInfo*, uint8> *members);
+
     uint64 m_targetIcons[8];
     RONIN_INLINE Mutex& getLock() { return m_groupLock; }
     RONIN_INLINE void Lock() { m_groupLock.Acquire(); }
@@ -242,4 +247,11 @@ protected:
     bool m_dirty;
     bool m_updateblock;
     uint8 m_groupFlags;
+
+    struct LFDDungeonData
+    {
+        uint32 dungeonId;
+        uint32 encounterMask;
+        Loki::AssocVector<WoWGuid, uint8> memberRoles;
+    } *m_lfdData;
 };

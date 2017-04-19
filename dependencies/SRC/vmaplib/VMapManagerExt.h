@@ -28,7 +28,7 @@ namespace VMAP
     class VMapManagerExt
     {
     public:
-        virtual void updateDynamicMapTree(unsigned int t_diff, int mapid = -1) = 0;
+        virtual void updateDynamicMapTree(unsigned int t_diff, int mapid, int instanceId = -1) = 0;
         virtual void LoadGameObjectModelList() = 0;
 
         // Static collision

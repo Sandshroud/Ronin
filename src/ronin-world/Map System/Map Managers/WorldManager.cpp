@@ -376,14 +376,15 @@ bool WorldManager::PushToWorldQueue(WorldObject *obj)
         if(Player* p = obj->IsPlayer() ? castPtr<Player>(obj) : NULL)
         {
             // players who's group disbanded cannot remain in a raid instances alone(no soloing them:P)
-            if( p->GetGroup()== NULL && (mapInstance->IsRaid() || mapInstance->GetdbcMap()->IsMultiDifficulty()))
+            if( p->GetGroup() == NULL && mapInstance->IsRaid())
                 return false;
 
             p->m_beingPushed = true;
             if(WorldSession *sess = p->GetSession())
                 sess->SetEventInstanceId(mapInstance->GetInstanceID());
 
-            if(!mapInstance->IsRaid()) p->LinkToInstance(mapInstance);
+            if(!mapInstance->IsRaid())
+                p->LinkToInstance(mapInstance);
         } else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
             if(!c->CanAddToWorld())
                 return false;

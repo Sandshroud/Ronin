@@ -363,19 +363,6 @@ int32 Creature::GetBaseAttackTime(uint8 weaponType)
     return weaponType == MELEE ? 2000 : 0;
 }
 
-void Creature::SafeDelete()
-{
-
-}
-
-void Creature::DeleteMe()
-{
-    if(IsInWorld())
-        RemoveFromWorld();
-
-    Destruct();
-}
-
 void Creature::OnRemoveCorpse()
 {
     // time to respawn!

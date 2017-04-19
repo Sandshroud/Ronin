@@ -87,6 +87,7 @@ void WorldSession::HandleLFGJoinOpcode(WorldPacket& recvPacket)
     if(count == 0 || count >= 155)
         return;
 
+    bool containsDungeon = false, containsRaid = false, containsRaidList = false;
     std::string comment = recvPacket.ReadString(commLength);
     std::vector<uint32> dungeonSet;
     for(uint32 i = 0; i < count; i++)
@@ -94,7 +95,28 @@ void WorldSession::HandleLFGJoinOpcode(WorldPacket& recvPacket)
         uint32 dungeonId = (recvPacket.read<uint32>() & 0x00FFFFFF);
         if(dungeonId == 0) // Pushing a type only
             continue;
+        LFGDungeonsEntry *entry = dbcLFGDungeons.LookupEntry(dungeonId);
+        if(entry == NULL) // Cut here, and return an error if we have an invalid list
+        {
+            sGroupFinder.SendLFGJoinResult(_player, LFG_ERROR_FINDER_LIST_ERR, NULL);
+            return;
+        }
+
+        if(entry->LFGType == DBC_LFG_TYPE_RAIDLIST)
+            containsRaidList = true;
+        else if(entry->mapEntry && entry->mapEntry->IsRaid())
+            containsRaid = true;
+        else containsDungeon = true;
+
         dungeonSet.push_back(dungeonId);
+    }
+
+    // Contains raid and raidlist set to 2 as currently we don't support raid setups through GroupFinder
+    uint8 typeCount = (containsRaidList ? 2 : 0) + (containsRaid ? 2 : 0) + (containsDungeon ? 1 : 0);
+    if(typeCount != 1) // Only allow single queue types at once
+    {
+        sGroupFinder.SendLFGJoinResult(_player, LFG_ERROR_FINDER_LIST_ERROR2, NULL);
+        return;
     }
 
     sGroupFinder.HandleDungeonJoin(_player, roleMask, &dungeonSet, comment);
@@ -115,46 +137,24 @@ void WorldSession::HandleLFGLeaveOpcode(WorldPacket& recvPacket)
     sGroupFinder.HandleDungeonLeave(_player, guid, queueId);
 }
 
-void WorldSession::HandleLFGRaidJoinOpcode(WorldPacket& recvPacket)
+void WorldSession::HandleLFGRaidListQueryOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
 
-    return;
-    uint32 roleMask = recvPacket.read<uint32>();
-    recvPacket.read_skip<uint32>();
-    recvPacket.read_skip<uint64>();
-    uint32 commLength = recvPacket.ReadBits(9);
-    uint32 count = recvPacket.ReadBits(24);
-    if(count == 0 || count >= 155)
-        return;
+    uint32 raidDungeonId = (recvPacket.read<uint32>() & 0x00FFFFFF);
+    if(raidDungeonId == 0)
+        return; // We mask out type, so make sure we aren't just sending type
 
-    std::string comment = recvPacket.ReadString(commLength);
-    std::vector<uint32> dungeonSet;
-    for(uint32 i = 0; i < count; i++)
-    {
-        uint32 dungeonId = (recvPacket.read<uint32>() & 0x00FFFFFF);
-        if(dungeonId == 0) // Pushing a type only
-            continue;
-        dungeonSet.push_back(dungeonId);
-    }
-
-    sGroupFinder.HandleRaidJoin(_player, roleMask, &dungeonSet, comment);
 }
 
-void WorldSession::HandleLFGRaidLeaveOpcode(WorldPacket& recvPacket)
+void WorldSession::HandleLFGRaidListLeaveOpcode(WorldPacket& recvPacket)
 {
     CHECK_INWORLD_RETURN();
 
-    return;
-    recvPacket.read_skip<uint64>();
-    recvPacket.read_skip<uint32>();
-    uint32 queueId = recvPacket.read<uint32>();
+    uint32 raidDungeonId = (recvPacket.read<uint32>() & 0x00FFFFFF);
+    if(raidDungeonId == 0)
+        return; // We mask out type, so make sure we aren't just sending type
 
-    WoWGuid guid;
-    recvPacket.ReadGuidBitString(8, guid, 4, 5, 0, 6, 2, 7, 1, 3);
-    recvPacket.ReadGuidByteString(8, guid, 7, 4, 3, 2, 6, 0, 1, 5);
-
-    sGroupFinder.HandleRaidLeave(_player, guid, queueId);
 }
 
 void WorldSession::HandleLFGProposalResultOpcode(WorldPacket& recvPacket)

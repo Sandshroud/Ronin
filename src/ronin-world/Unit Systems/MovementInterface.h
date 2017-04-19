@@ -628,6 +628,7 @@ protected: // Movement information
     LocationVector *m_serverLocation;
 
     // Teleportation destination
+    bool m_pendingDest;
     uint32 m_destMapId, m_destInstanceId;
     LocationVector m_teleportLocation;
 

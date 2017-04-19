@@ -227,9 +227,7 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
                 {
                 case GAMEOBJECT_TYPE_FISHINGNODE:
                     {
-                        if(pGO->IsInWorld())
-                            pGO->RemoveFromWorld();
-                        pGO->Destruct();
+                        pGO->Cleanup();
                     }break;
                 case GAMEOBJECT_TYPE_CHEST:
                     {
@@ -1711,34 +1709,31 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
     if( _player->GetSession()->CanUseCommand('z') )
         sChatHandler.BlueSystemMessage( this, "[%sSystem%s] |rEntered areatrigger: %s%u", MSG_COLOR_WHITE, MSG_COLOR_LIGHTBLUE, MSG_COLOR_SUBWHITE, id);
 
-    QueryResult *res = WorldDatabase.Query("SELECT type, requiredteam, map, position_x, position_y, position_z, orientation FROM areatriggers WHERE entry = %u", id);
-    if(res == NULL)
+    ObjectMgr::AreaTriggerData *data = objmgr.GetAreaTriggerData(id);
+    if(data == NULL)
     {
-        _player->SetRestedAreaTrigger(id);
         sLog.outDebug("Missing AreaTrigger: %u", id);
         return;
     }
 
-    Field *fields = res->Fetch();
-    if((fields[1].GetInt32() != -1 && fields[1].GetInt32() != _player->GetTeam()))
-    {
-        delete res;
+    // Don't handle any we don't meet the requirements of
+    if(data->reqLevel && data->reqLevel > _player->getLevel())
         return;
-    }
+    // Don't handle any we don't meet the requirements of
+    if(data->reqTeam != 0xFF && data->reqTeam != _player->GetTeam())
+        return;
 
-    _player->SetRestedAreaTrigger(id);
+    // Either set our clear our rested areatrigger
+    _player->SetRestedAreaTrigger(data->type == ObjectMgr::AREATRIGGER_TYPE_INN ? id : 0);
 
-    if(fields[0].GetUInt32() == 1 && _player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
+    if(data->type == ObjectMgr::AREATRIGGER_TYPE_DUNGEON && _player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
     {
-        MapEntry* map = dbcMap.LookupEntry(fields[2].GetUInt32());
+        MapEntry* map = dbcMap.LookupEntry(data->destination->mapId);
         if(map == NULL)
-        {
-            delete res;
             return;
-        }
 
         //do we meet the map requirements?
-        uint8 reason = CheckTeleportPrerequisites(this, _player, fields[2].GetUInt32());
+        uint8 reason = CheckTeleportPrerequisites(this, _player, data->destination->mapId);
         /*if(reason != AREA_TRIGGER_FAILURE_OK)
         {
             const char * pReason = AreaTriggerFailureMessages[reason];
@@ -1806,7 +1801,6 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
         }*/
 
         // teleport to our instance
-        _player->SafeTeleport(fields[2].GetUInt32(), 0, LocationVector(fields[3].GetFloat(), fields[4].GetFloat(), fields[5].GetFloat(), fields[6].GetFloat()));
+        _player->SafeTeleport(data->destination->mapId, 0, LocationVector(data->destination->x, data->destination->y, data->destination->z, data->destination->o));
     }
-    delete res;
 }

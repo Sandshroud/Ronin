@@ -426,9 +426,7 @@ void Player::Destruct()
 
     if(m_SummonedObject)
     {
-        if(m_SummonedObject->IsInWorld())
-            m_SummonedObject->RemoveFromWorld();
-        m_SummonedObject->Destruct();
+        m_SummonedObject->Cleanup();
         m_SummonedObject = NULL;
     }
 
@@ -597,7 +595,7 @@ void Player::EventExploration(MapInstance *instance)
 
     if(HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
     {
-        Unit* pUnit = GetSelection() ? m_mapInstance->GetUnit(GetSelection()) : NULL;
+        Unit* pUnit = GetSelection() ? instance->GetUnit(GetSelection()) : NULL;
         if(pUnit && !sFactionSystem.isAttackable(this, pUnit))
         {
             EventAttackStop();
@@ -606,6 +604,9 @@ void Player::EventExploration(MapInstance *instance)
 
         if(DuelingWith != NULL)
             DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
+
+        // Set rested to true for sanctuaries
+        restmap = true;
     }
     else
     {   // PvP flag updating
@@ -615,7 +616,7 @@ void Player::EventExploration(MapInstance *instance)
             RemovePvPFlag();
     }
 
-    TRIGGER_INSTANCE_EVENT( m_mapInstance, OnChangeArea )( this, m_zoneId, m_areaId, oldArea );
+    TRIGGER_INSTANCE_EVENT( instance, OnChangeArea )( this, m_zoneId, m_areaId, oldArea );
 
     // bur: we dont want to explore new areas when on taxi
     if(!GetTaxiState() && !GetTransportGuid() && m_session)
@@ -2845,12 +2846,7 @@ void Player::RemoveFromWorld()
 
     if(m_SummonedObject)
     {
-        if(m_SummonedObject->GetInstanceID() == GetInstanceID())
-        {
-            if(m_SummonedObject->IsInWorld())
-                m_SummonedObject->RemoveFromWorld();
-            m_SummonedObject->Destruct();
-        }
+        m_SummonedObject->Cleanup();
         m_SummonedObject = NULL;
     }
 
@@ -3497,26 +3493,28 @@ void Player::HandleRestedCalculations(bool rest_on)
     LocationVector loc = GetPosition();
     if(rest_on == true && m_restData.isResting == false)
         ApplyPlayerRestState(true);
-    else if(GetTeam() == TEAM_HORDE && HasAreaFlag(OBJECT_AREA_FLAG_INDOORS) && HasAreaFlag(OBJECT_AREA_FLAG_HORDE_ZONE))
-        ApplyPlayerRestState(true);
-    else if(GetTeam() == TEAM_ALLIANCE && HasAreaFlag(OBJECT_AREA_FLAG_INDOORS) && HasAreaFlag(OBJECT_AREA_FLAG_ALLIANCE_ZONE))
-        ApplyPlayerRestState(true);
-    else if(HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
+    else if(rest_on == false)
     {
-        bool result = false;
-        if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(m_restData.areaTriggerId))
+        if(m_restData.areaTriggerId && HasAreaFlag(OBJECT_AREA_FLAG_INDOORS))
         {
-            float delta = 3.2f;
-            if(ATE->radius) // If there is a radius, check our distance with the middle.
-            {   // Only add delta leeway to a single part of the squared value
-                delta = (delta + ATE->radius) * ATE->radius;
-                result = (GetDistance2dSq(ATE->base_x, ATE->base_y) < delta && ((ATE->base_z-1.f) <= GetPositionZ()));
-            } else result = IsInBox(ATE->base_x, ATE->base_y, ATE->base_z, ATE->box_length, ATE->box_width, ATE->box_height, ATE->box_yaw, delta);
-        } else m_restData.areaTriggerId = 0;
+            bool result = false;
+            if(HasAreaFlag(OBJECT_AREA_FLAG_CONTESTED) || (HasAreaFlag(OBJECT_AREA_FLAG_HORDE_ZONE) && GetTeam() == TEAM_HORDE) || (HasAreaFlag(OBJECT_AREA_FLAG_ALLIANCE_ZONE) && GetTeam() == TEAM_ALLIANCE))
+            {
+                if(AreaTriggerEntry* ATE = dbcAreaTrigger.LookupEntry(m_restData.areaTriggerId))
+                {
+                    float delta = 3.2f;
+                    if(ATE->radius) // If there is a radius, check our distance with the middle.
+                    {   // Only add delta leeway to a single part of the squared value
+                        delta = (delta + ATE->radius) * ATE->radius;
+                        float dist = GetDistance2dSq(ATE->base_x, ATE->base_y), halfRad = ATE->radius/2.f;
+                        result = (dist < delta && ((ATE->base_z-halfRad) < GetPositionZ() && GetPositionZ() < (ATE->base_z+halfRad)));
+                    } else result = IsInBox(ATE->base_x, ATE->base_y, ATE->base_z, ATE->box_length, ATE->box_width, ATE->box_height, ATE->box_yaw, delta);
+                } else m_restData.areaTriggerId = 0;
+            }
 
-        ApplyPlayerRestState(result);
-    } else if(rest_on == false)
-        ApplyPlayerRestState(false);
+            ApplyPlayerRestState(result);
+        } else ApplyPlayerRestState(false);
+    }
 }
 
 uint32 Player::SubtractRestXP(uint32 &amount)
@@ -4642,6 +4640,7 @@ void Player::RegenerateHealth( bool inCombat )
 
 void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_world, uint32 instance_id)
 {
+    bool pushHard = !IsInWorld();
     //Send transfer pending only when switching between differnt mapids!
     WorldPacket data(SMSG_TRANSFER_PENDING, 41);
     if(mapid != m_mapId && force_new_world)
@@ -4650,7 +4649,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         data.WriteBitString(2, 0, 0);
         data.FlushBits();
         data << mapid;
-        PushPacket(&data);
+        PushPacket(&data, pushHard);
     }
 
     LocationVector destination(v);
@@ -4664,7 +4663,7 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
             data << mapid << status;
-            PushPacket(&data);
+            PushPacket(&data, pushHard);
             return;
         }
 
@@ -4672,12 +4671,13 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
             data << mapid << uint32(INSTANCE_ABORT_ERROR_ERROR);
-            PushPacket(&data);
+            PushPacket(&data, pushHard);
             return;
         }
 
         //remove us from this map
-        if(IsInWorld()) RemoveFromWorld();
+        if(IsInWorld())
+            GetMapInstance()->QueueRemoval(this);
 
         //send new world
         m_movementInterface.TeleportToPosition(mapid, instance_id, destination);
@@ -5379,11 +5379,7 @@ void Player::EndDuel(uint8 WinCondition)
 
     //Clear Duel Related Stuff
     if( GameObject* arbiter = m_mapInstance ? GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
-    {
-        arbiter->RemoveFromWorld();
-        arbiter->Destruct();
-        arbiter = NULL;
-    }
+        arbiter->Cleanup();
 
     SetUInt64Value( PLAYER_DUEL_ARBITER, 0 );
     DuelingWith->SetUInt64Value( PLAYER_DUEL_ARBITER, 0 );
@@ -5531,14 +5527,14 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
 
 void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
 {
-    if(IsInWorld())
-        RemoveFromWorld();
+    if(IsInWorld()) // If we're in world, queue our removal
+         GetMapInstance()->QueueRemoval(this);
 
     uint32 mapId = mgr->GetMapId(), instanceId = mgr->GetInstanceID();
     WorldPacket data(SMSG_TRANSFER_PENDING, 20);
     data.WriteBitString(2, 0, 0); // Unk and transport transfer
     data.append<uint32>(mapId);
-    PushPacket(&data);
+    PushPacket(&data, !IsInWorld());
 
     // Send transfers via movement interface to set target location and avoid issues with return data
     m_movementInterface.TeleportToPosition(mapId, instanceId, vec);

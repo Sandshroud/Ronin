@@ -578,6 +578,7 @@ struct ItemSetEntry
     uint32 requiredSkill[2];
 };
 
+struct MapEntry;
 struct LFGDungeonsEntry
 {
     uint32 Id;
@@ -591,7 +592,7 @@ struct LFGDungeonsEntry
     uint32 mapDifficulty;
     uint32 LFGFlags;
     uint32 LFGType;
-    uint32 LFGFaction;
+    int32 LFGFaction;
 //  char *iconName;
     uint32 reqExpansion;
 //  uint32 unk2;
@@ -600,8 +601,7 @@ struct LFGDungeonsEntry
     uint32 randomCategoryId;
     //uint32 unk3[3];
 
-    // Get the dungeon entry
-    uint32 GetUniqueID() const { return Id + (LFGType << 24); }
+    MapEntry *mapEntry;
 };
 
 struct LockEntry

@@ -486,13 +486,22 @@ namespace VMAP
         filenameMutexlock.unlock();
     }
 
-    void VMapManager::updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid)
+    void VMapManager::updateDynamicMapTree(G3D::uint32 t_diff, G3D::int32 mapid, G3D::int32 instanceId)
     {
         if(iDynamicMapTrees.find(mapid) == iDynamicMapTrees.end())
             return;
 
-        for(SubDynamicTreeMap::iterator itr = iDynamicMapTrees.at(mapid).begin(); itr != iDynamicMapTrees.at(mapid).end(); itr++)
-            itr->second->update(t_diff);
+        if(instanceId == -1)
+        {
+            for(SubDynamicTreeMap::iterator itr = iDynamicMapTrees.at(mapid).begin(); itr != iDynamicMapTrees.at(mapid).end(); itr++)
+                itr->second->update(t_diff);
+        }
+        else
+        {
+            if(iDynamicMapTrees.at(mapid).find(instanceId) == iDynamicMapTrees.at(mapid).end())
+                return;
+            iDynamicMapTrees.at(mapid).at(instanceId)->update(t_diff);
+        }
     }
 
     void VMapManager::LoadGameObjectModelList()

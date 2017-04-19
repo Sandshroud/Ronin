@@ -385,7 +385,6 @@ public:
     void DeleteFromDB();
 
     void OnRemoveCorpse();
-    void SafeDelete();
 
     // Demon
     void EnslaveExpire();
@@ -412,7 +411,6 @@ public:
     uint32 GetRespawnTime() { return _creatureData ? _creatureData->respawnTime : 0; }
     void Despawn(uint32 respawntime);
 
-    void DeleteMe();
     bool IsInLimboState() { return m_limbostate; }
     uint32 GetLineByFamily(CreatureFamilyEntry * family) { return family->skillLine[0] ? family->skillLine[0] : 0; };
     void RemoveLimboState(Unit* healer);

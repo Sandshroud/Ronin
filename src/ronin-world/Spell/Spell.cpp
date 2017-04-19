@@ -219,23 +219,15 @@ void Spell::cancel()
 
                 if(m_AreaAura)//remove of blizz and shit like this
                 {
-                    DynamicObject* dynObj = _unitCaster->GetMapInstance()->GetDynamicObject(_unitCaster->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT));
-                    if(dynObj)
-                    {
-                        dynObj->RemoveFromWorld();
-                        dynObj->Destruct();
-                        dynObj = NULL;
-                    }
+                    if(DynamicObject* dynObj = _unitCaster->GetMapInstance()->GetDynamicObject(_unitCaster->GetUInt32Value(UNIT_FIELD_CHANNEL_OBJECT)))
+                        dynObj->Cleanup();
                 }
 
                 if(GameObject *summon = castPtr<Player>(_unitCaster)->GetSummonedObject())
                 {
-                    if(summon->IsInWorld())
-                        summon->RemoveFromWorld();
-                    // for now..
-                    ASSERT(summon->GetTypeId() == TYPEID_GAMEOBJECT);
-                    summon->Destruct();
                     castPtr<Player>(_unitCaster)->SetSummonedObject(NULL);
+                    ASSERT(summon->GetTypeId() == TYPEID_GAMEOBJECT);
+                    summon->Cleanup();
                 }
 
                 if(m_timer > 0)

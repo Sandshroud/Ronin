@@ -93,6 +93,8 @@ void MapInstance::Destruct()
     mGameObjectPool.Cleanup();
     mDynamicObjectPool.Cleanup();
 
+    _PerformPendingRemovals();
+
     std::vector<WorldObject*> m_delQueue;
     while(m_CreatureStorage.size())
     {
@@ -137,19 +139,14 @@ void MapInstance::Destruct()
     }
     UnloadCells();
 
-    Corpse* pCorpse;
     if(m_corpses.size())
     {
         for(std::vector<Corpse* >::iterator itr = m_corpses.begin(); itr != m_corpses.end();)
         {
-            pCorpse = *itr;
+            Corpse* pCorpse = *itr;
             ++itr;
 
-            if(pCorpse->IsInWorld())
-                pCorpse->RemoveFromWorld();
-
-            pCorpse->Destruct();
-            pCorpse = NULL;
+            pCorpse->Cleanup();
         }
         m_corpses.clear();
     }
@@ -488,6 +485,16 @@ void MapInstance::RemoveObject(WorldObject* obj)
         currentCell->RemoveObject(obj);
     // Unset object's cell
     obj->SetMapCell(NULL);
+}
+
+void MapInstance::QueueRemoval(WorldObject *obj)
+{
+    _pendingRemoval.insert(obj);
+}
+
+void MapInstance::QueueCleanup(WorldObject *obj)
+{
+    _pendingCleanup.insert(obj);
 }
 
 void MapInstance::QueueSoftDisconnect(Player *plr)
@@ -1476,9 +1483,24 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
     m_poolLock.Release();
 }
 
-void MapInstance::_PerformPlayerRemovals()
+void MapInstance::_PerformPendingRemovals()
 {
     m_updateMutex.Acquire();
+    while(!_pendingRemoval.empty())
+    {
+        WorldObject *obj = *_pendingRemoval.begin();
+        _pendingRemoval.erase(_pendingRemoval.begin());
+        obj->RemoveFromWorld();
+    }
+
+    while(!_pendingCleanup.empty())
+    {
+        WorldObject *obj = *_pendingCleanup.begin();
+        _pendingCleanup.erase(_pendingCleanup.begin());
+        obj->RemoveFromWorld();
+        obj->Destruct();
+    }
+
     while(!_softDCPlayers.empty())
     {
         Player *plObj = *_softDCPlayers.begin();
