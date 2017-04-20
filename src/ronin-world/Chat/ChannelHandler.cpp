@@ -32,7 +32,7 @@ void WorldSession::HandleChannelJoin(WorldPacket& recvPacket)
     std::string channelname = recvPacket.ReadString(len), pass = recvPacket.ReadString(len2);
 
     if(dbc_id)
-		_player->EventDBCChatUpdate(dbc_id);
+		_player->EventDBCChatUpdate(_player->GetMapInstance(), dbc_id);
     else
     {
         if( sWorld.GmClientChannel.size() && !stricmp(sWorld.GmClientChannel.c_str(), channelname.c_str()) && !GetPermissionCount())

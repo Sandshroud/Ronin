@@ -546,7 +546,7 @@ void Player::EventExploration(MapInstance *instance)
 
         instance->GetStateManager().ClearWorldStates(this);
         // This must be called every update, to keep data fresh.
-        EventDBCChatUpdate();
+        EventDBCChatUpdate(instance);
     }
     else if( oldZone != m_zoneId )
     {
@@ -558,7 +558,7 @@ void Player::EventExploration(MapInstance *instance)
 
         TRIGGER_INSTANCE_EVENT( instance, OnZoneChange )( this, m_zoneId, oldZone );
 
-        EventDBCChatUpdate();
+        EventDBCChatUpdate(instance);
 
         instance->GetStateManager().SendWorldStates(this);
     }
@@ -5011,19 +5011,18 @@ bool Player::UpdateChatChannel(const char* areaName, AreaTableEntry *areaTable, 
     return false;
 }
 
-void Player::EventDBCChatUpdate(uint32 dbcID)
+void Player::EventDBCChatUpdate(MapInstance *instance, uint32 dbcID)
 {
     char areaName[255];
+    MapEntry *entry = NULL;
     AreaTableEntry *areaTable = dbcAreaTable.LookupEntry(m_zoneId);
-    if(areaTable == NULL)
-        areaTable = dbcAreaTable.LookupEntry(m_areaId);
-    if(areaTable == NULL && IsInWorld())
-        areaTable = dbcAreaTable.LookupEntry(GetMapInstance()->GetdbcMap()->linked_zone);
+    if(areaTable == NULL && (areaTable = dbcAreaTable.LookupEntry(m_areaId)) == NULL && instance)
+        areaTable = dbcAreaTable.LookupEntry(instance->GetdbcMap()->linked_zone);
 
     if(areaTable)
         sprintf(areaName, "%s", areaTable->name);
-    else if(IsInWorld() && GetMapInstance()->GetdbcMap())
-        sprintf(areaName, "%s", GetMapInstance()->GetdbcMap()->name);
+    else if(instance && (entry = instance->GetdbcMap()))
+        sprintf(areaName, "%s", entry->name);
     else sprintf(areaName, "City_%03u", GetMapId());
 
     if(dbcID == 0xFFFFFFFF)

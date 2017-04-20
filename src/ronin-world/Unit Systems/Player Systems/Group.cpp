@@ -1214,11 +1214,18 @@ void Group::FillLFDMembers(Loki::AssocVector<PlayerInfo*, uint8> *members)
     {
         AddMember(itr->first, -1, true);
         m_lfdData->memberRoles.insert(std::make_pair(itr->first->charGuid, itr->second));
-        if((itr->second & ROLEMASK_TANK) && leader == NULL)
-            leader = itr->first;
-        else if((itr->second & ROLEMASK_LEADER) && leader == NULL)
+        if(itr->second & ROLEMASK_TANK)
+        {
+            m_mainTank = itr->first;
+            if(leader == NULL)
+                leader = itr->first;
+        }
+        else if(itr->second & ROLEMASK_LEADER)
             leader = itr->first;
     }
+
+    m_Leader = leader;
+    SaveToDB();
 }
 
 void WorldSession::HandlePartyMemberStatsOpcode(WorldPacket & recv_data)

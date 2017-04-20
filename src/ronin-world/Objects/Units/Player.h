@@ -841,7 +841,7 @@ public: /// Player field based functions
     uint8 GetTrainerSpellStatus(TrainerSpell *spell);
 
 public:
-    void EventDBCChatUpdate(uint32 dbcID = 0xFFFFFFFF);
+    void EventDBCChatUpdate(MapInstance *instance, uint32 dbcID = 0xFFFFFFFF);
 protected:
     bool AllowChannelAtLocation(uint32 dbcID, AreaTableEntry *areaTable);
     bool UpdateChatChannel(const char* areaName, AreaTableEntry *areaTable, ChatChannelEntry* entry, Channel* channel);
