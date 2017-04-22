@@ -573,8 +573,6 @@ public:
     bool IsInInstance();
     virtual void RegenerateHealth(bool inCombat) = 0;
     virtual void RegeneratePower(bool isinterrupted) {};
-    void RegenerateEnergy();
-    void RegenerateFocus();
     void SendPowerUpdate(EUnitFields powerField = UNIT_END);
 
     void EventModelChange();

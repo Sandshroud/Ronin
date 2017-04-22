@@ -140,6 +140,26 @@ void SpellManager::LoadSpellFixes()
         SetProcFlags(sp);
     }
 
+    sLog.Notice("SpellManager", "Processing %u shapeshift forms...", dbcSpellShapeshiftForm.GetNumRows());
+    for(uint32 i = 0; i < dbcSpellShapeshiftForm.GetNumRows(); i++)
+    {
+        if(SpellShapeshiftFormEntry *ssEntry = dbcSpellShapeshiftForm.LookupRow(i))
+        {
+            ssEntry->forcedPowerType = POWER_TYPE_MANA;
+            switch(ssEntry->id)
+            {
+            case FORM_GHOUL:
+            case FORM_CAT:
+                ssEntry->forcedPowerType = POWER_TYPE_ENERGY;
+                break;
+            case FORM_BEAR:
+            case FORM_DIREBEAR:
+                ssEntry->forcedPowerType = POWER_TYPE_RAGE;
+                break;
+            }
+        }
+    }
+
     // Register class specific fixes
     _RegisterWarriorFixes();
     _RegisterPaladinFixes();
@@ -201,6 +221,7 @@ void SpellManager::PoolSpellData()
         spellInfo->EffectMiscValueB[effectEntry->EffectIndex] = effectEntry->EffectMiscValueB;
         spellInfo->EffectPointsPerComboPoint[effectEntry->EffectIndex] = effectEntry->EffectPointsPerComboPoint;
         spellInfo->EffectRadiusIndex[effectEntry->EffectIndex] = effectEntry->EffectRadiusIndex;
+        spellInfo->EffectRadiusMaxIndex[effectEntry->EffectIndex] = effectEntry->EffectRadiusMaxIndex;
         spellInfo->EffectRealPointsPerLevel[effectEntry->EffectIndex] = effectEntry->EffectRealPointsPerLevel;
         spellInfo->EffectSpellClassMask[effectEntry->EffectIndex][0] = effectEntry->EffectSpellClassMask[0];
         spellInfo->EffectSpellClassMask[effectEntry->EffectIndex][1] = effectEntry->EffectSpellClassMask[1];
@@ -335,8 +356,13 @@ void SpellManager::PoolSpellData()
         {
             if(SpellRadiusEntry *sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusIndex[i]))
             {
-                spellInfo->radiusHostile[i] = sRadius->radiusHostile;
-                spellInfo->radiusFriend[i] = sRadius->radiusFriend;
+                spellInfo->radiusHostile[0][i] = sRadius->radiusHostile;
+                spellInfo->radiusFriend[0][i] = sRadius->radiusFriend;
+            }
+            if(SpellRadiusEntry *sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusMaxIndex[i]))
+            {
+                spellInfo->radiusHostile[1][i] = sRadius->radiusHostile;
+                spellInfo->radiusFriend[1][i] = sRadius->radiusFriend;
             }
         }
 
@@ -753,7 +779,7 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     sp->maxRange[1] = 0.0f;
     // SpellRadius
     for(uint8 i = 0; i < 3; i++)
-        sp->radiusHostile[i] = sp->radiusFriend[i] = 0.f;
+        sp->radiusHostile[0][i] = sp->radiusHostile[1][i] = sp->radiusFriend[0][i] = sp->radiusFriend[1][i] = 0.f;
     /// Spell Pointers
     sp->Duration[0] = 0;
     sp->Duration[1] = 0;

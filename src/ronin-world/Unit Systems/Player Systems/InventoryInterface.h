@@ -88,6 +88,7 @@ public:
     void mAddItemToBestSlot(ItemPrototype *proto, uint32 count, bool fromDB);
 
     void ModifyLevelBasedItemBonuses(bool apply);
+    bool FillItemLevelData(uint32 &itemCount, uint32 &totalItemLevel, bool inventoryOnly);
 
     Item* GetInventoryItem(WoWGuid guid);
     Item* GetInventoryItem(int16 slot);

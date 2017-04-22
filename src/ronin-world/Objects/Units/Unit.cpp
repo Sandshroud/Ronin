@@ -253,6 +253,8 @@ void Unit::OnAuraModChanged(uint32 modType)
         /// Movement handler opcodes
         // Enabler opcodes
     case SPELL_AURA_FLY:
+        // State change opcodes
+    case SPELL_AURA_MOD_ROOT:
         // Speed opcodes
     case SPELL_AURA_MOD_INCREASE_SPEED:
     case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:
@@ -1454,32 +1456,6 @@ bool Unit::IsInInstance()
     if(m_mapInstance && m_mapInstance->IsInstance())
         return true;
     return false;
-}
-
-void Unit::RegenerateEnergy()
-{
-    if( m_interruptRegen > 0 )
-        return;
-
-    uint32 cur = GetPower(POWER_TYPE_ENERGY), mp = GetMaxPower(POWER_TYPE_ENERGY);
-    if( cur >= mp )
-        return;
-
-    cur += float2int32(floor(float(0.01f * m_P_regenTimer * 1.f)));
-    SetPower(POWER_TYPE_ENERGY, (cur >= mp) ? mp : cur);
-}
-
-void Unit::RegenerateFocus()
-{
-    if (m_interruptRegen)
-        return;
-
-    uint32 cur = GetPower(POWER_TYPE_FOCUS), mp = GetMaxPower(POWER_TYPE_FOCUS);
-    if( cur >= mp )
-        return;
-
-    cur += float2int32(floor(float(1.0f)));
-    SetPower(POWER_TYPE_FOCUS, (cur >= mp)? mp : cur);
 }
 
 uint32 roll_results[5] =

@@ -1228,17 +1228,18 @@ void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldOb
 {
     if(!curObj->IsUnit() && !castPtr<Unit>(curObj)->isAlive())
         return;
-    if(curObj->GetDistanceSq(_x, _y, _z) > _range)
+    float dist = curObj->GetDistanceSq(_x, _y, _z);
+    if(dist < _minRange || dist > _maxRange)
         return;
 
     (*_callback)(_spell, _effIndex, curObj);
 }
 
-void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range, uint32 typeMask)
+void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange, uint32 typeMask)
 {
     _SpellTargetMappingCallback.Lock();
-    _SpellTargetMappingCallback.SetData(callback, spell, i, x, y, z, range);
-    ObjectCellManager::ConstructCellData(x, y, range, &_SpellTargetMappingCellVector);
+    _SpellTargetMappingCallback.SetData(callback, spell, i, x, y, z, minRange, maxRange);
+    ObjectCellManager::ConstructCellData(x, y, maxRange, &_SpellTargetMappingCellVector);
     for(auto itr = _SpellTargetMappingCellVector.begin(); itr != _SpellTargetMappingCellVector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);

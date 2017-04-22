@@ -814,7 +814,7 @@ void Aura::SpellAuraModTaunt(bool apply)
 
 void Aura::SpellAuraModStun(bool apply)
 {
-
+    m_target->SetUnitStunned(apply);
 }
 
 void Aura::SpellAuraModDamageDone(bool apply)
@@ -1026,25 +1026,12 @@ void Aura::SpellAuraModShapeshift(bool apply)
 {
     if( !m_target->IsPlayer())
         return;
+
     Player *p = castPtr<Player>(m_target);
-
-    uint32 modelId = p->GenerateShapeshiftModelId(mod->m_miscValue[0]);
-    if( apply )
+    p->SetShapeShift( apply ? mod->m_miscValue[0] : 0 );
+    if( apply == false )
     {
-        if( modelId != 0 )
-        {
-            m_target->SetUInt32Value( UNIT_FIELD_DISPLAYID, modelId );
-        }
-
-        p->SetShapeShift( mod->m_miscValue[0] );
-    }
-    else
-    {
-        m_target->SetUInt32Value(UNIT_FIELD_DISPLAYID, m_target->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID));
-
         p->m_ShapeShifted = 0;
-        p->SetShapeShift(0);
-
         if(m_target->HasAura(52610))
             m_target->RemoveAura(52610);
     }

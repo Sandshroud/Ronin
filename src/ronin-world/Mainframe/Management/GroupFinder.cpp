@@ -46,6 +46,8 @@ void GroupFinderMgr::Initialize()
             m_lfgDungeonsByLFGType.insert(std::make_pair(entry->LFGType, entry));
             if(entry->LFGType != DBC_LFG_TYPE_RANDOM && entry->LFGFaction != -1)
                 m_lfgDungeonsByLFGFaction.insert(std::make_pair(entry->LFGFaction, entry));
+            if(entry->randomCategoryId)
+                m_lfgDungeonsByRandomCategoryId.insert(std::make_pair(entry->randomCategoryId, entry));
 
             // Don't cache raids into our level grouping
             if(entry->LFGType == DBC_LFG_TYPE_RAIDLIST)
@@ -56,6 +58,19 @@ void GroupFinderMgr::Initialize()
                 if( level >= entry->recomMinLevel && level <= entry->recomMaxLevel )
                     m_lfgDungeonsByRecommended.insert(std::make_pair(level, entry));
             }
+        }
+    }
+
+    for(uint32 i = 0; i < dbcLFGDungeonsGrouping.GetNumRows(); i++)
+    {
+        if(LFGDungeonsGroupingEntry *entry = dbcLFGDungeonsGrouping.LookupRow(i))
+        {
+            LFGDungeonsEntry *dungeon = dbcLFGDungeons.LookupEntry(entry->dungeonId);
+            if(dungeon == NULL)
+                continue;
+            if(dungeon->randomCategoryId == entry->categoryId)
+                continue;
+            m_lfgDungeonsByRandomCategoryId.insert(std::make_pair(entry->categoryId, dungeon));
         }
     }
 }
@@ -1094,6 +1109,7 @@ void GroupFinderMgr::BuildRandomDungeonData(Player *plr, WorldPacket *data)
             continue;
         if(plr->getLevel() < entry->minLevel || plr->getLevel() > entry->maxLevel)
             continue;
+
         _BuildRandomDungeonData(plr, data, entry);
         ++count;
     }
@@ -1113,7 +1129,7 @@ void GroupFinderMgr::BuildRandomDungeonData(Player *plr, WorldPacket *data)
     data->put<uint8>(pos, count);
 }
 
-void GroupFinderMgr::BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool writeCount)
+void GroupFinderMgr::BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool writeCount, bool joinResult)
 {
     LFGDungeonMultiMap::iterator lower, upper;
     if((lower = m_lfgDungeonsByLevel.lower_bound(plr->getLevel())) != (upper = m_lfgDungeonsByLevel.upper_bound(plr->getLevel())))
@@ -1126,15 +1142,13 @@ void GroupFinderMgr::BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool wri
         for(LFGDungeonMultiMap::iterator itr = lower; itr != upper; itr++)
         {
             DungeonDataMap::iterator dDataItr;
-            GroupFinderDungeonData *dungeonData = NULL;
-            if((dDataItr = m_dungeonData.find(itr->second->Id)) != m_dungeonData.end())
-                dungeonData = dDataItr->second;
-
             LFGDungeonsEntry *dungeon = itr->second;
+            GroupFinderDungeonData *dungeonData = NULL;
+
             uint32 lockStatus = 0;
             if (dungeon->reqExpansion > expansion)
                 lockStatus = 1;
-            else if (dungeon->mapDifficulty > 0 && true)//sInstanceMgr.IsPlayerLockedToHeroic(plr, dungeon->mapId)
+            else if (dungeon->mapDifficulty > 0 && false)//sInstanceMgr.IsPlayerLockedToHeroic(plr, dungeon->mapId)
                 lockStatus = 6;
             else if (dungeon->minLevel > level)
                 lockStatus = 2;
@@ -1142,15 +1156,29 @@ void GroupFinderMgr::BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool wri
                 lockStatus = 3;
             else if ((dungeon->LFGFlags&0x04) && m_currentSeasonDungeons.find(dungeon->Id) == m_currentSeasonDungeons.end())
                 lockStatus = 1031;
-            else if (dungeonData && dungeonData->reqItemLevel > avgItemLvl)
+            else if((dDataItr = m_dungeonData.find(itr->second->Id)) == m_dungeonData.end())
+                lockStatus = 1031;
+            else if ((dungeonData = dDataItr->second)->reqItemLevel > avgItemLvl)
                 lockStatus = 4;
+            else if(dungeon->LFGType == DBC_LFG_TYPE_RANDOM && GetRealDungeon(dungeon) == 0)
+                lockStatus = 1031;
 
             if(lockStatus)
             {
-                *data << uint32(dungeon->Id); // Dungeon entry
-                *data << uint32(lockStatus); // Lock status
-                *data << uint32(dungeonData ? dungeonData->reqItemLevel : 0); // Item Level req
-                *data << uint32(avgItemLvl); // Player current average item level
+                if(joinResult)
+                {
+                    *data << uint32(lockStatus); // Lock status
+                    *data << uint32(avgItemLvl); // Player current average item level
+                    *data << uint32(dungeonData ? dungeonData->reqItemLevel : 0); // Item Level req
+                    *data << uint32((dungeon->LFGType<<24)|(dungeon->Id&0x00FFFFFF)); // Dungeon entry
+                }
+                else
+                {
+                    *data << uint32((dungeon->LFGType<<24)|(dungeon->Id&0x00FFFFFF)); // Dungeon entry
+                    *data << uint32(lockStatus); // Lock status
+                    *data << uint32(dungeonData ? dungeonData->reqItemLevel : 0); // Item Level req
+                    *data << uint32(avgItemLvl); // Player current average item level
+                }
                 ++count;
             }
         }
@@ -1186,7 +1214,7 @@ void GroupFinderMgr::SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *gr
             if(Player *plr = objmgr.GetPlayer(memberGuid))
             {
                 ByteBuffer &buff = lockVector[index++];
-                BuildPlayerLockInfo(plr, &buff, false);
+                BuildPlayerLockInfo(plr, &buff, false, true);
                 data.WriteBits<uint32>((buff.size()/4), 22);
             } else data.WriteBits(0, 22);
         }
@@ -1358,15 +1386,16 @@ void GroupFinderMgr::_BuildRandomDungeonData(Player *plr, WorldPacket *data, LFG
         if(Quest *qst = sQuestMgr.GetQuestPointer(reward->questId[0]))
             isDone = plr->HasCompletedQuest(qst);
 
-    *data << uint32(entry->Id); // Dungeon ID
+    *data << uint32((entry->LFGType<<24)|(entry->Id&0x00FFFFFF)); // Dungeon entry
     *data << uint8(isDone); // isDone
     *data << uint32(0); // Currency Cap
     *data << uint32(0); // Currency Reward
+    *data << uint32(0); // Currency ID
     for(uint32 i = 0; i < 4; i++)
         *data << uint32(0) << uint32(0); // Reward count / Reward Limit
     *data << uint32(0); // Prize item
     *data << uint32(0); // Completion mask
-    *data << uint8(0); // Is bonus available
+    *data << uint8(1); // Is bonus available
     // Append our bonus role quest info
     for(uint32 i = 0; i < 3; i++)
         if(!_BuildDungeonQuestData(plr, data, entry->Id, i, isDone))
@@ -1435,11 +1464,8 @@ uint32 GroupFinderMgr::GetRealDungeon(LFGDungeonsEntry *entry)
         lower = m_lfgDungeonsByLFGFaction.lower_bound(entry->LFGFaction);
         upper = m_lfgDungeonsByLFGFaction.upper_bound(entry->LFGFaction);
     }
-    else
-    {
-        lower = m_lfgDungeonsByExpansion.lower_bound(entry->reqExpansion);
-        upper = m_lfgDungeonsByExpansion.upper_bound(entry->reqExpansion);
-    }
+    else if((lower = m_lfgDungeonsByRandomCategoryId.lower_bound(entry->Id)) == (upper = m_lfgDungeonsByRandomCategoryId.upper_bound(entry->Id)))
+        return ret;
 
     if(lower != upper)
     {

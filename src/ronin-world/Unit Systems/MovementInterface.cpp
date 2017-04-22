@@ -1078,6 +1078,10 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
             if(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
                 canFly = true;
             break;
+            // Root handler, stun is handled differently
+        case SPELL_AURA_MOD_ROOT:
+            setRooted(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_ROOT));
+            break;
             // Speed modifiers
         case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
         case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:

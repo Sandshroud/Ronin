@@ -105,8 +105,10 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
 {
     m_isCasting = false;
     m_duration = -1;
-    m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
-    m_radius[1][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
+    m_radius[0][0][0] = m_radius[0][0][1] = m_radius[0][0][2] = 0.f;
+    m_radius[0][1][0] = m_radius[0][1][1] = m_radius[0][1][2] = 0.f;
+    m_radius[1][0][0] = m_radius[1][0][1] = m_radius[1][0][2] = 0.f;
+    m_radius[1][1][0] = m_radius[1][1][1] = m_radius[1][1][2] = 0.f;
     m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
     m_triggeredByAura = NULL;

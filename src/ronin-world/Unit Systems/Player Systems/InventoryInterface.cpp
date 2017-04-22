@@ -2547,6 +2547,44 @@ void PlayerInventory::ModifyLevelBasedItemBonuses(bool apply)
     }
 }
 
+bool PlayerInventory::FillItemLevelData(uint32 &itemCount, uint32 &totalItemLevel, bool inventoryOnly)
+{
+    ItemPrototype *proto = NULL;
+    std::map<uint32, uint32> inventoryItemLevels;
+    for( uint32 x = EQUIPMENT_SLOT_START; x < EQUIPMENT_SLOT_END; ++x )
+    {
+        if(x == EQUIPMENT_SLOT_BODY)
+            continue;
+        if(x == EQUIPMENT_SLOT_OFFHAND)
+            continue;
+        if(x == EQUIPMENT_SLOT_RANGED)
+            continue;
+        if(x == EQUIPMENT_SLOT_TABARD)
+            continue;
+
+        if( m_pItems[x] && (proto = m_pItems[x]->GetProto()) )
+        {
+            inventoryItemLevels[x] = proto->ItemLevel;
+        }
+    }
+
+    if(inventoryOnly || true)
+    {
+        if(!inventoryItemLevels.empty())
+        {
+            itemCount = inventoryItemLevels.size();
+            while(!inventoryItemLevels.empty())
+            {
+                totalItemLevel += inventoryItemLevels.begin()->second;
+                inventoryItemLevels.erase(inventoryItemLevels.begin());
+            }
+            return true;
+        }
+        return false;
+    }
+
+}
+
 AddItemResult PlayerInventory::AddItemToFreeBankSlot(Item* item)
 {
     //special items first

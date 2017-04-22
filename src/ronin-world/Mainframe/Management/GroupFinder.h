@@ -145,7 +145,7 @@ public:
 
     // Packet building functions
     void BuildRandomDungeonData(Player *plr, WorldPacket *data);
-    void BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool writeCount = true);
+    void BuildPlayerLockInfo(Player *plr, ByteBuffer *data, bool writeCount = true, bool joinResult = false);
 
     void SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *group);
     void SendQueueCommandResult(Player *plr, uint8 type, uint32 queueId, uint32 queueStatus, bool groupUnk, std::vector<uint32> *dungeonSet, time_t unkTime, std::string unkComment);
@@ -209,6 +209,7 @@ private:
     LFGDungeonMultiMap m_lfgDungeonsByExpansion;
     LFGDungeonMultiMap m_lfgDungeonsByLFGType;
     LFGDungeonMultiMap m_lfgDungeonsByLFGFaction;
+    LFGDungeonMultiMap m_lfgDungeonsByRandomCategoryId;
 
     ////////////////////////////////
     /// Dungeon Queue functionality

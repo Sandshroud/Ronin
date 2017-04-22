@@ -157,13 +157,18 @@ public:
     RONIN_INLINE void SetInternalRadius(uint32 i)
     {
         b_radSet[i] = true;
-        m_radius[0][i] = m_spellInfo->radiusHostile[i], m_radius[1][i] = m_spellInfo->radiusFriend[i];
+        m_radius[0][0][i] = m_spellInfo->radiusHostile[0][i], m_radius[0][1][i] = m_spellInfo->radiusFriend[0][i];
+        m_radius[1][0][i] = m_spellInfo->radiusHostile[1][i], m_radius[1][1][i] = m_spellInfo->radiusFriend[1][i];
         if (m_spellInfo->SpellGroupType && _unitCaster)
         {
-            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);
-            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[0][i], m_spellInfo->SpellGroupType);
-            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[1][i], m_spellInfo->SpellGroupType);
-            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[1][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[0][0][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[0][0][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[0][1][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[0][1][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[1][0][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[1][0][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_FFValue(SMT_RADIUS, &m_radius[1][1][i], m_spellInfo->SpellGroupType);
+            _unitCaster->SM_PFValue(SMT_RADIUS, &m_radius[1][1][i], m_spellInfo->SpellGroupType);
         }
     }
 
@@ -171,14 +176,28 @@ public:
     {
         if (b_radSet[i] == false)
             SetInternalRadius(i);
-        return m_radius[0][i];
+        return m_radius[0][0][i];
+    }
+
+    RONIN_INLINE float GetMaxRadius(uint32 i)
+    {
+        if (b_radSet[i] == false)
+            SetInternalRadius(i);
+        return m_radius[1][0][i];
     }
 
     RONIN_INLINE float GetFriendlyRadius(uint32 i)
     {
         if (b_radSet[i] == false)
             SetInternalRadius(i);
-        return m_radius[1][i];
+        return m_radius[0][1][i];
+    }
+
+    RONIN_INLINE float GetMaxFriendlyRadius(uint32 i)
+    {
+        if (b_radSet[i] == false)
+            SetInternalRadius(i);
+        return m_radius[1][1][i];
     }
 
     bool Reflect(Unit* refunit);
@@ -201,7 +220,7 @@ protected:
     uint8 m_castNumber;
 
     int32  m_duration;
-    float  m_radius[2][3];
+    float  m_radius[2][2][3];
     bool   b_radSet[3], b_durSet;
     bool   m_AreaAura;
 

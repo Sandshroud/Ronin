@@ -308,13 +308,14 @@ class MapInstanceSpellTargetMappingCallback : public ObjectProcessCallback
 public:
     MapInstanceSpellTargetMappingCallback(MapInstance *instance) : _instance(instance) {}
     void operator()(WorldObject *obj, WorldObject *curObj);
-    void SetData(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range)
+    void SetData(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange)
     {
         _callback = callback;
         _spell = spell;
         _effIndex = i;
         _x = x; _y = y; _z = z;
-        _range = range;
+        _minRange = minRange;
+        _maxRange = maxRange;
     }
 
 private:
@@ -323,7 +324,7 @@ private:
     SpellTargetClass *_spell;
 
     uint32 _effIndex;
-    float _x, _y, _z, _range;
+    float _x, _y, _z, _minRange, _maxRange;
 };
 
 /// Map instance class for processing different map instances(duh)
@@ -406,7 +407,7 @@ public:
     void UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector);
 
     // Spell targetting functions
-    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float range, uint32 typeMask = 0);
+    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange, uint32 typeMask = 0);
 
 protected:
     // These are stored in MapInstance.cpp with functions

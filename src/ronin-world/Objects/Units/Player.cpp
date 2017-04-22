@@ -369,7 +369,6 @@ bool Player::Initialize()
     SetFloatValue(PLAYER_FIELD_WEAPON_DMG_MULTIPLIERS, 1.f);
     SetUInt32Value(PLAYER_CHARACTER_POINTS, 2);
 
-
     // set power type
     SetPowerType(myClass->powerType);
 
@@ -2975,6 +2974,7 @@ void Player::ApplyItemMods(Item* item, uint8 slot, bool apply)
         return;
     uint16 visibleSlot = PLAYER_VISIBLE_ITEM + (slot * PLAYER_VISIBLE_ITEM_LENGTH);
     SetUInt32Value( visibleSlot, apply ? item->GetEntry() : 0 );
+    SetUInt32Value(UNIT_FIELD_MAXITEMLEVEL, GetTotalItemLevel());
 
     // E N C H A N T S B O I S
     for(uint8 i = 0; i < MAX_ENCHANTMENT_SLOT; i++)
@@ -3006,12 +3006,8 @@ void Player::BuildPlayerRepop()
     SetUInt32Value(UNIT_FIELD_HEALTH, 1 );
 
     //8326 --for all races but ne, 20584--ne
-    SpellCastTargets tgt;
-    tgt.m_unitTarget = GetGUID();
-
     if(SpellEntry *inf = dbcSpell.LookupEntry(Wispform ? 20584 : 8326))
-        if(Spell* sp = new Spell(this, inf))
-            sp->prepare(&tgt, true);
+        GetSpellInterface()->TriggerSpell(inf, this);
 
     StopMirrorTimer(0);
     StopMirrorTimer(1);
@@ -4502,15 +4498,15 @@ void Player::RemoveSpellsFromLine(uint16 skill_line)
 
 void Player::RegeneratePower(bool is_interrupted)
 {
-    uint32 m_regenTimer = m_P_regenTimer; //set next regen time
+    float m_regenTimer = m_P_regenTimer; //set next regen time
+    float regenModifier = (m_regenTimer/1000.f);
 
     uint8 index = 0;
     bool isInCombat = IsInCombat();
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
     for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
     {
-        uint8 power = *itr;
-        uint8 powerIndex = index++;
+        uint8 power = *itr, powerIndex = index++;
         EUnitFields powerField = GetPowerFieldForType(power);
         if (powerField == UNIT_END || power == POWER_TYPE_RUNE)
             continue;
@@ -4518,6 +4514,7 @@ void Player::RegeneratePower(bool is_interrupted)
         uint32 curValue = GetPower(powerField), maxValue = GetMaxPower(EUnitFields(powerField+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS)));
         if(curValue == 0 && (power == POWER_TYPE_RAGE || power == POWER_TYPE_RUNIC || power == POWER_TYPE_HOLY_POWER))
             continue;
+        float flatModifier = GetFloatValue((is_interrupted ? UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER : UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER)+powerIndex);
 
         m_regenTimerCounters[powerIndex] += m_regenTimer;
 
@@ -4526,29 +4523,25 @@ void Player::RegeneratePower(bool is_interrupted)
         {
         case POWER_TYPE_MANA:
             {
-                addvalue += GetFloatValue(is_interrupted ? UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER : UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER) * 0.001f * m_regenTimer;
+                addvalue += flatModifier + (0.00001f*GetFloatValue(UNIT_MOD_CAST_SPEED));
             }break;
         case POWER_TYPE_RAGE:
             {
                 if (!isInCombat && !is_interrupted)
-                {
-                    addvalue += -20/0.05f;  // 2 rage by tick (= 2 seconds => 1 rage/sec)
-                    if(m_regenTimer)
-                        addvalue /= m_regenTimer;
-                }
+                    addvalue = ((-1.25f * 10.f)/GetFloatValue(PLAYER_FIELD_MOD_HASTE));
+            }break;
+        case POWER_TYPE_FOCUS:
+            {
+                addvalue += (3.f + flatModifier) + (0.03f*GetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE));
             }break;
         case POWER_TYPE_ENERGY:
             {
-                addvalue += 0.01f * m_regenTimer;
+                addvalue += (10.f + flatModifier) + (0.0001f*GetFloatValue(PLAYER_FIELD_MOD_HASTE));
             }break;
         case POWER_TYPE_RUNIC:
             {
                 if (!isInCombat && !is_interrupted)
-                {
-                    addvalue += -30/0.3f;
-                    if(m_regenTimer)
-                        addvalue /= m_regenTimer;
-                }
+                    addvalue += -15;
             }break;
         case POWER_TYPE_HOLY_POWER:
             {
@@ -4564,6 +4557,7 @@ void Player::RegeneratePower(bool is_interrupted)
             continue;
 
         float intval = 0.0f;
+        addvalue *= regenModifier;
         addvalue += m_regenPowerFraction[powerIndex];
         m_regenPowerFraction[powerIndex] = modf(addvalue, &intval);
         uint32 integerValue = uint32(abs(intval));
@@ -4592,7 +4586,6 @@ void Player::RegeneratePower(bool is_interrupted)
             SetPower(powerField, curValue);
             m_regenTimerCounters[powerIndex] = 0;
         } else m_uint32Values[powerField] = curValue;
-        continue;
     }
 }
 
@@ -5591,7 +5584,6 @@ void Player::RequestPvPToggle(bool state)
 
 void Player::SoftLoadPlayer()
 {
-    SpellCastTargets targets(m_objGuid);
     for(SpellSet::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
     {
         SpellEntry *info = dbcSpell.LookupEntry(*itr);
@@ -5599,8 +5591,7 @@ void Player::SoftLoadPlayer()
         {
             if( info->RequiredShapeShift && !( ((uint32)1 << (GetShapeShift()-1)) & info->RequiredShapeShift ) )
                 continue;
-            if(Spell* spell = new Spell(this, info))
-                spell->prepare(&targets, true);
+            GetSpellInterface()->TriggerSpell(info, this);
         }
     }
 
@@ -5951,18 +5942,30 @@ bool Player::CanSignCharter(Charter * charter, Player* requester)
 }
 
 void Player::SetShapeShift(uint8 ss)
-{
+{   // First update our shapeshift bytes
     uint8 old_ss = GetByte( UNIT_FIELD_BYTES_2, 3 );
     SetByte( UNIT_FIELD_BYTES_2, 3, ss );
+
+    // Now look up our form for model generation
+    uint32 model;
+    if(ss == 0 || (model = GenerateShapeshiftModelId(ss)) == 0)
+        model = GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID);
+    SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
+
+    // Trigger a mod type update
     TriggerModUpdate(UF_UTYPE_STATS);
 
     //remove auras that we should not have
     m_AuraInterface.UpdateShapeShiftAuras(old_ss, ss);
 
+    // Set our forced power type(default is mana)
+    SpellShapeshiftFormEntry *form = dbcSpellShapeshiftForm.LookupEntry(ss);
+    SetPowerType(form ? form->forcedPowerType : myClass->powerType);
+    // Trigger an attack time update based on form attack speed
+    TriggerModUpdate(UF_UTYPE_ATTACKTIME);
+
     // apply any talents/spells we have that apply only in this form.
     std::set<uint32>::iterator itr;
-    SpellCastTargets t(GetGUID());
-
     for( itr = m_spells.begin(); itr != m_spells.end(); itr++ )
     {
         SpellEntry *sp = dbcSpell.LookupEntry( *itr );
@@ -5970,8 +5973,7 @@ void Player::SetShapeShift(uint8 ss)
             continue;
         if( sp->isSpellAppliedOnShapeshift() || sp->isPassiveSpell() )     // passive/talent
             if( sp->RequiredShapeShift && ((uint32)1 << (ss-1)) & sp->RequiredShapeShift )
-                if(Spell *spe = new Spell( this, sp ))
-                    spe->prepare( &t, true );
+                GetSpellInterface()->TriggerSpell(sp, this);
     }
 
     // now dummy-handler stupid hacky fixed shapeshift spells (leader of the pack, etc)
@@ -5982,8 +5984,7 @@ void Player::SetShapeShift(uint8 ss)
             continue;
 
         if( sp->RequiredShapeShift && ((uint32)1 << (ss-1)) & sp->RequiredShapeShift )
-            if(Spell *spe = new Spell( this, sp))
-                spe->prepare( &t, true );
+            GetSpellInterface()->TriggerSpell(sp, this);
     }
 }
 
@@ -6495,11 +6496,7 @@ void Player::AddShapeShiftSpell(uint32 id)
     m_shapeShiftSpells.insert( id );
 
     if( sp->RequiredShapeShift && ((uint32)1 << (GetShapeShift()-1)) & sp->RequiredShapeShift )
-    {
-        SpellCastTargets t(GetGUID());
-        if(Spell* spe = new Spell(this, sp))
-            spe->prepare( &t, true );
-    }
+        GetSpellInterface()->TriggerSpell(sp, this);
 }
 
 void Player::RemoveShapeShiftSpell(uint32 id)
@@ -7021,15 +7018,18 @@ uint16 Player::FindQuestSlot( uint32 questid )
 
 uint32 Player::GetTotalItemLevel()
 {
-    uint32 playertotalitemlevel = 1;
-    return playertotalitemlevel;
+    uint32 itemCount = 0, totalItemLevel = 0;
+    if(!m_inventory.FillItemLevelData(itemCount, totalItemLevel, true))
+        return 0;
+    return totalItemLevel;
 }
 
 uint32 Player::GetAverageItemLevel(bool skipmissing)
 {
-    uint8 itemcount = 1;
-    uint32 playertotalitemlevel = 1;
-    return playertotalitemlevel/itemcount;
+    uint32 itemCount = 0, totalItemLevel = 0;
+    if(!m_inventory.FillItemLevelData(itemCount, totalItemLevel, true))
+        return 0;
+    return totalItemLevel/itemCount;
 }
 
 // Crow: Spellcheck explanation: Some spells have the required part, but they don't really need it.

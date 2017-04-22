@@ -66,8 +66,10 @@ void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::Gro
     dungeon->instanceId = ++m_instanceCounter;
     counterLock.Release();
 
+    instanceStorageLock.Acquire();
     MapInstance *instance = new MapInstance(mapData, mapId, dungeon->instanceId);
     _AddInstance(dungeon->instanceId, instance);
+    instanceStorageLock.Release();
 
     LocationVector destination(dungeon->dataEntry->x, dungeon->dataEntry->y, dungeon->dataEntry->z, dungeon->dataEntry->o);
     for(uint32 i = 0; i < grp->GetSubGroupCount(); ++i)
@@ -181,12 +183,17 @@ void InstanceManager::_AddInstance(uint32 instanceId, MapInstance *instance)
 MapInstance *InstanceManager::_LoadInstance(uint32 mapId, uint32 instanceId)
 {
     MapInstance *ret = NULL;
-    if(Map *mapData = GetMapData(mapId))
+    InstanceDataMap::iterator itr;
+    if((itr = m_instanceData.find(instanceId)) != m_instanceData.end())
     {
-        ret = new MapInstance(mapData, mapId, instanceId);
-        //ret->LoadInstanceData();
-        _AddInstance(instanceId, ret);
+        if(Map *mapData = GetMapData(mapId))
+        {
+            ret = new MapInstance(mapData, mapId, instanceId);
+            //ret->LoadInstanceData();
+            _AddInstance(instanceId, ret);
+        }
     }
+
     return ret;
 }
 

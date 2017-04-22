@@ -171,6 +171,9 @@ static const char *itemsetFormat = "usuuuuuuuuuxxxxxxxxuuuuuuuuuuuuuuuuuu";
 DECLARE_CLASS_INTERNAL_DBC_MACRO(LFGDungeonsEntry, dbcLFGDungeons);
 static const char *lfgdungeonsFormat = "usuuuuuiuuuuxuxuxuxxx";
 
+DECLARE_CLASS_INTERNAL_DBC_MACRO(LFGDungeonsGroupingEntry, dbcLFGDungeonsGrouping);
+static const char *lfgdungeonsGroupingFormat = "uuuu";
+
 DECLARE_CLASS_INTERNAL_DBC_MACRO(LockEntry, dbcLock);
 static const char *lockFormat = "uuuuuuuuuuuuuuuuuuuuuuuuuxxxxxxxx";
 
@@ -482,6 +485,7 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/ItemReforge.dbc", datapath), itemreforgeFormat, dbcItemReforge);
     ADD_LOAD_DB(format("%s/ItemSet.dbc", datapath), itemsetFormat, dbcItemSet);
     ADD_LOAD_DB(format("%s/LFGDungeons.dbc", datapath), lfgdungeonsFormat, dbcLFGDungeons);
+    ADD_LOAD_DB(format("%s/LFGDungeonsGroupingmap.dbc", datapath), lfgdungeonsGroupingFormat, dbcLFGDungeonsGrouping);
     ADD_LOAD_DB(format("%s/Lock.dbc", datapath), lockFormat, dbcLock);
     ADD_LOAD_DB(format("%s/Map.dbc", datapath), mapentryFormat, dbcMap);
     ADD_LOAD_DB(format("%s/MapDifficulty.dbc", datapath), mapdifficultyFormat, dbcMapDifficulty);

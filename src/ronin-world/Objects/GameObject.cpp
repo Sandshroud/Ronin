@@ -307,7 +307,7 @@ void GameObject::InitAI()
         {
             if(m_triggerSpell->Effect[i])
             {
-                float t = m_triggerSpell->radiusHostile[i];
+                float t = m_triggerSpell->radiusHostile[1][i];
                 if(t > r)
                     r = t;
             }

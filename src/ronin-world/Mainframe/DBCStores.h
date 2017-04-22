@@ -604,6 +604,14 @@ struct LFGDungeonsEntry
     MapEntry *mapEntry;
 };
 
+struct LFGDungeonsGroupingEntry
+{
+    uint32 Id;
+    uint32 dungeonId;
+    uint32 categoryId;
+    uint32 unk;
+};
+
 struct LockEntry
 {
     uint32 Id;
@@ -960,8 +968,8 @@ struct SpellEntry
     float maxRange[2]; // maxEnemy, maxFriend
 
     // SpellRadiusEntry
-    float radiusHostile[3];
-    float radiusFriend[3];
+    float radiusHostile[2][3];
+    float radiusFriend[2][3];
 
     // Custom
     uint8 Class;
@@ -1391,6 +1399,8 @@ struct SpellShapeshiftFormEntry
     //uint32 unk5;                                          // 19 unused
     //uint32 unk6;                                          // 20 unused
 
+    // custom
+    uint8 forcedPowerType;
     uint32 GetModel(uint8 team)
     {
         if(modelID_A && team)
@@ -1823,6 +1833,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(ItemRandomSuffixEntry, dbcItemRandomSuffix);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemReforgeEntry, dbcItemReforge);
 DBC_STORAGE_EXTERN_DBC_MACRO(ItemSetEntry, dbcItemSet);
 DBC_STORAGE_EXTERN_DBC_MACRO(LFGDungeonsEntry, dbcLFGDungeons);
+DBC_STORAGE_EXTERN_DBC_MACRO(LFGDungeonsGroupingEntry, dbcLFGDungeonsGrouping);
 DBC_STORAGE_EXTERN_DBC_MACRO(LockEntry, dbcLock);
 DBC_STORAGE_EXTERN_DBC_MACRO(MapEntry, dbcMap);
 DBC_STORAGE_EXTERN_DBC_MACRO(MapDifficultyEntry, dbcMapDifficulty);
