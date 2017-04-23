@@ -34,17 +34,17 @@ public:
     // Fills specified targets at the area of effect
     void FillSpecifiedTargetsInArea(float srcx,float srcy,float srcz, uint32 effIndex, uint32 typeMask);
     // Fills specified targets at the area of effect. We suppose we already inited this spell and know the details
-    void FillSpecifiedTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float minRange, float maxRange, uint32 typeMask);
+    void FillSpecifiedTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float r, uint32 typeMask);
     // Fills the targets at the area of effect
-    void FillAllTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float minRange, float maxRange, bool includegameobjects = false);
+    void FillAllTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float r, bool includegameobjects = false);
     // Fills the targets at the area of effect. We suppose we already inited this spell and know the details
     void FillAllTargetsInArea(float srcx,float srcy,float srcz, uint32 effIndex);
     // Fills the targets at the area of effect. We suppose we already inited this spell and know the details
     void FillAllTargetsInArea(LocationVector & location, uint32 effIndex);
     // Fills the targets at the area of effect. We suppose we already inited this spell and know the details
-    void FillAllFriendlyInArea(uint32 i, float srcx,float srcy,float srcz, float minRange, float maxRange);
+    void FillAllFriendlyInArea(uint32 i, float srcx,float srcy,float srcz, float r);
     // Fills the gameobject targets at the area of effect
-    void FillAllGameObjectTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float minRange, float maxRange);
+    void FillAllGameObjectTargetsInArea(uint32 i, float srcx,float srcy,float srcz, float r);
     //get single Enemy as target
     WoWGuid GetSinglePossibleEnemy(uint32 i, float prange=0);
     //get single Enemy as target
@@ -55,14 +55,14 @@ public:
     void FillTargetMap(bool fromDelayed);
 
     // Spell Targets
-    void HandleTargetNoObject(uint32 i, float rMin, float rMax);
+    void HandleTargetNoObject(uint32 i, float r);
     bool AddTarget(uint32 i, uint32 TargetType, WorldObject* obj);
-    void AddAOETargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets);
-    void AddPartyTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets);
-    void AddRaidTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets, bool partylimit = false);
-    void AddChainTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets);
-    void AddConeTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets);
-    void AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets);
+    void AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
+    void AddPartyTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
+    void AddRaidTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets, bool partylimit = false);
+    void AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
+    void AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
+    void AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets);
 
     WoWGuid static FindLowestHealthRaidMember(Player* Target, uint32 dist);
 

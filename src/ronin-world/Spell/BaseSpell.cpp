@@ -105,10 +105,8 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
 {
     m_isCasting = false;
     m_duration = -1;
-    m_radius[0][0][0] = m_radius[0][0][1] = m_radius[0][0][2] = 0.f;
-    m_radius[0][1][0] = m_radius[0][1][1] = m_radius[0][1][2] = 0.f;
-    m_radius[1][0][0] = m_radius[1][0][1] = m_radius[1][0][2] = 0.f;
-    m_radius[1][1][0] = m_radius[1][1][1] = m_radius[1][1][2] = 0.f;
+    m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
+    m_radius[0][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
     m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
     m_spellState = SPELL_STATE_NULL;
     m_triggeredByAura = NULL;
@@ -117,6 +115,9 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
     m_isDelayedAOEMissile = false;
     m_missileTravelTime = 0;
     m_timer = m_castTime = m_delayedTimer = 0;
+    // Default trigger rate is 1 second
+    m_channelTriggerTime = 1000;
+    m_channelRunTime = 0;
 }
 
 BaseSpell::~BaseSpell()
@@ -391,6 +392,16 @@ bool BaseSpell::IsNeedSendToClient()
     if(m_missileSpeed > 0.0f)
         return true;
     if(!m_triggeredSpell)
+        return true;
+    return false;
+}
+
+bool BaseSpell::IsTriggerSpellEffect(uint32 i)
+{
+    if(m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_MISSILE, i)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_SPELL, i)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_SPELL_WITH_VALUE, i)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_SPELL_2, i))
         return true;
     return false;
 }

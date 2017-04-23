@@ -341,7 +341,6 @@ void Spell::cast(bool check)
             _unitCaster->SetChannelSpellTargetGUID(m_fullTargetMap.begin()->first);
         else _unitCaster->SetChannelSpellTargetGUID(m_casterGuid);
         _unitCaster->GetSpellInterface()->ProcessSpell(this);
-        return;
     }
     else if(m_missileSpeed > 0.f)
     {
@@ -385,6 +384,8 @@ void Spell::cast(bool check)
 
     // we're much better to remove this here, because otherwise spells that change powers etc, don't get applied.
     _unitCaster->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
+    if(m_spellState == SPELL_STATE_CASTING)
+        return;
 
     m_isCasting = false;
     finish();
@@ -454,11 +455,12 @@ void Spell::Update(uint32 difftime)
         return;
     }
 
+    m_channelRunTime += difftime;
     switch(m_spellState)
     {
     case SPELL_STATE_PREPARING:
         {
-            if((int32)difftime >= m_timer)
+            if(difftime >= m_timer)
             {
                 m_timer = 0;
                 cast(true);
@@ -468,16 +470,16 @@ void Spell::Update(uint32 difftime)
         {
             if(m_timer > 0)
             {
-                if((int32)difftime >= m_timer)
+                if(difftime >= m_timer)
                     m_timer = 0;
                 else m_timer -= difftime;
             }
 
+            if(m_spellInfo->isChanneledSpell())
+                _UpdateChanneledSpell(m_timer);
+
             if(m_timer <= 0)
-            {
-                _UpdateChanneledSpell(0);
                 finish();
-            }
         }break;
     }
 }
@@ -494,9 +496,18 @@ bool Spell::updatePosition(float x, float y, float z)
     return true;
 }
 
-void Spell::_UpdateChanneledSpell(uint32 difftime)
+void Spell::_UpdateChanneledSpell(uint32 timeLeft)
 {
+    while(m_channelRunTime >= m_channelTriggerTime)
+    {
+        m_channelRunTime -= m_channelTriggerTime;
 
+    }
+
+    if(timeLeft == 0)
+    {
+
+    }
 }
 
 bool Spell::UpdateDelayedTargetEffects(MapInstance *instance, uint32 difftime)

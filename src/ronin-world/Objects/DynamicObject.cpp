@@ -50,6 +50,11 @@ void DynamicObject::Destruct()
     WorldObject::Destruct();
 }
 
+void DynamicObject::Update(uint32 msTime, uint32 uiDiff)
+{
+    UpdateTargets(uiDiff);
+}
+
 void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, float y, float z, int32 duration, float radius)
 {
     // Call the object create function
@@ -61,7 +66,7 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
 
     SetUInt32Value(OBJECT_FIELD_ENTRY, m_spellProto->Id);
     SetUInt64Value(DYNAMICOBJECT_CASTER, casterGuid);
-    SetUInt32Value(DYNAMICOBJECT_BYTES, 0x01);
+    SetUInt32Value(DYNAMICOBJECT_BYTES, m_spellProto->SpellVisual[0] | 0x0010000000);
     SetUInt32Value(DYNAMICOBJECT_SPELLID, m_spellProto->Id);
     SetFloatValue(DYNAMICOBJECT_RADIUS, radius);
     SetUInt32Value(DYNAMICOBJECT_CASTTIME, getMSTime());
@@ -77,6 +82,35 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
         castPtr<Unit>(caster)->SetUInt32Value(UNIT_CHANNEL_SPELL, m_spellProto->Id);
     }
     UpdateTargets(0);
+}
+
+void FillDynamicObjectTargetMapCallback::operator()(DynamicObject *obj, Unit *caster, Unit *target, float range)
+{
+    // skip units already hit, their range will be tested later
+    if(obj->IsInTargetSet(target) || !sFactionSystem.isAttackable(caster, target, obj->IsTargettingStealth()))
+        return;
+
+    SpellEntry *spell = obj->m_spellProto;
+    if(spell->isPassiveSpell() && target->HasAura(spell->Id))
+        return; // We shouldn't be here, area auras don't cast passives afaik
+
+    Aura *aur = NULL; SpellEntry *targetEntry = NULL;
+    if((aur = target->m_AuraInterface.FindActiveAuraWithNameHash(spell->NameHash)) && (targetEntry = aur->GetSpellProto()) && targetEntry->maxstack > 1)
+        target->AddAuraStack(spell, obj->casterGuid); // Update aura stack if we have a valid aura available
+    else if(targetEntry && (targetEntry->procCharges || (spell->RankNumber && targetEntry->RankNumber >= spell->RankNumber)))
+        target->RefreshAura(spell, obj->casterGuid); // Just refresh the aura, part of cata changes is it doesn't matter what rank
+    else
+    {   // We need to create and add a new aura
+        uint16 auraFlags = spell->isPassiveSpell() ? 0x0000 : (AFLAG_EFF_AMOUNT_SEND | (spell->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
+        aur = new Aura(target, spell, auraFlags, obj->casterLevel, 1, UNIXTIME, obj->casterGuid);
+        for(uint32 i = 0; i < 3; i++)
+            if(spell->EffectApplyAuraName[i])
+                aur->AddMod(i, spell->EffectApplyAuraName[i], spell->CalculateSpellPoints(i, obj->casterLevel, 0));
+
+        aur->UpdatePreApplication();
+        target->AddAura(aur);
+    }
+    obj->targets.insert(target->GetGUID());
 }
 
 void DynamicObject::UpdateTargets(uint32 p_time)
@@ -113,11 +147,11 @@ void DynamicObject::UpdateTargets(uint32 p_time)
 
     if(m_aliveDuration && u_caster)
     {
-        Aura* pAura;
-        Unit* target;
-
         float radius = GetFloatValue(DYNAMICOBJECT_RADIUS);
         radius *= radius;
+
+        static FillDynamicObjectTargetMapCallback _callback;
+        m_mapInstance->HandleDynamicObjectRangeMapping(&_callback, this, u_caster, 0.f, radius, (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER));
 
         // loop the targets, check the range of all of them
         DynamicObjectList::iterator jtr = targets.begin(), jtr2, jend = targets.end();
@@ -126,7 +160,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
             jtr2 = jtr;
             ++jtr;
 
-            target = GetMapInstance() ? GetMapInstance()->GetUnit(*jtr2) : NULL;
+            Unit* target = GetMapInstance() ? GetMapInstance()->GetUnit(*jtr2) : NULL;
             if(target == NULL || GetDistanceSq(target) > radius)
             {
                 if(target)
@@ -147,7 +181,7 @@ void DynamicObject::Remove()
     if(IsInWorld())
     {
         // remove aura from all targets
-        for(std::set< uint64 >::iterator itr = targets.begin(); itr != targets.end(); ++itr)
+        for(DynamicObjectList::iterator itr = targets.begin(); itr != targets.end(); ++itr)
             if(Unit *target = m_mapInstance->GetUnit(*itr))
                 target->RemoveAura(m_spellProto->Id);
 

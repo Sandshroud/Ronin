@@ -38,6 +38,7 @@ class Corpse;
 class CBattleground;
 class Transporter;
 class MapTargetCallback;
+class DynamicObjectTargetCallback;
 class SpellTargetClass;
 
 enum ObjectActiveState
@@ -303,6 +304,30 @@ private:
     uint32 _langPos, _guidPos;
 };
 
+class MapInstanceDynamicObjectTargetMappingCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceDynamicObjectTargetMappingCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj);
+    void SetData(DynamicObjectTargetCallback *callback, DynamicObject *dynObj, Unit *caster, float minRange, float maxRange)
+    {
+        _callback = callback;
+        _dynObject = dynObj;
+        _caster = caster;
+
+        _minRange = minRange;
+        _maxRange = maxRange;
+    }
+
+private:
+    MapInstance *_instance;
+    DynamicObjectTargetCallback *_callback;
+    DynamicObject *_dynObject;
+    Unit *_caster;
+
+    float _minRange, _maxRange;
+};
+
 class MapInstanceSpellTargetMappingCallback : public ObjectProcessCallback
 {
 public:
@@ -406,6 +431,9 @@ public:
 
     void UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector);
 
+    // Dynamic object target mapping
+    void HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *callback, DynamicObject *object, Unit *caster, float minRange, float maxRange, uint32 typeMask = 0);
+
     // Spell targetting functions
     void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange, uint32 typeMask = 0);
 
@@ -436,6 +464,10 @@ protected:
     std::vector<uint32> _BroadcastObjectUpdateCellVector;
     friend class MapInstanceBroadcastObjectUpdateCallback;
     MapInstanceBroadcastObjectUpdateCallback _broadcastObjectUpdateCallback;
+
+    std::vector<uint32> _DynamicObjectTargetMappingCellVector;
+    friend class MapInstanceDynamicObjectTargetMappingCallback;
+    MapInstanceDynamicObjectTargetMappingCallback _DynamicObjectTargetMappingCallback;
 
     std::vector<uint32> _SpellTargetMappingCellVector;
     friend class MapInstanceSpellTargetMappingCallback;

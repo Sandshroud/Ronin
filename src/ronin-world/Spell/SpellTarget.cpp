@@ -255,10 +255,10 @@ void SpellTargetClass::FillTargetMap(bool fromDelayed)
         if(targetTypes[i] & SPELL_TARGET_NOT_IMPLEMENTED)
             continue;
 
-        float radius = GetMaxRadius(i), minRange = GetRadius(i);
+        float radius = GetRadius(i);
         if(targetTypes[i] & SPELL_TARGET_NO_OBJECT)  //summon spells that appear infront of caster
         {
-            HandleTargetNoObject(i, minRange, radius);
+            HandleTargetNoObject(i, radius);
             continue;
         }
 
@@ -282,43 +282,43 @@ void SpellTargetClass::FillTargetMap(bool fromDelayed)
         if(radius && inWorld)
         {   // These require that we're in world with people around us
             if(ignoreAOE == false && (targetTypes[i] & SPELL_TARGET_AREA)) // targetted aoe
-                AddAOETargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets);
+                AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
             if((targetTypes[i] & SPELL_TARGET_AREA_SELF)) // targetted aoe near us
-                AddAOETargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets);
+                AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
 
             //targets party, not raid
             if((targetTypes[i] & SPELL_TARGET_AREA_PARTY) && !(targetTypes[i] & SPELL_TARGET_AREA_RAID))
             {
                 if(!_unitCaster->IsPlayer() && !(_unitCaster->IsCreature() || _unitCaster->IsTotem()))
-                    AddAOETargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets); //npcs
-                else AddPartyTargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets); //players/pets/totems
+                    AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets); //npcs
+                else AddPartyTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets); //players/pets/totems
             }
 
             if(targetTypes[i] & SPELL_TARGET_AREA_RAID)
             {
                 if(!_unitCaster->IsPlayer() && !(_unitCaster->IsCreature() || _unitCaster->IsTotem()))
-                    AddAOETargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets); //npcs
-                else AddRaidTargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets, (targetTypes[i] & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
+                    AddAOETargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets); //npcs
+                else AddRaidTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets, (targetTypes[i] & SPELL_TARGET_AREA_PARTY) ? true : false); //players/pets/totems
             }
 
             if(targetTypes[i] & SPELL_TARGET_AREA_CHAIN)
-                AddChainTargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets);
+                AddChainTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
 
             //target cone
             if(targetTypes[i] & SPELL_TARGET_AREA_CONE)
-                AddConeTargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets);
+                AddConeTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
 
             if(targetTypes[i] & SPELL_TARGET_OBJECT_SCRIPTED)
-                AddScriptedOrSpellFocusTargets(i, targetTypes[i], minRange, radius, m_spellInfo->MaxTargets);
+                AddScriptedOrSpellFocusTargets(i, targetTypes[i], radius, m_spellInfo->MaxTargets);
         }
 
         // Allow auto self target, especially when map is empty
-        if(!m_targets.hasDestination() && !(targetTypes[i] & SPELL_TARGET_AREA_SELF) && (m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == _unitCaster->GetGUID())))
+        if((m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == _unitCaster->GetGUID())) && (IsTriggerSpellEffect(i) || !(m_targets.hasDestination() && (targetTypes[i] & SPELL_TARGET_AREA_SELF))))
             AddTarget(i, SPELL_TARGET_NONE, _unitCaster);
     }
 }
 
-void SpellTargetClass::HandleTargetNoObject(uint32 i, float rMin, float rMax)
+void SpellTargetClass::HandleTargetNoObject(uint32 i, float r)
 {
     _AddTarget(_unitCaster, i);
     if(m_targets.hasDestination())
@@ -330,7 +330,7 @@ void SpellTargetClass::HandleTargetNoObject(uint32 i, float rMin, float rMax)
     float srcZ = _unitCaster->GetPositionZ(), newz = srcZ;
 
     float dist = 0;
-    if((dist = rMin) > 0.f || (dist = rMax) > 0.f)
+    if((dist = r) > 0.f)
     {
         newx += cosf(_unitCaster->GetOrientation()) * dist;
         newy += sinf(_unitCaster->GetOrientation()) * dist;
@@ -378,7 +378,7 @@ bool SpellTargetClass::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
         return false;
 
     //final checks, require line of sight unless range/radius is 50000 yards
-    if(sWorld.Collision && m_spellInfo->maxRange[0] < 50000 && GetMaxRadius(i) < 50000 && !obj->IsItem())
+    if(sWorld.Collision && m_spellInfo->maxRange[0] < 50000 && GetRadius(i) < 50000 && !obj->IsItem())
     {
         float x = _unitCaster->GetPositionX(), y = _unitCaster->GetPositionY(), z = _unitCaster->GetPositionZ() + 0.5f;
 
@@ -531,7 +531,7 @@ bool SpellTargetClass::GenerateTargets(SpellCastTargets *t)
                 if(attempts > 10)
                     return false;
 
-                float r = RandomFloat(GetMaxRadius(0));
+                float r = RandomFloat(GetRadius(0));
                 float ang = RandomFloat(M_PI * 2);
                 t->m_dest.x = _unitCaster->GetPositionX() + (cosf(ang) * r);
                 t->m_dest.y = _unitCaster->GetPositionY() + (sinf(ang) * r);
@@ -579,7 +579,7 @@ bool SpellTargetClass::GenerateTargets(SpellCastTargets *t)
 
 void SpellTargetClass::FillSpecifiedTargetsInArea( float srcx, float srcy, float srcz, uint32 effIndex, uint32 typeMask )
 {
-    FillSpecifiedTargetsInArea( effIndex, srcx, srcy, srcz, GetRadius(effIndex), GetMaxRadius(effIndex), typeMask );
+    FillSpecifiedTargetsInArea( effIndex, srcx, srcy, srcz, GetRadius(effIndex), typeMask );
 }
 
 void FillAreaTargetsCallback::operator()(SpellTargetClass *spell, uint32 i, WorldObject *target)
@@ -610,27 +610,27 @@ void FillAreaTargetsCallback::operator()(SpellTargetClass *spell, uint32 i, Worl
 }
 
 // for the moment we do invisible targets
-void SpellTargetClass::FillSpecifiedTargetsInArea(uint32 i, float srcx, float srcy, float srcz, float minRange, float maxRange, uint32 typeMask)
+void SpellTargetClass::FillSpecifiedTargetsInArea(uint32 i, float srcx, float srcy, float srcz, float r, uint32 typeMask)
 {
     if(!_unitCaster->IsInWorld())
         return;
 
     static FillAreaTargetsCallback _fillSpecificCallback;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, srcx, srcy, srcz, minRange*minRange, maxRange*maxRange, typeMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, srcx, srcy, srcz, 0.f, r*r, typeMask);
 }
 
 void SpellTargetClass::FillAllTargetsInArea(LocationVector & location, uint32 effIndex)
 {
-    FillAllTargetsInArea(effIndex, location.x, location.y, location.z, GetRadius(effIndex), GetMaxRadius(effIndex));
+    FillAllTargetsInArea(effIndex, location.x, location.y, location.z, GetRadius(effIndex));
 }
 
 void SpellTargetClass::FillAllTargetsInArea(float srcx,float srcy,float srcz, uint32 effIndex)
 {
-    FillAllTargetsInArea(effIndex, srcx, srcy, srcz, GetRadius(effIndex), GetMaxRadius(effIndex));
+    FillAllTargetsInArea(effIndex, srcx, srcy, srcz, GetRadius(effIndex));
 }
 
 /// We fill all the targets in the area, including ones in stealth
-void SpellTargetClass::FillAllTargetsInArea(uint32 i, float srcx, float srcy, float srcz, float minRange, float maxRange, bool includegameobjects)
+void SpellTargetClass::FillAllTargetsInArea(uint32 i, float srcx, float srcy, float srcz, float r, bool includegameobjects)
 {
     std::vector<WorldObject*> ChainTargetContainer;
     // If we have max targets, we can use our temp storage to randomize our targetting
@@ -638,7 +638,7 @@ void SpellTargetClass::FillAllTargetsInArea(uint32 i, float srcx, float srcy, fl
 
     static FillAreaTargetsCallback _fillAllCallback;
     uint32 targetMask = (includegameobjects || Spell::CanEffectTargetGameObjects(m_spellInfo, i)) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillAllCallback, this, i, srcx, srcy, srcz, minRange*minRange, maxRange*maxRange, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillAllCallback, this, i, srcx, srcy, srcz, 0.f, r*r, targetMask);
     if(m_temporaryStorage)
     {   // Process our temporary storage
         WorldObject* chaintarget = NULL;
@@ -692,21 +692,21 @@ void FillAreaFriendliesCallback::operator()(SpellTargetClass *spell, uint32 i, W
 }
 
 // We fill all the targets in the area, including the stealthed one's
-void SpellTargetClass::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz, float minRange, float maxRange )
+void SpellTargetClass::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, float srcz, float r )
 {
     if(!_unitCaster->IsInWorld())
         return;
 
     static FillAreaFriendliesCallback _fillFriendliesCallback;
     uint32 targetMask = Spell::CanEffectTargetGameObjects(m_spellInfo, i) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillFriendliesCallback, this, i, srcx, srcy, srcz, minRange*minRange, maxRange*maxRange, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillFriendliesCallback, this, i, srcx, srcy, srcz, 0.f, r*r, targetMask);
 }
 
 /// We fill all the gameobject targets in the area
-void SpellTargetClass::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float minRange, float maxRange)
+void SpellTargetClass::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float r)
 {
     static FillAreaTargetsCallback _fillSpecificCallback;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, srcx, srcy, srcz, minRange*minRange, maxRange*maxRange, TYPEMASK_TYPE_GAMEOBJECT);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, srcx, srcy, srcz, 0.f, r*r, TYPEMASK_TYPE_GAMEOBJECT);
 }
 
 WoWGuid SpellTargetClass::GetSinglePossibleEnemy(uint32 i,float prange)
@@ -797,7 +797,7 @@ void FillInRangeTargetsCallback::operator()(SpellTargetClass *spell, uint32 i, W
     spell->_AddTarget(target, i);
 }
 
-void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets)
+void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     //cant do raid/party stuff here, seperate functions for it
     if(TargetType & (SPELL_TARGET_AREA_PARTY | SPELL_TARGET_AREA_RAID))
@@ -817,10 +817,10 @@ void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float rMin, fl
 
     static FillInRangeTargetsCallback _inRangeCallback;
     uint32 targetMask = Spell::CanEffectTargetGameObjects(m_spellInfo, i) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeCallback, this, i, source.x, source.y, source.z, rMin*rMin, rMax*rMax, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeCallback, this, i, source.x, source.y, source.z, 0.f, r*r, targetMask);
 }
 
-void SpellTargetClass::AddPartyTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets)
+void SpellTargetClass::AddPartyTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     WorldObject* u = _unitCaster->GetInRangeObject(m_targets.m_unitTarget);
     if((u == NULL && (u = _unitCaster) == NULL) || !u->IsPlayer())
@@ -834,10 +834,10 @@ void SpellTargetClass::AddPartyTargets(uint32 i, uint32 TargetType, float rMin, 
 
     AddTarget(i, TargetType, target);
     if(Group *grp = target->GetGroup())
-        grp->AddMemberTargets(this, i, true, target, TargetType, rMax*rMax, maxtargets, targetClassMask);
+        grp->AddMemberTargets(this, i, true, target, TargetType, r*r, maxtargets, targetClassMask);
 }
 
-void SpellTargetClass::AddRaidTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets, bool partylimit)
+void SpellTargetClass::AddRaidTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets, bool partylimit)
 {
     WorldObject* u = _unitCaster->GetInRangeObject(m_targets.m_unitTarget);
     if((u == NULL && (u = _unitCaster) == NULL) || !u->IsPlayer())
@@ -851,10 +851,10 @@ void SpellTargetClass::AddRaidTargets(uint32 i, uint32 TargetType, float rMin, f
 
     AddTarget(i, TargetType, target);
     if(Group *grp = target->GetGroup())
-        grp->AddMemberTargets(this, i, false, target, TargetType, rMax*rMax, maxtargets, targetClassMask);
+        grp->AddMemberTargets(this, i, false, target, TargetType, r*r, maxtargets, targetClassMask);
 }
 
-void SpellTargetClass::AddChainTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets)
+void SpellTargetClass::AddChainTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     if(!_unitCaster->IsInWorld())
         return;
@@ -904,7 +904,7 @@ void SpellTargetClass::AddChainTargets(uint32 i, uint32 TargetType, float rMin, 
     else callback = &_fillChainFriendlyCallback;
     // We've successfully set a callback pointer
     uint32 targetMask = RaidOnly ? TYPEMASK_TYPE_PLAYER : TYPEMASK_TYPE_UNIT;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(callback, this, i, firstTarget->GetPositionX(), firstTarget->GetPositionY(), firstTarget->GetPositionZ(), rMin*rMin, rMax*rMax, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(callback, this, i, firstTarget->GetPositionX(), firstTarget->GetPositionY(), firstTarget->GetPositionZ(), 0.f, r*r, targetMask);
     // TODO: this technically during raid only should reprocess from each jump point to the nearest but lets be lazy
     std::vector<Unit*> backupPlans;
     for(std::vector<WorldObject*>::iterator itr = ChainTargetContainer.begin(); itr != ChainTargetContainer.end(); itr++)
@@ -948,11 +948,11 @@ void FillInRangeConeTargetsCallback::operator()(SpellTargetClass *spell, uint32 
     spell->_AddTarget(target, i);
 }
 
-void SpellTargetClass::AddConeTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets)
+void SpellTargetClass::AddConeTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     static FillInRangeConeTargetsCallback _inRangeConeCallback;
     uint32 targetMask = Spell::CanEffectTargetGameObjects(m_spellInfo, i) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeConeCallback, this, i, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), rMin*rMin, rMax*rMax, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeConeCallback, this, i, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), 0.f, r*r, targetMask);
 }
 
 void FillSpecificGameObjectsCallback::operator()(SpellTargetClass *spell, uint32 i, WorldObject *target)
@@ -966,10 +966,10 @@ void FillSpecificGameObjectsCallback::operator()(SpellTargetClass *spell, uint32
     spell->_AddTarget(target, i);
 }
 
-void SpellTargetClass::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float rMin, float rMax, uint32 maxtargets)
+void SpellTargetClass::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     static FillSpecificGameObjectsCallback _specificGameObjectsCallback;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_specificGameObjectsCallback, this, i, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), rMin*rMin, rMax*rMax, TYPEMASK_TYPE_GAMEOBJECT);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_specificGameObjectsCallback, this, i, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), 0.f, r*r, TYPEMASK_TYPE_GAMEOBJECT);
 }
 
 // returns Guid of lowest percentage health friendly party or raid target within sqrt('dist') yards

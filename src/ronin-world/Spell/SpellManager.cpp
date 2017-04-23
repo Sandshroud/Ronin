@@ -354,16 +354,13 @@ void SpellManager::PoolSpellData()
         //SpellRadiusEntry
         for(uint8 i = 0; i < 3; i++)
         {
-            if(SpellRadiusEntry *sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusIndex[i]))
-            {
-                spellInfo->radiusHostile[0][i] = sRadius->radiusHostile;
-                spellInfo->radiusFriend[0][i] = sRadius->radiusFriend;
-            }
-            if(SpellRadiusEntry *sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusMaxIndex[i]))
-            {
-                spellInfo->radiusHostile[1][i] = sRadius->radiusHostile;
-                spellInfo->radiusFriend[1][i] = sRadius->radiusFriend;
-            }
+            bool hasMinRadius = true;
+            SpellRadiusEntry *sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusIndex[i]);
+            if(sRadius == NULL && (sRadius = dbcSpellRadius.LookupEntry(spellInfo->EffectRadiusMaxIndex[i])) == NULL)
+                continue;
+
+            spellInfo->radiusEnemy[i] = sRadius->radiusMin;
+            spellInfo->radiusFriendly[i] = sRadius->radiusMax;
         }
 
         //SpellReagentsEntry
@@ -779,7 +776,7 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     sp->maxRange[1] = 0.0f;
     // SpellRadius
     for(uint8 i = 0; i < 3; i++)
-        sp->radiusHostile[0][i] = sp->radiusHostile[1][i] = sp->radiusFriend[0][i] = sp->radiusFriend[1][i] = 0.f;
+        sp->radiusEnemy[i] = sp->radiusFriendly[i] = 0.f;
     /// Spell Pointers
     sp->Duration[0] = 0;
     sp->Duration[1] = 0;

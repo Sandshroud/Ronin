@@ -26,7 +26,7 @@ extern bool bServerShutdown;
 
 MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
 _processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this),
-_SpellTargetMappingCallback(this)
+_DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
 {
     m_mapPreloading = false;
     iInstanceMode = 0;
@@ -1224,9 +1224,35 @@ void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint3
     }
 }
 
+void MapInstanceDynamicObjectTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
+{
+    if((obj == curObj) || (curObj->IsUnit() && !castPtr<Unit>(curObj)->isAlive()))
+        return;
+    float dist = _dynObject->GetDistanceSq(curObj);
+    if(dist < _minRange || dist > _maxRange)
+        return;
+
+    (*_callback)(_dynObject, castPtr<Unit>(obj), castPtr<Unit>(curObj), dist);
+}
+
+void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *callback, DynamicObject *object, Unit *caster, float minRange, float maxRange, uint32 typeMask)
+{
+    _DynamicObjectTargetMappingCallback.Lock();
+    _DynamicObjectTargetMappingCallback.SetData(callback, object, caster, minRange, maxRange);
+    ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &_DynamicObjectTargetMappingCellVector);
+    for(auto itr = _DynamicObjectTargetMappingCellVector.begin(); itr != _DynamicObjectTargetMappingCellVector.end(); itr++)
+    {
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(object, &_DynamicObjectTargetMappingCallback, typeMask);
+    }
+    _DynamicObjectTargetMappingCellVector.clear();
+    _DynamicObjectTargetMappingCallback.Unlock();
+}
+
 void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
 {
-    if(!curObj->IsUnit() && !castPtr<Unit>(curObj)->isAlive())
+    if(curObj->IsUnit() && !castPtr<Unit>(curObj)->isAlive())
         return;
     float dist = curObj->GetDistanceSq(_x, _y, _z);
     if(dist < _minRange || dist > _maxRange)

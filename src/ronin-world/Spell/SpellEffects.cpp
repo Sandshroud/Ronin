@@ -639,7 +639,7 @@ void SpellEffectClass::SpellEffectCreateItem(uint32 i, WorldObject *target, int3
 void SpellEffectClass::SpellEffectPersistentAA(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Persistent Area Aura
 {
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
-    if(m_AreaAura == NULL || !_unitCaster->IsInWorld())
+    if(m_AreaAura || !_unitCaster->IsInWorld())
         return;
 
     DynamicObject* dynObj = _unitCaster->GetMapInstance()->AllocateDynamicObject(m_casterGuid);

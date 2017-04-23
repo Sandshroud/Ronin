@@ -22,17 +22,25 @@
 #pragma once
 
 class BaseSpell;
+class DynamicObject;
 struct SpellEntry;
 
-typedef std::set<uint64>  DynamicObjectList;
+typedef std::set<WoWGuid>  DynamicObjectList;
+
+class DynamicObjectTargetCallback { public: virtual void operator()(DynamicObject *obj, Unit *caster, Unit *target, float range) = 0; };
+class FillDynamicObjectTargetMapCallback : public DynamicObjectTargetCallback { virtual void operator()(DynamicObject *obj, Unit *caster, Unit *target, float range); };
 
 class SERVER_DECL DynamicObject : public WorldObject
 {
+    friend class DynamicObjectTargetCallback;
+    friend class FillDynamicObjectTargetMapCallback;
+
 public:
     DynamicObject( uint32 high, uint32 low, uint32 fieldCount = DYNAMICOBJECT_END );
     ~DynamicObject( );
     virtual void Init();
     virtual void Destruct();
+    virtual void Update(uint32 msTime, uint32 uiDiff);
 
     virtual bool IsDynamicObj() { return true; }
 
@@ -48,6 +56,10 @@ public:
 
     uint32 getLevel() { return casterLevel; }
     uint64 GetCasterGuid() { return casterGuid; }
+
+private:
+    bool IsInTargetSet(Unit *target) { return (targets.find(target->GetGUID()) != targets.end()); }
+    bool IsTargettingStealth() { return m_spellProto->isSpellStealthTargetCapable(); }
 
 protected:
     uint8 m_dynamicobjectPool;

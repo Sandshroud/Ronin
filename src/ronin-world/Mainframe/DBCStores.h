@@ -968,8 +968,7 @@ struct SpellEntry
     float maxRange[2]; // maxEnemy, maxFriend
 
     // SpellRadiusEntry
-    float radiusHostile[2][3];
-    float radiusFriend[2][3];
+    float radiusEnemy[3], radiusFriendly[3];
 
     // Custom
     uint8 Class;
@@ -1463,9 +1462,9 @@ struct SpellItemEnchantConditionEntry
 struct SpellRadiusEntry
 {
     uint32 ID;
-    float radiusHostile;
-    //float unk1;
-    float radiusFriend;
+    float radiusMin;
+    //float unk;
+    float radiusMax;
 };
 
 struct SpellRangeEntry
