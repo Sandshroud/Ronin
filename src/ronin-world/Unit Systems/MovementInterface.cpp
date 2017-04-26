@@ -1069,18 +1069,28 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
 {
     bool updateFlight = false, canFly = false;
     std::set<MovementSpeedTypes> speedsToUpdate;
+    AuraInterface *aurInterface = &m_Unit->m_AuraInterface;
     for(std::vector<uint32>::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
     {
         switch(*itr)
         {   // Can fly enabling aura
         case SPELL_AURA_FLY:
             updateFlight = true;
-            if(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
+            if(aurInterface->HasAurasWithModType(SPELL_AURA_FLY))
                 canFly = true;
+            break;
+        case SPELL_AURA_FEATHER_FALL:
+            setFeatherFall(aurInterface->HasAurasWithModType(SPELL_AURA_FEATHER_FALL));
+            break;
+        case SPELL_AURA_WATER_WALK:
+            setWaterWalk(aurInterface->HasAurasWithModType(SPELL_AURA_WATER_WALK));
+            break;
+        case SPELL_AURA_HOVER:
+            setHover(aurInterface->HasAurasWithModType(SPELL_AURA_HOVER));
             break;
             // Root handler, stun is handled differently
         case SPELL_AURA_MOD_ROOT:
-            setRooted(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_ROOT));
+            setRooted(aurInterface->HasAurasWithModType(SPELL_AURA_MOD_ROOT));
             break;
             // Speed modifiers
         case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
@@ -1134,7 +1144,10 @@ void MovementInterface::HandlePendingMoveData(bool fromLanding)
     // If we're falling we need to cut before we handle the pending data
     if(m_isFalling)
     {
-        if(fromLanding == true && !(hasFlag(MOVEMENTFLAG_SWIMMING) || hasFlag(MOVEMENTFLAG_CAN_FLY) || hasPendingMoveStatus(MOVEMENT_STATUS_CANFLY)))
+        bool hoveringExclude = hasFlag(MOVEMENTFLAG_HOVER) || hasPendingMoveStatus(MOVEMENTFLAG_HOVER);
+        bool flyingExclude = hasFlag(MOVEMENTFLAG_CAN_FLY) || hasPendingMoveStatus(MOVEMENT_STATUS_CANFLY);
+        bool featherFallingExclude = hasFlag(MOVEMENTFLAG_FEATHERFALLING) || hasPendingMoveStatus(MOVEMENTFLAG_FEATHERFALLING);
+        if(fromLanding == true && !(hasFlag(MOVEMENTFLAG_SWIMMING) || hoveringExclude || flyingExclude || featherFallingExclude))
         {   // Handle our pending falling damage
             float diff = 0.f;
             if(castPtr<Player>(m_Unit)->hasGMTag() && (diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)
@@ -1347,6 +1360,60 @@ bool MovementInterface::isInAir()
 void MovementInterface::setStunned(bool stunned)
 {
     setRooted(stunned);
+}
+
+void MovementInterface::setFeatherFall(bool canFeatherFall)
+{
+    if(!m_Unit->IsPlayer())
+        return;
+    if(!m_Unit->IsInWorld())
+    {
+        if(canFeatherFall)
+            setServerFlag(MOVEMENTFLAG_FEATHERFALLING);
+        else removeServerFlag(MOVEMENTFLAG_FEATHERFALLING);
+        return;
+    }
+
+    m_pendingEnable[MOVEMENT_STATUS_FEATHERFALLING] = canFeatherFall;
+    WorldPacket data(canFeatherFall ? SMSG_MOVE_FEATHER_FALL : SMSG_MOVE_NORMAL_FALL, 200);
+    WriteFromServer(data.GetOpcode(), &data);
+    castPtr<Player>(m_Unit)->PushPacket(&data);
+}
+
+void MovementInterface::setWaterWalk(bool canWaterWalk)
+{
+    if(!m_Unit->IsPlayer())
+        return;
+    if(!m_Unit->IsInWorld())
+    {
+        if(canWaterWalk)
+            setServerFlag(MOVEMENTFLAG_WATERWALKING);
+        else removeServerFlag(MOVEMENTFLAG_WATERWALKING);
+        return;
+    }
+
+    m_pendingEnable[MOVEMENT_STATUS_WATERWALKING] = canWaterWalk;
+    WorldPacket data(canWaterWalk ? SMSG_MOVE_WATER_WALK : SMSG_MOVE_LAND_WALK, 200);
+    WriteFromServer(data.GetOpcode(), &data);
+    castPtr<Player>(m_Unit)->PushPacket(&data);
+}
+
+void MovementInterface::setHover(bool canHover)
+{
+    if(!m_Unit->IsPlayer())
+        return;
+    if(!m_Unit->IsInWorld())
+    {
+        if(canHover)
+            setServerFlag(MOVEMENTFLAG_HOVER);
+        else removeServerFlag(MOVEMENTFLAG_HOVER);
+        return;
+    }
+
+    m_pendingEnable[MOVEMENT_STATUS_HOVERING] = canHover;
+    WorldPacket data(canHover ? SMSG_MOVE_SET_HOVER : SMSG_MOVE_UNSET_HOVER, 200);
+    WriteFromServer(data.GetOpcode(), &data);
+    castPtr<Player>(m_Unit)->PushPacket(&data);
 }
 
 void MovementInterface::setCanFly(bool canFly)

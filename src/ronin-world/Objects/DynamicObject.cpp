@@ -107,6 +107,7 @@ void FillDynamicObjectTargetMapCallback::operator()(DynamicObject *obj, Unit *ca
             if(spell->EffectApplyAuraName[i])
                 aur->AddMod(i, spell->EffectApplyAuraName[i], spell->CalculateSpellPoints(i, obj->casterLevel, 0));
 
+        aur->SetNegative();
         aur->UpdatePreApplication();
         target->AddAura(aur);
     }
@@ -147,11 +148,14 @@ void DynamicObject::UpdateTargets(uint32 p_time)
 
     if(m_aliveDuration && u_caster)
     {
-        float radius = GetFloatValue(DYNAMICOBJECT_RADIUS);
-        radius *= radius;
+        float radius = 0.f;
+        if(radius = GetFloatValue(DYNAMICOBJECT_RADIUS))
+        {
+            radius *= radius;
 
-        static FillDynamicObjectTargetMapCallback _callback;
-        m_mapInstance->HandleDynamicObjectRangeMapping(&_callback, this, u_caster, 0.f, radius, (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER));
+            static FillDynamicObjectTargetMapCallback _callback;
+            m_mapInstance->HandleDynamicObjectRangeMapping(&_callback, this, u_caster, 0.f, radius, (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER));
+        }
 
         // loop the targets, check the range of all of them
         DynamicObjectList::iterator jtr = targets.begin(), jtr2, jend = targets.end();

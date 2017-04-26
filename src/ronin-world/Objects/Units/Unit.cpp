@@ -235,6 +235,7 @@ void Unit::OnAuraModChanged(uint32 modType)
         break;
     case SPELL_AURA_HOVER:
         pendingIndex.push_back(UF_UTYPE_HOVER);
+        pendingIndex.push_back(UF_UTYPE_MOVEMENT);
         break;
         // Player opcode handling
     case SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT:
@@ -255,6 +256,8 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_FLY:
         // State change opcodes
     case SPELL_AURA_MOD_ROOT:
+    case SPELL_AURA_WATER_WALK:
+    case SPELL_AURA_FEATHER_FALL:
         // Speed opcodes
     case SPELL_AURA_MOD_INCREASE_SPEED:
     case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:

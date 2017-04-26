@@ -417,7 +417,7 @@ void AuraInterface::AttemptDispel(Unit* caster, int32 Mechanic, bool hostile)
 
 void AuraInterface::MassDispel(Unit* caster, uint32 index, SpellEntry* Dispelling, uint32 MaxDispel, uint8 start, uint8 end)
 {
-    ASSERT(start < MAX_AURAS && end < MAX_AURAS);
+    ASSERT(start < MAX_AURAS && end <= MAX_AURAS);
     WorldPacket data(SMSG_SPELLDISPELLOG, 16);
 
     for(uint8 x = start; x < end; x++)

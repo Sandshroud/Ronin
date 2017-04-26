@@ -112,6 +112,17 @@ bool SpellTargetClass::requiresCombatSupport(uint32 effIndex)
     return true;
 }
 
+bool SpellTargetClass::EffectRequiresAnyTarget(uint32 effIndex)
+{
+    if(IsTriggerSpellEffect(effIndex))
+        return true;
+    if(m_spellInfo->HasEffect(SPELL_EFFECT_ADD_FARSIGHT, (1<<effIndex)))
+        return true;
+    if(m_spellInfo->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, (1<<effIndex)))
+        return true;
+    return false;
+}
+
 bool SpellTargetClass::IsTargetMapFull(uint32 effIndex, WoWGuid guidCheck)
 {
     if(uint32 targetCap = m_spellInfo->MaxTargets)
@@ -223,6 +234,7 @@ void SpellTargetClass::_AddTarget(WorldObject* target, const uint32 effIndex)
 void SpellTargetClass::FillTargetMap(bool fromDelayed)
 {
     bool ignoreAOE = m_isDelayedAOEMissile && fromDelayed == false;
+    bool selfTarget = m_targets.m_unitTarget == _unitCaster->GetGUID();
     uint32 targetTypes[3] = {SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED, SPELL_TARGET_NOT_IMPLEMENTED};
     // Set destination position for target types when we have target pos flags on current target
     for(uint32 i = 0; i < 3; i++)
@@ -313,8 +325,8 @@ void SpellTargetClass::FillTargetMap(bool fromDelayed)
         }
 
         // Allow auto self target, especially when map is empty
-        if((m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || m_targets.m_unitTarget == _unitCaster->GetGUID())) && (IsTriggerSpellEffect(i) || !(m_targets.hasDestination() && (targetTypes[i] & SPELL_TARGET_AREA_SELF))))
-            AddTarget(i, SPELL_TARGET_NONE, _unitCaster);
+        if(m_effectTargetMaps[i].empty() && (m_targets.m_unitTarget.empty() || selfTarget))
+            AddTarget(i, ((selfTarget && m_triggeredSpell) || EffectRequiresAnyTarget(i)) ? SPELL_TARGET_NONE : targetTypes[i], _unitCaster);
     }
 }
 

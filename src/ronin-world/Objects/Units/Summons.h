@@ -107,17 +107,19 @@ public:
 class SERVER_DECL Summon : public Creature
 {
 public:
-    Summon(CreatureData* data, uint64 guid);
+    Summon(CreatureData* data, uint64 guid, int32 duration);
     ~Summon();
-
-    virtual bool IsTotem() { return GetSummonType() == SUMMON_TYPE_TOTEM; }
-    virtual bool IsSummon() { return true; }
 
     void Init();
     void Destruct();
+    virtual void Update(uint32 msTime, uint32 uiDiff);
+
     void OnPushToWorld();
     void CreateAs(SummonHandler* NewHandle);
     void Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot);
+
+    virtual bool IsTotem() { return GetSummonType() == SUMMON_TYPE_TOTEM; }
+    virtual bool IsSummon() { return true; }
 
     int32 GetSummonSlot() { return summonslot; };
     Unit* GetSummonOwner() { return s_Owner; };
@@ -127,6 +129,7 @@ public:
 private:
     SummonHandler* m_Internal;
 
+    int32 m_expireTime;
     int32 summonslot;       // Summon slot of the creature in the owner's summonhandler, -1 means no slot
     Unit* s_Owner;          // Summoner of the creature
 };

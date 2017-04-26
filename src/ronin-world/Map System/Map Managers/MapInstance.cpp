@@ -1037,6 +1037,17 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     if(unitTarget == NULL || unitTarget->isDead()) // Cut down on checks by skipping dead creatures
         return;
 
+    // Visibility and interaction checking
+    if(unitTarget->IsPlayer())
+    {
+        if(!castPtr<Player>(unitTarget)->IsVisible(obj))
+            return;
+    } else if(!_instance->canObjectsInteract(obj, curObj))
+        return;
+    // Interaction limitation
+    if(sFactionSystem.IsInteractionLocked(obj, curObj))
+        return;
+
     float distance = obj->GetDistanceSq(unitTarget);
     // Check our aggro range against our saved range
     float aggroRange = unitTarget->ModDetectedRange(castPtr<Unit>(obj), _range);
@@ -1231,6 +1242,10 @@ void MapInstanceDynamicObjectTargetMappingCallback::operator()(WorldObject *obj,
     float dist = _dynObject->GetDistanceSq(curObj);
     if(dist < _minRange || dist > _maxRange)
         return;
+    if(!_instance->canObjectsInteract(obj, curObj))
+        return;
+    if(sFactionSystem.IsInteractionLocked(obj, curObj, true))
+        return;
 
     (*_callback)(_dynObject, castPtr<Unit>(obj), castPtr<Unit>(curObj), dist);
 }
@@ -1257,6 +1272,10 @@ void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldOb
     float dist = curObj->GetDistanceSq(_x, _y, _z);
     if(dist < _minRange || dist > _maxRange)
         return;
+    if(!_instance->canObjectsInteract(obj, curObj))
+        return;
+    if(sFactionSystem.IsInteractionLocked(obj, curObj, true))
+        return;
 
     (*_callback)(_spell, _effIndex, curObj);
 }
@@ -1270,7 +1289,7 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(NULL, &_SpellTargetMappingCallback, typeMask);
+            cell->ProcessObjectSets(spell->GetCaster(), &_SpellTargetMappingCallback, typeMask);
     }
     _SpellTargetMappingCellVector.clear();
     _SpellTargetMappingCallback.Unlock();
@@ -1943,7 +1962,7 @@ Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
     return cr;
 }
 
-Summon* MapInstance::CreateSummon(uint32 entry)
+Summon* MapInstance::CreateSummon(uint32 entry, int32 duration)
 {
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL)
@@ -1952,7 +1971,7 @@ Summon* MapInstance::CreateSummon(uint32 entry)
         return NULL;
     }
 
-    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(++m_CreatureHighGuid, entry, HIGHGUID_TYPE_UNIT));
+    Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(++m_CreatureHighGuid, entry, HIGHGUID_TYPE_UNIT), duration);
     sum->Init();
     ASSERT( sum->GetHighGUID() == HIGHGUID_TYPE_UNIT );
     return sum;

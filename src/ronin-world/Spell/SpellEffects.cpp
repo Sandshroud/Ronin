@@ -994,7 +994,7 @@ void SpellEffectClass::SpellEffectDispel(uint32 i, WorldObject *target, int32 am
 
     uint32 start = 0, end = MAX_POSITIVE_AURAS;
     if(!sFactionSystem.isAttackable(_unitCaster, unitTarget))
-        start = MAX_POSITIVE_AURAS, end = TOTAL_AURAS;
+        start = MAX_POSITIVE_AURAS, end = MAX_AURAS;
 
     unitTarget->m_AuraInterface.MassDispel(_unitCaster, i, m_spellInfo, amount, start, end);
 }

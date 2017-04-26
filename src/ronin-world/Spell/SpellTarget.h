@@ -27,6 +27,9 @@ protected:
     // If we check friendly or combat support for friendly target checks
     bool requiresCombatSupport(uint32 effIndex);
 
+    // Some spell effects require the caster to trigger an effect
+    bool EffectRequiresAnyTarget(uint32 i);
+
     // If we have max targets we can check if we're full on targets
     bool IsTargetMapFull(uint32 effIndex, WoWGuid guidCheck = 0);
 

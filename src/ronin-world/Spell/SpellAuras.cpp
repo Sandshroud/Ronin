@@ -21,379 +21,169 @@
 
 #include "StdAfx.h"
 
-pSpellAura SpellAuraHandler[SPELL_AURA_TOTAL] = {
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_NONE = 0
-    &Aura::SpellAuraBindSight,                                      //SPELL_AURA_BIND_SIGHT = 1
-    &Aura::SpellAuraModPossess,                                     //SPELL_AURA_MOD_POSSESS = 2
-    &Aura::SpellAuraPeriodicDamage,                                 //SPELL_AURA_PERIODIC_DAMAGE = 3
-    &Aura::SpellAuraDummy,                                          //SPELL_AURA_DUMMY = 4
-    &Aura::SpellAuraModConfuse,                                     //SPELL_AURA_MOD_CONFUSE = 5
-    &Aura::SpellAuraModCharm,                                       //SPELL_AURA_MOD_CHARM = 6
-    &Aura::SpellAuraModFear,                                        //SPELL_AURA_MOD_FEAR = 7
-    &Aura::SpellAuraPeriodicHeal,                                   //SPELL_AURA_PERIODIC_HEAL = 8
-    &Aura::SpellAuraModAttackSpeed,                                 //SPELL_AURA_MOD_ATTACKSPEED = 9
-    &Aura::SpellAuraModThreatGenerated,                             //SPELL_AURA_MOD_THREAT = 10
-    &Aura::SpellAuraModTaunt,                                       //SPELL_AURA_MOD_TAUNT = 11
-    &Aura::SpellAuraModStun,                                        //SPELL_AURA_MOD_STUN = 12
-    &Aura::SpellAuraModDamageDone,                                  //SPELL_AURA_MOD_DAMAGE_DONE = 13
-    &Aura::SpellAuraModDamageTaken,                                 //SPELL_AURA_MOD_DAMAGE_TAKEN = 14
-    &Aura::SpellAuraDamageShield,                                   //SPELL_AURA_DAMAGE_SHIELD = 15
-    &Aura::SpellAuraModStealth,                                     //SPELL_AURA_MOD_STEALTH = 16
-    &Aura::SpellAuraModDetect,                                      //SPELL_AURA_MOD_DETECT = 17
-    &Aura::SpellAuraModInvisibility,                                //SPELL_AURA_MOD_INVISIBILITY = 18
-    &Aura::SpellAuraModInvisibilityDetection,                       //SPELL_AURA_MOD_INVISIBILITY_DETECTION = 19
-    &Aura::SpellAuraModTotalHealthRegenPct,                         //SPELL_AURA_MOD_TOTAL_HEALTH_REGEN_PCT = 20
-    &Aura::SpellAuraModTotalManaRegenPct,                           //SPELL_AURA_MOD_TOTAL_MANA_REGEN_PCT = 21
-    &Aura::SpellAuraUtilized,                                       //SPELL_AURA_MOD_RESISTANCE = 22
-    &Aura::SpellAuraPeriodicTriggerSpell,                           //SPELL_AURA_PERIODIC_TRIGGER_SPELL = 23
-    &Aura::SpellAuraPeriodicEnergize,                               //SPELL_AURA_PERIODIC_ENERGIZE = 24
-    &Aura::SpellAuraModPacify,                                      //SPELL_AURA_MOD_PACIFY = 25
-    &Aura::SpellAuraModRoot,                                        //SPELL_AURA_MOD_ROOT = 26
-    &Aura::SpellAuraModSilence,                                     //SPELL_AURA_MOD_SILENCE = 27
-    &Aura::SpellAuraReflectSpells,                                  //SPELL_AURA_REFLECT_SPELLS = 28
-    &Aura::SpellAuraModStat,                                        //SPELL_AURA_MOD_STAT = 29
-    &Aura::SpellAuraModSkill,                                       //SPELL_AURA_MOD_SKILL = 30
-    &Aura::SpellAuraModIncreaseSpeed,                               //SPELL_AURA_MOD_INCREASE_SPEED = 31
-    &Aura::SpellAuraModIncreaseMountedSpeed,                        //SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED = 32
-    &Aura::SpellAuraModDecreaseSpeed,                               //SPELL_AURA_MOD_DECREASE_SPEED = 33
-    &Aura::SpellAuraModIncreaseHealth,                              //SPELL_AURA_MOD_INCREASE_HEALTH = 34
-    &Aura::SpellAuraModIncreaseEnergy,                              //SPELL_AURA_MOD_INCREASE_ENERGY = 35
-    &Aura::SpellAuraModShapeshift,                                  //SPELL_AURA_MOD_SHAPESHIFT = 36
-    &Aura::SpellAuraModEffectImmunity,                              //SPELL_AURA_EFFECT_IMMUNITY = 37
-    &Aura::SpellAuraModStateImmunity,                               //SPELL_AURA_STATE_IMMUNITY = 38
-    &Aura::SpellAuraModSchoolImmunity,                              //SPELL_AURA_SCHOOL_IMMUNITY = 39
-    &Aura::SpellAuraModDmgImmunity,                                 //SPELL_AURA_DAMAGE_IMMUNITY = 40
-    &Aura::SpellAuraModDispelImmunity,                              //SPELL_AURA_DISPEL_IMMUNITY = 41
-    &Aura::SpellAuraProcTriggerSpell,                               //SPELL_AURA_PROC_TRIGGER_SPELL = 42
-    &Aura::SpellAuraProcTriggerDamage,                              //SPELL_AURA_PROC_TRIGGER_DAMAGE = 43
-    &Aura::SpellAuraTrackCreatures,                                 //SPELL_AURA_TRACK_CREATURES = 44
-    &Aura::SpellAuraTrackResources,                                 //SPELL_AURA_TRACK_RESOURCES = 45
-    &Aura::SpellAuraModParrySkill,                                  //SPELL_AURA_MOD_PARRY_SKILL = 46
-    &Aura::SpellAuraModParryPerc,                                   //SPELL_AURA_MOD_PARRY_PERCENT = 47
-    &Aura::SpellAuraModDodgeSkill,                                  //SPELL_AURA_MOD_DODGE_SKILL = 48
-    &Aura::SpellAuraModDodgePerc,                                   //SPELL_AURA_MOD_DODGE_PERCENT = 49
-    &Aura::SpellAuraModBlockSkill,                                  //SPELL_AURA_MOD_BLOCK_SKILL = 50
-    &Aura::SpellAuraModBlockPerc,                                   //SPELL_AURA_MOD_BLOCK_PERCENT = 51
-    &Aura::SpellAuraModCritPerc,                                    //SPELL_AURA_MOD_CRIT_PERCENT = 52
-    &Aura::SpellAuraPeriodicLeech,                                  //SPELL_AURA_PERIODIC_LEECH = 53
-    &Aura::SpellAuraModHitChance,                                   //SPELL_AURA_MOD_HIT_CHANCE = 54
-    &Aura::SpellAuraModSpellHitChance,                              //SPELL_AURA_MOD_SPELL_HIT_CHANCE = 55
-    &Aura::SpellAuraTransform,                                      //SPELL_AURA_TRANSFORM = 56
-    &Aura::SpellAuraModSpellCritChance,                             //SPELL_AURA_MOD_SPELL_CRIT_CHANCE = 57
-    &Aura::SpellAuraIncreaseSwimSpeed,                              //SPELL_AURA_MOD_INCREASE_SWIM_SPEED = 58
-    &Aura::SpellAuraModCratureDmgDone,                              //SPELL_AURA_MOD_DAMAGE_DONE_CREATURE = 59
-    &Aura::SpellAuraPacifySilence,                                  //SPELL_AURA_MOD_PACIFY_SILENCE = 60
-    &Aura::SpellAuraModScale,                                       //SPELL_AURA_MOD_SCALE = 61
-    &Aura::SpellAuraPeriodicHealthFunnel,                           //SPELL_AURA_PERIODIC_HEALTH_FUNNEL = 62
-    &Aura::SpellAuraIgnore,                                         //SPELL_AURA_PERIODIC_MANA_FUNNEL = 63
-    &Aura::SpellAuraPeriodicManaLeech,                              //SPELL_AURA_PERIODIC_MANA_LEECH = 64
-    &Aura::SpellAuraModCastingSpeed,                                //SPELL_AURA_MOD_CASTING_SPEED = 65
-    &Aura::SpellAuraFeignDeath,                                     //SPELL_AURA_FEIGN_DEATH = 66
-    &Aura::SpellAuraModDisarm,                                      //SPELL_AURA_MOD_DISARM = 67
-    &Aura::SpellAuraModStalked,                                     //SPELL_AURA_MOD_STALKED = 68
-    &Aura::SpellAuraSchoolAbsorb,                                   //SPELL_AURA_SCHOOL_ABSORB = 69
-    &Aura::SpellAuraIgnore,                                         //SPELL_AURA_EXTRA_ATTACKS = 70
-    &Aura::SpellAuraModSpellCritChanceSchool,                       //SPELL_AURA_MOD_SPELL_CRIT_CHANCE_SCHOOL = 71
-    &Aura::SpellAuraModPowerCost,                                   //SPELL_AURA_MOD_POWER_COST = 72
-    &Aura::SpellAuraModPowerCostSchool,                             //SPELL_AURA_MOD_POWER_COST_SCHOOL = 73
-    &Aura::SpellAuraReflectSpellsSchool,                            //SPELL_AURA_REFLECT_SPELLS_SCHOOL = 74
-    &Aura::SpellAuraModLanguage,                                    //SPELL_AURA_MOD_LANGUAGE = 75
-    &Aura::SpellAuraAddFarSight,                                    //SPELL_AURA_FAR_SIGHT = 76
-    &Aura::SpellAuraMechanicImmunity,                               //SPELL_AURA_MECHANIC_IMMUNITY = 77
-    &Aura::SpellAuraMounted,                                        //SPELL_AURA_MOUNTED = 78
-    &Aura::SpellAuraModDamagePercDone,                              //SPELL_AURA_MOD_DAMAGE_PERCENT_DONE = 79
-    &Aura::SpellAuraModPercStat,                                    //SPELL_AURA_MOD_PERCENT_STAT = 80
-    &Aura::SpellAuraSplitDamage,                                    //SPELL_AURA_SPLIT_DAMAGE = 81
-    &Aura::SpellAuraWaterBreathing,                                 //SPELL_AURA_WATER_BREATHING = 82
-    &Aura::SpellAuraUtilized,                                       //SPELL_AURA_MOD_BASE_RESISTANCE = 83
-    &Aura::SpellAuraModRegen,                                       //SPELL_AURA_MOD_REGEN = 84
-    &Aura::SpellAuraModPowerRegen,                                  //SPELL_AURA_MOD_POWER_REGEN = 85
-    &Aura::SpellAuraChannelDeathItem,                               //SPELL_AURA_CHANNEL_DEATH_ITEM = 86
-    &Aura::SpellAuraModDamagePercTaken,                             //SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN = 87
-    &Aura::SpellAuraModRegenPercent,                                //SPELL_AURA_MOD_PERCENT_REGEN = 88
-    &Aura::SpellAuraPeriodicDamagePercent,                          //SPELL_AURA_PERIODIC_DAMAGE_PERCENT = 89
-    &Aura::SpellAuraModResistChance,                                //SPELL_AURA_MOD_RESIST_CHANCE = 90
-    &Aura::SpellAuraModDetectRange,                                 //SPELL_AURA_MOD_DETECT_RANGE = 91
-    &Aura::SpellAuraPreventsFleeing,                                //SPELL_AURA_PREVENTS_FLEEING = 92
-    &Aura::SpellAuraModUnattackable,                                //SPELL_AURA_MOD_UNATTACKABLE = 93
-    &Aura::SpellAuraInterruptRegen,                                 //SPELL_AURA_INTERRUPT_REGEN = 94
-    &Aura::SpellAuraGhost,                                          //SPELL_AURA_GHOST = 95
-    &Aura::SpellAuraMagnet,                                         //SPELL_AURA_SPELL_MAGNET = 96
-    &Aura::SpellAuraManaShield,                                     //SPELL_AURA_MANA_SHIELD = 97
-    &Aura::SpellAuraSkillTalent,                                    //SPELL_AURA_MOD_SKILL_TALENT = 98
-    &Aura::SpellAuraModAttackPower,                                 //SPELL_AURA_MOD_ATTACK_POWER = 99
-    &Aura::SpellAuraVisible,                                        //SPELL_AURA_AURAS_VISIBLE = 100
-    &Aura::SpellAuraUtilized,                                       //SPELL_AURA_MOD_RESISTANCE_PCT = 101
-    &Aura::SpellAuraModCreatureAttackPower,                         //SPELL_AURA_MOD_CREATURE_ATTACK_POWER = 102
-    &Aura::SpellAuraModTotalThreat,                                 //SPELL_AURA_MOD_TOTAL_THREAT = 103
-    &Aura::SpellAuraWaterWalk,                                      //SPELL_AURA_WATER_WALK = 104
-    &Aura::SpellAuraFeatherFall,                                    //SPELL_AURA_FEATHER_FALL = 105
-    &Aura::SpellAuraHover,                                          //SPELL_AURA_HOVER = 106
-    &Aura::SpellAuraAddFlatModifier,                                //SPELL_AURA_ADD_FLAT_MODIFIER = 107
-    &Aura::SpellAuraAddPctMod,                                      //SPELL_AURA_ADD_PCT_MODIFIER = 108
-    &Aura::SpellAuraAddTargetTrigger,                               //SPELL_AURA_ADD_TARGET_TRIGGER = 109
-    &Aura::SpellAuraModPowerRegPerc,                                //SPELL_AURA_MOD_POWER_REGEN_PERCENT = 110
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_ADD_CASTER_HIT_TRIGGER = 111
-    &Aura::SpellAuraOverrideClassScripts,                           //SPELL_AURA_OVERRIDE_CLASS_SCRIPTS = 112
-    &Aura::SpellAuraModRangedDamageTaken,                           //SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN = 113
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT = 114
-    &Aura::SpellAuraModHealing,                                     //SPELL_AURA_MOD_HEALING = 115
-    &Aura::SpellAuraIgnoreRegenInterrupt,                           //SPELL_AURA_IGNORE_REGEN_INTERRUPT = 116
-    &Aura::SpellAuraModMechanicResistance,                          //SPELL_AURA_MOD_MECHANIC_RESISTANCE = 117
-    &Aura::SpellAuraModHealingPCT,                                  //SPELL_AURA_MOD_HEALING_PCT = 118
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_SHARE_PET_TRACKING = 119
-    &Aura::SpellAuraUntrackable,                                    //SPELL_AURA_UNTRACKABLE = 120
-    &Aura::SpellAuraEmphaty,                                        //SPELL_AURA_EMPATHY = 121
-    &Aura::SpellAuraModOffhandDamagePCT,                            //SPELL_AURA_MOD_OFFHAND_DAMAGE_PCT = 122
-    &Aura::SpellAuraModPenetration,                                 //SPELL_AURA_MOD_POWER_COST_PCT = 123
-    &Aura::SpellAuraModRangedAttackPower,                           //SPELL_AURA_MOD_RANGED_ATTACK_POWER = 124
-    &Aura::SpellAuraModMeleeDamageTaken,                            //SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN = 125
-    &Aura::SpellAuraModMeleeDamageTakenPct,                         //SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT = 126
-    &Aura::SpellAuraRAPAttackerBonus,                               //SPELL_AURA_RANGED_ATTACK_POWER_ATTACKER_BONUS = 127
-    &Aura::SpellAuraModPossessPet,                                  //SPELL_AURA_MOD_POSSESS_PET = 128
-    &Aura::SpellAuraModIncreaseSpeedAlways,                         //SPELL_AURA_MOD_INCREASE_SPEED_ALWAYS = 129
-    &Aura::SpellAuraModIncreaseMountedSpeed,                        //SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS = 130
-    &Aura::SpellAuraModCreatureRangedAttackPower,                   //SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER = 131
-    &Aura::SpellAuraModIncreaseEnergyPerc,                          //SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT = 132
-    &Aura::SpellAuraModIncreaseHealthPerc,                          //SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT = 133
-    &Aura::SpellAuraModManaRegInterrupt,                            //SPELL_AURA_MOD_MANA_REGEN_INTERRUPT = 134
-    &Aura::SpellAuraModHealingDone,                                 //SPELL_AURA_MOD_HEALING_DONE = 135
-    &Aura::SpellAuraModHealingDonePct,                              //SPELL_AURA_MOD_HEALING_DONE_PERCENT = 136
-    &Aura::SpellAuraModTotalStatPerc,                               //SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE = 137
-    &Aura::SpellAuraModHaste,                                       //SPELL_AURA_MOD_HASTE = 138
-    &Aura::SpellAuraForceReaction,                                  //SPELL_AURA_FORCE_REACTION = 139
-    &Aura::SpellAuraModRangedHaste,                                 //SPELL_AURA_MOD_RANGED_HASTE = 140
-    &Aura::SpellAuraModRangedAmmoHaste,                             //SPELL_AURA_MOD_RANGED_AMMO_HASTE = 141
-    &Aura::SpellAuraUtilized,                                       //SPELL_AURA_MOD_BASE_RESISTANCE_PCT = 142
-    &Aura::SpellAuraUtilized,                                       //SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE = 143
-    &Aura::SpellAuraSafeFall,                                       //SPELL_AURA_SAFE_FALL = 144
-    &Aura::SpellAuraModPetTalentPoints,                             //SPELL_AURA_MOD_PET_TALENT_POINTS = 145
-    &Aura::SpellAuraAllowTamePetType,                               //SPELL_AURA_ALLOW_TAME_PET_TYPE = 146
-    &Aura::SpellAuraAddCreatureImmunity,                            //SPELL_AURA_ADD_CREATURE_IMMUNITY = 147
-    &Aura::SpellAuraRetainComboPoints,                              //SPELL_AURA_RETAIN_COMBO_POINTS = 148
-    &Aura::SpellAuraResistPushback,                                 //SPELL_AURA_RESIST_PUSHBACK = 149
-    &Aura::SpellAuraModShieldBlockPCT,                              //SPELL_AURA_MOD_SHIELD_BLOCK_PCT = 150
-    &Aura::SpellAuraTrackStealthed,                                 //SPELL_AURA_TRACK_STEALTHED = 151
-    &Aura::SpellAuraModDetectedRange,                               //SPELL_AURA_MOD_DETECTED_RANGE = 152
-    &Aura::SpellAuraSplitDamageFlat,                                //SPELL_AURA_SPLIT_DAMAGE_FLAT= 153
-    &Aura::SpellAuraModStealthLevel,                                //SPELL_AURA_MOD_STEALTH_LEVEL = 154
-    &Aura::SpellAuraModUnderwaterBreathing,                         //SPELL_AURA_MOD_WATER_BREATHING = 155
-    &Aura::SpellAuraModReputationAdjust,                            //SPELL_AURA_MOD_REPUTATION_ADJUST = 156
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_PET_DAMAGE_MULTI = 157
-    &Aura::SpellAuraModBlockValue,                                  //SPELL_AURA_MOD_SHIELD_BLOCKVALUE = 158
-    &Aura::SpellAuraNoPVPCredit,                                    //SPELL_AURA_NO_PVP_CREDIT = 159
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_AOE_AVOIDANCE = 160
-    &Aura::SpellAuraModHealthRegInCombat,                           //SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT = 161
-    &Aura::SpellAuraPowerBurn,                                      //SPELL_AURA_POWER_BURN_MANA = 162
-    &Aura::SpellAuraModCritDmgPhysical,                             //SPELL_AURA_MOD_CRIT_DAMAGE_BONUS_MELEE = 163
-    &Aura::SpellAuraNULL,                                           //missing = 164
-    &Aura::SpellAuraAPAttackerBonus,                                //SPELL_AURA_MELEE_ATTACK_POWER_ATTACKER_BONUS = 165
-    &Aura::SpellAuraModPAttackPower,                                //SPELL_AURA_MOD_ATTACK_POWER_PCT = 166
-    &Aura::SpellAuraModRangedAttackPowerPct,                        //SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT = 167
-    &Aura::SpellAuraIncreaseDamageTypePCT,                          //SPELL_AURA_MOD_DAMAGE_DONE_VERSUS = 168
-    &Aura::SpellAuraIncreaseCricticalTypePCT,                       //SPELL_AURA_MOD_CRIT_PERCENT_VERSUS = 169
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_DETECT_AMORE = 170
-    &Aura::SpellAuraIncreasePartySpeed,                             //SPELL_AURA_MOD_SPEED_NOT_STACK = 171
-    &Aura::SpellAuraIncreaseMovementAndMountedSpeed,                //SPELL_AURA_MOD_MOUNTED_SPEED_NOT_STACK = 172
-    &Aura::SpellAuraNULL,                                           //missing = 173
-    &Aura::SpellAuraIncreaseSpellDamageByAttribute,                 //SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT = 174
-    &Aura::SpellAuraIncreaseHealingByAttribute,                     //SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT = 175
-    &Aura::SpellAuraSpiritOfRedemption,                             //SPELL_AURA_SPIRIT_OF_REDEMPTION = 176
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_AOE_CHARM = 177
-    &Aura::SpellAuraDispelDebuffResist,                             //SPELL_AURA_MOD_DEBUFF_RESISTANCE = 178
-    &Aura::SpellAuraIncreaseAttackerSpellCrit,                      //SPELL_AURA_INCREASE_ATTACKER_SPELL_CRIT = 179
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_FLAT_SPELL_DAMAGE_VERSUS = 180
-    &Aura::SpellAuraNULL,                                           //missing = 181
-    &Aura::SpellAuraIncreaseArmorByPctInt,                          //SPELL_AURA_MOD_RESISTANCE_OF_STAT_PERCENT = 182
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_CRITICAL_THREAT = 183
-    &Aura::SpellAuraReduceAttackerMHitChance,                       //SPELL_AURA_MOD_ATTACKER_MELEE_HIT_CHANCE = 184
-    &Aura::SpellAuraReduceAttackerRHitChance,                       //SPELL_AURA_MOD_ATTACKER_RANGED_HIT_CHANCE = 185
-    &Aura::SpellAuraReduceAttackerSHitChance,                       //SPELL_AURA_MOD_ATTACKER_SPELL_HIT_CHANCE = 186
-    &Aura::SpellAuraReduceEnemyMCritChance,                         //SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_CHANCE = 187
-    &Aura::SpellAuraReduceEnemyRCritChance,                         //SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_CHANCE = 188
-    &Aura::SpellAuraIncreaseRating,                                 //SPELL_AURA_MOD_RATING = 189
-    &Aura::SpellAuraIncreaseRepGainPct,                             //SPELL_AURA_MOD_FACTION_REPUTATION_GAIN = 190
-    &Aura::SpellAuraUseNormalMovementSpeed,                         //SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED = 191
-    &Aura::SpellAuraModAttackSpeed,                                 //SPELL_AURA_MOD_MELEE_RANGED_HASTE = 192
-    &Aura::SpellAuraIncreaseTimeBetweenAttacksPCT,                  //SPELL_AURA_MELEE_SLOW = 193
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_TARGET_ABSORB_SCHOOL = 194
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_TARGET_ABILITY_ABSORB_SCHOOL = 195
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_COOLDOWN = 196
-    &Aura::SpellAuraModAttackerCritChance,                          //SPELL_AURA_MOD_ATTACKER_SPELL_AND_WEAPON_CRIT_CHANCE = 197
-    &Aura::SpellAuraIncreaseAllWeaponSkill,                         // = 198
-    &Aura::SpellAuraIncreaseHitRate,                                //SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT = 199
-    &Aura::SpellAuraModMobKillXPGain,                               //SPELL_AURA_MOD_XP_PCT = 200
-    &Aura::SpellAuraEnableFlight,                                   //SPELL_AURA_FLY = 201
-    &Aura::SpellAuraFinishingMovesCannotBeDodged,                   //SPELL_AURA_IGNORE_COMBAT_RESULT = 202
-    &Aura::SpellAuraReduceCritMeleeAttackDmg,                       //SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE = 203
-    &Aura::SpellAuraReduceCritRangedAttackDmg,                      //SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE = 204
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_SCHOOL_CRIT_DMG_TAKEN = 205
-    &Aura::SpellAuraIncreaseFlightSpeed,                            //SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED = 206
-    &Aura::SpellAuraEnableFlight,                                   //SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED = 207
-    &Aura::SpellAuraEnableFlightWithUnmountedSpeed,                 //SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED = 208
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS = 209
-    &Aura::SpellAuraIncreaseFlightSpeed,                            //SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS = 210
-    &Aura::SpellAuraIncreaseFlightSpeed,                            //SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK = 211
-    &Aura::SpellAuraIncreaseRangedAPStatPCT,                        //SPELL_AURA_MOD_RANGED_ATTACK_POWER_OF_INTELLECT = 212
-    &Aura::SpellAuraIncreaseRageFromDamageDealtPCT,                 //SPELL_AURA_MOD_RAGE_FROM_DAMAGE_DEALT = 213
-    &Aura::SpellAuraNULL,                                           // = 214
-    &Aura::SpellAuraNoReagentCost,                                  //SPELL_AURA_ARENA_PREPARATION = 215
-    &Aura::SpellAuraModCastingSpeed,                                //SPELL_AURA_HASTE_SPELLS = 216
-    &Aura::SpellAuraNULL,                                           // = 217
-    &Aura::SpellAuraHasteRanged,                                    //SPELL_AURA_HASTE_RANGED = 218
-    &Aura::SpellAuraRegenManaStatPCT,                               //SPELL_AURA_MOD_MANA_REGEN_FROM_STAT = 219
-    &Aura::SpellAuraSpellHealingStatPCT,                            //SPELL_AURA_MOD_RATING_FROM_STAT = 220
-    &Aura::SpellAuraIgnoreEnemy,                                    //SPELL_AURA_MOD_DETAUNT = 221
-    &Aura::SpellAuraNULL,                                           // = 222
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_RAID_PROC_FROM_CHARGE = 223
-    &Aura::SpellAuraNULL,                                           // = 224
-    &Aura::SpellAuraHealAndJump,                                    //SPELL_AURA_RAID_PROC_FROM_CHARGE_WITH_VALUE = 225
-    &Aura::SpellAuraDrinkNew,                                       //SPELL_AURA_PERIODIC_DUMMY = 226
-    &Aura::SpellAuraPeriodicTriggerSpellWithValue,                  //SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE = 227
-    &Aura::SpellAuraAuraModInvisibilityDetection,                   //SPELL_AURA_DETECT_STEALTH = 228
-    &Aura::SpellAuraReduceAOEDamageTaken,                           //SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE = 229
-    &Aura::SpellAuraIncreaseMaxHealth,                              //SPELL_AURA_MOD_INCREASE_MAX_HEALTH = 230
-    &Aura::SpellAuraProcTriggerWithValue,                           //SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE = 231
-    &Aura::SpellAuraReduceEffectDuration,                           //SPELL_AURA_MECHANIC_DURATION_MOD = 232
-    &Aura::SpellAuraNULL,                                           // = 233
-    &Aura::SpellAuraReduceEffectDuration,                           //SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK = 234
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_DISPEL_RESIST = 235
-    &Aura::SpellAuraVehiclePassenger,                               //SPELL_AURA_CONTROL_VEHICLE = 236
-    &Aura::SpellAuraModSpellDamageFromAP,                           //SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER = 237
-    &Aura::SpellAuraModSpellHealingFromAP,                          //SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER = 238
-    &Aura::SpellAuraModScale,                                       //SPELL_AURA_MOD_SCALE_2 = 239
-    &Aura::SpellAuraExpertise,                                      //SPELL_AURA_MOD_EXPERTISE = 240
-    &Aura::SpellAuraForceMoveFoward,                                //SPELL_AURA_FORCE_MOVE_FORWARD = 241
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_SPELL_DAMAGE_FROM_HEALING = 242
-    &Aura::SpellAuraModFaction,                                     //SPELL_AURA_MOD_FACTION = 243
-    &Aura::SpellAuraComprehendLanguage,                             //SPELL_AURA_COMPREHEND_LANGUAGE = 244
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL = 245
-    &Aura::SpellAuraReduceEffectDuration,                           //SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK = 246
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_CLONE_CASTER = 247
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_COMBAT_RESULT_CHANCE = 248
-    &Aura::SpellAuraConvertRune,                                    //SPELL_AURA_CONVERT_RUNE = 249
-    &Aura::SpellAuraModIncreaseHealth,                              //SPELL_AURA_MOD_INCREASE_HEALTH_2 = 250
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_ENEMY_DODGE = 251
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_SPEED_SLOW_ALL = 252
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_BLOCK_CRIT_CHANCE = 253
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_DISARM_OFFHAND = 254
-    &Aura::SpellAuraModDamageTakenByMechPCT,                        //SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT = 255
-    &Aura::SpellAuraNoReagent,                                      //SPELL_AURA_NO_REAGENT_USE = 256
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_TARGET_RESIST_BY_SPELL_CLASS = 257
-    &Aura::SpellAuraNULL,                                           // = 258
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_HOT_PCT = 259
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_SCREEN_EFFECT = 260
-    &Aura::SpellAuraSetPhase,                                       //SPELL_AURA_PHASE = 261
-    &Aura::SpellAuraSkipCanCastCheck,                               //SPELL_AURA_ABILITY_IGNORE_AURASTATE = 262
-    &Aura::SpellAuraCastFilter,                                     //SPELL_AURA_ALLOW_ONLY_ABILITY = 263
-    &Aura::SpellAuraNULL,                                           // = 264
-    &Aura::SpellAuraNULL,                                           // = 265
-    &Aura::SpellAuraNULL,                                           // = 266
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_IMMUNE_AURA_APPLY_SCHOOL = 267
-    &Aura::SpellAuraIncreaseAPByAttribute,                          //SPELL_AURA_MOD_ATTACK_POWER_OF_STAT_PERCENT = 268
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_IGNORE_TARGET_RESIST = 269
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_ABILITY_IGNORE_TARGET_RESIST = 270
-    &Aura::SpellAuraModDamageTakenPctPerCaster,                     //SPELL_AURA_MOD_DAMAGE_FROM_CASTER = 271
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_IGNORE_MELEE_RESET = 272
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_X_RAY = 273
-    &Aura::SpellAuraRequireNoAmmo,                                  //SPELL_AURA_ABILITY_CONSUME_NO_AMMO = 274
-    &Aura::SpellAuraSkipCanCastCheck,                               //SPELL_AURA_MOD_IGNORE_SHAPESHIFT = 275
-    &Aura::SpellAuraNULL,                                           // = 276
-    &Aura::SpellAuraRedirectThreat,                                 //SPELL_AURA_MOD_MAX_AFFECTED_TARGETS = 277
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_DISARM_RANGED = 278
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_INITIALIZE_IMAGES = 279
-    &Aura::SpellAuraModIgnoreArmorPct,                              //SPELL_AURA_MOD_ARMOR_PENETRATION_PCT = 280
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_HONOR_GAIN_PCT = 281
-    &Aura::SpellAuraModBaseHealth,                                  //SPELL_AURA_MOD_BASE_HEALTH_PCT = 282
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_HEALING_RECEIVED = 283
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_LINKED = 284
-    &Aura::SpellAuraModAttackPowerByArmor,                          //SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR = 285
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_ABILITY_PERIODIC_CRIT = 286
-    &Aura::SpellAuraReflectInfront,                                 //SPELL_AURA_DEFLECT_SPELLS = 287
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_IGNORE_HIT_DIRECTION = 288
-    &Aura::SpellAuraNULL,                                           // = 289
-    &Aura::SpellAuraModCritChanceAll,                               //SPELL_AURA_MOD_CRIT_PCT = 290
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_XP_QUEST_PCT = 291
-    &Aura::SpellAuraOpenStable,                                     //SPELL_AURA_OPEN_STABLE = 292
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_OVERRIDE_SPELLS = 293
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_PREVENT_REGENERATE_POWER = 294
-    &Aura::SpellAuraNULL,                                           // = 295
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_SET_VEHICLE_ID = 296
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_BLOCK_SPELL_FAMILY = 297
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_STRANGULATE = 298
-    &Aura::SpellAuraNULL,                                           // = 299
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_SHARE_DAMAGE_PCT = 300
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_SCHOOL_HEAL_ABSORB = 301
-    &Aura::SpellAuraNULL,                                           // = 302
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_DAMAGE_DONE_VERSUS_AURASTATE = 303
-    &Aura::SpellAuraFakeInebriation,                                //SPELL_AURA_MOD_FAKE_INEBRIATE = 304
-    &Aura::SpellAuraModWalkSpeed,                                   //SPELL_AURA_MOD_MINIMUM_SPEED = 305
-    &Aura::SpellAuraNULL,                                           // = 306
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_HEAL_ABSORB_TEST = 307
-    &Aura::SpellAuraNULL,                                           // = 308
-    &Aura::SpellAuraNULL,                                           // = 309
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_MOD_CREATURE_AOE_DAMAGE_AVOIDANCE = 310
-    &Aura::SpellAuraNULL,                                           // = 311
-    &Aura::SpellAuraNULL,                                           // = 312
-    &Aura::SpellAuraNULL,                                           // = 313
-    &Aura::SpellAuraPreventResurrection,                            //SPELL_AURA_PREVENT_RESSURECTION = 314
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_UNDERWATER_WALKING = 315
-    &Aura::SpellAuraNULL,                                           //SPELL_AURA_PERIODIC_HASTE = 316
-    &Aura::SpellAuraNULL,                                           // = 317
-    &Aura::SpellAuraNULL,                                           // = 318
-    &Aura::SpellAuraNULL,                                           // = 319
-    &Aura::SpellAuraNULL,                                           // = 320
-    &Aura::SpellAuraNULL,                                           // = 321
-    &Aura::SpellAuraNULL,                                           // = 322
-    &Aura::SpellAuraNULL,                                           // = 323
-    &Aura::SpellAuraNULL,                                           // = 324
-    &Aura::SpellAuraNULL,                                           // = 325
-    &Aura::SpellAuraNULL,                                           // = 326
-    &Aura::SpellAuraNULL,                                           // = 327
-    &Aura::SpellAuraNULL,                                           // = 328
-    &Aura::SpellAuraNULL,                                           // = 329
-    &Aura::SpellAuraNULL,                                           // = 330
-    &Aura::SpellAuraNULL,                                           // = 331
-    &Aura::SpellAuraNULL,                                           // = 332
-    &Aura::SpellAuraNULL,                                           // = 333
-    &Aura::SpellAuraNULL,                                           // = 334
-    &Aura::SpellAuraNULL,                                           // = 335
-    &Aura::SpellAuraNULL,                                           // = 336
-    &Aura::SpellAuraNULL,                                           // = 337
-    &Aura::SpellAuraNULL,                                           // = 338
-    &Aura::SpellAuraNULL,                                           // = 339
-    &Aura::SpellAuraNULL,                                           // = 340
-    &Aura::SpellAuraNULL,                                           // = 341
-    &Aura::SpellAuraNULL,                                           // = 342
-    &Aura::SpellAuraNULL,                                           // = 343
-    &Aura::SpellAuraNULL,                                           // = 344
-    &Aura::SpellAuraNULL,                                           // = 345
-    &Aura::SpellAuraNULL,                                           // = 346
-    &Aura::SpellAuraNULL,                                           // = 347
-    &Aura::SpellAuraNULL,                                           // = 348
-    &Aura::SpellAuraNULL,                                           // = 349
-    &Aura::SpellAuraNULL,                                           // = 350
-    &Aura::SpellAuraNULL,                                           // = 351
-    &Aura::SpellAuraNULL,                                           // = 352
-    &Aura::SpellAuraNULL,                                           // = 353
-    &Aura::SpellAuraNULL,                                           // = 354
-    &Aura::SpellAuraNULL,                                           // = 355
-    &Aura::SpellAuraNULL,                                           // = 356
-    &Aura::SpellAuraNULL,                                           // = 357
-    &Aura::SpellAuraNULL,                                           // = 358
-    &Aura::SpellAuraNULL,                                           // = 359
-    &Aura::SpellAuraNULL,                                           // = 360
-    &Aura::SpellAuraNULL,                                           // = 361
-    &Aura::SpellAuraNULL,                                           // = 362
-    &Aura::SpellAuraNULL,                                           // = 363
-    &Aura::SpellAuraNULL,                                           // = 364
-    &Aura::SpellAuraNULL,                                           // = 365
-    &Aura::SpellAuraNULL,                                           // = 366
-    &Aura::SpellAuraNULL,                                           // = 367
-    &Aura::SpellAuraNULL,                                           // = 368
-    &Aura::SpellAuraNULL,                                           // = 369
-    &Aura::SpellAuraNULL                                            // = 370
-};
+std::map<uint16, Aura::pSpellAura> Aura::m_auraHandlerMap;
+
+void Aura::InitializeAuraHandlerClass()
+{
+    m_auraHandlerMap[SPELL_AURA_BIND_SIGHT] = &Aura::SpellAuraBindSight; // 1
+    m_auraHandlerMap[SPELL_AURA_MOD_POSSESS] = &Aura::SpellAuraModPossess; // 2
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_DAMAGE] = &Aura::SpellAuraPeriodicDamage; // 3
+    m_auraHandlerMap[SPELL_AURA_DUMMY] = &Aura::SpellAuraDummy; // 4
+    m_auraHandlerMap[SPELL_AURA_MOD_CONFUSE] = &Aura::SpellAuraModConfuse; // 5
+    m_auraHandlerMap[SPELL_AURA_MOD_CHARM] = &Aura::SpellAuraModCharm; // 6
+    m_auraHandlerMap[SPELL_AURA_MOD_FEAR] = &Aura::SpellAuraModFear; // 7
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_HEAL] = &Aura::SpellAuraPeriodicHeal; // 8
+    m_auraHandlerMap[SPELL_AURA_MOD_ATTACKSPEED] = &Aura::SpellAuraModAttackSpeed; // 9
+    m_auraHandlerMap[SPELL_AURA_MOD_THREAT] = &Aura::SpellAuraModThreatGenerated; // 10
+    m_auraHandlerMap[SPELL_AURA_MOD_TAUNT] = &Aura::SpellAuraModTaunt; // 11
+    m_auraHandlerMap[SPELL_AURA_MOD_STUN] = &Aura::SpellAuraModStun; // 12
+    m_auraHandlerMap[SPELL_AURA_MOD_DAMAGE_DONE] = &Aura::SpellAuraModDamageDone; // 13
+    m_auraHandlerMap[SPELL_AURA_MOD_DAMAGE_TAKEN] = &Aura::SpellAuraModDamageTaken; // 14
+    m_auraHandlerMap[SPELL_AURA_DAMAGE_SHIELD] = &Aura::SpellAuraDamageShield; // 15
+    m_auraHandlerMap[SPELL_AURA_MOD_STEALTH] = &Aura::SpellAuraModStealth; // 16
+    m_auraHandlerMap[SPELL_AURA_MOD_STEALTH_DETECT] = &Aura::SpellAuraModDetect; // 17
+    m_auraHandlerMap[SPELL_AURA_MOD_INVISIBILITY] = &Aura::SpellAuraModInvisibility; // 18
+    m_auraHandlerMap[SPELL_AURA_MOD_INVISIBILITY_DETECT] = &Aura::SpellAuraModInvisibilityDetection; // 19
+    m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_HEALTH_REGEN_PCT] = &Aura::SpellAuraModTotalHealthRegenPct; // 20
+    m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_MANA_REGEN_PCT] = &Aura::SpellAuraModTotalManaRegenPct; // 21
+    m_auraHandlerMap[SPELL_AURA_MOD_RESISTANCE] = &Aura::SpellAuraModResistChance; // 22
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_TRIGGER_SPELL] = &Aura::SpellAuraPeriodicTriggerSpell; // 23
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_ENERGIZE] = &Aura::SpellAuraPeriodicEnergize; // 24
+    m_auraHandlerMap[SPELL_AURA_MOD_PACIFY] = &Aura::SpellAuraModPacify; // 25
+    m_auraHandlerMap[SPELL_AURA_MOD_ROOT] = &Aura::SpellAuraModRoot; // 26
+    m_auraHandlerMap[SPELL_AURA_MOD_SILENCE] = &Aura::SpellAuraModSilence; // 27
+    m_auraHandlerMap[SPELL_AURA_REFLECT_SPELLS] = &Aura::SpellAuraReflectSpells; // 28
+    m_auraHandlerMap[SPELL_AURA_MOD_STAT] = &Aura::SpellAuraModStat; // 29
+    m_auraHandlerMap[SPELL_AURA_MOD_SKILL] = &Aura::SpellAuraModSkill; // 30
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_SPEED] = &Aura::SpellAuraModIncreaseSpeed; // 31
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED] = &Aura::SpellAuraModDecreaseSpeed; // 32
+    m_auraHandlerMap[SPELL_AURA_MOD_DECREASE_SPEED] = &Aura::SpellAuraModIncreaseSpeed; // 33
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_HEALTH] = &Aura::SpellAuraModIncreaseHealth; // 34
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_ENERGY] = &Aura::SpellAuraModIncreaseEnergy; // 35
+    m_auraHandlerMap[SPELL_AURA_MOD_SHAPESHIFT] = &Aura::SpellAuraModShapeshift; // 36
+    m_auraHandlerMap[SPELL_AURA_EFFECT_IMMUNITY] = &Aura::SpellAuraModEffectImmunity; // 37
+    m_auraHandlerMap[SPELL_AURA_STATE_IMMUNITY] = &Aura::SpellAuraModStateImmunity; // 38
+    m_auraHandlerMap[SPELL_AURA_SCHOOL_IMMUNITY] = &Aura::SpellAuraModSchoolImmunity; // 39
+    m_auraHandlerMap[SPELL_AURA_DAMAGE_IMMUNITY] = &Aura::SpellAuraModDmgImmunity; // 40
+    m_auraHandlerMap[SPELL_AURA_DISPEL_IMMUNITY] = &Aura::SpellAuraModDispelImmunity; // 41
+    m_auraHandlerMap[SPELL_AURA_PROC_TRIGGER_SPELL] = &Aura::SpellAuraProcTriggerSpell; // 42
+    m_auraHandlerMap[SPELL_AURA_PROC_TRIGGER_DAMAGE] = &Aura::SpellAuraProcTriggerDamage; // 43
+    m_auraHandlerMap[SPELL_AURA_TRACK_CREATURES] = &Aura::SpellAuraTrackCreatures; // 44
+    m_auraHandlerMap[SPELL_AURA_TRACK_RESOURCES] = &Aura::SpellAuraTrackResources; // 45
+    m_auraHandlerMap[SPELL_AURA_MOD_PARRY_PERCENT] = &Aura::SpellAuraModParryPerc; // 47
+    m_auraHandlerMap[SPELL_AURA_MOD_DODGE_PERCENT] = &Aura::SpellAuraModDodgePerc; // 49
+    m_auraHandlerMap[SPELL_AURA_MOD_CRITICAL_HEALING_AMOUNT] = NULL; // 50
+    m_auraHandlerMap[SPELL_AURA_MOD_BLOCK_PERCENT] = &Aura::SpellAuraModBlockPerc; // 51
+    m_auraHandlerMap[SPELL_AURA_MOD_WEAPON_CRIT_PERCENT] = &Aura::SpellAuraModCritPerc; // 52
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_LEECH] = &Aura::SpellAuraPeriodicLeech; // 53
+    m_auraHandlerMap[SPELL_AURA_MOD_HIT_CHANCE] = &Aura::SpellAuraModHitChance; // 54
+    m_auraHandlerMap[SPELL_AURA_MOD_SPELL_HIT_CHANCE] = &Aura::SpellAuraModSpellHitChance; // 55
+    m_auraHandlerMap[SPELL_AURA_TRANSFORM] = &Aura::SpellAuraTransform; // 56
+    m_auraHandlerMap[SPELL_AURA_MOD_SPELL_CRIT_CHANCE] = &Aura::SpellAuraModSpellCritChance; // 57
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_SWIM_SPEED] = &Aura::SpellAuraIncreaseSwimSpeed; // 58
+    m_auraHandlerMap[SPELL_AURA_MOD_DAMAGE_DONE_CREATURE] = &Aura::SpellAuraModCratureDmgDone; // 59
+    m_auraHandlerMap[SPELL_AURA_MOD_PACIFY_SILENCE] = &Aura::SpellAuraPacifySilence; // 60
+    m_auraHandlerMap[SPELL_AURA_MOD_SCALE] = &Aura::SpellAuraModScale; // 61
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_HEALTH_FUNNEL] = &Aura::SpellAuraPeriodicHealthFunnel; // 62
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_MANA_LEECH] = &Aura::SpellAuraPeriodicManaLeech; // 64
+    m_auraHandlerMap[SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK] = &Aura::SpellAuraModCastingSpeed; // 65
+    m_auraHandlerMap[SPELL_AURA_FEIGN_DEATH] = &Aura::SpellAuraFeignDeath; // 66
+    m_auraHandlerMap[SPELL_AURA_MOD_DISARM] = &Aura::SpellAuraModDisarm; // 67
+    m_auraHandlerMap[SPELL_AURA_MOD_STALKED] = &Aura::SpellAuraModStalked; // 68
+    m_auraHandlerMap[SPELL_AURA_SCHOOL_ABSORB] = &Aura::SpellAuraSchoolAbsorb; // 69
+    m_auraHandlerMap[SPELL_AURA_EXTRA_ATTACKS] = NULL; // 70
+    m_auraHandlerMap[SPELL_AURA_MOD_SPELL_CRIT_CHANCE_SCHOOL] = &Aura::SpellAuraModSpellCritChanceSchool; // 71
+    m_auraHandlerMap[SPELL_AURA_MOD_POWER_COST] = &Aura::SpellAuraModPowerCost; // 72
+    m_auraHandlerMap[SPELL_AURA_MOD_POWER_COST_SCHOOL] = &Aura::SpellAuraModPowerCostSchool; // 73
+    m_auraHandlerMap[SPELL_AURA_REFLECT_SPELLS_SCHOOL] = &Aura::SpellAuraReflectSpellsSchool; // 74
+    m_auraHandlerMap[SPELL_AURA_MOD_LANGUAGE] = &Aura::SpellAuraModLanguage; // 75
+    m_auraHandlerMap[SPELL_AURA_FAR_SIGHT] = &Aura::SpellAuraAddFarSight; // 76
+    m_auraHandlerMap[SPELL_AURA_MECHANIC_IMMUNITY] = &Aura::SpellAuraMechanicImmunity; // 77
+    m_auraHandlerMap[SPELL_AURA_MOUNTED] = &Aura::SpellAuraMounted; // 78
+    m_auraHandlerMap[SPELL_AURA_MOD_DAMAGE_PERCENT_DONE] = &Aura::SpellAuraModDamagePercDone; // 79
+    m_auraHandlerMap[SPELL_AURA_MOD_PERCENT_STAT] = &Aura::SpellAuraModPercStat; // 80
+    m_auraHandlerMap[SPELL_AURA_SPLIT_DAMAGE_PCT] = &Aura::SpellAuraSplitDamage; // 81
+    m_auraHandlerMap[SPELL_AURA_WATER_BREATHING] = &Aura::SpellAuraWaterBreathing; // 82
+    m_auraHandlerMap[SPELL_AURA_MOD_BASE_RESISTANCE] = &Aura::SpellAuraModResistChance; // 83
+    m_auraHandlerMap[SPELL_AURA_MOD_REGEN] = &Aura::SpellAuraModRegen; // 84
+    m_auraHandlerMap[SPELL_AURA_MOD_POWER_REGEN] = &Aura::SpellAuraModPowerRegen; // 85
+    m_auraHandlerMap[SPELL_AURA_CHANNEL_DEATH_ITEM] = &Aura::SpellAuraChannelDeathItem; // 86
+    m_auraHandlerMap[SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN] = &Aura::SpellAuraModDamagePercTaken; // 87
+    m_auraHandlerMap[SPELL_AURA_MOD_HEALTH_REGEN_PERCENT] = &Aura::SpellAuraModRegenPercent; // 88
+    m_auraHandlerMap[SPELL_AURA_PERIODIC_DAMAGE_PERCENT] = &Aura::SpellAuraPeriodicDamagePercent; // 89
+    m_auraHandlerMap[SPELL_AURA_MOD_DETECT_RANGE] = &Aura::SpellAuraModDetectRange; // 91
+    m_auraHandlerMap[SPELL_AURA_PREVENTS_FLEEING] = &Aura::SpellAuraPreventsFleeing; // 92
+    m_auraHandlerMap[SPELL_AURA_MOD_UNATTACKABLE] = &Aura::SpellAuraModUnattackable; // 93
+    m_auraHandlerMap[SPELL_AURA_INTERRUPT_REGEN] = &Aura::SpellAuraInterruptRegen; // 94
+    m_auraHandlerMap[SPELL_AURA_GHOST] = &Aura::SpellAuraGhost; // 95
+    m_auraHandlerMap[SPELL_AURA_SPELL_MAGNET] = &Aura::SpellAuraMagnet; // 96
+    m_auraHandlerMap[SPELL_AURA_MANA_SHIELD] = &Aura::SpellAuraManaShield; // 97
+    m_auraHandlerMap[SPELL_AURA_MOD_SKILL_TALENT] = &Aura::SpellAuraSkillTalent; // 98
+    m_auraHandlerMap[SPELL_AURA_MOD_ATTACK_POWER] = &Aura::SpellAuraModAttackPower; // 99
+    m_auraHandlerMap[SPELL_AURA_AURAS_VISIBLE] = &Aura::SpellAuraVisible; // 100
+    m_auraHandlerMap[SPELL_AURA_MOD_RESISTANCE_PCT] = &Aura::SpellAuraModResistChance; // 101
+    m_auraHandlerMap[SPELL_AURA_MOD_CREATURE_ATTACK_POWER] = &Aura::SpellAuraModCreatureAttackPower; // 102
+    m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_THREAT] = &Aura::SpellAuraModTotalThreat; // 103
+    m_auraHandlerMap[SPELL_AURA_WATER_WALK] = &Aura::SpellAuraWaterWalk; // 104
+    m_auraHandlerMap[SPELL_AURA_FEATHER_FALL] = &Aura::SpellAuraFeatherFall; // 105
+    m_auraHandlerMap[SPELL_AURA_HOVER] = &Aura::SpellAuraHover; // 106
+    m_auraHandlerMap[SPELL_AURA_ADD_FLAT_MODIFIER] = &Aura::SpellAuraAddFlatModifier; // 107
+    m_auraHandlerMap[SPELL_AURA_ADD_PCT_MODIFIER] = &Aura::SpellAuraAddPctMod; // 108
+    m_auraHandlerMap[SPELL_AURA_ADD_TARGET_TRIGGER] = &Aura::SpellAuraAddTargetTrigger; // 109
+    m_auraHandlerMap[SPELL_AURA_MOD_POWER_REGEN_PERCENT] = &Aura::SpellAuraModPowerRegPerc; // 110
+    m_auraHandlerMap[SPELL_AURA_ADD_CASTER_HIT_TRIGGER] = &Aura::SpellAuraAddTargetTrigger; // 111
+    m_auraHandlerMap[SPELL_AURA_OVERRIDE_CLASS_SCRIPTS] = &Aura::SpellAuraOverrideClassScripts; // 112
+    m_auraHandlerMap[SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN] = &Aura::SpellAuraModRangedDamageTaken; // 113
+    m_auraHandlerMap[SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT] = &Aura::SpellAuraModRangedDamageTaken; // 114
+    m_auraHandlerMap[SPELL_AURA_MOD_HEALING] = &Aura::SpellAuraModHealing; // 115
+    m_auraHandlerMap[SPELL_AURA_MOD_REGEN_DURING_COMBAT] = &Aura::SpellAuraIgnoreRegenInterrupt; // 116
+    m_auraHandlerMap[SPELL_AURA_MOD_MECHANIC_RESISTANCE] = &Aura::SpellAuraModMechanicResistance; // 117
+    m_auraHandlerMap[SPELL_AURA_MOD_HEALING_PCT] = &Aura::SpellAuraModHealingPCT; // 118
+    m_auraHandlerMap[SPELL_AURA_UNTRACKABLE] = &Aura::SpellAuraUntrackable; // 120
+    m_auraHandlerMap[SPELL_AURA_EMPATHY] = &Aura::SpellAuraEmphaty; // 121
+    m_auraHandlerMap[SPELL_AURA_MOD_OFFHAND_DAMAGE_PCT] = &Aura::SpellAuraModOffhandDamagePCT; // 122
+    m_auraHandlerMap[SPELL_AURA_MOD_TARGET_RESISTANCE] = &Aura::SpellAuraModPenetration; // 123
+    m_auraHandlerMap[SPELL_AURA_MOD_RANGED_ATTACK_POWER] = &Aura::SpellAuraModRangedAttackPower; // 124
+    m_auraHandlerMap[SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN] = &Aura::SpellAuraModMeleeDamageTaken; // 125
+    m_auraHandlerMap[SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT] = &Aura::SpellAuraModMeleeDamageTakenPct; // 126
+    m_auraHandlerMap[SPELL_AURA_RANGED_ATTACK_POWER_ATTACKER_BONUS] = &Aura::SpellAuraRAPAttackerBonus; // 127
+    m_auraHandlerMap[SPELL_AURA_MOD_POSSESS_PET] = &Aura::SpellAuraModPossessPet; // 128
+    m_auraHandlerMap[SPELL_AURA_MOD_SPEED_ALWAYS] = &Aura::SpellAuraModIncreaseSpeedAlways; // 129
+    m_auraHandlerMap[SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS] = &Aura::SpellAuraModIncreaseMountedSpeed; // 130
+    m_auraHandlerMap[SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER] = &Aura::SpellAuraModCreatureRangedAttackPower; // 131
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT] = &Aura::SpellAuraModIncreaseEnergyPerc; // 132
+    m_auraHandlerMap[SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT] = &Aura::SpellAuraModIncreaseHealthPerc; // 133
+    m_auraHandlerMap[SPELL_AURA_MOD_MANA_REGEN_INTERRUPT] = &Aura::SpellAuraModManaRegInterrupt; // 134
+    m_auraHandlerMap[SPELL_AURA_MOD_HEALING_DONE] = &Aura::SpellAuraModHealingDone; // 135
+    m_auraHandlerMap[SPELL_AURA_MOD_HEALING_DONE_PERCENT] = &Aura::SpellAuraModHealingDonePct; // 136
+    m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE] = &Aura::SpellAuraModTotalStatPerc; // 137
+    m_auraHandlerMap[SPELL_AURA_MOD_MELEE_HASTE] = &Aura::SpellAuraModHaste; // 138
+    m_auraHandlerMap[SPELL_AURA_FORCE_REACTION] = &Aura::SpellAuraForceReaction; // 139
+    m_auraHandlerMap[SPELL_AURA_MOD_RANGED_HASTE] = &Aura::SpellAuraModRangedHaste; // 140
+    m_auraHandlerMap[SPELL_AURA_MOD_RANGED_AMMO_HASTE] = &Aura::SpellAuraModRangedAmmoHaste; // 141
+    m_auraHandlerMap[SPELL_AURA_MOD_BASE_RESISTANCE_PCT] = &Aura::SpellAuraModResistChance; // 142
+    m_auraHandlerMap[SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE] = &Aura::SpellAuraModResistChance; // 143
+    m_auraHandlerMap[SPELL_AURA_SAFE_FALL] = &Aura::SpellAuraSafeFall; // 144
+    m_auraHandlerMap[SPELL_AURA_MOD_PET_TALENT_POINTS] = &Aura::SpellAuraModPetTalentPoints; // 145
+    m_auraHandlerMap[SPELL_AURA_ALLOW_TAME_PET_TYPE] = &Aura::SpellAuraAllowTamePetType; // 146
+    m_auraHandlerMap[SPELL_AURA_ADD_CREATURE_IMMUNITY] = &Aura::SpellAuraAddCreatureImmunity; // 147
+    m_auraHandlerMap[SPELL_AURA_RETAIN_COMBO_POINTS] = &Aura::SpellAuraRetainComboPoints; // 148
+    m_auraHandlerMap[SPELL_AURA_REDUCE_PUSHBACK] = &Aura::SpellAuraResistPushback; // 149
+    m_auraHandlerMap[SPELL_AURA_MOD_SHIELD_BLOCKVALUE_PCT] = &Aura::SpellAuraModShieldBlockPCT; // 150
+    m_auraHandlerMap[SPELL_AURA_TRACK_STEALTHED] = &Aura::SpellAuraTrackStealthed; // 151
+    m_auraHandlerMap[SPELL_AURA_MOD_DETECTED_RANGE] = &Aura::SpellAuraModDetectedRange; // 152
+    m_auraHandlerMap[SPELL_AURA_SPLIT_DAMAGE_FLAT] = &Aura::SpellAuraSplitDamageFlat; // 153
+    m_auraHandlerMap[SPELL_AURA_MOD_STEALTH_LEVEL] = &Aura::SpellAuraModStealthLevel; // 154
+    m_auraHandlerMap[SPELL_AURA_MOD_WATER_BREATHING] = &Aura::SpellAuraModUnderwaterBreathing; // 155
+    m_auraHandlerMap[SPELL_AURA_MOD_REPUTATION_GAIN] = &Aura::SpellAuraModReputationAdjust; // 156
+    m_auraHandlerMap[SPELL_AURA_MOD_SHIELD_BLOCKVALUE] = &Aura::SpellAuraModBlockValue; // 158
+    m_auraHandlerMap[SPELL_AURA_NO_PVP_CREDIT] = &Aura::SpellAuraNoPVPCredit; // 159
+    m_auraHandlerMap[SPELL_AURA_MOD_AOE_AVOIDANCE] = &Aura::SpellAuraReduceAOEDamageTaken; // 160
+    m_auraHandlerMap[SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT] = &Aura::SpellAuraModHealthRegInCombat; // 161
+    m_auraHandlerMap[SPELL_AURA_POWER_BURN_MANA] = &Aura::SpellAuraPowerBurn; // 162
+    m_auraHandlerMap[SPELL_AURA_SPIRIT_OF_REDEMPTION] = &Aura::SpellAuraSpiritOfRedemption; // 176
+    m_auraHandlerMap[SPELL_AURA_MOD_DEBUFF_RESISTANCE] = &Aura::SpellAuraDispelDebuffResist; // 178
+}
 
 Unit* Aura::GetUnitCaster()
 {
@@ -422,12 +212,14 @@ Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, i
         m_expirationTime = expirationTime;
     }
 
+    mod = NULL;
     m_modcount = 0;
     memset(m_modList, 0, sizeof(Modifier)*3);
 
     m_castedItemId = 0;
     m_triggeredSpellId = 0;
-    periodic_target = 0;
+
+    _periodicData = NULL;
 }
 
 Aura::~Aura()
@@ -442,11 +234,71 @@ void Aura::Update(uint32 diff)
 
     if(m_expirationTime <= UNIXTIME)
         Remove();
+
+    if(m_deleted || _periodicData == NULL)
+        return;
+
+    for(uint32 i = 0; i < 3; i++)
+    {
+        PeriodicAura::PeriodicModifier *pMod = NULL;
+        if((pMod = _periodicData->periodicMod[i]) == NULL)
+            continue;
+        if((pMod->timer += diff) < pMod->rate)
+            continue;
+        pMod->timer -= pMod->rate;
+        TriggerPeriodic(i);
+    }
 }
 
 void Aura::UpdatePreApplication()
 {
     CalculateDuration();
+}
+
+void Aura::TriggerPeriodic(uint32 i)
+{
+    switch(m_modList[i].m_type)
+    {
+    case SPELL_AURA_PERIODIC_DAMAGE:
+        EventPeriodicDamage(m_modList[i].m_amount);
+        break;
+    case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
+        EventPeriodicDamagePercent(m_modList[i].m_amount);
+        break;
+    case SPELL_AURA_PERIODIC_HEAL:
+        EventPeriodicHeal(m_modList[i].m_amount);
+        break;
+    case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
+        if(SpellEntry *sp = dbcSpell.LookupEntry(m_spellProto->EffectTriggerSpell[i]))
+            EventPeriodicTriggerSpell(sp, false, 0);
+        break;
+    case SPELL_AURA_PERIODIC_ENERGIZE:
+        EventPeriodicEnergize(m_modList[i].m_amount, m_modList[i].m_miscValue[0]);
+        break;
+    case SPELL_AURA_PERIODIC_LEECH:
+        EventPeriodicLeech(m_modList[i].m_amount, m_spellProto);
+        break;
+    case SPELL_AURA_PERIODIC_HEALTH_FUNNEL:
+        EventPeriodicHealthFunnel(m_modList[i].m_amount);
+        break;
+    case SPELL_AURA_PERIODIC_MANA_LEECH:
+        EventPeriodicManaLeech(m_modList[i].m_amount);
+        break;
+    case SPELL_AURA_PERIODIC_DUMMY:
+        if(m_spellProto->NameHash == SPELL_HASH_DRINK)
+            EventPeriodicDrink(m_modList[i].m_amount);
+        else if(m_spellProto->NameHash == SPELL_HASH_DEATH_AND_DECAY)
+            EventPeriodicDamage(m_modList[0].m_amount);
+        break;
+    case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
+        if(SpellEntry *sp = dbcSpell.LookupEntry(m_spellProto->EffectTriggerSpell[i]))
+            EventPeriodicTriggerSpell(sp, false, 0);
+        break;
+    case SPELL_AURA_ABILITY_PERIODIC_CRIT:
+        break;
+    case SPELL_AURA_PERIODIC_HASTE:
+        break;
+    }
 }
 
 void Aura::CalculateDuration()
@@ -546,6 +398,35 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
     m_modList[m_modcount].m_spellInfo = GetSpellProto();
     CalculateBonusAmount(GetUnitCaster(), m_modcount);
     m_modcount++;
+
+    // Periodic effect adding
+    switch(t)
+    {
+    case SPELL_AURA_PERIODIC_DAMAGE:
+    case SPELL_AURA_PERIODIC_HEAL:
+    case SPELL_AURA_PERIODIC_TRIGGER_SPELL:
+    case SPELL_AURA_PERIODIC_ENERGIZE:
+    case SPELL_AURA_PERIODIC_LEECH:
+    case SPELL_AURA_PERIODIC_HEALTH_FUNNEL:
+    case SPELL_AURA_PERIODIC_MANA_LEECH:
+    case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
+    case SPELL_AURA_PERIODIC_DUMMY:
+    case SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE:
+    case SPELL_AURA_ABILITY_PERIODIC_CRIT:
+    case SPELL_AURA_PERIODIC_HASTE:
+        {
+            if(_periodicData == NULL)
+            {   // Construct our new periodic data holder
+                _periodicData = new PeriodicAura();
+                for(uint32 x = 0; x < 3; x++)
+                    _periodicData->periodicMod[x] = NULL;
+            }
+
+            _periodicData->periodicMod[i] = new PeriodicAura::PeriodicModifier();
+            _periodicData->periodicMod[i]->rate = m_spellProto->EffectAmplitude[i] > 0 ? m_spellProto->EffectAmplitude[i] : 3000;
+            _periodicData->periodicMod[i]->timer = 0;
+        }break;
+    }
 }
 
 void Aura::ResetExpirationTime()
@@ -609,7 +490,9 @@ void Aura::ApplyModifiers( bool apply )
         m_target->m_AuraInterface.UpdateModifier(GetAuraSlot(), x, mod, apply);
         sLog.Debug( "Aura","Known Aura id %d, value %d in spell %u", uint32(mod->m_type), uint32(mod->m_amount), GetSpellId());
 
-        (*this.*SpellAuraHandler[mod->m_type])(apply);
+        std::map<uint16, pSpellAura>::iterator itr;
+        if((itr = m_auraHandlerMap.find(mod->m_type)) != m_auraHandlerMap.end() && itr->second != NULL)
+            (*this.*(itr->second))(apply);
     }
 }
 
@@ -687,6 +570,241 @@ void Aura::BuildAuraUpdatePacket(WorldPacket *data)
     }
 }
 
+void Aura::EventPeriodicDamage(uint32 amount)
+{
+    //DOT
+    if(!m_target->isAlive())
+        return;
+
+    if(Unit *m_caster = GetUnitCaster())
+        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, amount, m_triggeredSpellId==0, true);
+    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, amount, m_triggeredSpellId==0, true);
+}
+
+void Aura::EventPeriodicDamagePercent(uint32 amount)
+{
+    //DOT
+    if(!m_target->isAlive())
+        return;
+
+    uint32 damage = m_target->GetModPUInt32Value(UNIT_FIELD_MAXHEALTH, amount);
+    Unit * m_caster = GetUnitCaster();
+    if(m_caster!=NULL)
+        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, m_triggeredSpellId==0, true);
+    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, m_triggeredSpellId==0, true);
+}
+
+void Aura::EventPeriodicHeal( uint32 amount )
+{
+    int32 add = amount; // IMPORTANT: target heals himself, but the packet says the caster does it. This is important, to allow for casters to log out and players still get healed.
+    uint32 overheal = m_target->Heal(m_target, GetSpellId(), add, true);
+    SendPeriodicAuraLog( m_casterGuid, m_target, GetSpellProto(), add, 0, overheal, FLAG_PERIODIC_HEAL );
+
+    if( m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
+        m_target->Emote( EMOTE_ONESHOT_EAT );
+}
+
+void Aura::EventPeriodicHealPct(float RegenPct)
+{
+    Unit* m_caster = GetUnitCaster();
+    if(m_caster == NULL || !m_target->isAlive())
+        return;
+
+    uint32 add = float2int32(m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * (RegenPct / 100.0f));
+    uint32 overheal = m_caster->Heal(m_target, GetSpellId(), add, true);
+    SendPeriodicAuraLog( m_casterGuid, m_target, GetSpellProto(), add, 0, overheal, FLAG_PERIODIC_HEAL );
+
+    if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
+        m_target->Emote(EMOTE_ONESHOT_EAT);
+}
+
+void Aura::EventPeriodicTriggerSpell(SpellEntry* spellInfo, bool overridevalues, int32 overridevalue)
+{
+    m_target->GetSpellInterface()->TriggerSpell(spellInfo, m_target);
+}
+
+void Aura::EventPeriodicEnergize(uint32 amount,uint32 type)
+{
+    m_target->Energize(m_target, m_spellProto->Id, amount, type );
+    if((m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP) && type == 0)
+        m_target->Emote(EMOTE_ONESHOT_EAT);
+
+    m_target->SendPowerUpdate();
+}
+
+void Aura::EventPeriodicHeal1(uint32 amount)
+{
+    if(m_target == NULL )
+        return;
+
+    if(!m_target->isAlive())
+        return;
+
+    uint32 ch = m_target->GetUInt32Value(UNIT_FIELD_HEALTH);
+    ch+=amount;
+    uint32 mh = m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
+
+    if(ch>mh)
+        m_target->SetUInt32Value(UNIT_FIELD_HEALTH,mh);
+    else m_target->SetUInt32Value(UNIT_FIELD_HEALTH,ch);
+
+    if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
+        m_target->Emote(EMOTE_ONESHOT_EAT);
+    else if(m_spellProto->buffIndex == 0)
+        SendPeriodicAuraLog(amount, FLAG_PERIODIC_HEAL);
+}
+
+void Aura::EventPeriodicLeech(uint32 amount, SpellEntry* sp)
+{
+    Unit * m_caster = GetUnitCaster();
+    if( m_caster == NULL || m_target == NULL || !m_target->isAlive() || !m_caster->isAlive() )
+        return;
+
+    if( sp->NameHash == SPELL_HASH_DRAIN_LIFE && m_caster->HasDummyAura(SPELL_HASH_DEATH_S_EMBRACE) && m_caster->GetHealthPct() <= 20 )
+        amount *= 1.3f;
+
+    amount = m_caster->GetSpellBonusDamage(m_target, sp, mod->i, amount, false);
+
+    uint32 Amount = std::min(amount, m_target->GetUInt32Value( UNIT_FIELD_HEALTH ));
+
+    SendPeriodicAuraLog(m_casterGuid, m_target, sp, Amount, -1, 0, (uint32)FLAG_PERIODIC_DAMAGE);
+
+    //deal damage before we add healing bonus to damage
+    m_caster->DealDamage(m_target, Amount, 0, 0, sp->Id, true);
+    if(sp)
+    {
+        float coef = sp->EffectValueMultiplier[mod->i]; // how much health is restored per damage dealt
+        m_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, sp->SpellGroupType);
+        m_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, sp->SpellGroupType);
+        Amount = float2int32((float)Amount * coef);
+    }
+
+    uint32 newHealth = float2int32(m_caster->GetUInt32Value(UNIT_FIELD_HEALTH) + Amount);
+
+    uint32 mh = m_caster->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
+    if(newHealth <= mh)
+        m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, newHealth);
+    else
+        m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, mh);
+
+    SendPeriodicAuraLog(m_casterGuid, m_caster, sp, Amount, -1, 0, (uint32)FLAG_PERIODIC_HEAL);
+}
+
+void Aura::EventPeriodicBurn(uint32 amount, uint32 misc)
+{
+    Unit * m_caster = GetUnitCaster();
+    if( m_caster == NULL)
+        return;
+
+    if(m_target->isAlive() && m_caster->isAlive())
+    {
+        uint32 Amount = std::min( amount, m_target->GetPower(misc) );
+        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, Amount, 0, 0, FLAG_PERIODIC_DAMAGE);
+        m_target->DealDamage(m_target, Amount, 0, 0, m_spellProto->Id);
+    }
+}
+
+void Aura::EventPeriodicHealthFunnel(uint32 amount)
+{
+    Unit * m_caster = GetUnitCaster();
+    if( m_caster == NULL  || m_target == NULL || !m_target->isAlive() || !m_caster->isAlive())
+        return;
+    if(m_target->isAlive() && m_caster->isAlive())
+    {
+
+        m_caster->DealDamage(m_target, amount, 0, 0, GetSpellId(),true);
+        uint32 newHealth = m_caster->GetUInt32Value(UNIT_FIELD_HEALTH) + 1000;
+
+        uint32 mh = m_caster->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
+        if(newHealth <= mh)
+            m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, newHealth);
+        else
+            m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, mh);
+
+        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, amount, -1, 0, (uint32)FLAG_PERIODIC_LEECH);
+    }
+}
+
+void Aura::EventPeriodicManaLeech(uint32 amount)
+{
+    Unit * m_caster = GetUnitCaster();
+    if( m_caster == NULL  || m_target == NULL || !m_target->isAlive() || !m_caster->isAlive())
+        return;
+
+    int32 amt = amount;
+
+    // Drained amount should be reduced by resilence
+    if(m_target->IsPlayer())
+    {
+        float amt_reduction_pct = 2.2f * castPtr<Player>(m_target)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) / 100.0f;
+        if( amt_reduction_pct > 0.33f ) amt_reduction_pct = 0.33f; // 3.0.3
+        amt = float2int32( amt - (amt * amt_reduction_pct) );
+    }
+
+    float coef = m_spellProto->EffectValueMultiplier[mod->i] > 0 ? m_spellProto->EffectValueMultiplier[mod->i] : 1; // how much mana is restored per mana leeched
+    m_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, m_spellProto->SpellGroupType);
+    m_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, m_spellProto->SpellGroupType);
+    amt = float2int32((float)amt * coef);
+
+    uint32 cm = m_caster->GetPower(POWER_TYPE_MANA) + amt;
+    uint32 mm = m_caster->GetMaxPower(POWER_TYPE_MANA);
+    if(cm <= mm)
+    {
+        m_caster->SetPower(POWER_TYPE_MANA, cm);
+        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, amt, 0, 0, FLAG_PERIODIC_LEECH);
+    }
+    else
+    {
+        m_caster->SetPower(POWER_TYPE_MANA, mm);
+        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, mm - cm, 0, 0, FLAG_PERIODIC_LEECH);
+    }
+
+    m_caster->SendPowerUpdate();
+}
+
+void Aura::EventPeriodicManaPct(float RegenPct)
+{
+    if(!m_target->isAlive())
+        return;
+    uint32 manaMax = m_target->GetMaxPower(POWER_TYPE_MANA);
+    if(manaMax == 0)
+        return;
+
+    uint32 add = float2int32(manaMax * (RegenPct / 100.0f));
+    uint32 newMana = m_target->GetPower(POWER_TYPE_MANA) + add;
+
+    m_target->SetPower(POWER_TYPE_MANA, newMana <= manaMax ? newMana : manaMax);
+    SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, add, 0, 0, FLAG_PERIODIC_ENERGIZE);
+
+    if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
+        m_target->Emote(EMOTE_ONESHOT_EAT);
+    m_target->SendPowerUpdate();
+}
+
+void Aura::EventPeriodicRegenManaStatPct(uint32 perc, uint32 stat)
+{
+    if(m_target->isDead())
+        return;
+
+    uint32 spellId = m_triggeredSpellId ? m_triggeredSpellId : (m_spellProto ? m_spellProto->Id : 0);
+
+    m_target->Energize(m_target, spellId, (m_target->GetUInt32Value(UNIT_FIELD_STATS + stat) * perc)/100, POWER_TYPE_MANA);
+}
+
+void Aura::EventPeriodicSpeedModify(int32 modifier)
+{
+
+}
+
+void Aura::EventPeriodicDrink(uint32 amount)
+{
+    uint32 v = m_target->GetPower(POWER_TYPE_MANA) + amount;
+    if( v > m_target->GetMaxPower(POWER_TYPE_MANA) )
+        v = m_target->GetMaxPower(POWER_TYPE_MANA);
+    m_target->SetPower(POWER_TYPE_MANA, v);
+    SendPeriodicAuraLog(amount, FLAG_PERIODIC_ENERGIZE);
+}
+
 void Aura::EventRelocateRandomTarget()
 {
     Unit * m_caster = GetUnitCaster();
@@ -754,14 +872,14 @@ void Aura::SpellAuraPeriodicDamage(bool apply)
 
 }
 
-void Aura::EventPeriodicDamage(uint32 amount)
-{
-
-}
-
 void Aura::SpellAuraDummy(bool apply)
 {
+    switch(m_spellProto->NameHash)
+    {
+    case SPELL_HASH_DEATH_AND_DECAY:
 
+        break;
+    }
 }
 
 void Aura::SpellAuraModConfuse(bool apply)
@@ -785,16 +903,6 @@ void Aura::SpellAuraPeriodicHeal( bool apply )
     if(m_caster == NULL)
         return;
 
-}
-
-void Aura::EventPeriodicHeal( uint32 amount )
-{
-    int32 add = amount; // IMPORTANT: target heals himself, but the packet says the caster does it. This is important, to allow for casters to log out and players still get healed.
-    uint32 overheal = m_target->Heal(m_target, GetSpellId(), add, true);
-    SendPeriodicAuraLog( m_casterGuid, m_target, GetSpellProto(), add, 0, overheal, FLAG_PERIODIC_HEAL );
-
-    if( m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
-        m_target->Emote( EMOTE_ONESHOT_EAT );
 }
 
 void Aura::SpellAuraModAttackSpeed(bool apply)
@@ -865,42 +973,9 @@ void Aura::SpellAuraModTotalHealthRegenPct(bool apply)
 
 }
 
-void Aura::EventPeriodicHealPct(float RegenPct)
-{
-    Unit* m_caster = GetUnitCaster();
-    if(m_caster == NULL || !m_target->isAlive())
-        return;
-
-    uint32 add = float2int32(m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * (RegenPct / 100.0f));
-    uint32 overheal = m_caster->Heal(m_target, GetSpellId(), add, true);
-    SendPeriodicAuraLog( m_casterGuid, m_target, GetSpellProto(), add, 0, overheal, FLAG_PERIODIC_HEAL );
-
-    if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
-        m_target->Emote(EMOTE_ONESHOT_EAT);
-}
-
 void Aura::SpellAuraModTotalManaRegenPct(bool apply)
 {
 
-}
-
-void Aura::EventPeriodicManaPct(float RegenPct)
-{
-    if(!m_target->isAlive())
-        return;
-    uint32 manaMax = m_target->GetMaxPower(POWER_TYPE_MANA);
-    if(manaMax == 0)
-        return;
-
-    uint32 add = float2int32(manaMax * (RegenPct / 100.0f));
-    uint32 newMana = m_target->GetPower(POWER_TYPE_MANA) + add;
-
-    m_target->SetPower(POWER_TYPE_MANA, newMana <= manaMax ? newMana : manaMax);
-    SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, add, 0, 0, FLAG_PERIODIC_ENERGIZE);
-
-    if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
-        m_target->Emote(EMOTE_ONESHOT_EAT);
-    m_target->SendPowerUpdate();
 }
 
 void Aura::SpellAuraPeriodicTriggerSpell(bool apply)
@@ -908,32 +983,9 @@ void Aura::SpellAuraPeriodicTriggerSpell(bool apply)
 
 }
 
-void Aura::EventPeriodicTriggerSpell(SpellEntry* spellInfo, bool overridevalues, int32 overridevalue)
-{
-    /*if(overridevalues)
-        for(uint32 i = 0; i < 3; ++i)
-            spell->forced_basepoints[i] = overridevalue;*/
-    SpellCastTargets targets;
-    if(Spell* spell = new Spell(m_target, spellInfo))
-    {
-        spell->GenerateTargets(&targets);
-        if(spell->prepare(&targets, true) != SPELL_CANCAST_OK)
-            Remove();
-    }
-}
-
 void Aura::SpellAuraPeriodicEnergize(bool apply)
 {
 
-}
-
-void Aura::EventPeriodicEnergize(uint32 amount,uint32 type)
-{
-    m_target->Energize(m_target, m_spellProto->Id, amount, type );
-    if((m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP) && type == 0)
-        m_target->Emote(EMOTE_ONESHOT_EAT);
-
-    m_target->SendPowerUpdate();
 }
 
 void Aura::SpellAuraModPacify(bool apply)
@@ -1116,27 +1168,12 @@ void Aura::SpellAuraTrackResources(bool apply)
     }
 }
 
-void Aura::SpellAuraModParrySkill(bool apply)
-{
-
-}
-
 void Aura::SpellAuraModParryPerc(bool apply)
 {
 
 }
 
-void Aura::SpellAuraModDodgeSkill(bool apply)
-{
-
-}
-
 void Aura::SpellAuraModDodgePerc(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModBlockSkill(bool apply)
 {
 
 }
@@ -1154,42 +1191,6 @@ void Aura::SpellAuraModCritPerc(bool apply)
 void Aura::SpellAuraPeriodicLeech(bool apply)
 {
 
-}
-
-void Aura::EventPeriodicLeech(uint32 amount, SpellEntry* sp)
-{
-    Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL || m_target == NULL || !m_target->isAlive() || !m_caster->isAlive() )
-        return;
-
-    if( sp->NameHash == SPELL_HASH_DRAIN_LIFE && m_caster->HasDummyAura(SPELL_HASH_DEATH_S_EMBRACE) && m_caster->GetHealthPct() <= 20 )
-        amount *= 1.3f;
-
-    amount = m_caster->GetSpellBonusDamage(m_target, sp, mod->i, amount, false);
-
-    uint32 Amount = std::min(amount, m_target->GetUInt32Value( UNIT_FIELD_HEALTH ));
-
-    SendPeriodicAuraLog(m_casterGuid, m_target, sp, Amount, -1, 0, (uint32)FLAG_PERIODIC_DAMAGE);
-
-    //deal damage before we add healing bonus to damage
-    m_caster->DealDamage(m_target, Amount, 0, 0, sp->Id, true);
-    if(sp)
-    {
-        float coef = sp->EffectValueMultiplier[mod->i]; // how much health is restored per damage dealt
-        m_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, sp->SpellGroupType);
-        m_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, sp->SpellGroupType);
-        Amount = float2int32((float)Amount * coef);
-    }
-
-    uint32 newHealth = float2int32(m_caster->GetUInt32Value(UNIT_FIELD_HEALTH) + Amount);
-
-    uint32 mh = m_caster->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-    if(newHealth <= mh)
-        m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, newHealth);
-    else
-        m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, mh);
-
-    SendPeriodicAuraLog(m_casterGuid, m_caster, sp, Amount, -1, 0, (uint32)FLAG_PERIODIC_HEAL);
 }
 
 void Aura::SpellAuraModHitChance(bool apply)
@@ -1401,67 +1402,9 @@ void Aura::SpellAuraPeriodicHealthFunnel(bool apply)
 
 }
 
-void Aura::EventPeriodicHealthFunnel(uint32 amount)
-{
-    Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL  || m_target == NULL || !m_target->isAlive() || !m_caster->isAlive())
-        return;
-    if(m_target->isAlive() && m_caster->isAlive())
-    {
-
-        m_caster->DealDamage(m_target, amount, 0, 0, GetSpellId(),true);
-        uint32 newHealth = m_caster->GetUInt32Value(UNIT_FIELD_HEALTH) + 1000;
-
-        uint32 mh = m_caster->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-        if(newHealth <= mh)
-            m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, newHealth);
-        else
-            m_caster->SetUInt32Value(UNIT_FIELD_HEALTH, mh);
-
-        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, amount, -1, 0, (uint32)FLAG_PERIODIC_LEECH);
-    }
-}
-
 void Aura::SpellAuraPeriodicManaLeech(bool apply)
 {
 
-}
-
-void Aura::EventPeriodicManaLeech(uint32 amount)
-{
-    Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL  || m_target == NULL || !m_target->isAlive() || !m_caster->isAlive())
-        return;
-
-    int32 amt = amount;
-
-    // Drained amount should be reduced by resilence
-    if(m_target->IsPlayer())
-    {
-        float amt_reduction_pct = 2.2f * castPtr<Player>(m_target)->CalcRating( PLAYER_RATING_MODIFIER_SPELL_RESILIENCE ) / 100.0f;
-        if( amt_reduction_pct > 0.33f ) amt_reduction_pct = 0.33f; // 3.0.3
-        amt = float2int32( amt - (amt * amt_reduction_pct) );
-    }
-
-    float coef = m_spellProto->EffectValueMultiplier[mod->i] > 0 ? m_spellProto->EffectValueMultiplier[mod->i] : 1; // how much mana is restored per mana leeched
-    m_caster->SM_FFValue(SMT_MULTIPLE_VALUE, &coef, m_spellProto->SpellGroupType);
-    m_caster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, m_spellProto->SpellGroupType);
-    amt = float2int32((float)amt * coef);
-
-    uint32 cm = m_caster->GetPower(POWER_TYPE_MANA) + amt;
-    uint32 mm = m_caster->GetMaxPower(POWER_TYPE_MANA);
-    if(cm <= mm)
-    {
-        m_caster->SetPower(POWER_TYPE_MANA, cm);
-        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, amt, 0, 0, FLAG_PERIODIC_LEECH);
-    }
-    else
-    {
-        m_caster->SetPower(POWER_TYPE_MANA, mm);
-        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, mm - cm, 0, 0, FLAG_PERIODIC_LEECH);
-    }
-
-    m_caster->SendPowerUpdate();
 }
 
 void Aura::SpellAuraModCastingSpeed(bool apply)
@@ -1704,17 +1647,6 @@ void Aura::SpellAuraMounted(bool apply)
     }
 }
 
-void Aura::SpellAuraModDamageTakenPctPerCaster(bool apply)
-{
-
-}
-
-void Aura::SpellAuraRequireNoAmmo(bool apply)
-{
-    if(!m_target->IsPlayer())
-        return;
-}
-
 void Aura::SpellAuraModDamagePercDone(bool apply)
 {
 
@@ -1733,52 +1665,6 @@ void Aura::SpellAuraSplitDamage(bool apply)
 void Aura::SpellAuraModRegen(bool apply)
 {
 
-}
-
-void Aura::SpellAuraIgnoreEnemy(bool apply)
-{
-
-}
-
-void Aura::SpellAuraDrinkNew(bool apply)
-{
-
-}
-
-void Aura::EventPeriodicSpeedModify(int32 modifier)
-{
-
-}
-
-void Aura::EventPeriodicDrink(uint32 amount)
-{
-    uint32 v = m_target->GetPower(POWER_TYPE_MANA) + amount;
-    if( v > m_target->GetMaxPower(POWER_TYPE_MANA) )
-        v = m_target->GetMaxPower(POWER_TYPE_MANA);
-    m_target->SetPower(POWER_TYPE_MANA, v);
-    SendPeriodicAuraLog(amount, FLAG_PERIODIC_ENERGIZE);
-}
-
-void Aura::EventPeriodicHeal1(uint32 amount)
-{
-    if(m_target == NULL )
-        return;
-
-    if(!m_target->isAlive())
-        return;
-
-    uint32 ch = m_target->GetUInt32Value(UNIT_FIELD_HEALTH);
-    ch+=amount;
-    uint32 mh = m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
-
-    if(ch>mh)
-        m_target->SetUInt32Value(UNIT_FIELD_HEALTH,mh);
-    else m_target->SetUInt32Value(UNIT_FIELD_HEALTH,ch);
-
-    if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
-        m_target->Emote(EMOTE_ONESHOT_EAT);
-    else if(m_spellProto->buffIndex == 0)
-        SendPeriodicAuraLog(amount, FLAG_PERIODIC_HEAL);
 }
 
 void Aura::SpellAuraModPowerRegen(bool apply)
@@ -1804,19 +1690,6 @@ void Aura::SpellAuraModRegenPercent(bool apply)
 void Aura::SpellAuraPeriodicDamagePercent(bool apply)
 {
 
-}
-
-void Aura::EventPeriodicDamagePercent(uint32 amount)
-{
-    //DOT
-    if(!m_target->isAlive())
-        return;
-
-    uint32 damage = m_target->GetModPUInt32Value(UNIT_FIELD_MAXHEALTH, amount);
-    Unit * m_caster = GetUnitCaster();
-    if(m_caster!=NULL)
-        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, m_triggeredSpellId==0, true);
-    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, m_triggeredSpellId==0, true);
 }
 
 void Aura::SpellAuraModResistChance(bool apply)
@@ -2128,73 +2001,12 @@ void Aura::SpellAuraModHealthRegInCombat(bool apply)
 
 }
 
-void Aura::EventPeriodicBurn(uint32 amount, uint32 misc)
-{
-    Unit * m_caster = GetUnitCaster();
-    if( m_caster == NULL)
-        return;
-
-    if(m_target->isAlive() && m_caster->isAlive())
-    {
-        uint32 Amount = std::min( amount, m_target->GetPower(misc) );
-        SendPeriodicAuraLog(m_casterGuid, m_target, m_spellProto, Amount, 0, 0, FLAG_PERIODIC_DAMAGE);
-        m_target->DealDamage(m_target, Amount, 0, 0, m_spellProto->Id);
-    }
-}
-
 void Aura::SpellAuraPowerBurn(bool apply)
 {
 
 }
 
-void Aura::SpellAuraModCritDmgPhysical(bool apply)
-{
-
-}
-
-
 void Aura::SpellAuraWaterBreathing( bool apply )
-{
-
-}
-
-void Aura::SpellAuraAPAttackerBonus(bool apply)
-{
-
-}
-
-
-void Aura::SpellAuraModPAttackPower(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModRangedAttackPowerPct(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseDamageTypePCT(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseCricticalTypePCT(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreasePartySpeed(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseSpellDamageByAttribute(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseHealingByAttribute(bool apply)
 {
 
 }
@@ -2236,167 +2048,6 @@ void Aura::SpellAuraModPenetration(bool apply)
 
 }
 
-void Aura::SpellAuraIncreaseArmorByPctInt(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceAttackerMHitChance(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceAttackerRHitChance(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceAttackerSHitChance(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceEnemyMCritChance(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceEnemyRCritChance(bool apply)
-{
-
-}
-
-void Aura::SpellAuraUseNormalMovementSpeed( bool apply )
-{
-
-}
-
-void Aura::SpellAuraIncreaseTimeBetweenAttacksPCT(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModAttackerCritChance(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseAllWeaponSkill(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseHitRate( bool apply )
-{
-    if( !m_target->IsPlayer() )
-        return;
-
-}
-
-void Aura::SpellAuraModMobKillXPGain( bool apply )
-{
-    if( !m_target->IsPlayer() )
-        return;
-    if( apply )
-        castPtr<Player>( m_target )->MobXPGainRate += GetSpellProto()->EffectBasePoints[0]+1;
-    else castPtr<Player>( m_target )->MobXPGainRate -= GetSpellProto()->EffectBasePoints[0]+1;
-    if(castPtr<Player>( m_target )->MobXPGainRate <= (float)0.0f)
-        castPtr<Player>( m_target )->MobXPGainRate = (float)0.0f;
-}
-
-
-void Aura::SpellAuraIncreaseRageFromDamageDealtPCT(bool apply)
-{
-
-}
-
-void Aura::SpellAuraNoReagentCost(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceCritMeleeAttackDmg(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceCritRangedAttackDmg(bool apply)
-{
-
-}
-
-void Aura::SpellAuraEnableFlight(bool apply)
-{
-
-}
-
-void Aura::SpellAuraEnableFlightWithUnmountedSpeed(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseMovementAndMountedSpeed( bool apply )
-{
-
-}
-
-void Aura::SpellAuraIncreaseFlightSpeed( bool apply )
-{
-
-}
-
-void Aura::SpellAuraIncreaseRating( bool apply )
-{
-
-}
-
-void Aura::EventPeriodicRegenManaStatPct(uint32 perc, uint32 stat)
-{
-    if(m_target->isDead())
-        return;
-
-    uint32 spellId = m_triggeredSpellId ? m_triggeredSpellId : (m_spellProto ? m_spellProto->Id : 0);
-
-    m_target->Energize(m_target, spellId, (m_target->GetUInt32Value(UNIT_FIELD_STATS + stat) * perc)/100, POWER_TYPE_MANA);
-}
-
-
-void Aura::SpellAuraRegenManaStatPCT(bool apply)
-{
-
-}
-
-void Aura::SpellAuraSpellHealingStatPCT(bool apply)
-{
-
-}
-
-void Aura::SpellAuraFinishingMovesCannotBeDodged(bool apply)
-{
-    if( !m_target->IsPlayer() )
-        return;
-    castPtr<Player>( m_target )->m_finishingmovesdodge = apply;
-}
-
-void Aura::SpellAuraAuraModInvisibilityDetection(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseMaxHealth(bool apply)
-{
-    //should only be used by a player
-    //and only ever target players
-    if( !m_target->IsPlayer() )
-        return;
-
-    int32 amount;
-    if( apply )
-        amount = mod->m_amount;
-    else
-        amount = -mod->m_amount;
-}
-
 void Aura::SpellAuraSpiritOfRedemption(bool apply)
 {
     if(!m_target->IsPlayer())
@@ -2427,33 +2078,7 @@ void Aura::SpellAuraDispelDebuffResist(bool apply)
 
 }
 
-void Aura::SpellAuraIncreaseAttackerSpellCrit(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseRepGainPct(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseRangedAPStatPCT(bool apply)
-{
-
-}
-
 void Aura::SpellAuraModBlockValue(bool apply)
-{
-
-}
-
-// Looks like it should make spells skip some can cast checks. Atm only affects TargetAuraState check
-void Aura::SpellAuraSkipCanCastCheck(bool apply)
-{
-
-}
-
-void Aura::SpellAuraCastFilter(bool apply)
 {
 
 }
@@ -2490,42 +2115,6 @@ void Aura::SendChannelUpdate(uint32 time, WorldObject* m_ocaster)
     data << time;
 
     m_ocaster->SendMessageToSet(&data, true);
-}
-
-void Aura::SpellAuraExpertise(bool apply)
-{
-
-}
-
-void Aura::SpellAuraForceMoveFoward(bool apply)
-{
-    if(m_target == NULL || !m_target->IsPlayer())
-        return;
-
-    if(apply)
-        m_target->SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FORCE_MOVE);
-    else
-        m_target->RemoveFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FORCE_MOVE);
-}
-
-void Aura::SpellAuraModFaction(bool apply)
-{
-    if(m_target == NULL)
-        return;
-
-    if(apply)
-        m_target->SetFaction(GetSpellProto()->EffectMiscValue[mod->i]);
-    else m_target->ResetFaction();
-}
-
-void Aura::SpellAuraComprehendLanguage(bool apply)
-{
-    if(m_target == NULL || !m_target->IsPlayer())
-        return;
-
-    if(apply)
-        m_target->SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_COMPREHEND_LANG);
-    else m_target->RemoveFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_COMPREHEND_LANG);
 }
 
 void Aura::SendPeriodicAuraLog(uint32 amt, uint32 Flags)
@@ -2588,72 +2177,6 @@ void Aura::AttemptDispel(Unit* pCaster, bool canResist)
 {
     m_dispelled = true;
     Remove();
-}
-
-void Aura::SpellAuraModIgnoreArmorPct(bool apply)
-{
-
-}
-
-void Aura::SpellAuraSetPhase(bool apply)
-{
-
-}
-
-void Aura::SpellAuraIncreaseAPByAttribute(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModSpellDamageFromAP(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModSpellHealingFromAP(bool apply)
-{
-
-}
-
-void Aura::SpellAuraProcTriggerWithValue(bool apply)
-{
-    // Todo:PROC
-}
-
-void Aura::SpellAuraVehiclePassenger(bool apply)
-{
-
-}
-
-void Aura::SpellAuraReduceEffectDuration(bool apply)
-{
-
-}
-
-
-void Aura::SpellAuraNoReagent(bool apply)
-{
-    if( !m_target->IsPlayer() )
-        return;
-
-    uint32 ClassMask[3] = {0,0,0};
-    for(uint32 x=0;x<3;x++)
-        ClassMask[x] |= m_target->GetUInt32Value(PLAYER_NO_REAGENT_COST_1+x);
-
-    for(uint32 x=0;x<3;x++)
-    {
-        if(apply)
-            ClassMask[x] |= m_spellProto->EffectSpellClassMask[mod->i][x];
-        else ClassMask[x] &= ~m_spellProto->EffectSpellClassMask[mod->i][x];
-    }
-
-    for(uint32 x=0;x<3;x++)
-        m_target->SetUInt32Value(PLAYER_NO_REAGENT_COST_1+x, ClassMask[x]);
-}
-
-void Aura::SpellAuraModBaseHealth(bool apply)
-{
-
 }
 
 uint8 Aura::GetMaxProcCharges(Unit* caster)
@@ -2800,22 +2323,12 @@ void Aura::RemoveProcCharges(uint8 mod)
     Remove();
 }
 
-void Aura::SpellAuraModDamageTakenByMechPCT(bool apply)
-{
-
-}
-
 void Aura::SpellAuraAllowTamePetType(bool apply)
 {
 
 }
 
 void Aura::SpellAuraAddCreatureImmunity(bool apply)
-{
-
-}
-
-void Aura::SpellAuraRedirectThreat(bool apply)
 {
 
 }
@@ -2852,88 +2365,9 @@ void Aura::SpecialCases()
     }
 }
 
-void Aura::SpellAuraHasteRanged(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModAttackPowerByArmor( bool apply )
-{
-
-}
-
-void Aura::SpellAuraReflectInfront(bool apply)
-{
-    // Todo:PROC
-}
-
 void Aura::SpellAuraModPetTalentPoints(bool apply)
 {
     if( !m_target->IsPlayer() )
         return;
-
-}
-
-void Aura::SpellAuraPeriodicTriggerSpellWithValue(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModCritChanceAll(bool apply)
-{
-
-}
-
-void Aura::SpellAuraOpenStable(bool apply)
-{
-    if( !m_target || !m_target->IsPlayer() )
-        return;
-
-}
-
-void Aura::SpellAuraFakeInebriation(bool apply)
-{
-    if( !m_target || !m_target->IsPlayer() )
-        return;
-
-    Player* plr = castPtr<Player>(m_target);
-
-    if( apply )
-    {
-        plr->m_invisDetect[INVIS_FLAG_DRUNK] += mod->m_amount;
-        plr->ModSignedInt32Value(PLAYER_FAKE_INEBRIATION, mod->m_amount);
-    }
-    else
-    {
-        plr->m_invisDetect[INVIS_FLAG_DRUNK] -= mod->m_amount;
-        plr->ModSignedInt32Value(PLAYER_FAKE_INEBRIATION, -mod->m_amount);
-    }
-    plr->UpdateVisibility();
-}
-
-void Aura::SpellAuraPreventResurrection(bool apply)
-{
-    if( !m_target || !m_target->IsPlayer() )
-        return;
-
-    Player* plr = castPtr<Player>(m_target);
-
-    if( apply )
-        plr->PreventRes = true;
-    else plr->PreventRes = false;
-}
-
-void Aura::SpellAuraHealAndJump(bool apply)
-{
-
-}
-
-void Aura::SpellAuraConvertRune(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModWalkSpeed(bool apply)
-{
 
 }

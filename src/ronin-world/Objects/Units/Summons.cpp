@@ -21,7 +21,7 @@
 
 #include "StdAfx.h"
 
-Summon::Summon(CreatureData* data, uint64 guid) : Creature(data, guid)
+Summon::Summon(CreatureData* data, uint64 guid, int32 duration) : Creature(data, guid), m_expireTime(duration)
 {
     m_Internal = NULL;
 }
@@ -41,6 +41,22 @@ void Summon::Destruct()
     if(m_Internal != NULL)
         m_Internal->Destruct();
     Creature::Destruct();
+}
+
+void Summon::Update(uint32 msTime, uint32 uiDiff)
+{
+    Creature::Update(msTime, uiDiff);
+    if(m_expireTime == -1)
+        return;
+
+    if(m_expireTime > uiDiff)
+    {
+        m_expireTime -= uiDiff;
+        return;
+    }
+
+    s_Owner->RemoveSummon(this);
+    Cleanup();
 }
 
 void Summon::OnPushToWorld()
@@ -273,7 +289,7 @@ void SpellEffectClass::SpellEffectSummon(uint32 i, WorldObject *target, int32 am
     case DBC_SUMMON_TYPE_OPPONENT:
         {
             if(spe->controltype == DBC_SUMMON_CONTROL_TYPE_GUARDIAN)
-                SummonGuardian(_unitCaster, i, amount, spe, ctrData, v);
+                SummonGuardian(_unitCaster, i, amount, spe, ctrData, v, spe->type != DBC_SUMMON_TYPE_OPPONENT);
             else SummonWild(_unitCaster, i, amount, spe, ctrData, v);
             return;
         }break;
@@ -325,7 +341,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
         SpawnLocation.y += (GetRadius(i) * (sinf(followangle + v.o)));
         followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI) / 180.0f);
 
-        Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
+        Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry, duration);
         if(s == NULL)
             return;
 
@@ -351,6 +367,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
 
 void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
+    int32 duration = GetDuration();
     uint32 slot = Properties ? Properties->slot : 1;
     bool xSubtractX = true;
     bool xSubtractY = true;
@@ -363,7 +380,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     v.y += xSubtractY ? -1.5f : 1.5f;
     v.z = u_caster->GetMapInstance()->GetWalkableHeight(u_caster, v.x, v.y, v.z + 2.f);
 
-    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
+    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry, duration);
     if(s == NULL)
         return;
 
@@ -374,7 +391,6 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     s->SetHealth(amount);
     s->PushToWorld(u_caster->GetMapInstance());
 
-    int32 duration = GetDuration();
     if(u_caster->IsPlayer())
     {
         WorldPacket data(SMSG_TOTEM_CREATED, 17);
@@ -386,10 +402,8 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     }
 }
 
-void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v) // Summon Guardian
+void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v, bool limitInteraction) // Summon Guardian
 {
-    float angle_for_each_spawn = -float(float(M_PI * 2) / amount);
-
     int32 count = amount;
     // it's health., or a fucked up infernal.
     if( Properties == NULL )
@@ -399,17 +413,22 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
     if(data->entry == 31216) // mirror image
         count = 3;
 
+    float angle_for_each_spawn = count > 1 ? -float((M_PI * 2.f) / count) : 0.f;
+
     int32 duration = GetDuration();
     uint32 slot = Properties ? Properties->slot : 0;
     for (int j = 0; j < count; j++)
     {
         LocationVector SpawnLocation(v);
         float followangle = angle_for_each_spawn * j;
-        SpawnLocation.x += (GetRadius(i) * (cosf(followangle)));
-        SpawnLocation.y += (GetRadius(i) * (sinf(followangle)));
-        followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI / ((180 / count) * (j + 1))));
+        if(angle_for_each_spawn)
+        {
+            SpawnLocation.x += (GetRadius(i) * (cosf(followangle)));
+            SpawnLocation.y += (GetRadius(i) * (sinf(followangle)));
+            followangle = (u_caster->calcAngle(u_caster->GetPositionX(), u_caster->GetPositionY(), SpawnLocation.x, SpawnLocation.y) * float(M_PI / ((180 / count) * (j + 1))));
+        }
 
-        Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
+        Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry, duration);
         if(s == NULL)
             return;
 
@@ -429,13 +448,15 @@ void SpellEffectClass::SummonGuardian(Unit *u_caster, uint32 i, int32 amount, Su
         }
 
         // Lightwell
-        if(Properties != NULL)
+        if(Properties != NULL && Properties->type == DBC_SUMMON_TYPE_LIGHTWELL)
         {
-            if(Properties->type == DBC_SUMMON_TYPE_LIGHTWELL)
-            {
-                s->GetMovementInterface()->setRooted(true);
-                s->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK);
-            }
+            s->GetMovementInterface()->setRooted(true);
+            s->SetFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK);
+        }
+        else if(limitInteraction == true)
+        {
+            s->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            s->GetMovementInterface()->setRooted(true);
         }
     }
 }
@@ -447,15 +468,15 @@ void SpellEffectClass::SummonTemporaryPet(Unit *u_caster, uint32 i, int32 amount
 
 void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
-    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
+    int32 duration = GetDuration();
+    uint32 slot = Properties ? Properties->slot : 0;
+    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry, duration);
     if(s == NULL)
         return;
 
     v.x += (3 * cos(M_PI / 2 + v.o));
     v.y += (3 * cos(M_PI / 2 + v.o));
 
-    int32 duration = GetDuration();
-    uint32 slot = Properties ? Properties->slot : 0;
     s->CreateAs(new PossessedSummon());
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
@@ -468,6 +489,8 @@ void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, S
 
 void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry * Properties, CreatureData *data, LocationVector & v)
 {
+    int32 duration = GetDuration();
+    uint32 slot = Properties ? Properties->slot : 0;
     if(u_caster->GetSummonedCritterGUID() != 0)
     {
         Creature* critter = u_caster->GetMapInstance()->GetCreature(u_caster->GetSummonedCritterGUID());
@@ -481,12 +504,10 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
             return;
     }
 
-    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry);
+    Summon* s = u_caster->GetMapInstance()->CreateSummon(data->entry, duration);
     if(s == NULL)
         return;
 
-    int32 duration = GetDuration();
-    uint32 slot = Properties ? Properties->slot : 0;
     s->CreateAs(new CompanionSummon());
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);

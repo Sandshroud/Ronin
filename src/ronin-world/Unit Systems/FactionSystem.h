@@ -68,7 +68,7 @@ public:
     FactionEntryMap *GetRepIDFactions() { return &m_factionByRepID; }
 
 //private:
-    bool IsInteractionLocked(WorldObject *obj);
+    bool IsInteractionLocked(WorldObject *objA, WorldObject *objB, bool objAIgnore = false);
     FactionInteractionStatus GetFactionsInteractStatus(WorldObject *objA, WorldObject *objB, bool oneSided);
 
     FactionInteractionStatus GetTeamBasedStatus(Unit *objA, Unit *objB);

@@ -179,7 +179,7 @@ protected: // Effect Handlers
     // Summons
     void SummonWild(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
     void SummonTotem(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
-    void SummonGuardian(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
+    void SummonGuardian(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v, bool limitInteraction = false);
     void SummonTemporaryPet(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
     void SummonPossessed(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);
     void SummonCompanion(Unit *u_caster, uint32 i, int32 amount, SummonPropertiesEntry* spe, CreatureData* proto, LocationVector & v);

@@ -346,6 +346,10 @@ public:
     void setRooted(bool root);
     void setAsleep(bool sleep) {}
     void setStunned(bool stunned);
+
+    void setFeatherFall(bool canFeatherFall);
+    void setWaterWalk(bool canWaterWalk);
+    void setHover(bool canHover);
     void setCanFly(bool canfly);
 
     // Movement flags

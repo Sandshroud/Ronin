@@ -681,7 +681,7 @@ public:
     }
 
     // Use a creature guid to create our summon.
-    Summon* CreateSummon(uint32 entry);
+    Summon* CreateSummon(uint32 entry, int32 duration);
 
 ////////////////////////////////////////////////////////
 // Local (MapInstance) storage/generation of GameObjects

@@ -137,18 +137,10 @@ public:
     bool IsStealthSpell();
     bool IsInvisibilitySpell();
 
-    int32 damage;
-    Aura* m_triggeredByAura;
-
-    bool m_triggeredSpell;
-    bool m_AreaAura;
-    //uint32 TriggerSpellId;        // used to set next spell to use
-    //uint64 TriggerSpellTarget;    // used to set next spell target
     float m_castPositionX;
     float m_castPositionY;
     float m_castPositionZ;
 
-    int32 damageToHit;
     uint32 castedItemId;
     uint32 m_pushbackCount;
 

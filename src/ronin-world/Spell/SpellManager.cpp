@@ -427,6 +427,7 @@ void SpellManager::PoolSpellData()
 
     sLog.Notice("SpellManager", "Initializing spell effect class...");
     SpellEffectClass::InitializeSpellEffectClass();
+    Aura::InitializeAuraHandlerClass();
 
     dbcSpellAuraOptions.Unload();
     dbcSpellAuraRestrictions.Unload();

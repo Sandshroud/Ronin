@@ -43,13 +43,11 @@ Spell::Spell(Unit* Caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid,
 
     m_triggeredByAura = aur;
 
-    damageToHit = 0;
     castedItemId = 0;
 
     m_usesMana = false;
 
     m_canCastResult = SPELL_CANCAST_OK;
-    damage = 0;
     m_Delayed = false;
     m_ForceConsumption = false;
     m_cancelled = false;
