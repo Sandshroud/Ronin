@@ -78,6 +78,7 @@ public:
 
     bool OverrideSimilarAuras(WorldObject *caster, Aura *aura);
     bool UpdateAuraModifier(uint32 spellId, WoWGuid casterGuid, uint8 indexEff, Modifier *mod);
+    void UpdateAuraModsWithModType(uint32 modType);
 
     /*****************************
     ************ Info ************
@@ -178,6 +179,8 @@ private:
     /*******************
     **** Modifiers
     ********/
+    void _RecalculateModAmountByType(Modifier *mod);
+
 public:
     void UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply);
     static uint16 createModifierIndex(uint8 index1, uint8 index2) { return ((uint16(index2)<<8) | uint16(index1)); }
@@ -230,7 +233,9 @@ private:
     modifierTypeMap m_modifiersByModType;
     // Storage is <SpellGroup, <ModType, <Index, Modifier> > >
     Loki::AssocVector<uint16, Loki::AssocVector<uint8, int32>> m_spellGroupModifiers;
+    // Storage is <<SpellId, effIndex>, Modifier>
+    Loki::AssocVector<std::pair<uint32, uint8>, int32> m_calcModCache;
 
     static uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
-    void UpdateSpellGroupModifiers(bool apply, Modifier *mod);
+    void UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool silent);
 };

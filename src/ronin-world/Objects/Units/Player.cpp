@@ -356,6 +356,8 @@ bool Player::Initialize()
 
     SetFloatValue(PLAYER_FIELD_MOD_HASTE, 1.f);
     SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, 1.f);
+    SetFloatValue(PLAYER_FIELD_MOD_PET_HASTE, 1.f);
+    SetFloatValue(PLAYER_FIELD_MOD_HASTE_REGEN, 1.f);
 
     // We're players!
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_STATUS);
@@ -846,6 +848,7 @@ void Player::UpdateCombatRating(uint8 combatRating, float value)
         break;
     case 17:
         SetFloatValue(PLAYER_FIELD_MOD_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        m_AuraInterface.UpdateAuraModsWithModType(SPELL_AURA_MOD_CD_FROM_HASTE);
         break;
     case 18:
         SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
@@ -1937,6 +1940,8 @@ void Player::_LoadSpells(QueryResult *result)
                 if(sp->SpellSkillLine)
                     m_spellsBySkill[sp->SpellSkillLine].insert(sp->Id);
 
+                if(spell->Category)
+                    m_spellCategories.insert(spell->Category);
             }
         }while(result->NextRow());
     }
@@ -2440,6 +2445,8 @@ void Player::addSpell(uint32 spell_id, uint32 forget)
             m_spellsByEffect[effect].insert(spell_id);
     if(spell->SpellSkillLine)
         m_spellsBySkill[spell->SpellSkillLine].insert(spell_id);
+    if(spell->Category)
+        m_spellCategories.insert(spell->Category);
 
     // Check if we're logging in.
     if(!IsInWorld())
@@ -4138,6 +4145,8 @@ void Player::removeSpellByNameHash(uint32 hash)
                     m_spellsByEffect[effect].erase(e->Id);
             if(e->SpellSkillLine)
                 m_spellsBySkill[e->SpellSkillLine].erase(e->Id);
+            if(e->Category)
+                m_spellCategories.erase(e->Category);
         }
     }
 }
@@ -4160,28 +4169,18 @@ bool Player::removeSpell(uint32 SpellID)
         m_spellsBySkill[sp->SpellSkillLine].erase(sp->Id);
     RemoveAura(SpellID,GetGUID());
 
-    // Add the skill line for this spell if we don't already have it.
+    // We need to either remove our skill line completely or readd the previous rank
     if(SkillLineEntry *skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine))
     {
         SpellEntry* sp2 = FindHighestRankProfessionSpell(skill->id);
-        if(sp2 == NULL || (sp2 && skill->categoryId != SKILL_TYPE_WEAPON && skill->categoryId != SKILL_TYPE_CLASS && skill->categoryId != SKILL_TYPE_ARMOR))
+        if(skill->spellIcon && (skill->categoryId == SKILL_TYPE_PROFESSION || skill->categoryId == SKILL_TYPE_SECONDARY))
         {
             uint16 current = getSkillLineVal(skill->id, false), bonus = getSkillLineVal(skill->id, true)-current;
             if(sp2 == NULL)
                 RemoveSkillLine(skill->id);
             else
             {
-                uint16 max = 1;
-                switch(skill->categoryId)
-                {
-                case SKILL_TYPE_SECONDARY:
-                case SKILL_TYPE_PROFESSION:
-                    max=75*sp2->RankNumber;
-                    break;
-                default: break;
-                }
-
-                UpdateSkillLine(skill->id, sp2->RankNumber, max, true);
+                UpdateSkillLine(skill->id, sp2->RankNumber, 75*sp2->RankNumber, true);
                 _UpdateMaxSkillCounts();
             }
         }
@@ -6184,17 +6183,19 @@ void Player::AddSkillLine(uint16 skillLine, uint16 step, uint16 skillMax, uint16
 
 void Player::RemoveSkillLine(uint16 skillLine)
 {
-    Loki::AssocVector<uint16, uint8>::iterator itr;
-    if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
-        return;
-
     Loki::AssocVector<uint16, SpellSet>::iterator skillItr;
     if((skillItr = m_spellsBySkill.find(skillLine)) != m_spellsBySkill.end())
     {
         SpellSet set(skillItr->second);
+        m_spellsBySkill.erase(skillItr);
+
         for(SpellSet::iterator spell_itr = set.begin(); spell_itr != set.end(); spell_itr++)
             removeSpell(*spell_itr);
     }
+
+    Loki::AssocVector<uint16, uint8>::iterator itr;
+    if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
+        return;
 
     uint32 field = itr->second/2, offset = itr->second&1;
     SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, 0);
@@ -6488,6 +6489,12 @@ PlayerInfo::~PlayerInfo()
 {
     if(m_Group)
         m_Group->RemovePlayer(this);
+}
+
+void Player::FillMapWithSpellCategories(std::map<uint32, int32> *map)
+{
+    for(auto itr = m_spellCategories.begin(); itr != m_spellCategories.end(); itr++)
+        (*map)[*itr] = 0;
 }
 
 void Player::AddShapeShiftSpell(uint32 id)

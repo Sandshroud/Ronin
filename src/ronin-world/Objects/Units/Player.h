@@ -964,6 +964,7 @@ public:
     SpellEntry *FindHighestRankProfessionSpell(uint32 professionSkillLine);
 
     bool HasSpellWithEffect(uint8 spellEff) { return !m_spellsByEffect[spellEff].empty(); }
+    void FillMapWithSpellCategories(std::map<uint32, int32> *map);
 
     void AddShapeShiftSpell(uint32 id);
     void RemoveShapeShiftSpell(uint32 id);
@@ -1426,6 +1427,7 @@ private:
     SpellSet m_spells, m_shapeShiftSpells;
     Loki::AssocVector<uint8, SpellSet> m_spellsByEffect;
     Loki::AssocVector<uint16, SpellSet> m_spellsBySkill;
+    std::set<uint32> m_spellCategories;
 
     // Player skill access data
     Loki::AssocVector<uint16, uint8> m_skillIndexes;

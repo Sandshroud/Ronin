@@ -331,23 +331,14 @@ void TalentInterface::ApplyTalent(uint32 spellid)
         {
             if(spellInfo->Effect[i] == SPELL_EFFECT_LEARN_SPELL)
             {
-                if((spellInfo2 = dbcSpell.LookupEntry(spellInfo->EffectTriggerSpell[i])) != NULL)
-                {
-                    if(spellInfo2->RankNumber)
-                    {
-                        if(m_Player->FindHigherRankingSpellWithNamehash(spellInfo2->NameHash, spellInfo2->RankNumber))
-                            return;
-                    }
-                }
+                if((spellInfo2 = dbcSpell.LookupEntry(spellInfo->EffectTriggerSpell[i])) != NULL && spellInfo2->RankNumber
+                    && m_Player->FindHigherRankingSpellWithNamehash(spellInfo2->NameHash, spellInfo2->RankNumber))
+                    return;
             }
         }
     }
 
-    SpellCastTargets tgt;
-    tgt.m_targetMask |= TARGET_FLAG_UNIT;
-    tgt.m_unitTarget = m_Player->GetGUID();
-    if(Spell* sp = new Spell(m_Player, spellInfo))
-        sp->prepare(&tgt, true);
+    m_Player->GetSpellInterface()->TriggerSpell(spellInfo, m_Player);
 }
 
 void TalentInterface::RemoveTalent(uint32 spellid)

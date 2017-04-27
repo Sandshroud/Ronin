@@ -258,6 +258,25 @@ void WorldSession::HandleCancelAutoRepeatSpellOpcode(WorldPacket& recv_data)
 
 }
 
+void WorldSession::HandleRequestSpellCategoryCooldownOpcode(WorldPacket &recv_data)
+{
+    CHECK_INWORLD_RETURN();
+
+    std::map<uint32, int32> categoryModifiers;
+    _player->FillMapWithSpellCategories(&categoryModifiers);
+    AuraInterface::modifierMap *map = NULL;
+    if(map = _player->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN))
+        for(auto itr = map->begin(); itr != map->end(); ++itr)
+            categoryModifiers[itr->second->m_miscValue[0]] += itr->second->m_amount;
+
+    WorldPacket data(SMSG_SPELL_CATEGORY_COOLDOWN, 20);
+    data.WriteBits(categoryModifiers.size(), 23);
+    data.FlushBits();
+    for(auto itr = categoryModifiers.begin(); itr != categoryModifiers.end(); itr++)
+        data << uint32(itr->first) << int32(-itr->second);
+    SendPacket(&data);
+}
+
 void WorldSession::HandleCharmForceCastSpell(WorldPacket & recvPacket)
 {
     CHECK_INWORLD_RETURN();

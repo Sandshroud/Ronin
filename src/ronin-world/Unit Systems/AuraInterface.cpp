@@ -232,13 +232,16 @@ void AuraInterface::SendAuraData()
                 continue;
 
             modCount++;
-            data << uint8(itr->first & 0x00FF);
             data << uint32(itr->second.size());
+            data << uint8(itr->first & 0x00FF);
             if(itr->second.empty())
                 continue;
 
             for(Loki::AssocVector<uint8, int32>::iterator itr2 = itr->second.begin(); itr2 != itr->second.end(); itr2++)
-                data << itr2->first << itr2->second;
+            {
+                data.append<uint8>(itr2->first);
+                data.append<float>(itr2->second);
+            }
         }
 
         if(modCount)
@@ -757,7 +760,6 @@ bool AuraInterface::OverrideSimilarAuras(WorldObject *caster, Aura *aur)
                     {
                         // target already has this aura. Update duration, time left, procCharges
                         curAura->ResetExpirationTime();
-                        curAura->UpdateModifiers();
                         // If we have proc charges, reset the proc charges
                         if(info->procCharges) curAura->SetProcCharges(aur->GetMaxProcCharges(aur->GetUnitCaster()));
                         else curAura->AddStackSize(1);   // increment stack size
@@ -800,6 +802,19 @@ bool AuraInterface::UpdateAuraModifier(uint32 spellId, WoWGuid casterGuid, uint8
     }
 
     return false;
+}
+
+void AuraInterface::UpdateAuraModsWithModType(uint32 modType)
+{
+    if(!m_Unit->IsPlayer() || m_modifiersByModType.find(modType) == m_modifiersByModType.end() || m_modifiersByModType[modType].empty())
+        return;
+
+    for(auto itr = m_modifiersByModType[modType].begin(); itr != m_modifiersByModType[modType].end(); itr++)
+    {   // First remove the modifier group
+        UpdateSpellGroupModifiers(false, itr->second, true);
+        _RecalculateModAmountByType(itr->second);
+        UpdateSpellGroupModifiers(true, itr->second, true);
+    }
 }
 
 void AuraInterface::OnDismount()
@@ -1475,10 +1490,19 @@ void AuraInterface::EventDeathAuraRemoval()
     }
 }
 
+void AuraInterface::_RecalculateModAmountByType(Modifier *mod)
+{   // Recalculation code is stored here to keep outdated code from sticking around where we don't see it
+    switch(mod->m_type)
+    {
+    case SPELL_AURA_MOD_CD_FROM_HASTE:
+        mod->m_amount = -100.f + (((float)mod->m_baseAmount) * castPtr<Player>(m_Unit)->GetFloatValue(PLAYER_FIELD_MOD_HASTE));
+        break;
+    }
+}
+
 void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
     m_Unit->OnAuraModChanged(mod->m_type);
-
     uint16 mod_index = createModifierIndex(auraSlot, index);
     Loki::AssocVector<uint8, ModifierHolder*>::iterator itr;
     if(apply)
@@ -1494,6 +1518,8 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
         if(modHolder == NULL || modHolder->mod[index] == mod)
             return;
 
+        // Do a quick recalc if we need it
+        _RecalculateModAmountByType(mod);
         m_modifiersByModType[mod->m_type].insert(std::make_pair(mod_index, mod));
         modHolder->mod[index] = mod;
     }
@@ -1510,20 +1536,19 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
         delete modHolder;
     }
 
-    if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER)
-        UpdateSpellGroupModifiers(apply, mod);
+    if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER || mod->m_type == SPELL_AURA_MOD_CD_FROM_HASTE)
+        UpdateSpellGroupModifiers(apply, mod, false);
 }
 
-void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
+void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool silent)
 {
     assert(mod->m_miscValue[0] < SPELL_MODIFIERS);
-    uint8 index1 = mod->m_miscValue[0] & 0x7F, index2 = mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER ? 1 : 0;
+    uint8 index1 = mod->m_miscValue[0] & 0x7F, index2 = mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER ? 0 : 1;
     uint16 index = createModifierIndex(index1, index2);
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
-
     uint32 count = 0;
     WorldPacket *data = NULL;
-    if(m_Unit->IsPlayer() && m_Unit->IsInWorld())
+    if(m_Unit->IsPlayer() && m_Unit->IsInWorld() && !silent)
     {
         data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index2, 20);
         *data << uint32(1) << count << uint8(index1);
@@ -1541,7 +1566,11 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod)
         {
             if(apply) groupModMap[bit] += mod->m_amount;
             else groupModMap[bit] -= mod->m_amount;
-            if(data) *data << uint8(bit) << groupModMap[bit];
+            if(data)
+            {
+                data->append<uint8>(bit);
+                data->append<float>(groupModMap[bit]);
+            }
             count++;
         }
     }

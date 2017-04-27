@@ -747,6 +747,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_CANCEL_AURA].handler                           = &WorldSession::HandleCancelAuraOpcode;
     WorldPacketHandlers[CMSG_CANCEL_CHANNELLING].handler                    = &WorldSession::HandleCancelChannellingOpcode;
     WorldPacketHandlers[CMSG_CANCEL_AUTO_REPEAT_SPELL].handler              = &WorldSession::HandleCancelAutoRepeatSpellOpcode;
+    WorldPacketHandlers[CMSG_REQUEST_CATEGORY_COOLDOWNS].handler            = &WorldSession::HandleRequestSpellCategoryCooldownOpcode;
     WorldPacketHandlers[CMSG_LEARN_TALENT].handler                          = &WorldSession::HandleLearnTalentOpcode;
     WorldPacketHandlers[CMSG_LEARN_PREVIEW_TALENTS].handler                 = &WorldSession::HandleLearnPreviewTalents;
     WorldPacketHandlers[MSG_TALENT_WIPE_CONFIRM].handler                    = &WorldSession::HandleTalentWipeConfirmOpcode;

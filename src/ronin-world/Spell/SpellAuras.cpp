@@ -1991,6 +1991,11 @@ void Aura::SpellAuraModReputationAdjust(bool apply)
 
 }
 
+void Aura::SpellAuraModBlockValue(bool apply)
+{
+
+}
+
 void Aura::SpellAuraNoPVPCredit(bool apply)
 {
 
@@ -2074,11 +2079,6 @@ void Aura::SpellAuraSpiritOfRedemption(bool apply)
 }
 
 void Aura::SpellAuraDispelDebuffResist(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModBlockValue(bool apply)
 {
 
 }
