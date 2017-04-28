@@ -1940,8 +1940,8 @@ void Player::_LoadSpells(QueryResult *result)
                 if(sp->SpellSkillLine)
                     m_spellsBySkill[sp->SpellSkillLine].insert(sp->Id);
 
-                if(spell->Category)
-                    m_spellCategories.insert(spell->Category);
+                if(sp->Category)
+                    m_spellCategories.insert(sp->Category);
             }
         }while(result->NextRow());
     }
