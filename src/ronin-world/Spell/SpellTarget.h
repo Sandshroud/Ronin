@@ -2,12 +2,12 @@
 #pragma once
 
 class SpellTargetClass;
-class MapTargetCallback { public: virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target) = 0; };
-class FillAreaTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
-class FillAreaFriendliesCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
-class FillInRangeTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
-class FillInRangeConeTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
-class FillSpecificGameObjectsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, WorldObject *target); };
+class MapTargetCallback { public: virtual void operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target) = 0; };
+class FillAreaTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target); };
+class FillAreaFriendliesCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target); };
+class FillInRangeTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target); };
+class FillInRangeConeTargetsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target); };
+class FillSpecificGameObjectsCallback : public MapTargetCallback { virtual void operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target); };
 
 class SpellTargetClass : public SpellEffectClass
 {

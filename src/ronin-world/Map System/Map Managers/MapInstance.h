@@ -333,11 +333,12 @@ class MapInstanceSpellTargetMappingCallback : public ObjectProcessCallback
 public:
     MapInstanceSpellTargetMappingCallback(MapInstance *instance) : _instance(instance) {}
     void operator()(WorldObject *obj, WorldObject *curObj);
-    void SetData(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange)
+    void SetData(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, uint32 targetType, float x, float y, float z, float minRange, float maxRange)
     {
         _callback = callback;
         _spell = spell;
         _effIndex = i;
+        _targetType = targetType;
         _x = x; _y = y; _z = z;
         _minRange = minRange;
         _maxRange = maxRange;
@@ -348,7 +349,7 @@ private:
     MapTargetCallback *_callback;
     SpellTargetClass *_spell;
 
-    uint32 _effIndex;
+    uint32 _effIndex, _targetType;
     float _x, _y, _z, _minRange, _maxRange;
 };
 
@@ -435,7 +436,7 @@ public:
     void HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *callback, DynamicObject *object, Unit *caster, float minRange, float maxRange, uint32 typeMask = 0);
 
     // Spell targetting functions
-    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange, uint32 typeMask = 0);
+    void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, uint32 targetType, float x, float y, float z, float minRange, float maxRange, uint32 typeMask = 0);
 
 protected:
     // These are stored in MapInstance.cpp with functions

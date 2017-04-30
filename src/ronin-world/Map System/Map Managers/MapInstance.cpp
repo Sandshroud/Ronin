@@ -1277,13 +1277,13 @@ void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldOb
     if(sFactionSystem.IsInteractionLocked(obj, curObj, true))
         return;
 
-    (*_callback)(_spell, _effIndex, curObj);
+    (*_callback)(_spell, _effIndex, _targetType, curObj);
 }
 
-void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, float x, float y, float z, float minRange, float maxRange, uint32 typeMask)
+void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, uint32 targetType, float x, float y, float z, float minRange, float maxRange, uint32 typeMask)
 {
     _SpellTargetMappingCallback.Lock();
-    _SpellTargetMappingCallback.SetData(callback, spell, i, x, y, z, minRange, maxRange);
+    _SpellTargetMappingCallback.SetData(callback, spell, i, targetType, x, y, z, minRange, maxRange);
     ObjectCellManager::ConstructCellData(x, y, maxRange, &_SpellTargetMappingCellVector);
     for(auto itr = _SpellTargetMappingCellVector.begin(); itr != _SpellTargetMappingCellVector.end(); itr++)
     {
