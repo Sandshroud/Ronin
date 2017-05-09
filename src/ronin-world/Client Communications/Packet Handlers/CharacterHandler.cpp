@@ -77,6 +77,7 @@ void WorldSession::HandleCharEnumOpcode( WorldPacket & recv_data )
         q->AddQuery("SELECT banTimeExpiration FROM banned_characters WHERE guid='%u'", itr->second->charGuid.getLow());
         q->AddQuery("SELECT entry, level FROM pet_data WHERE ownerguid='%u' AND active = 1", itr->second->charGuid.getLow());
         q->AddQuery("SELECT character_inventory.container, character_inventory.slot, item_data.itementry, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 0 WHERE guid=%u AND container = -1 AND slot < 19", itr->second->charGuid.getLow());
+        q->AddQuery("SELECT character_inventory.container, character_inventory.slot, item_enchantments.enchantid FROM character_inventory JOIN item_data ON character_inventory.itemguid = item_data.itemguid LEFT JOIN item_enchantments ON character_inventory.itemguid = item_enchantments.itemguid AND item_enchantments.enchantslot = 9 WHERE guid=%u AND container = -1 AND slot < 19", itr->second->charGuid.getLow());
         q->AddQuery("SELECT name, race, class, team, appearance, appearance2, appearance3, customizeFlags, deathState, level, mapId, instanceId, positionX, positionY, positionZ, orientation, zoneId, lastSaveTime FROM character_data WHERE guid = '%u' AND lastSaveTime != '%llu'", itr->second->charGuid.getLow(), itr->second->lastOnline);
     }
     CharacterDatabase.QueueAsyncQuery(q);
@@ -104,6 +105,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             uint32 enchantment;
         } items[19];
 
+        ItemPrototype *proto;
         uint32 count = 0, num = std::min<uint32>(MAXIMUM_CHAR_PER_ENUM, m_charData.size());
         bitBuff.reserve(num * 3);
         byteBuff.reserve(num * 381);
@@ -114,8 +116,8 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             for(uint8 i = 0; i < 19; i++)
                 items[i].clear();
 
-            if(results[count*4 + 3].result && !objmgr.GetPlayer(itr->second->charGuid))
-                objmgr.UpdatePlayerData(itr->second->charGuid, results[count*4 + 3].result);
+            if(results[count*5 + 4].result && !objmgr.GetPlayer(itr->second->charGuid))
+                objmgr.UpdatePlayerData(itr->second->charGuid, results[count*5 + 4].result);
 
             uint32 flags = 0;
             PlayerInfo *info = itr->second;
@@ -147,7 +149,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             if(info->lastLevel > m_maxLevel || !objmgr.CheckPlayerCreateInfo(info->charRace, info->charClass))
                 player_flags |= 0x01000000;
 
-            else if(QueryResult *res = results[count*4].result)
+            else if(QueryResult *res = results[count*5].result)
             {   // Expire time is infinite when 0
                 uint64 expireTime = res->Fetch()[0].GetUInt64();
                 if(expireTime == 0 || expireTime < UNIXTIME)
@@ -158,7 +160,7 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
             } else m_bannedCharacters.erase(info->charGuid);
 
             uint32 petFamily = 0, petLevel = 0, petDisplay = 0;
-            if(QueryResult *res = results[count*4 + 1].result)
+            if(QueryResult *res = results[count*5 + 1].result)
             {
                 if(CreatureData *petData = sCreatureDataMgr.GetCreatureData(res->Fetch()[0].GetUInt32()))
                 {
@@ -168,13 +170,14 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
                 petLevel = res->Fetch()[1].GetUInt32();
             }
 
-            if(QueryResult *res = results[count*4 + 2].result)
+            // Parse queried item data
+            if(QueryResult *res = results[count*5 + 2].result)
             {
                 do
                 {
                     Field *fields = res->Fetch();
                     int8 containerslot = fields[0].GetInt8(), slot = fields[1].GetInt8();
-                    if(ItemPrototype *proto = sItemMgr.LookupEntry(fields[2].GetUInt32()))
+                    if(proto = sItemMgr.LookupEntry(fields[2].GetUInt32()))
                     {
                         // slot0 = head, slot14 = cloak
                         items[slot].invtype = proto->InventoryType;
@@ -182,6 +185,18 @@ void WorldSession::CharEnumDisplayData(QueryResultVector& results)
                         if( SpellItemEnchantEntry *enc = dbcSpellItemEnchant.LookupEntry( fields[3].GetUInt32() ) )
                             items[slot].enchantment = enc->visualAura;
                     }
+                } while(res->NextRow());
+            }
+
+            // Parse queried transmog data
+            if(QueryResult *res = results[count*5 + 3].result)
+            {
+                do
+                {
+                    Field *fields = res->Fetch();
+                    int8 containerslot = fields[0].GetInt8(), slot = fields[1].GetInt8();
+                    if(items[slot].displayid && (proto = sItemMgr.LookupEntry(fields[2].GetUInt32())))
+                        items[slot].displayid = proto->DisplayInfoID;
                 } while(res->NextRow());
             }
 
@@ -665,7 +680,7 @@ void WorldSession::FullLogin(Player* plr)
     SendPacket(&data);
 
     data.Initialize(MSG_SET_DUNGEON_DIFFICULTY, 12);
-    data << uint32(0) << uint32(0x01) << uint32(0);
+    data << plr->iInstanceType << uint32(0x01) << uint32(plr->GetGroupID() ? 1 : 0);
     SendPacket(&data);
 
     // Anti max level hack.
