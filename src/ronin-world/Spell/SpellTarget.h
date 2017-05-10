@@ -16,6 +16,9 @@ public:
     ~SpellTargetClass();
     virtual void Destruct();
 
+    // Checks to see if our effect that triggers the strike will occur regardless of target cone
+    static bool isSpellAOEStrikeable(SpellEntry *sp, uint8 effIndex);
+
 protected:
     // Get Target Type
     uint32 GetTargetType(uint32 implicittarget, uint32 i);

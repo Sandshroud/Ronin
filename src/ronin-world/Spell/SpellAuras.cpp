@@ -836,8 +836,8 @@ void Aura::EventRelocateRandomTarget()
     float new_z = pTarget->GetMapInstance()->GetWalkableHeight(pTarget, new_x, new_y, pTarget->GetPositionZ());
     castPtr<Player>(m_caster)->SafeTeleport( pTarget->GetMapId(), pTarget->GetInstanceID(), new_x, new_y, new_z, pTarget->GetOrientation() );
     // void Unit::Strike( Unit pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrahit = false )
-    castPtr<Player>(m_caster)->Strike( pTarget, MELEE, NULL, 0, false, false, true );
-    castPtr<Player>(m_caster)->Strike( pTarget, OFFHAND, NULL, 0, false, false, true );
+    castPtr<Player>(m_caster)->Strike( pTarget, MELEE, NULL, 0, 0, false, false, true );
+    castPtr<Player>(m_caster)->Strike( pTarget, OFFHAND, NULL, 0, 0, false, false, true );
 }
 
 //------------------------- Aura Effects -----------------------------

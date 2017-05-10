@@ -499,7 +499,7 @@ void AchievementMgr::RemoveAchievement(Player *plr, uint32 achievementId)
     plr->getPlayerInfo()->achievementPoints -= entry->points;
     if(!plr->IsInWorld())
         return;
-    plr->GetSession()->OutPacket(SMSG_ACHIEVEMENT_DELETED, 4, &achievementId);
+    plr->PushData(SMSG_ACHIEVEMENT_DELETED, 4, &achievementId);
 }
 
 bool AchievementMgr::_ValidateCriteriaRequirements(Player *plr, AchievementCriteriaEntry *entry, CriteriaCounterModifier &modType, uint32 &mod, uint32 &maxCounter, uint32 misc1, uint32 misc2)

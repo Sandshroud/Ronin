@@ -680,7 +680,7 @@ void Group::OutPacketToAllButOne(uint16 op, uint16 len, const void* data, Player
         for(itr = m_SubGroups[i]->GetGroupMembersBegin(); itr != m_SubGroups[i]->GetGroupMembersEnd(); itr++)
         {
             if((*itr)->m_loggedInPlayer != NULL && (*itr)->m_loggedInPlayer != pSkipTarget)
-                (*itr)->m_loggedInPlayer->GetSession()->OutPacket( op, len, data );
+                (*itr)->m_loggedInPlayer->PushData( op, len, data );
         }
     }
 
@@ -818,7 +818,7 @@ void Group::SendNullUpdate( Player* pPlayer )
     // this packet is 28 bytes long.        // AS OF 3.3.0.a
     uint8 buffer[28];
     memset(buffer, 0, 28);
-    pPlayer->GetSession()->OutPacket( SMSG_GROUP_LIST, 28, buffer );
+    pPlayer->PushData( SMSG_GROUP_LIST, 28, buffer );
 }
 
 void Group::SendLFGLockInfo(Player *pPlayer)

@@ -288,7 +288,7 @@ void MailSystem::DeliverMessage(MailMessage* message)
         if((uint32)UNIXTIME >= message->delivery_time)
         {
             uint32 v = 0;
-            plr->GetSession()->OutPacket(SMSG_RECEIVED_MAIL, 4, &v);
+            plr->PushData(SMSG_RECEIVED_MAIL, 4, &v);
         }
     }
 }

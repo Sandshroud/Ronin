@@ -168,8 +168,7 @@ void FactionInterface::SetStanding(uint32 faction, int32 standing)
     if(!rep->isVisible() && !rep->blockVisibility())
     {
         rep->setVisible();
-        if(m_player->IsInWorld() && m_player->GetSession())
-            m_player->GetSession()->OutPacket(SMSG_SET_FACTION_VISIBLE, 4, &factionEntry->RepListIndex);
+        m_player->PushData(SMSG_SET_FACTION_VISIBLE, 4, &factionEntry->RepListIndex);
     }
 
     Standing prevStanding = Player::GetReputationRankFromStanding(rep->CurrentStanding());
@@ -200,8 +199,7 @@ void FactionInterface::ModStanding(uint32 faction, int32 standing)
     if(!rep->isVisible() && !rep->blockVisibility())
     {
         rep->setVisible();
-        if(m_player->IsInWorld() && m_player->GetSession())
-            m_player->GetSession()->OutPacket(SMSG_SET_FACTION_VISIBLE, 4, &factionEntry->RepListIndex);
+        m_player->PushData(SMSG_SET_FACTION_VISIBLE, 4, &factionEntry->RepListIndex);
     }
 
     Standing prevStanding = Player::GetReputationRankFromStanding(rep->CurrentStanding());
@@ -270,9 +268,7 @@ void FactionInterface::Reputation_OnTalk(FactionEntry *faction)
             return;
 
         rep->setVisible();
-        if(!(m_player->IsInWorld() && m_player->GetSession()))
-            return;
-        m_player->GetSession()->OutPacket(SMSG_SET_FACTION_VISIBLE, 4, &faction->RepListIndex);
+        m_player->PushData(SMSG_SET_FACTION_VISIBLE, 4, &faction->RepListIndex);
     }
 }
 

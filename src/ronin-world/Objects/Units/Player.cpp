@@ -656,6 +656,23 @@ void Player::EventExploration(MapInstance *instance)
     HandleRestedCalculations(rest_on);
 }
 
+void Player::PushData(uint16 opcode, uint16 len, const void *data, bool direct)
+{
+    if(m_session == NULL)
+        return;
+
+    if(!(m_packetQueue.empty() && IsInWorld()) && direct == false)
+    {
+        WorldPacket *packet = new WorldPacket();
+        if(len && data) packet->append((uint8*)data, len);
+        m_packetQueue.add(packet);
+
+        // First packet push us into process set
+        if(IsInWorld() && m_packetQueue.size() == 1)
+            m_mapInstance->PushToProcessed(this);
+    } else m_session->OutPacket(opcode, len, data);
+}
+
 void Player::PushPacket(WorldPacket *data, bool direct)
 {
     if(m_session == NULL)
@@ -667,8 +684,7 @@ void Player::PushPacket(WorldPacket *data, bool direct)
         // First packet push us into process set
         if(IsInWorld() && m_packetQueue.size() == 1)
             m_mapInstance->PushToProcessed(this);
-    }
-    else m_session->SendPacket(data);
+    } else m_session->SendPacket(data);
 }
 
 void Player::PushPacketToQueue(WorldPacket *data)
@@ -3145,11 +3161,8 @@ void Player::KillPlayer()
 
     EventDeath();
 
-    if(m_session)
-    {
-        m_session->OutPacket(SMSG_CANCEL_COMBAT);
-        m_session->OutPacket(SMSG_CANCEL_AUTO_REPEAT);
-    }
+    PushData(SMSG_CANCEL_COMBAT);
+    PushData(SMSG_CANCEL_AUTO_REPEAT);
 
     m_movementInterface.OnDeath();
 
@@ -3251,7 +3264,7 @@ void Player::SpawnCorpseBones()
 
 void Player::DeathDurabilityLoss(double percent)
 {
-    m_session->OutPacket(SMSG_DURABILITY_DAMAGE_DEATH);
+    PushData(SMSG_DURABILITY_DAMAGE_DEATH);
     uint32 pDurability;
     uint32 pMaxDurability;
     int32 pNewDurability;
@@ -4100,7 +4113,7 @@ void Player::removeSpellByNameHash(uint32 hash)
                 continue;
 
             RemoveAura(SpellID,GetGUID());
-            m_session->OutPacket(SMSG_REMOVED_SPELL, 4, &SpellID);
+            PushData(SMSG_REMOVED_SPELL, 4, &SpellID);
             m_spells.erase(it);
             for(uint8 i = 0; i < 3; i++)
                 if(uint8 effect = e->Effect[i])
@@ -4151,7 +4164,7 @@ bool Player::removeSpell(uint32 SpellID)
     if(!IsInWorld())
         return true;
 
-    m_session->OutPacket(SMSG_REMOVED_SPELL, 4, &SpellID);
+    PushData(SMSG_REMOVED_SPELL, 4, &SpellID);
     return true;
 }
 
@@ -5282,7 +5295,7 @@ void Player::DuelBoundaryTest()
             m_duelCountdownTimer = 10000;
 
             // let us know
-            m_session->OutPacket(SMSG_DUEL_OUTOFBOUNDS, 4, &m_duelCountdownTimer);
+            PushData(SMSG_DUEL_OUTOFBOUNDS, 4, &m_duelCountdownTimer);
             m_duelStatus = DUEL_STATUS_OUTOFBOUNDS;
         }
     }
@@ -5292,7 +5305,7 @@ void Player::DuelBoundaryTest()
         if(m_duelStatus == DUEL_STATUS_OUTOFBOUNDS)
         {
             // just came back in range
-            m_session->OutPacket(SMSG_DUEL_INBOUNDS);
+            PushData(SMSG_DUEL_INBOUNDS);
             m_duelStatus = DUEL_STATUS_INBOUNDS;
         }
     }
@@ -5341,8 +5354,8 @@ void Player::EndDuel(uint8 WinCondition)
     DuelingWith->m_AuraInterface.RemoveAllNegativeAuras();
 
     //Stop Players attacking so they don't kill the other player
-    m_session->OutPacket( SMSG_CANCEL_COMBAT );
-    DuelingWith->m_session->OutPacket( SMSG_CANCEL_COMBAT );
+    PushData( SMSG_CANCEL_COMBAT );
+    DuelingWith->PushData( SMSG_CANCEL_COMBAT );
 
     smsg_AttackStop( DuelingWith );
     DuelingWith->smsg_AttackStop( castPtr<Player>(this) );
@@ -5356,7 +5369,7 @@ void Player::EndDuel(uint8 WinCondition)
 
 void Player::StopMirrorTimer(uint32 Type)
 {
-    m_session->OutPacket(SMSG_STOP_MIRROR_TIMER, 4, &Type);
+    PushData(SMSG_STOP_MIRROR_TIMER, 4, &Type);
 }
 
 void Player::EventTeleport(uint32 mapid, float x, float y, float z, float o)

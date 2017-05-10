@@ -1674,7 +1674,7 @@ void QuestMgr::SendQuestUpdateFailedTimer(Quest *pQuest, Player* plyr)
     if(!plyr)
         return;
 
-    plyr->GetSession()->OutPacket(SMSG_QUESTUPDATE_FAILEDTIMER, 4, &pQuest->id);
+    plyr->PushData(SMSG_QUESTUPDATE_FAILEDTIMER, 4, &pQuest->id);
     sLog.outDebug("WORLD:Sent SMSG_QUESTUPDATE_FAILEDTIMER");
 }
 
@@ -1683,7 +1683,7 @@ void QuestMgr::SendQuestUpdateFailed(Quest *pQuest, Player* plyr)
     if(!plyr)
         return;
 
-    plyr->GetSession()->OutPacket(SMSG_QUESTUPDATE_FAILED, 4, &pQuest->id);
+    plyr->PushData(SMSG_QUESTUPDATE_FAILED, 4, &pQuest->id);
     sLog.outDebug("WORLD:Sent SMSG_QUESTUPDATE_FAILED");
 }
 
@@ -1692,7 +1692,7 @@ void QuestMgr::SendQuestLogFull(Player* plyr)
     if(!plyr)
         return;
 
-    plyr->GetSession()->OutPacket(SMSG_QUESTLOG_FULL);
+    plyr->PushData(SMSG_QUESTLOG_FULL);
     sLog.outDebug("WORLD:Sent QUEST_LOG_FULL_MESSAGE");
 }
 

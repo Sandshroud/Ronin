@@ -143,7 +143,16 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         for(CreatureSpawnArray::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             CreatureSpawn *spawn = *i;
-            if(Creature *c = _instance->CreateCreature(spawn->guid))
+            WoWGuid guid = spawn->guid;
+            if(_instance->IsInstance())
+            {
+                Loki::AssocVector<WoWGuid, WoWGuid>::iterator itr;
+                if((itr = m_sqlIdToGuid.find(guid)) != m_sqlIdToGuid.end())
+                    guid = itr->second;
+                else m_sqlIdToGuid.insert(std::make_pair(spawn->guid, (guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), spawn->guid.getEntry(), HIGHGUID_TYPE_UNIT))));
+            }
+
+            if(Creature *c = _instance->CreateCreature(guid))
             {
                 c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _instance->iInstanceMode, spawn);
                 c->SetInstanceID(_instance->GetInstanceID());
@@ -166,7 +175,16 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         for(GameObjectSpawnArray::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
         {
             GameObjectSpawn *spawn = *i;
-            if(GameObject *go = _instance->CreateGameObject(spawn->guid))
+            WoWGuid guid = spawn->guid;
+            if(_instance->IsInstance())
+            {
+                Loki::AssocVector<WoWGuid, WoWGuid>::iterator itr;
+                if((itr = m_sqlIdToGuid.find(guid)) != m_sqlIdToGuid.end())
+                    guid = itr->second;
+                else m_sqlIdToGuid.insert(std::make_pair(spawn->guid, (guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), spawn->guid.getEntry(), HIGHGUID_TYPE_GAMEOBJECT))));
+            }
+
+            if(GameObject *go = _instance->CreateGameObject(guid))
             {
                 go->Load(mapId, spawn->x, spawn->y, spawn->z, 0.f, spawn->rX, spawn->rY, spawn->rZ, spawn->rAngle, spawn);
                 go->SetInstanceID(_instance->GetInstanceID());

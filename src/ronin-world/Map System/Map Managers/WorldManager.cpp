@@ -596,7 +596,7 @@ void WorldManager::BuildSavedInstancesForPlayer(Player* plr)
     plr->PushPacket(&data);
 
     for(std::set<uint32>::iterator itr = mapIds.begin(); itr != mapIds.end(); itr++)
-        plr->GetSession()->OutPacket(SMSG_UPDATE_LAST_INSTANCE, 4, ((uint8*)&(*itr)));
+        plr->PushData(SMSG_UPDATE_LAST_INSTANCE, 4, ((uint8*)&(*itr)));
 }
 
 void WorldManager::BuildSavedRaidInstancesForPlayer(Player* plr)

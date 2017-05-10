@@ -38,6 +38,20 @@ void SpellTargetClass::Destruct()
     SpellEffectClass::Destruct();
 }
 
+bool SpellTargetClass::isSpellAOEStrikeable(SpellEntry *sp, uint8 effIndex)
+{
+    if(sp->isSpellBackAttackCapable())
+        return true;
+    // Non weapons can't strike
+    if(sp->spellType == NON_WEAPON)
+        return false;
+    if(sp->EffectImplicitTargetA[effIndex] && (m_implicitTargetFlags[sp->EffectImplicitTargetA[effIndex]] & SPELL_TARGET_AREA_MASK))
+        return true;
+    if(sp->EffectImplicitTargetB[effIndex] && (m_implicitTargetFlags[sp->EffectImplicitTargetB[effIndex]] & SPELL_TARGET_AREA_MASK))
+        return true;
+    return false;
+}
+
 uint32 SpellTargetClass::GetTargetType(uint32 implicittarget, uint32 i)
 {
     uint32 type = m_implicitTargetFlags[implicittarget];

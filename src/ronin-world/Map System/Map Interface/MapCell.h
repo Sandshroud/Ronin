@@ -109,4 +109,7 @@ private:
     CellObjectMap m_gameObjectSet, m_creatureSet;
     // Deactivated objects
     CellObjectMap m_deactivatedObjects;
+
+    // Used for instance based guid recalculation
+    Loki::AssocVector<WoWGuid, WoWGuid> m_sqlIdToGuid;
 };

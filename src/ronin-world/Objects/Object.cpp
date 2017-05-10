@@ -1089,7 +1089,7 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
 void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self, float maxRange)
 {
     if(self && GetTypeId() == TYPEID_PLAYER)
-        castPtr<Player>(this)->GetSession()->OutPacket(Opcode, Len, Data);
+        castPtr<Player>(this)->PushData(Opcode, Len, Data);
 
     if(!IsInWorld())
         return;

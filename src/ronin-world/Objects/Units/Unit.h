@@ -560,7 +560,7 @@ public:
     uint32 GetSpellDidHitResult( Unit* pVictim, BaseSpell* pSpell, float *resistOut, uint8 *reflectout);
 
     float CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechance, float &parrychance, float &blockchance, float *critChance, float *crushingBlow, float *glancingBlow);
-    void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
+    void Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 effIndex, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike = false );
 
     int32 CalculateAttackPower();
     int32 CalculateRangedAttackPower();

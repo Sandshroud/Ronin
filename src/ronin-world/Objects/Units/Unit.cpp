@@ -1744,7 +1744,7 @@ float Unit::CalculateAdvantage(Unit *pVictim, float &hitchance, float &dodgechan
     hitchance += hitmodifier;*/
 }
 
-void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike )
+void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability, uint8 effIndex, uint32 exclusive_damage, bool disable_proc, bool skip_hit_check, bool proc_extrastrike )
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
@@ -1752,10 +1752,11 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     if(!pVictim->isAlive() || !isAlive()  || IsStunned() || IsPacified() || IsFeared())
         return;
 
-    if(!isTargetInFront(pVictim))
+    // Strike requires that our target be in front of us, but some spells like Divine storm use strike in AOE form
+    if(!isTargetInFront(pVictim) && (ability == NULL || !SpellTargetClass::isSpellAOEStrikeable(ability, effIndex)))
     {
-        if(IsPlayer() && !(ability && ability->isSpellBackAttackCapable()) )
-            castPtr<Player>(this)->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
+        if(IsPlayer())
+            castPtr<Player>(this)->PushData(SMSG_ATTACKSWING_BADFACING);
         return;
     }
 
@@ -2193,7 +2194,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         {
             if(SpellEntry *sp = dbcSpell.LookupEntry(*attacks.begin()))
             {
-                Strike(pVictim, weapon_damage_type, NULL, 0, true, false);
+                Strike(pVictim, weapon_damage_type, NULL, 0, 0, true, false);
             }
             attacks.erase(attacks.begin());
         }
@@ -2254,9 +2255,9 @@ bool Unit::UpdateAutoAttackState()
     {
         WorldPacket data;
         if (swingError == 1)
-            plr->GetSession()->OutPacket(SMSG_ATTACKSWING_BADFACING);
+            plr->PushData(SMSG_ATTACKSWING_BADFACING);
         else if (swingError == 2)
-            plr->GetSession()->OutPacket(SMSG_ATTACKSWING_NOTINRANGE);
+            plr->PushData(SMSG_ATTACKSWING_NOTINRANGE);
         plr->SetLastSwingError(swingError);
     }
 
@@ -2266,7 +2267,7 @@ bool Unit::UpdateAutoAttackState()
 void Unit::EventAttack( Unit *target, WeaponDamageType attackType )
 {
     if (!m_spellInterface.getNextMeleeSpell() || attackType == OFFHAND)
-        Strike( target, attackType, NULL, 0, false, false, true);
+        Strike( target, attackType, NULL, 0, 0, false, false, true);
     else m_spellInterface.TriggerNextMeleeSpell(target);
 }
 
@@ -2562,7 +2563,7 @@ void Unit::SetStandState(uint8 standstate)
         m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_STAND_UP);
 
     if( GetTypeId() == TYPEID_PLAYER )
-        castPtr<Player>(this)->GetSession()->OutPacket( SMSG_STANDSTATE_UPDATE, 1, &standstate );
+        castPtr<Player>(this)->PushData( SMSG_STANDSTATE_UPDATE, 1, &standstate );
 }
 
 void Unit::EventSummonPetExpire()

@@ -90,9 +90,10 @@ void SpellEffectClass::HandleEffects(uint32 i, SpellTarget *spTarget, WorldObjec
 
 void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTarget)
 {
-    if(spTarget->accumAmount && unitTarget->isAlive() && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, spTarget->EffectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, spTarget->EffectMask)
-        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, spTarget->EffectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, spTarget->EffectMask)
-        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, spTarget->EffectMask) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, spTarget->EffectMask)))
+    uint8 effIndex = 0xFF;
+    if(spTarget->accumAmount && unitTarget->isAlive() && (m_spellInfo->HasEffect(SPELL_EFFECT_SCHOOL_DAMAGE, spTarget->EffectMask, &effIndex) || m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, spTarget->EffectMask, &effIndex)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL, spTarget->EffectMask, &effIndex) || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_PERCENT_DAMAGE, spTarget->EffectMask, &effIndex)
+        || m_spellInfo->HasEffect(SPELL_EFFECT_WEAPON_DAMAGE, spTarget->EffectMask, &effIndex) || m_spellInfo->HasEffect(SPELL_EFFECT_DUMMYMELEE, spTarget->EffectMask, &effIndex)))
     {
         if(_unitCaster->IsPlayer() && unitTarget->IsPlayer() && _unitCaster != unitTarget)
         {
@@ -104,7 +105,7 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTar
 
         if(m_spellInfo->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
             _unitCaster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, spTarget->accumAmount, spTarget->resistMod, false, false);
-        else _unitCaster->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, spTarget->accumAmount, false, true);
+        else _unitCaster->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, effIndex, spTarget->accumAmount, false, true);
 
         if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, spTarget->EffectMask))
         {

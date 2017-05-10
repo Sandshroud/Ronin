@@ -552,7 +552,7 @@ void WorldSession::HandleSetVisibleRankOpcode(WorldPacket &recvPacket)
 void WorldSession::HandleReportSpamOpcode(WorldPacket & recvPacket)
 {
     // the 0 in the out packet is unknown
-    GetPlayer()->GetSession()->OutPacket(SMSG_COMPLAIN_RESULT, 1, 0 );
+    OutPacket(SMSG_COMPLAIN_RESULT, 1, 0 );
 
     /* This whole thing is guess-work */
     /*uint8 unk1;

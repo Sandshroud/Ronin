@@ -1019,7 +1019,34 @@ struct SpellEntry
     bool AppliesAura(uint32 auraName) { return (EffectApplyAuraName[0] == auraName || EffectApplyAuraName[1] == auraName || EffectApplyAuraName[2] == auraName); }
     uint32 GetAuraApplicationMask() { return (EffectApplyAuraName[0] ? 0x01 : 0x00) | (EffectApplyAuraName[1] ? 0x02 : 0x00) | (EffectApplyAuraName[2] ? 0x04 : 0x00); }
 
-    bool HasEffect(uint32 spellEffect, uint8 effectMask = 0xFF) { return ((Effect[0] == spellEffect && effectMask&0x01) || (Effect[1] == spellEffect && effectMask&0x02) || (Effect[2] == spellEffect && effectMask&0x04)); }
+    bool HasEffect(uint32 spellEffect, uint8 effectMask = 0xFF, uint8 *returnIndex = NULL)
+    {
+        if(Effect[0] == spellEffect && effectMask&0x01)
+        {
+            if(returnIndex)
+                *returnIndex = 0;
+            return true;
+        }
+
+        if(Effect[1] == spellEffect && effectMask&0x02)
+        {
+            if(returnIndex)
+                *returnIndex = 1;
+            return true;
+        }
+
+        if(Effect[2] == spellEffect && effectMask&0x04)
+        {
+            if(returnIndex)
+                *returnIndex = 2;
+            return true;
+        }
+
+        if(returnIndex)
+            *returnIndex = 0xFF;
+        return false;
+    }
+
     bool GetEffectIndex(uint32 spellEffect, uint8 &index)
     {
         if(Effect[0] == spellEffect) { index = 0; return true; }

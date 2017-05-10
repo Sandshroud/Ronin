@@ -456,7 +456,7 @@ void GameObject::UseFishingNode(Player* player)
 {
     if( GetUInt32Value( GAMEOBJECT_FLAGS ) != 32 ) // Clicking on the bobber before something is hooked
     {
-        player->GetSession()->OutPacket( SMSG_FISH_NOT_HOOKED );
+        player->PushData( SMSG_FISH_NOT_HOOKED );
         EndFishing( player, true );
         return;
     }
@@ -474,7 +474,7 @@ void GameObject::UseFishingNode(Player* player)
     }
     else // Failed
     {
-        player->GetSession()->OutPacket( SMSG_FISH_ESCAPED );
+        player->PushData( SMSG_FISH_ESCAPED );
         EndFishing( player, true );
     }
 

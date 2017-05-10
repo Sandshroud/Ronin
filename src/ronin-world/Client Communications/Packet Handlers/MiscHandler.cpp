@@ -70,7 +70,7 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
     loot->_lootedItems.push_back(lootSlot);
 
     _player->GetInventory()->AddItemById(item->proto->ItemId, item->StackSize, item->randProp, ADDITEM_FLAG_LOOTED);
-    _player->GetSession()->OutPacket(SMSG_LOOT_REMOVED, 1, &lootSlot);
+    _player->PushData(SMSG_LOOT_REMOVED, 1, &lootSlot);
 }
 
 void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
@@ -95,7 +95,7 @@ void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )
     for(LooterSet::iterator itr = pLootEnt->GetLoot()->looters.begin(); itr != pLootEnt->GetLoot()->looters.end(); itr++)
     {
         if((plr = _player->GetMapInstance()->GetPlayer(*itr)))
-            plr->GetSession()->OutPacket(SMSG_LOOT_CLEAR_MONEY);
+            plr->PushData(SMSG_LOOT_CLEAR_MONEY);
     }
 
     WorldPacket pkt(SMSG_LOOT_MONEY_NOTIFY, 100);

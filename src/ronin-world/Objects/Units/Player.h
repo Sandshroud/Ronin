@@ -645,6 +645,8 @@ public:
 
     // Session interaction
     // SESSION SAFE | Pushes packets when inworld, if not then check if queue size and push to back or send directly
+    void PushData(uint16 opcode, uint16 len = 0, const void* data = NULL, bool direct = false);
+    // SESSION SAFE | Pushes packets when inworld, if not then check if queue size and push to back or send directly
     void PushPacket(WorldPacket *data, bool direct = false);
     void PushPacketToQueue(WorldPacket *data);
 
@@ -1145,7 +1147,7 @@ public:
 
     void SetShapeShift(uint8 ss);
     uint32 GetSpellForShapeshiftForm(uint8 ss, bool spellchecks = false);
-    void SendCinematic(uint32 cinematicid) { GetSession()->OutPacket(SMSG_TRIGGER_CINEMATIC, 4, &cinematicid); };
+    void SendCinematic(uint32 cinematicid) { PushData(SMSG_TRIGGER_CINEMATIC, 4, &cinematicid); };
 
     // Rest
     void HandleRestedCalculations(bool rest_on);

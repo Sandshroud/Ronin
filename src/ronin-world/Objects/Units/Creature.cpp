@@ -1067,7 +1067,7 @@ void Creature::SendTaxiList(Player *plr)
         {
             plr->AddTaxiMask(curloc);
 
-            plr->GetSession()->OutPacket(SMSG_NEW_TAXI_PATH);
+            plr->PushData(SMSG_NEW_TAXI_PATH);
 
             //Send packet
             data.Initialize(SMSG_TAXINODE_STATUS, 9);

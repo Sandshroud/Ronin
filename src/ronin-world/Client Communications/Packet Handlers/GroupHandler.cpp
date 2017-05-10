@@ -172,8 +172,8 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
                 _player->iRaidType = grp->GetLeader()->m_loggedInPlayer->iRaidType;
             }
 
-            _player->GetSession()->OutPacket(MSG_SET_DUNGEON_DIFFICULTY, 4, &_player->iInstanceType);
-            _player->GetSession()->OutPacket(MSG_SET_RAID_DIFFICULTY, 4, &_player->iRaidType);
+            _player->PushData(MSG_SET_DUNGEON_DIFFICULTY, 4, &_player->iInstanceType);
+            _player->PushData(MSG_SET_RAID_DIFFICULTY, 4, &_player->iRaidType);
         }
         return;
     }
@@ -186,8 +186,8 @@ void WorldSession::HandleGroupAcceptOpcode( WorldPacket & recv_data )
     grp->SetRaidDifficulty(player->iRaidType);  // Set our raid difficulty.
     _player->iInstanceType = player->iInstanceType;
     _player->iRaidType = player->iRaidType;
-    _player->GetSession()->OutPacket(MSG_SET_DUNGEON_DIFFICULTY, 4, &player->iInstanceType);
-    _player->GetSession()->OutPacket(MSG_SET_RAID_DIFFICULTY, 4, &player->iRaidType);
+    _player->PushData(MSG_SET_DUNGEON_DIFFICULTY, 4, &player->iInstanceType);
+    _player->PushData(MSG_SET_RAID_DIFFICULTY, 4, &player->iRaidType);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
