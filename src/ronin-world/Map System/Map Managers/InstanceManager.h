@@ -47,11 +47,16 @@ public:
     // Grab that instance stuff
     MapInstance *GetInstanceForObject(WorldObject *obj);
 
+    void ResetInstanceLinks(Player *plr);
+    bool GetLinkedInstanceID(Player *plr, MapEntry *map, uint32 difficulty, uint32 &instanceId, bool groupFinder);
+
     // Pre teleport check for instance creation 
-    uint32 PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate = true);
+    uint32 PreTeleportInstanceCheck(PlayerInfo *info, MapEntry *map, uint32 instanceId);
 
     uint32 AllocateCreatureGuid() { counterLock.Acquire(); uint32 ret = ++m_creatureGUIDCounter; counterLock.Release(); return ret; };
     uint32 AllocateGameObjectGuid() { counterLock.Acquire(); uint32 ret = ++m_gameObjectGUIDCounter; counterLock.Release(); return ret; };
+
+    bool LinkGuidToInstance(MapInstance *instance, WoWGuid guid, bool groupFinder);
 
 private:
     Map *GetMapData(uint32 mapId) { Map *ret = NULL; mapDataLock.Acquire(); ret = m_mapData.find(mapId) == m_mapData.end() ? NULL : m_mapData.at(mapId); mapDataLock.Release(); return ret; }
@@ -78,6 +83,13 @@ private:
 
     // instance data storage
     InstanceDataMap m_instanceData;
+
+    // Instance player linking
+    typedef std::map<WoWGuid, Loki::AssocVector<uint32, uint32>> LinkedGuidDungeons;
+    typedef std::map<uint32, std::set<WoWGuid>> DungeonLinkedGuids;
+
+    LinkedGuidDungeons m_guidLinkedDungeons;
+    DungeonLinkedGuids m_dungeonLinkedGuids;
 
     // Map data storage
     Mutex mapDataLock;

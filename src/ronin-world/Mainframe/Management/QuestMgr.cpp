@@ -376,22 +376,24 @@ void QuestMgr::LoadQuests()
 
 void QuestMgr::AppendQuestList(Object *obj, Player *plr, uint32 &count, WorldPacket *packet)
 {
-    QuestRelationList *list;
+    QuestRelationListMap *map;
     switch(obj->GetHighGUID())
     {
-    case HIGHGUID_TYPE_ITEM: list = m_itm_quests[obj->GetEntry()]; break;
-    case HIGHGUID_TYPE_UNIT: list = m_npc_quests[obj->GetEntry()]; break;
-    case HIGHGUID_TYPE_GAMEOBJECT: list = m_obj_quests[obj->GetEntry()]; break;
+    case HIGHGUID_TYPE_ITEM: map = &m_itm_quests; break;
+    case HIGHGUID_TYPE_UNIT: map = &m_npc_quests; break;
+    case HIGHGUID_TYPE_GAMEOBJECT: map = &m_obj_quests; break;
     }
-    if(list != NULL && !list->empty())
+
+    QuestRelationListMap::iterator itr;
+    if(map && ((itr = map->find(obj->GetEntry())) != map->end()) && !itr->second->empty())
     {   // Process through our quest relation list and build our quest list packet and increment counter
-        for(QuestRelationList::iterator itr = list->begin(); itr != list->end(); ++itr)
+        for(QuestRelationList::iterator listItr = itr->second->begin(); listItr != itr->second->end(); ++listItr)
         {
-            uint32 status = CalcQuestStatus(plr, *itr);
+            uint32 status = CalcQuestStatus(plr, *listItr);
             if(status <= QMGR_QUEST_AVAILABLELOW_LEVEL)
                 continue;
 
-            BuildGossipQuest(packet, (*itr)->qst, status, plr);
+            BuildGossipQuest(packet, (*listItr)->qst, status, plr);
             ++count;
         }
     }
@@ -414,21 +416,17 @@ uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck)
     std::list<uint32>::iterator itr;
     uint32 status = QMGR_QUEST_AVAILABLE;
 
-    if(qst->qst_previous_quest_id)
-        if(!(plr->HasFinishedQuest(qst->qst_previous_quest_id)))
-            return QMGR_QUEST_NOT_AVAILABLE;
+    if(qst->qst_previous_quest_id && !(plr->HasFinishedQuest(qst->qst_previous_quest_id)))
+        return QMGR_QUEST_NOT_AVAILABLE;
 
-    if(qst->required_team >= 0)
-        if(qst->required_team != plr->GetTeam())
-            return QMGR_QUEST_NOT_AVAILABLE;
+    if(qst->required_team >= 0 && qst->required_team != plr->GetTeam())
+        return QMGR_QUEST_NOT_AVAILABLE;
 
-    if(qst->required_class)
-        if(!(qst->required_class & plr->getClassMask()))
-            return QMGR_QUEST_NOT_AVAILABLE;
+    if(qst->required_class && !(qst->required_class & plr->getClassMask()))
+        return QMGR_QUEST_NOT_AVAILABLE;
 
-    if(qst->required_races)
-        if(!(qst->required_races & plr->getRaceMask()))
-            return QMGR_QUEST_NOT_AVAILABLE;
+    if(qst->required_races && !(qst->required_races & plr->getRaceMask()))
+        return QMGR_QUEST_NOT_AVAILABLE;
 
     if(qst->required_tradeskill)
     {

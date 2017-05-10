@@ -61,15 +61,16 @@ enum INSTANCE_ABORT_ERROR
     INSTANCE_ABORT_FULL                         = 2,
     INSTANCE_ABORT_NOT_FOUND                    = 3,
     INSTANCE_ABORT_TOO_MANY                     = 4,
-    INSTANCE_ABORT_ENCOUNTER                    = 5,
-    INSTANCE_ABORT_NON_CLIENT_TYPE              = 6,
-    INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE    = 7,
-    INSTANCE_ABORT_NOT_IN_RAID_GROUP            = 8,
-    INSTANCE_ABORT_MAX_CLIENT_IDS               = 8,
+    INSTANCE_ABORT_ENCOUNTER                    = 6,
+    INSTANCE_ABORT_NON_CLIENT_TYPE              = 7,
+    INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE    = 8,
+    INSTANCE_ABORT_CANNOT_LAUNCH_MORE           = 10,
+    INSTANCE_ABORT_NOT_IN_RAID_GROUP            = 11,
+    INSTANCE_ABORT_MAX_CLIENT_IDS               = 11,
 
-    INSTANCE_ABORT_INSTANCE_CLOSING             = 9,
-    INSTANCE_ABORT_RESET_POS                    = 10,
-    INSTANCE_OK                                 = 11
+    INSTANCE_ABORT_INSTANCE_CLOSING             = 18,
+    INSTANCE_ABORT_RESET_POS                    = 19,
+    INSTANCE_OK                                 = 0xFF
 };
 
 enum OWNER_CHECK
@@ -132,7 +133,7 @@ public:
     }
 
     uint8 ValidateMapId(uint32 mapId);
-    uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid);
+    uint32 PreTeleport(uint32 mapid, Player* plr, uint32 &instanceid, bool groupFinderDungeon);
 
     bool PushToWorldQueue(WorldObject *obj);
     MapInstance *GetInstance(WorldObject* obj);
@@ -284,6 +285,7 @@ private:
     void _InitializeContinent(MapEntry *mapEntry, Map *map);
     void _InitializeBattleGround(MapEntry *mapEntry, Map *map);
     void _InitializeInstance(MapEntry *mapEntry, Map *map);
+    void _InitializeRaid(MapEntry *mapEntry, Map *map);
 
     void ProcessPreSpawnLoadTables();
 

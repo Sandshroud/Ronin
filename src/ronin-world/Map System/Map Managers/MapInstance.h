@@ -28,6 +28,7 @@
 class MapCell;
 class MapManager;
 class WorldObject;
+class InstanceData;
 class WorldSession;
 class GameObject;
 class Creature;
@@ -377,7 +378,7 @@ public:
 // Map initializers and functions
 ///////////////////////////////////
 public:
-    MapInstance(Map *map, uint32 mapid, uint32 instanceid);
+    MapInstance(Map *map, uint32 mapid, uint32 instanceid, InstanceData *data = NULL);
     ~MapInstance();
 
     void Preload();
@@ -403,6 +404,8 @@ public:
     static bool canObjectsInteract(WorldObject *obj, WorldObject *curObj);
     static bool IsInRange(float fRange, WorldObject* obj, WorldObject* currentobj, float &distOut);
     static bool InZRange(float fRange, WorldObject* obj, WorldObject* currentobj);
+
+    void OnGroupEnter(Player *plr, Group *grp);
 
     // Generally an expansion indicator
     uint32 GetZoneModifier(uint32 zoneId);
@@ -660,7 +663,7 @@ public:
     WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
 
     bool IsClosing() { return false; }
-    bool IsFull() { return false; }
+    uint32 IsFull(PlayerInfo *info);
 
     void AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
     void RemoveZoneVisibleSpawn(uint32 zoneId, WorldObject *obj);
@@ -732,4 +735,12 @@ public:
 ///////////////////////////////////
     Unit* GetUnit(WoWGuid guid);
     WorldObject* _GetObject(WoWGuid guid);
+
+private:
+    struct MapInstanceData
+    {
+        uint32 difficulty;
+        uint32 linkedGroupId;
+        uint32 encounterMask;
+    } *m_instanceData;
 };

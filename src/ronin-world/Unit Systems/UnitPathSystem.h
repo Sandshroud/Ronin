@@ -37,6 +37,7 @@ enum PacketBroadcastFlags
     MOVEBCFLAG_NONE     = 0x00,
     MOVEBCFLAG_UNCOMP   = 0x01,
 
+    MOVEBCFLAG_DELAYED  = 0x08,
 };
 
 class UnitPathSystem
@@ -83,6 +84,9 @@ public:
 
     void BroadcastMovementPacket(uint8 packetSendFlags = 0);
     void SendMovementPacket(Player *plr, uint8 packetSendFlags = 0);
+
+    void AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage);
+    void AppendMoveBytes(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage);
 
 private:
     Unit *m_Unit, *m_followTarget;

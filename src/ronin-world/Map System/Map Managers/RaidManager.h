@@ -18,3 +18,21 @@
  */
 
 #pragma once
+
+class SERVER_DECL RaidManager
+{
+public:
+    RaidManager();
+    ~RaidManager();
+
+    void Destruct();
+
+    // Grab those raids boi
+    MapInstance *GetInstanceForObject(WorldObject *obj);
+
+    // Quick storage of map data for checking raid allocation later
+    void AddMapData(MapEntry *entry, Map *map) { }
+
+};
+
+extern SERVER_DECL RaidManager sRaidMgr;

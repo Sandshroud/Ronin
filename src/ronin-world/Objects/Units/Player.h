@@ -646,6 +646,7 @@ public:
     // Session interaction
     // SESSION SAFE | Pushes packets when inworld, if not then check if queue size and push to back or send directly
     void PushPacket(WorldPacket *data, bool direct = false);
+    void PushPacketToQueue(WorldPacket *data);
 
     // Do not use for packets, use push instead
     RONIN_INLINE WorldSession* GetSession() const { return m_session; }
@@ -664,6 +665,8 @@ public:
 
     bool hasGMTag() { return HasFlag(PLAYER_FLAGS, PLAYER_FLAG_GM|PLAYER_FLAG_DEVELOPER); }
     bool hasCooldownCheat() { return false; }
+
+    uint32 GetDifficulty(MapEntry *map);
 
 public: /// Interface Interaction Functions
     RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
@@ -796,14 +799,6 @@ public: /// Player field based functions
 
     uint32 CalcTalentResetCost(uint32 resetnum);
     void SendTalentResetConfirm();
-
-    // Instance system
-    void ResetAllInstanceLinks();
-    bool CanCreateNewDungeon(uint32 mapId);
-    bool LinkToInstance(MapInstance *instance);
-    uint32 GetLinkedInstanceID(MapEntry *mapEntry);
-    std::map<std::pair<uint32, uint8>, uint32> m_savedInstanceIDs;
-    std::deque<std::pair<uint32, time_t>> m_instanceLinkTimers;
 
     /************************************************************************/
     /* Skill System                                                         */

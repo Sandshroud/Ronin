@@ -458,6 +458,10 @@ protected:
     void HandleItemRefundRequestOpcode( WorldPacket& recvPacket );
     void HandleItemReforgeOpcode( WorldPacket& recvPacket );
     void HandleTransmogrifyItemsOpcode( WorldPacket& recvPacket );
+    void HandleVoidStorageQueryOpcode( WorldPacket &recvPacket ) {}
+    void HandleVoidStorageTransferOpcode( WorldPacket &recvPacket ) {}
+    void HandleVoidStorageUnlockOpcode( WorldPacket &recvPacket ) {}
+    void HandleVoidStorageSwapItemOpcode( WorldPacket &recvPacket ) {}
 
     /// Combat opcodes (CombatHandler.cpp)
     void HandleAttackSwingOpcode(WorldPacket& recvPacket);

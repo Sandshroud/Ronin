@@ -671,6 +671,26 @@ void Player::PushPacket(WorldPacket *data, bool direct)
     else m_session->SendPacket(data);
 }
 
+void Player::PushPacketToQueue(WorldPacket *data)
+{
+    if(m_session == NULL)
+        return;
+
+    m_packetQueue.add(new WorldPacket(*data));
+    // First packet push us into process set
+    if(IsInWorld() && m_packetQueue.size() == 1)
+        m_mapInstance->PushToProcessed(this);
+}
+
+uint32 Player::GetDifficulty(MapEntry *map)
+{
+    Group *group = GetGroup();
+
+    if(map->IsRaid())
+        return group ? group->GetRaidDifficulty() : iRaidType;
+    return group ? group->GetDifficulty() : iInstanceType;
+}
+
 void Player::ProcessImmediateItemUpdate(Item *item)
 {
     if(!IsInWorld())
@@ -4065,64 +4085,6 @@ void Player::SendTalentResetConfirm()
     PushPacket(&data);
 }
 
-void Player::ResetAllInstanceLinks()
-{
-    while(m_savedInstanceIDs.size())
-    {
-        std::pair<std::pair<uint32, uint8>, uint32> mapDiffInstance = *m_savedInstanceIDs.begin();
-        m_savedInstanceIDs.erase(m_savedInstanceIDs.begin());
-        //sInstanceMgr.DelinkPlayer(this, mapDiffInstance.second);
-    }
-}
-
-bool Player::CanCreateNewDungeon(uint32 mapId)
-{
-    if(!m_instanceLinkTimers.empty())
-    {
-        do
-        {
-            std::pair<uint32, time_t> timer = m_instanceLinkTimers.front();
-            if(timer.second+300 > UNIXTIME)
-                break;
-            m_instanceLinkTimers.pop_front();
-        }while(!m_instanceLinkTimers.empty());
-
-        if(m_instanceLinkTimers.size() >= 10)
-            return false;
-    }
-    return true;
-}
-
-bool Player::LinkToInstance(MapInstance *instance)
-{
-    if(m_instanceLinkTimers.size() >= 10)
-        return false;
-
-    uint8 difficulty = instance->IsRaid() ? iRaidType : iInstanceType;
-    uint32 mapId = instance->GetMapId(), instanceId = instance->GetInstanceID();
-    std::pair<uint32, uint8> mapDiffId = std::make_pair(mapId, difficulty);
-    if(m_savedInstanceIDs.find(mapDiffId) != m_savedInstanceIDs.end())
-        return m_savedInstanceIDs.at(mapDiffId) == instanceId;
-
-    m_savedInstanceIDs.insert(std::make_pair(mapDiffId, instanceId));
-    m_instanceLinkTimers.push_back(std::make_pair(instanceId, UNIXTIME));
-    return true;
-}
-
-uint32 Player::GetLinkedInstanceID(MapEntry *mapEntry)
-{
-    uint8 difficulty = mapEntry->IsRaid() ? iRaidType : iInstanceType;
-    /*if(Group *group = GetGroup())
-        return group->GetLinkedInstanceID(mapEntry, difficulty);
-    else*/
-    {
-        std::pair<uint32, uint8> mapDiffId = std::make_pair(mapEntry->MapID, difficulty);
-        if(m_savedInstanceIDs.find(mapDiffId) != m_savedInstanceIDs.end())
-            return m_savedInstanceIDs.at(mapDiffId);
-    }
-    return 0;
-}
-
 void Player::removeSpellByNameHash(uint32 hash)
 {
     SpellSet::iterator it,iter;
@@ -4260,7 +4222,8 @@ void Player::SendInitialLogonPackets()
     //    data << uint32(100000);           // RestrictedMoney (starter accounts)
     //if (HasRestrictedLevel)
     //    data << uint32(20);               // RestrictedLevel (starter accounts)
-    data << uint64(sWorld.GetWeekStart());  // LastWeeklyReset (not instance reset)
+    data << uint32(sWorld.GetWeekStart());  // LastWeeklyReset (not instance reset)
+    data << uint32(0);//sInstanceMgr.GetDungeonDifficulty(m_instanceId));
     PushPacket(&data, true);
 
     //Initial Spells
@@ -4650,19 +4613,11 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
     if(m_mapId != mapid || force_new_world)
     {
         //Preteleport will try to find an instance (saved or active), or create a new one if none found.
-        uint32 status = sWorldMgr.PreTeleport(mapid, this, instance_id);
-        if(status != INSTANCE_OK && status <= INSTANCE_ABORT_MAX_CLIENT_IDS)
-        {
-            data.Initialize(SMSG_TRANSFER_ABORTED);
-            data << mapid << status;
-            PushPacket(&data, pushHard);
-            return;
-        }
-
+        uint32 status = sWorldMgr.PreTeleport(mapid, this, instance_id, GetGroup() && GetGroup()->IsGroupFinderInstance(mapid));
         if(status != INSTANCE_OK)
         {
             data.Initialize(SMSG_TRANSFER_ABORTED);
-            data << mapid << uint32(INSTANCE_ABORT_ERROR_ERROR);
+            data << mapid << uint8(status <= INSTANCE_ABORT_MAX_CLIENT_IDS ? status : INSTANCE_ABORT_ERROR_ERROR) << uint8(0);
             PushPacket(&data, pushHard);
             return;
         }

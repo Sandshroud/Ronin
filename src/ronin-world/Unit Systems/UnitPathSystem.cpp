@@ -304,7 +304,7 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
     {
         data << uint32(m_pathCounter);
         data << uint8(4) << float( _destO );
-        data << uint32(0x00400000);
+        data << uint32(buildMonsterMoveFlags(MOVEBCFLAG_UNCOMP));
         data << uint32(m_pathLength - lastUpdatePoint.timeStamp);
 
         uint32 counter = 0;
@@ -343,7 +343,7 @@ void UnitPathSystem::SetOrientation(float orientation)
     data.appendvector(*pos);
     data << uint32(m_pathCounter);
     data << uint8(4) << float( m_Unit->GetOrientation() );
-    data << uint32(0x00400000) << uint32(0) << uint32(1);
+    data << uint32(buildMonsterMoveFlags(MOVEBCFLAG_UNCOMP)) << uint32(0) << uint32(1);
     data.appendvector(*pos);
     m_Unit->SendMessageToSet( &data, false );
 }
@@ -490,5 +490,69 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
     }
     data.put<uint32>(counterPos, counter);
 
-    plr->PushPacket(&data);
+    if(packetSendFlags & MOVEBCFLAG_DELAYED)
+        plr->PushPacketToQueue(&data);
+    else plr->PushPacket(&data);
+}
+
+void UnitPathSystem::AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage)
+{
+    bool finalized = false;
+    // Grab our start point data
+    LocationVector startPoint(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+    // If we have no path data but are broadcasting, check validity of last update point
+    if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
+        startPoint = *m_Unit->GetPositionV();
+    // Check if our starting point is also our destination or if we're just too far gone
+    if((startPoint.x == _destX && startPoint.y == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
+        finalized = true;
+    else if(closeToDestination(msTime))
+        finalized = true;
+    MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
+    if(lastPoint == NULL)
+        finalized = true;
+    if(!buffer->WriteBit(!finalized))
+        return;
+
+    for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
+        if(MovementPoint *path = m_movementPoints[i])
+            if(path->timeStamp > lastUpdatePoint.timeStamp)
+                pointStorage->push_back(path);
+
+    buffer->WriteBits<uint8>(0x00, 2); // Linear mode works
+    buffer->WriteBit(false); // We don't need to handle any flags here
+    buffer->WriteBits(pointStorage->size(), 22);
+    buffer->WriteBits<uint8>(0xFF, 2); // Target destination arrival flags
+    if(false); // Target destination flags, leave empty for now
+    buffer->WriteBit(false); // Parabolic pathing effect
+    buffer->WriteBits(buildMonsterMoveFlags(MOVEBCFLAG_UNCOMP), 25); // Spline movement flags different than normal?
+}
+
+void UnitPathSystem::AppendMoveBytes(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage)
+{
+    LocationVector dest(_destZ, _destX, _destY);
+    if(!pointStorage->empty())
+    {
+        if(false); // Parabolic pathing effect
+        buffer->append<int32>(std::max<int32>(0, msTime - lastUpdatePoint.timeStamp));
+        for(std::vector<MovementPoint*>::iterator itr = pointStorage->begin(); itr != pointStorage->end(); ++itr)
+        {
+            buffer->append<float>((*itr)->pos.z);
+            buffer->append<float>((*itr)->pos.x);
+            buffer->append<float>((*itr)->pos.y);
+        }
+
+        if(false); // Final point target
+
+        // Next point speed modification
+        buffer->append<float>(1.f);
+        buffer->append<int32>(m_pathLength-lastUpdatePoint.timeStamp);
+        if(false); // Parabolic pathing effect
+        // current point speed modification
+        buffer->append<float>(1.f);
+    }
+
+    if(false) dest.ChangeCoords(0.f, 0.f, 0.f);
+    buffer->appendvector(dest);
+    buffer->append<uint32>(m_pathCounter);
 }

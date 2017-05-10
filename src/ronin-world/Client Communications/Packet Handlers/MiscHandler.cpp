@@ -1133,7 +1133,7 @@ void WorldSession::HandleCompleteCinematic(WorldPacket& recv_data)
 
 void WorldSession::HandleResetInstanceOpcode(WorldPacket& recv_data)
 {
-    _player->ResetAllInstanceLinks();
+    sInstanceMgr.ResetInstanceLinks(_player);
 }
 
 void WorldSession::HandleToggleCloakOpcode(WorldPacket& recv_data)
@@ -1175,12 +1175,11 @@ void WorldSession::HandleDungeonDifficultyOpcode(WorldPacket& recv_data)
 
     if(_player->GetGroup() && _player->IsGroupLeader())
     {
-        WorldPacket pData;
-        pData.Initialize(MSG_SET_DUNGEON_DIFFICULTY);
+        WorldPacket pData(MSG_SET_DUNGEON_DIFFICULTY, 4);
         pData << data;
 
         _player->iInstanceType = data;
-        _player->ResetAllInstanceLinks();
+        sInstanceMgr.ResetInstanceLinks(_player);
 
         Group * m_Group = _player->GetGroup();
 
@@ -1202,7 +1201,7 @@ void WorldSession::HandleDungeonDifficultyOpcode(WorldPacket& recv_data)
     else if(!_player->GetGroup())
     {
         _player->iInstanceType = data;
-        _player->ResetAllInstanceLinks();
+        sInstanceMgr.ResetInstanceLinks(_player);
     }
 }
 

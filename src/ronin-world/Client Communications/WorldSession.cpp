@@ -738,6 +738,10 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_ITEM_REFUND].handler                           = &WorldSession::HandleItemRefundRequestOpcode;
     WorldPacketHandlers[CMSG_REFORGE_ITEM].handler                          = &WorldSession::HandleItemReforgeOpcode;
     WorldPacketHandlers[CMSG_TRANSMOGRIFY_ITEMS].handler                    = &WorldSession::HandleTransmogrifyItemsOpcode;
+    WorldPacketHandlers[CMSG_VOID_STORAGE_QUERY].handler                    = &WorldSession::HandleVoidStorageQueryOpcode;
+    WorldPacketHandlers[CMSG_VOID_STORAGE_TRANSFER].handler                 = &WorldSession::HandleVoidStorageTransferOpcode;
+    WorldPacketHandlers[CMSG_VOID_STORAGE_UNLOCK].handler                   = &WorldSession::HandleVoidStorageUnlockOpcode;
+    WorldPacketHandlers[CMSG_VOID_SWAP_ITEM].handler                        = &WorldSession::HandleVoidStorageSwapItemOpcode;
 
     // Spell System / Talent System
     WorldPacketHandlers[CMSG_USE_ITEM].handler                              = &WorldSession::HandleUseItemOpcode;

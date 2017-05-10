@@ -175,10 +175,13 @@ void VMapInterface::GetWMOData(MapInstance *instance, uint32 mapId, float x, flo
         // Set our area Id
         if(WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupId))
             areaId = WMOEntry->areaId;
+        // Area table lookup
+        AreaTableEntry* ate = dbcAreaTable.LookupEntry(areaId);
         // Indoor checks
         if(WMOEntry && !(WMOEntry->Flags & 0x4) && !(adtFlags & VMAP::WMO_FLAG_WMO_NO_INSIDE))
         {   // Inside the WMO
-            areaFlags |= OBJECT_AREA_FLAG_INDOORS;
+            if(((adtFlags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS) == 0) && (ate == NULL || (ate->AreaFlags & AREA_OUTSIDE) == 0))
+                areaFlags |= OBJECT_AREA_FLAG_INDOORS;
             // If we're indoors, and we have water flag, ignore ADT water
             if(wmoFlags & VMAP::WMO_FLAG_HAS_WMO_LIQUID)
                 areaFlags |= OBJECT_AREA_FLAG_IGNORE_ADT_WATER;
@@ -189,10 +192,9 @@ void VMapInterface::GetWMOData(MapInstance *instance, uint32 mapId, float x, flo
             //&& (flags & VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS)
             && !(adtFlags & VMAP::WMO_FLAG_OUTSIDE_WMO_BOUNDS))
             areaFlags |= OBJECT_AREA_FLAG_INCITY;
-        else if(WMOEntry && (adtFlags & (VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS|VMAP::WMO_FLAG_INSIDE_SLAVE_WMO)))
-            if(AreaTableEntry* ate = dbcAreaTable.LookupEntry(WMOEntry->areaId))
-                if(ate->AreaFlags & AREA_CITY_AREA || ate->AreaFlags & AREA_CITY)
-                    areaFlags |= OBJECT_AREA_FLAG_INCITY;
+        else if(WMOEntry && ate && (adtFlags & (VMAP::WMO_FLAG_INSIDE_WMO_BOUNDS|VMAP::WMO_FLAG_INSIDE_SLAVE_WMO)))
+            if(ate->AreaFlags & AREA_CITY_AREA || ate->AreaFlags & AREA_CITY)
+                areaFlags |= OBJECT_AREA_FLAG_INCITY;
     }
 
     // release write lock

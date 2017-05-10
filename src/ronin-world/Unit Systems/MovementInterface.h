@@ -383,7 +383,7 @@ public:
     bool isPitching() { return hasFlag(MOVEMENTFLAG_MASK_PITCHING); }
 
     // Spline moving
-    bool isSplineMovingActive() { return false; }
+    bool isSplineMovingActive();
 
     // Underwater state
     uint8 GetUnderwaterState() { return m_underwaterState; }
@@ -480,7 +480,7 @@ private:
     float _CalculateSpeed(MovementSpeedTypes speedType);
 
 public:
-    void AppendSplineData(bool bits, ByteBuffer *buffer);
+    void AppendSplineData(bool bits, ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage);
     void WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes);
 
     // Movement codes

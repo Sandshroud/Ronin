@@ -222,6 +222,8 @@ bool Group::AddMember(PlayerInfo * info, int32 subgroupid/* =-1 */, bool silent/
             info->subGroup = (int8)subgroup->GetID();
 
             m_groupLock.Release();
+            if(pPlayer && pPlayer->GetMapInstance()->IsInstance())
+                pPlayer->GetMapInstance()->OnGroupEnter(pPlayer, this);
             if(silent == false) UpdateOutOfRangePlayer(info, GROUP_UPDATE_FULL, true, NULL);
             return true;
         }
@@ -1295,6 +1297,14 @@ void Group::SetAssistantLeader(PlayerInfo * pMember)
     m_assistantLeader = pMember;
     m_dirty = true;
     Update();
+}
+
+bool Group::IsGroupFinderInstance(uint32 mapId)
+{
+    LFGDungeonsEntry *entry;
+    if(m_lfdData && (entry = dbcLFGDungeons.LookupEntry(m_lfdData->dungeonId)))
+        return entry->mapId == mapId;
+    return false;
 }
 
 bool Group::HasAcceptableDisenchanters(int32 requiredskill)

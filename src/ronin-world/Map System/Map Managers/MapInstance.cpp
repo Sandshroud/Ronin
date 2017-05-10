@@ -24,12 +24,11 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
+MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData *data) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
 _processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this),
 _DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
 {
     m_mapPreloading = false;
-    iInstanceMode = 0;
 
     m_GOHighGuid = 0;
     m_CreatureHighGuid = 0;
@@ -60,6 +59,12 @@ _DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
 
     projectileSpellUpdateTime[0] = projectileSpellUpdateTime[1] = 0;
     projectileSpellIndex[0] = projectileSpellIndex[1] = 0;
+
+    if(m_instanceData = data ? new MapInstance::MapInstanceData() : NULL)
+    {
+        m_instanceData->difficulty = data->getDifficulty();
+        m_instanceData->linkedGroupId = 0;
+    }
 }
 
 MapInstance::~MapInstance()
@@ -350,6 +355,9 @@ void MapInstance::PushObject(WorldObject* obj)
     if(plObj)
     {
         MapSessions.insert(plObj->GetSession());
+
+        if(Group *grp = plObj->GetGroup())
+            OnGroupEnter(plObj, grp);
 
         // Change the instance ID, this will cause it to be removed from the world thread (return value 1)
         plObj->GetSession()->SetEventInstanceId(GetInstanceID());
@@ -687,7 +695,11 @@ void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject 
         plObj2->AddVisibleObject(obj);
         obj->GetCellManager()->AddVisibleBy(plObj2->GetGUID());
         if(uint32 count = obj->BuildCreateUpdateBlockForPlayer(&_instance->m_createBuffer, plObj2))
+        {
             plObj2->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
+            if(obj->IsUnit() && castPtr<Unit>(obj)->GetMovementInterface()->GetPath()->hasDestination())
+                castPtr<Unit>(obj)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj2, MOVEBCFLAG_DELAYED);
+        }
         _instance->m_createBuffer.clear();
     }
 
@@ -696,7 +708,11 @@ void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject 
         plObj->AddVisibleObject( curObj );
         curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
         if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &_instance->m_createBuffer, plObj ))
+        {
             plObj->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
+            if(curObj->IsUnit() && castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->hasDestination())
+                castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
+        }
         _instance->m_createBuffer.clear();
     }
 }
@@ -804,7 +820,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
     if(apply && areamask == 0)
     {
         m_mapPreloading = true;
-        sLog.Info("MapInstance", "Updating all cells for map %03u, server might lag.", _mapId);
+        if(m_instanceID == 0) sLog.Info("MapInstance", "Updating all cells for map %03u, server might lag.", _mapId);
         for(SpawnsMap::iterator itr = _map->GetSpawnsMapBegin(); itr != _map->GetSpawnsMapEnd(); itr++)
         {
             MapCell *cellInfo = GetCell(itr->first.first, itr->first.second);
@@ -819,7 +835,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
             cellInfo->LoadCellData(&itr->second);
             AddForcedCell(cellInfo, 0);
         }
-        sLog.Success("MapInstance", "Cell preload for map %03u finished", _mapId);
+        if(m_instanceID == 0) sLog.Success("MapInstance", "Cell preload for map %03u finished", _mapId);
         m_mapPreloading = false;
     }
     else
@@ -1370,6 +1386,20 @@ void MapInstance::AddObject(WorldObject* obj)
     m_objectinsertlock.Release();
 }
 
+uint32 MapInstance::IsFull(PlayerInfo *info)
+{
+    if(!m_PlayerStorage.empty())
+    {
+        if(m_PlayerStorage.size() >= GetdbcMap()->maxPlayers)
+            return INSTANCE_ABORT_FULL;
+        if(m_instanceData && m_instanceData->linkedGroupId)
+            if(info->m_Group == NULL || info->m_Group->GetID() != m_instanceData->linkedGroupId)
+                return INSTANCE_ABORT_CREATE_NEW_INSTANCE;
+    }
+
+    return INSTANCE_OK;
+}
+
 void MapInstance::AddZoneVisibleSpawn(uint32 zoneId, WorldObject *obj)
 {
     m_fullRangeObjectsByZone[zoneId].push_back(obj);
@@ -1840,6 +1870,15 @@ bool MapInstance::InZRange(float fRange, WorldObject* obj, WorldObject *curObj)
     if((heightDifference*heightDifference) >= fRange)
         return false;
     return true;
+}
+
+void MapInstance::OnGroupEnter(Player *plr, Group *grp)
+{
+    if(m_instanceData == NULL || m_instanceData->linkedGroupId)
+        return;
+
+    if(sInstanceMgr.LinkGuidToInstance(this, grp->GetGuid(), false))
+        m_instanceData->linkedGroupId = grp->GetID();
 }
 
 uint32 MapInstance::GetZoneModifier(uint32 zoneId)

@@ -67,10 +67,11 @@ void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::Gro
     counterLock.Release();
 
     instanceStorageLock.Acquire();
-    MapInstance *instance = new MapInstance(mapData, mapId, dungeon->instanceId);
+    MapInstance *instance = new MapInstance(mapData, mapId, dungeon->instanceId, new InstanceData());
     _AddInstance(dungeon->instanceId, instance);
     instanceStorageLock.Release();
 
+    LinkGuidToInstance(instance, grp->GetGuid(), true);
     LocationVector destination(dungeon->dataEntry->x, dungeon->dataEntry->y, dungeon->dataEntry->z, dungeon->dataEntry->o);
     for(uint32 i = 0; i < grp->GetSubGroupCount(); ++i)
     {
@@ -79,7 +80,11 @@ void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::Gro
             continue;
 
         for(auto itr = sub->GetGroupMembersBegin(); itr != sub->GetGroupMembersEnd(); ++itr)
-            (*itr)->m_loggedInPlayer->SafeTeleport(instance, destination);
+        {
+            if(Player *plr = (*itr)->m_loggedInPlayer)
+                plr->SafeTeleport(instance, destination);
+            LinkGuidToInstance(instance, (*itr)->charGuid, true);
+        }
     }
 }
 
@@ -88,8 +93,11 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
     Map *mapData = NULL;
     MapInstance *ret = NULL;
     uint32 mapId = obj->GetMapId(), instanceId = obj->GetInstanceID();
-    // If we're a player without a group, we can't load into raids so just return here to prevent loading an instance we won't use
-    if((mapData = GetMapData(mapId)) && obj->IsPlayer() && mapData->GetEntry()->IsRaid() && castPtr<Player>(obj)->GetGroup() == NULL)
+    // Instance manager only handles dungeon maps, return if we have no data
+    if((mapData = GetMapData(mapId)) == NULL)
+        return ret;
+    // Check if we have a linked instance or if we're not able to create a new one
+    if(obj->IsPlayer() && !GetLinkedInstanceID(castPtr<Player>(obj), mapData->GetEntry(), castPtr<Player>(obj)->GetDifficulty(mapData->GetEntry()), instanceId, false))
         return ret;
 
     instanceStorageLock.Acquire();
@@ -103,32 +111,66 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
     }
     else if(obj->IsPlayer() && mapData)
     {
-        Player *plr = castPtr<Player>(obj);
-        if(instanceId = castPtr<Player>(obj)->GetLinkedInstanceID(mapData->GetEntry()))
-        {
-            if(mInstanceStorage.find(instanceId) != mInstanceStorage.end())
-                ret = mInstanceStorage.at(instanceId).second;
-            else ret = _LoadInstance(mapId, instanceId);
-        }
-        else if(plr->CanCreateNewDungeon(mapId))
-        {
-            // Instance ID generation occurs inside mutex
-            counterLock.Acquire();
-            uint32 instanceId = ++m_instanceCounter;
-            counterLock.Release();
-
-            ret = new MapInstance(mapData, mapId, instanceId);
-            _AddInstance(instanceId, ret);
-        }
+        // Instance ID generation occurs inside mutex
+        counterLock.Acquire();
+        uint32 instanceId = ++m_instanceCounter;
+        counterLock.Release();
+        _AddInstance(instanceId, ret = new MapInstance(mapData, mapId, instanceId, new InstanceData()));
+        LinkGuidToInstance(ret, obj->GetGUID(), false);
     }
 
     instanceStorageLock.Release();
     return ret;
 }
 
-uint32 InstanceManager::PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint32 instanceId, bool canCreate)
+void InstanceManager::ResetInstanceLinks(Player *plr)
 {
-    Map *mapData = NULL;
+
+}
+
+bool InstanceManager::GetLinkedInstanceID(Player *plr, MapEntry *map, uint32 difficulty, uint32 &instanceId, bool groupFinder)
+{
+    WoWGuid &guid = plr->GetGUID(), grpGuid;
+    if(Group *grp = plr->GetGroup())
+        grpGuid = grp->GetGuid();
+
+    uint32 uniqueMapId = (difficulty<<28)|map->MapID;
+    if(instanceId != 0 && m_dungeonLinkedGuids.find(instanceId) != m_dungeonLinkedGuids.end())
+    {
+        if(m_dungeonLinkedGuids[instanceId].find(guid) != m_dungeonLinkedGuids[instanceId].end())
+            return true;
+        if(!grpGuid.empty() && m_dungeonLinkedGuids[instanceId].find(grpGuid) != m_dungeonLinkedGuids[instanceId].end())
+            return true;
+    }
+
+    // See if the group we're in is locked to any instanceIds matching this unique mapId
+    if(!grpGuid.empty() && (m_guidLinkedDungeons.find(grpGuid) != m_guidLinkedDungeons.end() && m_guidLinkedDungeons[grpGuid].find(uniqueMapId) != m_guidLinkedDungeons[grpGuid].end()))
+    {
+        instanceId = m_guidLinkedDungeons[grpGuid][uniqueMapId];
+        return true;
+    }
+
+    // Since we're either not looking for an instance or not eligble for the instance we're looking for, check if we have an eligible instance
+    if(m_guidLinkedDungeons.find(guid) != m_guidLinkedDungeons.end() && m_guidLinkedDungeons[guid].find(uniqueMapId) != m_guidLinkedDungeons[guid].end())
+    {
+        instanceId = m_guidLinkedDungeons[guid][uniqueMapId];
+        return true;
+    }
+
+    if(true) // Check if we can load new instance
+    {
+        instanceId = 0;
+        return true;
+    }
+    return false;
+}
+
+uint32 InstanceManager::PreTeleportInstanceCheck(PlayerInfo *info, MapEntry *map, uint32 instanceId)
+{
+    Map *mapData = GetMapData(map->MapID);
+    if(mapData == NULL)
+        return INSTANCE_ABORT_NOT_FOUND;
+
     uint32 ret = INSTANCE_OK;
     instanceStorageLock.Acquire();
     if(instanceId != 0)
@@ -139,8 +181,11 @@ uint32 InstanceManager::PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint
             MapInstance *instance = mInstanceStorage.at(instanceId).second;
             if(instance->IsClosing())
                 ret = INSTANCE_ABORT_INSTANCE_CLOSING;
-            else if(instance->IsFull())
-                ret = INSTANCE_ABORT_FULL;
+            else if((ret = instance->IsFull(info)) != INSTANCE_OK)
+            {
+                instanceStorageLock.Release();
+                return ret;
+            }
             else if(instance->CheckCombatStatus())
                 ret = INSTANCE_ABORT_ENCOUNTER;
             // else ret = instance_ok and we can enter our existing instance
@@ -150,17 +195,44 @@ uint32 InstanceManager::PreTeleportInstanceCheck(uint64 guid, uint32 mapId, uint
         else // We have instance data, run checks on if we can access it
         {
             InstanceData *data = m_instanceData.at(instanceId);
-            if(data->GetMapId() != mapId) // Check if we're loading into a different instance to prevent abuse
+            if(data->GetMapId() != map->MapID) // Check if we're loading into a different instance to prevent abuse
                 ret = INSTANCE_ABORT_NOT_FOUND;
             // Check if we're in the list of allowed players to load in(we need to have entered normally)
             /*if(data->PlayerBlocked(plr) || data->IsExpired())
                 ret = INSTANCE_ABORT_NOT_FOUND;*/
         }
-    } else if(canCreate && (mapData = GetMapData(mapId)))
-        ret = INSTANCE_ABORT_CREATE_NEW_INSTANCE;
-    else ret = canCreate ? INSTANCE_ABORT_NOT_FOUND : INSTANCE_ABORT_TOO_MANY;
+    }
     instanceStorageLock.Release();
     return ret;
+}
+
+bool InstanceManager::LinkGuidToInstance(MapInstance *instance, WoWGuid guid, bool groupFinder)
+{
+    uint32 mapId = instance->GetMapId(), difficulty = 0/*instance->GetDifficulty()*/, instanceId = instance->GetInstanceID(), uniqueMapId = (difficulty << 28) | mapId;
+    if(m_guidLinkedDungeons[guid].find(uniqueMapId) != m_guidLinkedDungeons[guid].end())
+        return false; // We're already linked, don't link us to something else
+    if(m_dungeonLinkedGuids[instanceId].size() && GUID_HIPART(*m_dungeonLinkedGuids[instanceId].begin()) == HIGHGUID_TYPE_GROUP)
+        return false; // We're already linked to a group, don't link any players
+
+    if(guid.getHigh() == HIGHGUID_TYPE_GROUP)
+    {
+        while(m_dungeonLinkedGuids[instanceId].size())
+        {
+            WoWGuid guid2 = *m_dungeonLinkedGuids[instanceId].begin();
+            m_dungeonLinkedGuids[instanceId].erase(m_dungeonLinkedGuids[instanceId].begin());
+            // Clear out our last validation for this guid against our dungeon
+            if(m_guidLinkedDungeons.find(guid2) != m_guidLinkedDungeons.end()
+                && m_guidLinkedDungeons[guid2].find(uniqueMapId) != m_guidLinkedDungeons[guid2].end()
+                && m_guidLinkedDungeons[guid2][uniqueMapId] == instanceId)
+                m_guidLinkedDungeons[guid2].erase(uniqueMapId);
+        }
+    }
+
+    // Just link the mapped section to our instanceId
+    m_guidLinkedDungeons[guid][uniqueMapId] = instanceId;
+    // Link instance side
+    m_dungeonLinkedGuids[instanceId].insert(guid);
+    return true;
 }
 
 void InstanceManager::_AddInstance(uint32 instanceId, MapInstance *instance)
@@ -182,17 +254,14 @@ void InstanceManager::_AddInstance(uint32 instanceId, MapInstance *instance)
 
 MapInstance *InstanceManager::_LoadInstance(uint32 mapId, uint32 instanceId)
 {
+    Map *mapData = GetMapData(mapId);
+    if(mapData == NULL)
+        return NULL;
+
     MapInstance *ret = NULL;
     InstanceDataMap::iterator itr;
     if((itr = m_instanceData.find(instanceId)) != m_instanceData.end())
-    {
-        if(Map *mapData = GetMapData(mapId))
-        {
-            ret = new MapInstance(mapData, mapId, instanceId);
-            //ret->LoadInstanceData();
-            _AddInstance(instanceId, ret);
-        }
-    }
+        _AddInstance(instanceId, ret = new MapInstance(mapData, mapId, instanceId, m_instanceData.at(instanceId)));
 
     return ret;
 }

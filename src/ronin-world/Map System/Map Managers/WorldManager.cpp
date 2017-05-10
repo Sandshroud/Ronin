@@ -73,6 +73,8 @@ void WorldManager::ParseMapDBC()
 
 void WorldManager::LoadSpawnData()
 {
+    uint32 count = 0;
+    std::map<uint32, CreatureSpawn*> m_creatureDataShortcut;
     ProcessPreSpawnLoadTables();
 
     for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
@@ -80,8 +82,6 @@ void WorldManager::LoadSpawnData()
         if(!itr->second->IsContinent())
             continue;
 
-        uint32 count = 0;
-        std::map<uint32, CreatureSpawn*> m_creatureDataShortcut;
         if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_creatures'", itr->second->MapID))
         {
             delete checkRes;
@@ -115,7 +115,7 @@ void WorldManager::LoadSpawnData()
         } else sLog.Error("WorldManager", "Continent %s is missing creature spawn table!", itr->second->name);
 
         std::set<CreatureSpawn*> m_handledSpawns;
-        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_creatures'", itr->second->MapID))
+        if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'world_data_%03u_waypoints'", itr->second->MapID))
         {
             delete checkRes;
             if(QueryResult *result = WorldDatabase.Query("SELECT guid, point, movetype, position_x, position_y, position_z, orientation, delay, actionid FROM world_data_%03u_waypoints", itr->second->MapID))
@@ -202,8 +202,138 @@ void WorldManager::LoadSpawnData()
             continue;
 
         sLog.Notice("WorldManager", "%u spawns for %s loaded into storage.", count, itr->second->name);
+        count = 0;
     }
 
+    if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'instance_data_creatures'"))
+    {
+        delete checkRes;
+        if(QueryResult *result = WorldDatabase.Query("SELECT id, map, entry, position_x, position_y, position_z, orientation, modelId, phaseMask, eventId, conditionId, vendorMask FROM instance_data_creatures"))
+        {
+            do
+            {
+                count++;
+                Field * fields = result->Fetch();
+                uint32 mapId = fields[1].GetUInt32();
+                if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
+                    continue;
+
+                uint32 entry = fields[2].GetUInt32();
+                CreatureData *data;
+                if((data = sCreatureDataMgr.GetCreatureData(entry)) == NULL)
+                    continue;
+
+                CreatureSpawn *cspawn = new CreatureSpawn();
+                cspawn->guid = MAKE_NEW_GUID(fields[0].GetUInt32(), entry, (data->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT));
+                cspawn->x = fields[3].GetFloat();
+                cspawn->y = fields[4].GetFloat();
+                cspawn->z = fields[5].GetFloat();
+                cspawn->o = NormAngle(fields[6].GetFloat());
+                cspawn->modelId = fields[7].GetUInt32();
+                cspawn->phaseMask = fields[8].GetUInt16();
+                cspawn->eventId = fields[9].GetUInt32();
+                cspawn->conditionId = fields[10].GetUInt32();
+                cspawn->vendormask = fields[11].GetInt32();
+                m_SpawnStorageMap[mapId].CreatureSpawns.push_back(cspawn);
+                m_creatureDataShortcut.insert(std::make_pair(cspawn->guid.getLow(), cspawn));
+            }while(result->NextRow());
+            delete result;
+        }
+    } else sLog.Error("WorldManager", "Instance data creature spawn table is missing!");
+
+    std::set<CreatureSpawn*> m_handledSpawns;
+    if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'instance_data_waypoints'"))
+    {
+        delete checkRes;
+        if(QueryResult *result = WorldDatabase.Query("SELECT id, map, point, movetype, position_x, position_y, position_z, orientation, delay, actionid FROM instance_data_waypoints"))
+        {
+            do
+            {
+                Field * fields = result->Fetch();
+                uint32 guid = fields[0].GetUInt32();
+                uint32 mapId = fields[1].GetUInt32();
+                if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
+                    continue;
+                uint32 point = fields[2].GetUInt32();
+                if(m_creatureDataShortcut.find(guid) == m_creatureDataShortcut.end())
+                {
+                    sLog.outDebug("");
+                    continue;
+                }
+
+                CreatureSpawn *cspawn = m_creatureDataShortcut.at(guid);
+                // Create our waypoint to push to our spawn
+                CreatureWaypoint *waypoint = new CreatureWaypoint();
+                waypoint->moveType = fields[3].GetUInt32();
+                waypoint->x = fields[4].GetFloat();
+                waypoint->y = fields[5].GetFloat();
+                waypoint->z = fields[6].GetFloat();
+                waypoint->o = NormAngle(fields[7].GetFloat());
+                waypoint->delay = fields[8].GetUInt32();
+                waypoint->actionId = fields[9].GetUInt32();
+                cspawn->m_waypointData.insert(std::make_pair(point, waypoint));
+                if(m_handledSpawns.find(cspawn) == m_handledSpawns.end())
+                    m_handledSpawns.insert(cspawn);
+            }while(result->NextRow());
+            delete result;
+        }
+    } else sLog.Error("WorldManager", "Instance data creature waypoint table is missing!");
+    m_creatureDataShortcut.clear();
+
+    // Push our spawn point to the beginning of our waypoint map
+    for(std::set<CreatureSpawn*>::iterator itr = m_handledSpawns.begin(); itr != m_handledSpawns.end(); itr++)
+    {
+        CreatureWaypoint *waypoint = new CreatureWaypoint();
+        waypoint->moveType = waypoint->delay = waypoint->actionId = 0;
+        waypoint->x = (*itr)->x;
+        waypoint->y = (*itr)->y;
+        waypoint->z = (*itr)->z;
+        waypoint->o = (*itr)->o;
+        (*itr)->m_waypointData.insert(std::make_pair(0, waypoint));
+    }
+    m_handledSpawns.clear();
+
+    if(QueryResult *checkRes = WorldDatabase.Query("SHOW TABLES LIKE 'instance_data_gameobjects'"))
+    {
+        delete checkRes;
+        if(QueryResult *result = WorldDatabase.Query("SELECT id, map, entry, position_x, position_y, position_z, rotationX, rotationY, rotationZ, rotationAngle, state, flags, faction, scale, phaseMask, eventId, conditionId FROM instance_data_gameobjects"))
+        {
+            do
+            {
+                count++;
+                Field * fields = result->Fetch();
+                uint32 mapId = fields[1].GetUInt32();
+                if(m_loadedMaps.find(mapId) == m_loadedMaps.end())
+                    continue;
+                uint32 entry = fields[2].GetUInt32();
+
+                GameObjectInfo *info;
+                if((info = GameObjectNameStorage.LookupEntry(entry)) == NULL)
+                    continue;
+
+                GameObjectSpawn *gspawn = new GameObjectSpawn();
+                gspawn->guid = MAKE_NEW_GUID(fields[0].GetUInt32(), entry, HIGHGUID_TYPE_GAMEOBJECT);
+                gspawn->x = fields[3].GetFloat();
+                gspawn->y = fields[4].GetFloat();
+                gspawn->z = fields[5].GetFloat();
+                gspawn->rX = fields[6].GetFloat();
+                gspawn->rY = fields[7].GetFloat();
+                gspawn->rZ = fields[8].GetFloat();
+                gspawn->rAngle = fields[9].GetFloat();
+                gspawn->state = fields[10].GetUInt32();
+                gspawn->flags = fields[11].GetUInt32();
+                gspawn->faction = fields[12].GetUInt32();
+                gspawn->scale = std::min<float>(255.f, fields[13].GetFloat());
+                gspawn->phaseMask = fields[14].GetUInt16();
+                gspawn->eventId = fields[15].GetUInt32();
+                gspawn->conditionId = fields[16].GetUInt32();
+                m_SpawnStorageMap[mapId].GameObjectSpawns.push_back(gspawn);
+            }while(result->NextRow());
+            delete result;
+        }
+    } else sLog.Error("WorldManager", "Instance data gameobject data table is missing!");
+
+    sLog.Notice("WorldManager", "%u spawns for instances loaded.", count);
 }
 
 void WorldManager::LoadMapTileData(TaskList & tl)
@@ -237,8 +367,10 @@ void WorldManager::_CreateMap(MapEntry *mapEntry)
         _InitializeContinent(mapEntry, map);
     else if(mapEntry->IsBattleGround() || mapEntry->IsBattleArena())
         _InitializeBattleGround(mapEntry, map);
-    else if(mapEntry->IsRaid() || mapEntry->IsDungeon())
+    else if(mapEntry->IsDungeon())
         _InitializeInstance(mapEntry, map);
+    else if(mapEntry->IsRaid())
+        _InitializeRaid(mapEntry, map);
     else { m_mapLock.Acquire(); m_maps.erase(mapEntry->MapID); delete map; m_mapLock.Release(); }
 }
 
@@ -297,12 +429,14 @@ void WorldManager::Shutdown()
     m_continentManagement.clear();
 }
 
-uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
+uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid, bool groupFinderDungeon)
 {
     // preteleport is where all the magic happens :P instance creation, etc.
     MapEntry *map = dbcMap.LookupEntry(mapId);
     if(map == NULL) //is the map vaild?
         return INSTANCE_ABORT_NOT_FOUND;
+
+    uint32 instanceDiff = plr->GetDifficulty(map);
 
     // main continent check.
     if(map->IsContinent())
@@ -317,12 +451,9 @@ uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
     if(map->IsBattleGround() || map->IsBattleArena())
         return INSTANCE_ABORT_NOT_FOUND;
 
-    if(map->IsRaid()) // check that heroic mode is available if the player has requested it.
-    {
-        if(plr->iRaidType > 1 && (map->mapFlags & 0x100) == 0)
-            return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-    }
-    else if(plr->iInstanceType && (map->mapFlags & 0x100) == 0)
+    if(map->IsRaid() && instanceDiff > 1 && (map->mapFlags & 0x100) == 0)
+        return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
+    if(instanceDiff && (map->mapFlags & 0x100) == 0)
         return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
 
     //do we need addition raid/heroic checks?
@@ -333,21 +464,14 @@ uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
         return INSTANCE_ABORT_NOT_IN_RAID_GROUP;
 
     //and has the required level
-    if( plr->getLevel() < 80)
+    if(plr->getLevel() < MAXIMUM_CEXPANSION_LEVEL && instanceDiff)
     {
-        if(uint32 instanceType = map->IsRaid() ? plr->iRaidType : plr->iInstanceType)
-        {
-            if(map->addon == 3 && plr->getLevel() < 90)
-                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-            else if(map->addon == 2 && plr->getLevel() < 80)
-                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-            else if(map->addon == 1 && plr->getLevel() < 70)
-                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-            else if(map->addon)
-                return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
-        }
-
-        //Instance keys
+        if(map->addon == 3 && plr->getLevel() < 85)
+            return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
+        else if(map->addon == 2 && plr->getLevel() < 80)
+            return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
+        else if(map->addon == 1 && plr->getLevel() < 70)
+            return INSTANCE_ABORT_HEROIC_MODE_NOT_AVAILABLE;
     }
 
     // if we are here, it means:
@@ -356,10 +480,10 @@ uint32 WorldManager::PreTeleport(uint32 mapId, Player* plr, uint32 &instanceid)
     // so, first we have to check if they have an instance on this map already, if so, allow them to teleport to that.
     // next we check if there is a saved instance belonging to him.
     // otherwise, we can create them a new one.
-    if(instanceid == 0)
-        instanceid = plr->GetLinkedInstanceID(map);
+    if(!sInstanceMgr.GetLinkedInstanceID(plr, map, instanceDiff, instanceid, groupFinderDungeon))
+        return INSTANCE_ABORT_TOO_MANY;
 
-    uint32 res = sInstanceMgr.PreTeleportInstanceCheck(plr->GetGUID(), mapId, instanceid, plr->CanCreateNewDungeon(mapId));
+    uint32 res = sInstanceMgr.PreTeleportInstanceCheck(plr->getPlayerInfo(), map, instanceid);
     if(res == INSTANCE_ABORT_CREATE_NEW_INSTANCE)
     {
         instanceid = 0;
@@ -383,8 +507,8 @@ bool WorldManager::PushToWorldQueue(WorldObject *obj)
             if(WorldSession *sess = p->GetSession())
                 sess->SetEventInstanceId(mapInstance->GetInstanceID());
 
-            if(!mapInstance->IsRaid())
-                p->LinkToInstance(mapInstance);
+            /*if(!mapInstance->IsRaid())
+                p->LinkToInstance(mapInstance);*/
         } else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
             if(!c->CanAddToWorld())
                 return false;
@@ -399,10 +523,15 @@ MapInstance *WorldManager::GetInstance(WorldObject* obj)
 {
     if(ContinentManager *manager = GetContinentManager(obj->GetMapId()))
         return manager->GetContinent();
-    /*else if(BattleGroundManager *manager = GetBattleGroundManager(obj->GetMapId()))
-        return manager->GetBattleground(obj->GetBGInstanceID());*/
-    else if(MapInstance *instance = sInstanceMgr.GetInstanceForObject(obj))
-        return instance;
+    else
+    {
+        /*if(BattleGroundManager *manager = GetBattleGroundManager(obj->GetMapId()))
+            return manager->GetBattleground(obj->GetBGInstanceID());*/
+        if(MapInstance *instance = sRaidMgr.GetInstanceForObject(obj))
+            return instance;
+        else if(MapInstance *instance = sInstanceMgr.GetInstanceForObject(obj))
+            return instance;
+    }
     return NULL;
 }
 
@@ -550,6 +679,15 @@ void WorldManager::_InitializeInstance(MapEntry *mapEntry, Map *map)
 
     // Push map data to instance manager
     sInstanceMgr.AddMapData(mapEntry, map);
+}
+
+void WorldManager::_InitializeRaid(MapEntry *mapEntry, Map *map)
+{
+    // Initialize the map data first
+    map->Initialize(GetSpawn(mapEntry->MapID), false);
+
+    // Push map data to instance manager
+    sRaidMgr.AddMapData(mapEntry, map);
 }
 
 void WorldManager::ProcessPreSpawnLoadTables()

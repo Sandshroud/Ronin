@@ -1435,6 +1435,15 @@ void MovementInterface::setCanFly(bool canFly)
     castPtr<Player>(m_Unit)->PushPacket(&data);
 }
 
+bool MovementInterface::isSplineMovingActive()
+{
+    if(m_Unit->IsPlayer())
+        return false;
+    return false;
+    // Spline currently disabled until properly implemented
+    return m_path.hasDestination();
+}
+
 bool MovementInterface::ReadFromClient(uint16 opcode, ByteBuffer *buffer)
 {
     m_movementLock.Acquire();
@@ -1563,9 +1572,16 @@ void MovementInterface::MoveFallReset(WorldPacket *packet)
 #define DO_COND_BYTES(buff, cond, type, val) if(cond) buff->append<type>(val);
 #define DO_SEQ_BYTE(buff, val) buff->WriteByteSeq(val);
 
-void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer) { }
+void MovementInterface::AppendSplineData(bool bits, ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage)
+{
+    if(bits) m_path.AppendMoveBits(buffer, msTime, pointStorage);
+    else m_path.AppendMoveBytes(buffer, msTime, pointStorage);
+}
+
 void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
 {
+    uint32 msTime = getMSTime();
+    std::vector<MovementPoint*> m_splineMove;
     bool hasMovementFlags = m_movementFlagMask & 0x0F, hasMovementFlags2 = m_movementFlagMask & 0xF0,
     hasOrientation = !RONIN_UTIL::fuzzyEq(0.f, m_serverLocation->o), hasTransportData = !m_transportGuid.empty(),
     hasSpline = isSplineMovingActive(), hasTransportTime2 = (hasTransportData && m_transportTime2 != 0), hasTransportVehicleId = (hasTransportData && m_vehicleId != 0),
@@ -1598,7 +1614,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[3]);
     DO_COND_BIT(bits, hasTransportData, m_transportGuid[2]);
     DO_BIT(bits, m_moverGuid[4]);
-    if(hasSpline) AppendSplineData(true, bits);
+    if(hasSpline) AppendSplineData(true, bits, msTime, &m_splineMove);
     DO_BIT(bits, m_moverGuid[6]);
     DO_COND_BIT(bits, hasFallData, hasFallDirection);
     DO_BIT(bits, m_moverGuid[0]);
@@ -1617,7 +1633,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_COND_BYTES(bytes, hasFallData, float, m_jumpZSpeed);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_SWIM_BACK));
     DO_COND_BYTES(bytes, hasSplineElevation, float, splineElevation);
-    if(hasSpline) AppendSplineData(false, bytes);// Write spline data
+    if(hasSpline) AppendSplineData(false, bytes, msTime, &m_splineMove);// Write spline data
     DO_BYTES(bytes, float, m_serverLocation->z);
     DO_SEQ_BYTE(bytes, m_moverGuid[5]);
     DO_COND_BYTES(bytes, hasTransportData && m_transportGuid[5], uint8, m_transportGuid[5]);
@@ -1646,7 +1662,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_SEQ_BYTE(bytes, m_moverGuid[1]);
     DO_SEQ_BYTE(bytes, m_moverGuid[2]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_WALK));
-    DO_BYTES(bytes, uint32, getMSTime());
+    DO_BYTES(bytes, uint32, msTime);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_TURNRATE));
     DO_SEQ_BYTE(bytes, m_moverGuid[6]);
     DO_BYTES(bytes, float, GetMoveSpeed(MOVE_SPEED_FLIGHT));

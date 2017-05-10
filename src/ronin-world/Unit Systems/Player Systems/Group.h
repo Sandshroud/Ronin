@@ -49,6 +49,9 @@ enum GroupTypes
     GROUP_TYPE_BGRAID   = GROUP_TYPE_BG | GROUP_TYPE_RAID,
     GROUP_TYPE_LFD      = 0x04 | 0x08,
     GROUP_TYPE_MASK     = 0x0F,
+    // If we have either of these flags we're secondary
+    GROUP_TYPE_SECONDARY= GROUP_TYPE_BG | GROUP_TYPE_LFD,
+
     GROUP_TYPE_HEROIC   = 0x20,
 };
 
@@ -195,6 +198,7 @@ public:
 
     RONIN_INLINE uint8 GetGroupType() { return m_GroupType; }
     RONIN_INLINE uint32 GetID() { return m_Id; }
+    RONIN_INLINE WoWGuid GetGuid() { return MAKE_NEW_GUID(m_Id, 0, HIGHGUID_TYPE_GROUP); }
 
     void UpdateOutOfRangePlayer(PlayerInfo *info, uint32 Flags, bool Distribute, WorldPacket * Packet);
     void UpdateAllOutOfRangePlayersFor(PlayerInfo *info);
@@ -216,6 +220,8 @@ public:
     RONIN_INLINE PlayerInfo * GetAssistantLeader() { return m_assistantLeader; }
     RONIN_INLINE PlayerInfo * GetMainTank() { return m_mainTank; }
     RONIN_INLINE PlayerInfo * GetMainAssist() { return m_mainAssist; }
+
+    bool IsGroupFinderInstance(uint32 mapId);
 
 public:
     RONIN_INLINE void SetFlag(uint8 groupflag) { m_groupFlags |= groupflag; }

@@ -18,3 +18,29 @@
  */
 
 #include "StdAfx.h"
+
+SERVER_DECL RaidManager sRaidMgr;
+
+RaidManager::RaidManager()
+{
+
+}
+
+RaidManager::~RaidManager()
+{
+
+}
+
+void RaidManager::Destruct()
+{
+
+}
+
+MapInstance *RaidManager::GetInstanceForObject(WorldObject *obj)
+{
+    Map *mapData = NULL;
+    MapInstance *ret = NULL;
+    uint32 mapId = obj->GetMapId(), instanceId = obj->GetInstanceID();
+
+    return NULL;
+}
