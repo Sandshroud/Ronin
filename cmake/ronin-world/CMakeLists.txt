@@ -12,6 +12,7 @@ SET(group_sources ${group_sources} ${ai_sources} )
 FILE(GLOB battleground_sources
 "${prefix}/Battlegrounds/*.h"
 "${prefix}/Battlegrounds/*.cpp")
+source_group("Battlegrounds" FILES ${battleground_sources})
 SET(group_sources ${group_sources} ${battleground_sources})
 
 FILE(GLOB chat_sources
@@ -120,6 +121,12 @@ FILE(GLOB map_system_map_managers_sources
 "${prefix}/Map System/Map Managers/*.cpp")
 source_group("Map System\\Map Managers" FILES ${map_system_map_managers_sources})
 SET(group_sources ${group_sources} ${map_system_map_managers_sources})
+
+FILE(GLOB map_system_map_managers_instance_scripts_sources
+"${prefix}/Map System/Map Managers/InstanceScripts/*.h"
+"${prefix}/Map System/Map Managers/InstanceScripts/*.cpp")
+source_group("Map System\\Map Managers\\Instance Scripts" FILES ${map_system_map_managers_instance_scripts_sources})
+SET(group_sources ${group_sources} ${map_system_map_managers_instance_scripts_sources})
 
 FILE(GLOB map_system_map_tiles_sources
 "${prefix}/Map System/Map Tiles/*.h"

@@ -264,7 +264,6 @@ public:
     // this only frees the instance pointer, not the mapmgr itself
     void DeleteBattlegroundInstance(uint32 mapid, uint32 instanceid);
 
-    void _LoadInstances();
     bool _DeleteInstance(MapInstance* in, bool ForcePlayersOut, bool atSelfEnd);
 
     bool HasLoadingMaps() { mapLoadLock.Acquire(); bool ret = !m_loadingMaps.empty(); mapLoadLock.Release(); return ret; }

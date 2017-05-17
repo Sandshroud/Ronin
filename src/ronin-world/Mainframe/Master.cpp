@@ -30,8 +30,9 @@ bool crashed = false;
 volatile bool Master::m_stopEvent;
 
 // Database defines.
-SERVER_DECL DirectDatabase* Database_Character;
 SERVER_DECL DirectDatabase* Database_World;
+SERVER_DECL DirectDatabase* Database_Character;
+SERVER_DECL DirectDatabase* Database_State;
 SERVER_DECL DirectDatabase* Database_Log;
 
 void Master::_OnSignal(int s)
@@ -453,6 +454,37 @@ bool Master::_StartDB()
         return false;
     }
 
+    hostname = mainIni->ReadString("StateDatabase", "Hostname", "ERROR");
+    username = mainIni->ReadString("StateDatabase", "Username", "ERROR");
+    password = mainIni->ReadString("StateDatabase", "Password", "ERROR");
+    database = mainIni->ReadString("StateDatabase", "Name", "ERROR");
+    port = mainIni->ReadInteger("StateDatabase", "Port", 0);
+    type = mainIni->ReadInteger("StateDatabase", "Type", 0);
+    if(strcmp(hostname.c_str(), "ERROR") == 0)
+        error.append("Hostname");
+    else if(strcmp(username.c_str(), "ERROR") == 0)
+        error.append("Username");
+    else if(strcmp(password.c_str(), "ERROR") == 0)
+        error.append("Password");
+    else if(strcmp(database.c_str(), "ERROR") == 0)
+        error.append("DatabaseName");
+    else if(port == 0 || type == 0)
+        error.append("Port/Type");
+    if(error.length())
+    {
+        sLog.outError("sql: Instance database parameter not found for %s.", error.c_str());
+        return false;
+    }
+
+    Database_State = DirectDatabase::Create();
+    // Initialize it
+    if( !StateDatabase.Initialize( hostname.c_str(), uint(port), username.c_str(),
+        password.c_str(), database.c_str(), mainIni->ReadInteger( "StateDatabase", "ConnectionCount", sysinfo.dwNumberOfProcessors), 16384 ) )
+    {
+        sLog.outDebug( "sql: Main database initialization failed. Exiting." );
+        return false;
+    }
+
     Database_Log = NULL;
     if(mainIni->ReadBoolean("Log", "Cheaters", false) || mainIni->ReadBoolean("Log", "GMCommands", false)
         || mainIni->ReadBoolean("Log", "Player", false) || mainIni->ReadBoolean("Log", "Chat", false))
@@ -494,11 +526,18 @@ bool Master::_StartDB()
 
 void Master::_StopDB()
 {
-    delete Database_World;
-    delete Database_Character;
-
+    if(Database_World)
+        delete Database_World;
+    Database_World = NULL;
+    if(Database_Character)
+        delete Database_Character;
+    Database_Character = NULL;
+    if(Database_State)
+        delete Database_State;
+    Database_State = NULL;
     if(Database_Log)
         delete Database_Log;
+    Database_Log = NULL;
 }
 
 #ifndef WIN32

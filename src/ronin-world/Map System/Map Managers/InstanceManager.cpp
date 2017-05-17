@@ -41,19 +41,43 @@ void InstanceManager::Launch()
     InstanceManagerSlave *worker = new InstanceManagerSlave();
     // Only need one instance management thread to start with, dynamically allocate more if we need them.
     ThreadPool.ExecuteTask(format("InstanceManager - Worker %u", 0+1).c_str(), worker);
-}
 
-void InstanceManager::Prepare()
-{
     // Nullify these counters here
     m_creatureGUIDCounter = m_gameObjectGUIDCounter = 0;
 
-    // Create all non-instance type maps.
-    if( QueryResult *result = CharacterDatabase.Query( "SELECT MAX(id) FROM instances" ) )
+    // clear any instances that have expired.
+    sLog.Notice("WorldManager", "Deleting Expired Instances...");
+    StateDatabase.WaitExecute("DELETE FROM instance_data WHERE expiration <= %u", UNIXTIME);
+
+    // Load our instance data counter
+    if( QueryResult *result = StateDatabase.Query( "SELECT MAX(id) FROM instance_data" ) )
     {
         m_instanceCounter = result->Fetch()[0].GetUInt32();
         delete result;
     } else m_instanceCounter = 0x3FF;
+}
+
+void InstanceManager::Prepare()
+{
+    SetupInstanceScripts();
+}
+
+void InstanceManager::_LoadInstances()
+{
+    // load saved instances
+    if(QueryResult *result = StateDatabase.Query("SELECT * FROM instance_data"))
+    {
+        uint32 count = 0;
+        do
+        {
+            //if(LoadInstance(result->Fetch()))
+                count++;
+        } while(result->NextRow());
+        delete result;
+
+        sLog.Success("WorldManager", "Loaded %u saved instance(s)." , count);
+    } else sLog.Debug("WorldManager", "No saved instances found.");
+
 }
 
 void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::GroupFinderDungeon *dungeon, Group *grp)
@@ -125,6 +149,11 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
 
 void InstanceManager::ResetInstanceLinks(Player *plr)
 {
+    Group *grp = NULL;
+    if((grp = plr->GetGroup()) && grp->GetLeader() == plr->getPlayerInfo())
+    {
+
+    }
 
 }
 

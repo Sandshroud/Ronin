@@ -240,11 +240,11 @@ public:
 
     /** Reloads the content in this container.
      */
-    virtual void Reload() = 0;
+    virtual void Reload(DirectDatabase *db) = 0;
 
     /** Loads the container using the specified name and format string
      */
-    virtual void Load(const char * IndexName, const char * FormatString)
+    virtual void Load(DirectDatabase *db, const char * IndexName, const char * FormatString)
     {
         _indexName = IndexName;
         _formatString = FormatString;
@@ -378,14 +378,14 @@ public:
 
     /** Loads from the table.
      */
-    void Load(std::string IndexName, std::string FormatString)
+    void Load(DirectDatabase *db, std::string IndexName, std::string FormatString)
     {
-        Storage<T, StorageType>::Load(IndexName.c_str(), FormatString.c_str());
+        Storage<T, StorageType>::Load(db, IndexName.c_str(), FormatString.c_str());
         QueryResult * result;
         if(_storage.NeedsMax())
         {
             uint32 Max = STORAGE_ARRAY_MAX;
-            if(result = WorldDatabase.Query("SELECT MAX(entry) FROM %s ORDER BY `entry`", IndexName.c_str()))
+            if(result = db->Query("SELECT MAX(entry) FROM %s ORDER BY `entry`", IndexName.c_str()))
             {
                 Max = result->Fetch()[0].GetUInt32() + 1;
                 if(Max > STORAGE_ARRAY_MAX)
@@ -399,7 +399,7 @@ public:
             _storage.Setup(Max);
         }
 
-        if(result = WorldDatabase.Query("SELECT * FROM %s", IndexName.c_str()))
+        if(result = db->Query("SELECT * FROM %s", IndexName.c_str()))
         {
             size_t cols = FormatString.length();
             if(result->GetFieldCount() != cols)
@@ -427,10 +427,10 @@ public:
 
     /** Reloads the storage container
      */
-    void Reload()
+    void Reload(DirectDatabase *db)
     {
         sLog.Notice("Storage", "Reloading database cache from `%s`...\n", GetIndexName());
-        QueryResult * result = WorldDatabase.Query("SELECT MAX(entry) FROM %s", GetIndexName());
+        QueryResult * result = db->Query("SELECT MAX(entry) FROM %s", GetIndexName());
         if(result == 0)
             return;
 
@@ -446,7 +446,7 @@ public:
             _storage.Resetup(Max+1);
         }
 
-        if(result = WorldDatabase.Query("SELECT * FROM %s", GetIndexName()))
+        if(result = db->Query("SELECT * FROM %s", GetIndexName()))
         {
             size_t cols = _formatString.length();
             if(result->GetFieldCount() != cols)

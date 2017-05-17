@@ -181,8 +181,8 @@ void ObjectMgr::LoadExtraItemStuff()
 }
 
 #define make_task(storage, itype, storagetype, tablename, format) tl.AddTask( new Task( \
-    new CallbackP2< /**/SQLStorage< itype, storagetype< itype > >/**/, /**/ std::string/**/, /**/std::string/**/> \
-    (&storage, &SQLStorage< itype, storagetype< itype > >::Load, tablename, format) ) )
+    new CallbackP3< /**/SQLStorage< itype, storagetype< itype > >/**/, DirectDatabase*, /**/ std::string/**/, /**/std::string/**/> \
+    (&storage, &SQLStorage< itype, storagetype< itype > >::Load, &WorldDatabase, tablename, format) ) )
 
 void Storage_FillTaskList(TaskList & tl)
 {
@@ -217,19 +217,19 @@ bool Storage_ReloadTable(const char * TableName)
 {
     // bur: mah god this is ugly :P
     if(!stricmp(TableName, "creature_proto_vehicle"))  // Creature Vehicle Proto
-        CreatureVehicleDataStorage.Reload();
+        CreatureVehicleDataStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "gameobject_names"))    // GO Names
-        GameObjectNameStorage.Reload();
+        GameObjectNameStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "item_pages"))           // Item Pages
-        ItemPageStorage.Reload();
+        ItemPageStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "quests"))              // Quests
         sQuestMgr.LoadQuests();
     else if(!stricmp(TableName, "npc_text"))            // NPC Text Storage
-        NpcTextStorage.Reload();
+        NpcTextStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "teleport_coords"))     // Teleport coords
-        TeleportCoordStorage.Reload();
+        TeleportCoordStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "graveyards"))          // Graveyards
-        GraveyardStorage.Reload();
+        GraveyardStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "vendors"))
         objmgr.ReloadVendors();
     else if(!stricmp(TableName, "command_overrides"))   // Command Overrides

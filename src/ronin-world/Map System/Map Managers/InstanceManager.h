@@ -29,6 +29,7 @@ typedef std::map<uint32, InstanceData*> InstanceDataMap;
 
 class SERVER_DECL InstanceManager
 {
+    friend class WorldManager;
 public:
     InstanceManager();
     ~InstanceManager();
@@ -38,6 +39,12 @@ public:
     void Launch();
     void Prepare();
 
+private:
+    void _LoadInstances();
+
+    void SetupInstanceScripts();
+
+public:
     // Loading instances for LFD system
     void LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::GroupFinderDungeon *dungeon, Group *grp);
 

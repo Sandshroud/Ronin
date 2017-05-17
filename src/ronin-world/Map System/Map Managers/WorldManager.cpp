@@ -418,7 +418,7 @@ void WorldManager::Load(TaskList * l)
         itr->second->SetThreadState(THREADSTATE_AWAITING);
 
     // load saved instances
-    _LoadInstances();
+    sInstanceMgr._LoadInstances();
 
     sInstanceMgr.Launch();
 }
@@ -541,27 +541,6 @@ void WorldManager::BuildXMLStats(char * m_file)
         ;//itr->second->BuildStats(m_file);
 
     sLog.Debug("WorldManager", "Dumping XML stats...");
-}
-
-void WorldManager::_LoadInstances()
-{
-    // clear any instances that have expired.
-    sLog.Notice("WorldManager", "Deleting Expired Instances...");
-    CharacterDatabase.WaitExecute("DELETE FROM instances WHERE expiration <= %u", UNIXTIME);
-
-    // load saved instances
-    if(QueryResult *result = CharacterDatabase.Query("SELECT * FROM instances"))
-    {
-        uint32 count = 0;
-        do
-        {
-            //if(LoadInstance(result->Fetch()))
-                count++;
-        } while(result->NextRow());
-        delete result;
-
-        sLog.Success("WorldManager", "Loaded %u saved instance(s)." , count);
-    } else sLog.Debug("WorldManager", "No saved instances found.");
 }
 
 void WorldManager::SendHeroicResetWarning()
