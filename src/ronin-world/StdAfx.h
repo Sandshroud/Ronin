@@ -173,6 +173,7 @@ extern size_t __line__;
 #include "World.h"
 #include "WorldSession.h"
 #include "WorldStateManager.h"
+#include "MapScript.h"
 #include "MapInstance.h"
 #include "QuestInterface.h"
 #include "TalentInterface.h"

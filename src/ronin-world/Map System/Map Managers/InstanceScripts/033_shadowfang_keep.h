@@ -17,6 +17,6 @@
  *
  */
 
-#include "StdAfx.h"
+#pragma once
 
 void SetupShadowfangKeep();

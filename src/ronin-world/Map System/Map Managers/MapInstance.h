@@ -26,7 +26,7 @@
 #pragma once
 
 class MapCell;
-class MapManager;
+class MapScript;
 class WorldObject;
 class InstanceData;
 class WorldSession;
@@ -515,6 +515,7 @@ public:
     RONIN_INLINE size_t GetPlayerCount() { return m_PlayerStorage.size(); }
 
     void _ProcessInputQueue();
+    void _PerformScriptUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformCombatUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformPlayerUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformCreatureUpdates(uint32 msTime, uint32 uiDiff);
@@ -558,13 +559,17 @@ public:
         m_poolLock.Release();
     }
 
-protected:
-    //! Objects that exist on map
+protected: ///! Instance identification data
+    //! Our instance's map ID
     uint32 _mapId;
-
+    //! Our instance's Instance ID, continent = 0
+    uint32 m_instanceID;
+    //! Script tied to map by MapID
+    MapScript *m_script;
     //! Active conditions
     std::set<uint32> m_activeConditions;
 
+protected: ///! Objects that exist on map
     // In this zone, we always show these objects
     Loki::AssocVector<WorldObject*, uint32> m_zoneFullRangeObjects, m_areaFullRangeObjects;
     Loki::AssocVector<uint32, std::vector<WorldObject*>> m_fullRangeObjectsByZone, m_fullRangeObjectsByArea;
@@ -595,7 +600,6 @@ public:
 protected:
     /* Map Information */
     MapEntry* pdbcMap;
-    uint32 m_instanceID;
 
     /* Update System */
     Mutex m_updateMutex;

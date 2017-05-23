@@ -42,7 +42,14 @@ public:
 private:
     void _LoadInstances();
 
+public:
+    MapScript *AllocateMapScript(MapInstance *instance);
+    void AssignMapScriptAllocator(uint32 mapId, MapScriptAllocator *allocator);
+
+private:
     void SetupInstanceScripts();
+
+    std::map<uint32, MapScriptAllocator*> m_mapScriptAllocators;
 
 public:
     // Loading instances for LFD system
@@ -146,7 +153,7 @@ public:
     uint32 GetMapId() { return m_mapId; }
 
     WoWGuid getCreatorGuid() { return m_creatorGuid; }
-    uint32 getCreatorGroupID() { return m_creatorGroup; }
+    WoWGuid getCreatorGroupID() { return m_creatorGroup; }
 
     time_t getCreationTime() { return m_creation; }
 
@@ -171,8 +178,7 @@ private:
     uint32 m_instanceId;
     uint32 m_mapId;
 
-    WoWGuid m_creatorGuid;
-    uint32 m_creatorGroup;
+    WoWGuid m_creatorGuid, m_creatorGroup;
     time_t m_creation;
 
     uint32 m_difficulty;

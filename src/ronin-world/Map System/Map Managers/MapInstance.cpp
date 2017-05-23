@@ -24,7 +24,7 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData *data) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
+MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData *data) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), m_script(NULL), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
 _processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this),
 _DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
 {
@@ -65,6 +65,8 @@ _DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
         m_instanceData->difficulty = data->getDifficulty();
         m_instanceData->linkedGroupId = 0;
     }
+
+    m_script = sInstanceMgr.AllocateMapScript(this);
 }
 
 MapInstance::~MapInstance()
@@ -388,6 +390,9 @@ void MapInstance::PushObject(WorldObject* obj)
         }
     }
 
+    if(MapScript *script = m_script)
+        script->OnPushObject(obj);
+
     // Push to our update queue
     m_updateMutex.Acquire();
     if(_updates.find(obj) == _updates.end())
@@ -481,6 +486,9 @@ void MapInstance::RemoveObject(WorldObject* obj)
             }break;
         }
     }
+
+    if(MapScript *script = m_script)
+        script->OnRemoveObject(obj);
 
     // Clear object's in-range set before we're removed from the cell
     obj->GetCellManager()->ClearInRangeObjects(this);
@@ -1504,6 +1512,22 @@ void MapInstance::_ProcessInputQueue()
     m_objectinsertlock.Release();
 }
 
+void MapInstance::_PerformScriptUpdates(uint32 msTime, uint32 uiDiff)
+{
+    // UPDATE THE SCRIPT, DO IT.
+    if(MapScript *script = m_script)
+        script->Update(msTime, uiDiff);
+
+    // Update map conditions
+    //std::vector<uint32> finishedConditions;
+    //for(auto itr = m_conditionTimers.begin(); itr != m_conditionTimers.end(); itr++)
+    // if(itr->second->update(uiDiff))
+    //   finishedConditions.push_back(itr->first);
+    // Now clean up conditions based on filled vector
+
+    // 
+}
+
 void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
 {
     if(m_combatTimers.empty())
@@ -1557,6 +1581,168 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
         }
     }
     m_poolLock.Release();
+}
+
+void MapInstance::_PerformCreatureUpdates(uint32 msTime, uint32 uiDiff)
+{
+    m_poolLock.Acquire();
+    mCreaturePool.Update(msTime, uiDiff);
+    m_poolLock.Release();
+}
+
+void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
+{
+    m_poolLock.Acquire();
+    mGameObjectPool.Update(msTime, uiDiff);
+    m_poolLock.Release();
+}
+
+void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
+{
+    m_poolLock.Acquire();
+    mDynamicObjectPool.Update(msTime, uiDiff);
+    m_poolLock.Release();
+}
+
+void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
+{
+    m_poolLock.Acquire();
+    projectileSpellUpdateTime[0] += uiDiff;
+    projectileSpellUpdateTime[1] += uiDiff;
+    uint8 index = projectileSpellIndex[0]++;
+    if(projectileSpellIndex[0] == 2)
+        projectileSpellIndex[0] = 0;
+
+    std::vector<Spell*> cleanupSet;
+    for(std::set<Spell*>::iterator itr = m_projectileSpells[index].begin(); itr != m_projectileSpells[index].end(); itr++)
+        if((*itr)->UpdateDelayedTargetEffects(this, projectileSpellUpdateTime[index]))
+            cleanupSet.push_back(*itr);
+
+    while(!cleanupSet.empty())
+    {
+        Spell *spell = *cleanupSet.begin();
+        cleanupSet.erase(cleanupSet.begin());
+        m_projectileSpells[index].erase(spell);
+        spell->Destruct();
+    }
+    projectileSpellUpdateTime[index] = 0;
+    m_poolLock.Release();
+}
+
+void MapInstance::_PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff)
+{
+    m_poolLock.Acquire();
+    mUnitPathPool.Update(msTime, uiDiff);
+    m_poolLock.Release();
+}
+
+void MapInstance::_PerformMovementUpdates(bool includePlayers)
+{
+    m_updateMutex.Acquire();
+    if(includePlayers)
+    {
+        while(!_movedPlayers.empty())
+        {
+            WorldObject *obj = *_movedPlayers.begin();
+            _movedPlayers.erase(_movedPlayers.begin());
+            ChangeObjectLocation(obj);
+        }
+        _movedPlayers.clear();
+    }
+
+    while(!_movedObjects.empty())
+    {
+        WorldObject *obj = *_movedObjects.begin();
+        _movedObjects.erase(_movedObjects.begin());
+        ChangeObjectLocation(obj);
+    }
+    _movedObjects.clear();
+    m_updateMutex.Release();
+}
+
+void MapInstance::_PerformSessionUpdates()
+{
+    // Sessions are updated every loop.
+    for(SessionSet::iterator itr = MapSessions.begin(), it2; itr != MapSessions.end();)
+    {
+        WorldSession *MapSession = (*itr);
+        it2 = itr++;
+
+        //we have teleported to another map, remove us here.
+        if(MapSession->GetEventInstanceId() != m_instanceID)
+        {
+            MapSessions.erase(it2);
+            continue;
+        }
+
+        // Session is deserted, just do garbage collection
+        if(MapSession->GetPlayer() == NULL)
+        {
+            MapSessions.erase(it2);
+            sWorld.DeleteSession(MapSession);
+            continue;
+        }
+
+        // Don't update players not on our map.
+        // If we abort in the handler, it means we will "lose" packets, or not process this.
+        // .. and that could be diasterous to our client :P
+        if( MapSession->GetPlayer()->GetMapInstance() == NULL ||
+            MapSession->GetPlayer()->GetMapInstance() != this)
+            continue;
+
+        if(int result = MapSession->Update(m_instanceID))//session or socket deleted?
+        {
+            MapSessions.erase(it2);
+            if(result == 1)//socket don't exist anymore, delete from both world- and map-sessions.
+                sWorld.DeleteSession(MapSession);
+        }
+    }
+}
+
+void MapInstance::_PerformPendingUpdates()
+{
+    m_updateMutex.Acquire();
+    if(!_updates.size() && !_processQueue.size())
+    {
+        m_updateMutex.Release();
+        return;
+    }
+
+    uint32 count = 0;
+    WorldObject *wObj;
+    PlayerSet m_partyTargets, m_petTargets;
+    for(ObjectSet::iterator iter = _updates.begin(); iter != _updates.end();)
+    {
+        wObj = *iter;
+        ++iter;
+        if(wObj == NULL || !wObj->IsInWorld())
+            continue;
+
+        // players have to receive their own updates ;)
+        if( wObj->IsPlayer() )
+        {
+            // need to be different! ;)
+            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, castPtr<Player>( wObj ), UF_FLAGMASK_SELF) )
+                castPtr<Player>( wObj )->PushUpdateBlock(_mapId, &m_updateBuffer, count );
+            m_updateBuffer.clear();
+        }
+
+        wObj->OnUpdateProcess();
+        BroadcastObjectUpdate(wObj);
+        wObj->ClearUpdateMask();
+    }
+    _updates.clear();
+
+    Player* plyr;
+    // generate pending a9packets and send to clients.
+    while(!_processQueue.empty())
+    {
+        plyr = *_processQueue.begin();
+        if(plyr && plyr->GetMapInstance() == this)
+            plyr->PopPendingUpdates(_mapId);
+        _processQueue.erase(_processQueue.begin());
+    }
+    m_updateMutex.Release();
 }
 
 void MapInstance::_PerformPendingRemovals()
@@ -1620,168 +1806,6 @@ void MapInstance::_PerformPendingRemovals()
             if(!plObj->GetSession()->bDeleted)
                 sWorld.AddGlobalSession(plObj->GetSession());
         }
-    }
-    m_updateMutex.Release();
-}
-
-void MapInstance::_PerformCreatureUpdates(uint32 msTime, uint32 uiDiff)
-{
-    m_poolLock.Acquire();
-    mCreaturePool.Update(msTime, uiDiff);
-    m_poolLock.Release();
-}
-
-void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
-{
-    m_poolLock.Acquire();
-    mGameObjectPool.Update(msTime, uiDiff);
-    m_poolLock.Release();
-}
-
-void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
-{
-    m_poolLock.Acquire();
-    mDynamicObjectPool.Update(msTime, uiDiff);
-    m_poolLock.Release();
-}
-
-void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
-{
-    m_poolLock.Acquire();
-    projectileSpellUpdateTime[0] += uiDiff;
-    projectileSpellUpdateTime[1] += uiDiff;
-    uint8 index = projectileSpellIndex[0]++;
-    if(projectileSpellIndex[0] == 2)
-        projectileSpellIndex[0] = 0;
-
-    std::vector<Spell*> cleanupSet;
-    for(std::set<Spell*>::iterator itr = m_projectileSpells[index].begin(); itr != m_projectileSpells[index].end(); itr++)
-        if((*itr)->UpdateDelayedTargetEffects(this, projectileSpellUpdateTime[index]))
-            cleanupSet.push_back(*itr);
-
-    while(!cleanupSet.empty())
-    {
-        Spell *spell = *cleanupSet.begin();
-        cleanupSet.erase(cleanupSet.begin());
-        m_projectileSpells[index].erase(spell);
-        spell->Destruct();
-    }
-    projectileSpellUpdateTime[index] = 0;
-    m_poolLock.Release();
-}
-
-void MapInstance::_PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff)
-{
-    m_poolLock.Acquire();
-    mUnitPathPool.Update(msTime, uiDiff);
-    m_poolLock.Release();
-}
-
-void MapInstance::_PerformSessionUpdates()
-{
-    // Sessions are updated every loop.
-    for(SessionSet::iterator itr = MapSessions.begin(), it2; itr != MapSessions.end();)
-    {
-        WorldSession *MapSession = (*itr);
-        it2 = itr++;
-
-        //we have teleported to another map, remove us here.
-        if(MapSession->GetEventInstanceId() != m_instanceID)
-        {
-            MapSessions.erase(it2);
-            continue;
-        }
-
-        // Session is deserted, just do garbage collection
-        if(MapSession->GetPlayer() == NULL)
-        {
-            MapSessions.erase(it2);
-            sWorld.DeleteSession(MapSession);
-            continue;
-        }
-
-        // Don't update players not on our map.
-        // If we abort in the handler, it means we will "lose" packets, or not process this.
-        // .. and that could be diasterous to our client :P
-        if( MapSession->GetPlayer()->GetMapInstance() == NULL ||
-            MapSession->GetPlayer()->GetMapInstance() != this)
-            continue;
-
-        if(int result = MapSession->Update(m_instanceID))//session or socket deleted?
-        {
-            MapSessions.erase(it2);
-            if(result == 1)//socket don't exist anymore, delete from both world- and map-sessions.
-                sWorld.DeleteSession(MapSession);
-        }
-    }
-}
-
-void MapInstance::_PerformMovementUpdates(bool includePlayers)
-{
-    m_updateMutex.Acquire();
-    if(includePlayers)
-    {
-        while(!_movedPlayers.empty())
-        {
-            WorldObject *obj = *_movedPlayers.begin();
-            _movedPlayers.erase(_movedPlayers.begin());
-            ChangeObjectLocation(obj);
-        }
-        _movedPlayers.clear();
-    }
-
-    while(!_movedObjects.empty())
-    {
-        WorldObject *obj = *_movedObjects.begin();
-        _movedObjects.erase(_movedObjects.begin());
-        ChangeObjectLocation(obj);
-    }
-    _movedObjects.clear();
-    m_updateMutex.Release();
-}
-
-void MapInstance::_PerformPendingUpdates()
-{
-    m_updateMutex.Acquire();
-    if(!_updates.size() && !_processQueue.size())
-    {
-        m_updateMutex.Release();
-        return;
-    }
-
-    uint32 count = 0;
-    WorldObject *wObj;
-    PlayerSet m_partyTargets, m_petTargets;
-    for(ObjectSet::iterator iter = _updates.begin(); iter != _updates.end();)
-    {
-        wObj = *iter;
-        ++iter;
-        if(wObj == NULL || !wObj->IsInWorld())
-            continue;
-
-        // players have to receive their own updates ;)
-        if( wObj->IsPlayer() )
-        {
-            // need to be different! ;)
-            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, castPtr<Player>( wObj ), UF_FLAGMASK_SELF) )
-                castPtr<Player>( wObj )->PushUpdateBlock(_mapId, &m_updateBuffer, count );
-            m_updateBuffer.clear();
-        }
-
-        wObj->OnUpdateProcess();
-        BroadcastObjectUpdate(wObj);
-        wObj->ClearUpdateMask();
-    }
-    _updates.clear();
-
-    Player* plyr;
-    // generate pending a9packets and send to clients.
-    while(!_processQueue.empty())
-    {
-        plyr = *_processQueue.begin();
-        if(plyr && plyr->GetMapInstance() == this)
-            plyr->PopPendingUpdates(_mapId);
-        _processQueue.erase(_processQueue.begin());
     }
     m_updateMutex.Release();
 }

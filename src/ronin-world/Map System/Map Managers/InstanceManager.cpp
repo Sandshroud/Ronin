@@ -55,6 +55,9 @@ void InstanceManager::Launch()
         m_instanceCounter = result->Fetch()[0].GetUInt32();
         delete result;
     } else m_instanceCounter = 0x3FF;
+
+    // Push our instance script assignment as well
+    SetupInstanceScripts();
 }
 
 void InstanceManager::Prepare()
@@ -64,20 +67,47 @@ void InstanceManager::Prepare()
 
 void InstanceManager::_LoadInstances()
 {
+    std::map<uint32, MapScriptAllocator*>::iterator itr;
+    for(itr = m_mapScriptAllocators.begin(); itr != m_mapScriptAllocators.end(); itr++)
+        itr->second->CheckInstanceDataTables();
+
     // load saved instances
     if(QueryResult *result = StateDatabase.Query("SELECT * FROM instance_data"))
     {
         uint32 count = 0;
         do
         {
-            //if(LoadInstance(result->Fetch()))
-                count++;
+            Field *fields = result->Fetch();
+            uint32 instanceId = fields[0].GetUInt32();
+            uint32 mapId = fields[1].GetUInt32();
+            /*if(!LoadInstanceData(instanceId, fields))
+                continue;*/
+
+            if((itr = m_mapScriptAllocators.find(mapId)) != m_mapScriptAllocators.end())
+                itr->second->LoadExtraInstanceData(instanceId);
+
+            count++;
         } while(result->NextRow());
         delete result;
 
         sLog.Success("WorldManager", "Loaded %u saved instance(s)." , count);
     } else sLog.Debug("WorldManager", "No saved instances found.");
 
+}
+
+MapScript *InstanceManager::AllocateMapScript(MapInstance *instance)
+{
+    std::map<uint32, MapScriptAllocator*>::iterator itr;
+    if((itr = m_mapScriptAllocators.find(instance->GetMapId())) != m_mapScriptAllocators.end())
+        return itr->second->Allocate(instance);
+    return NULL;
+}
+
+void InstanceManager::AssignMapScriptAllocator(uint32 mapId, MapScriptAllocator *allocator)
+{
+    if(m_mapScriptAllocators.find(mapId) != m_mapScriptAllocators.end())
+        return;
+    m_mapScriptAllocators.insert(std::make_pair(mapId, allocator));
 }
 
 void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::GroupFinderDungeon *dungeon, Group *grp)
