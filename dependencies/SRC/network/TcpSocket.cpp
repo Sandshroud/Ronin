@@ -231,6 +231,21 @@ void TcpSocket::OnError(int errcode)
     Disconnect();
 }
 
+void TcpSocket::ToggleNagleAlgorithm(bool enable)
+{
+#ifdef WIN32
+    u_long recv = 0, recvLen = 1, arg = enable ? 0 : 1;
+    // Get our current nagle status
+    if(getsockopt(GetFd(), IPPROTO_TCP, TCP_NODELAY, (char*)&recv, (int*)&recvLen))
+        return;
+    // Check if it's already enabled/disabled
+    if(recv == arg)
+        return;
+
+    setsockopt(GetFd(), IPPROTO_TCP, TCP_NODELAY, (const char*)&arg, sizeof(arg));
+#endif
+}
+
 bool TcpSocket::Writable()
 {
     return (m_writeBuffer->GetSize() > 0) ? true : false;

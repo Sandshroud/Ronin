@@ -748,6 +748,8 @@ private:
     bool _recentlogout;
     bool m_asyncQuery;
     uint32 _latency;
+    uint32 _lastPacketHandle;
+
     uint32 client_build;
     uint8 _updatecount;
 

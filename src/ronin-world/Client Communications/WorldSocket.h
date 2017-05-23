@@ -124,7 +124,7 @@ private:
 
     WowCrypt _crypt;
     uint32 _latency;
-    bool m_authed, mQueued, m_nagleEanbled, isBattleNetAccount;
+    bool m_authed, mQueued, isBattleNetAccount;
     std::string * m_fullAccountName;
 
     // Packet recv and send headers

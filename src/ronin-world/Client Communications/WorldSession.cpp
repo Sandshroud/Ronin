@@ -36,7 +36,7 @@ _logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _
     _player = NULL;
     m_hasDeathKnight = false;
     m_highestLevel = sWorld.StartLevel;
-    m_currMsTime = getMSTime();
+    _lastPacketHandle = m_currMsTime = getMSTime();
     bDeleted = false;
     m_bIsWLevelSet = false;
     floodLines = 0;
@@ -166,6 +166,7 @@ int WorldSession::Update(int32 instanceId)
     {
         WorldPacket *packet;
         OpcodeHandler * Handler;
+        _lastPacketHandle = m_currMsTime;
         while (!bDeleted && instanceId == m_eventInstanceId && _socket && _socket->IsConnected() && (packet = _recvQueue.Pop()))
         {
             ASSERT(packet);
@@ -206,8 +207,13 @@ int WorldSession::Update(int32 instanceId)
 
     if(instanceId != m_eventInstanceId)
         return 2; // If we hit this it means that an opcode has changed our map.
-    if( bDeleted )
+    // If we're deleted or we haven't handled a packet in 10 minutes, clean us up
+    if( bDeleted || (_player == NULL && getMSTimeDiff(m_currMsTime, _lastPacketHandle) > 600000))
+    {
+        if( _socket != NULL )
+            Disconnect();
         return 1;
+    }
 
     if( _logoutTime && (m_currMsTime >= _logoutTime) && instanceId == m_eventInstanceId)
     {

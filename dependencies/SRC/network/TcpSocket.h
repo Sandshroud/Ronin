@@ -113,6 +113,10 @@ public:
      */
     void OnAccept(void * pointer) {}
 
+    /** Windows Nagle Algorithm support
+     */
+    void ToggleNagleAlgorithm(bool enable);
+
 protected:
 
     /** Socket's write buffer protection

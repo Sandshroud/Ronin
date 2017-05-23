@@ -38,7 +38,6 @@ WorldSocket::WorldSocket(SOCKET fd, const sockaddr_in * peer) : TcpSocket(fd, WO
     addonPacket = NULL;
     mQueued = false;
     mRequestID = 0;
-    m_nagleEanbled = false;
     m_fullAccountName = NULL;
 }
 
@@ -477,27 +476,8 @@ void WorldSocket::_HandlePing(WorldPacket* recvPacket)
 
     OutPacket(SMSG_PONG, 4, &ping);
 
-#ifdef WIN32
-    // Dynamically change nagle buffering status based on latency.
-    if(_latency >= 250)
-    {
-        if(!m_nagleEanbled)
-        {
-            u_long arg = 0;
-            setsockopt(GetFd(), 0x6, 0x1, (const char*)&arg, sizeof(arg));
-            m_nagleEanbled = true;
-        }
-    }
-    else
-    {
-        if(m_nagleEanbled)
-        {
-            u_long arg = 1;
-            setsockopt(GetFd(), 0x6, 0x1, (const char*)&arg, sizeof(arg));
-            m_nagleEanbled = false;
-        }
-    }
-#endif
+    // Check if we should disable nagle to reduce overhead on slower sockets
+    ToggleNagleAlgorithm(_latency > 500);
 }
 
 void WorldSocket::OnRecvData()
