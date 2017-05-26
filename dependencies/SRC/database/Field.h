@@ -38,18 +38,28 @@ public:
     RONIN_INLINE int32 GetInt32() { return mValue ? static_cast<int32>(atoi(mValue)) : 0; }
     uint64 GetUInt64() 
     {
-        if(mValue)
-        {
-            uint64 value;
-#if defined(_WIN64)
-            sscanf(mValue,I64FMTD,(long long unsigned int*)&value);
-#else
-            sscanf(mValue,I64FMTD,&value);
-#endif
-            return value;
-        }
-        else
+        if(mValue == 0)
             return 0;
+        uint64 value;
+#if defined(_WIN64)
+        sscanf(mValue,UI64FMTD,(long long unsigned int*)&value);
+#else
+        sscanf(mValue,UI64FMTD,&value);
+#endif
+        return value;
+    }
+
+    uint64 GetInt64() 
+    {
+        if(mValue == NULL)
+            return 0;
+        int64 value;
+#if defined(_WIN64)
+        sscanf(mValue,I64FMTD,(long long unsigned int*)&value);
+#else
+        sscanf(mValue,I64FMTD,&value);
+#endif
+        return value;
     }
 
 private:
