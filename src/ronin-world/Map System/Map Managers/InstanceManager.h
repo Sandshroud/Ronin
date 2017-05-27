@@ -145,7 +145,13 @@ public: // Just make calls into instance management, then return true for auto d
 class InstanceData
 {
 public:
-    void LoadFromDB(Field * fields);
+    InstanceData() = delete; // Don't allow allocation outside initializing
+    InstanceData(uint32 mapId, uint32 instanceId, WoWGuid guid = 0, WoWGuid guid2 = 0, time_t start = 0, time_t expire = 0, uint16 diff = 0)
+        : m_mapId(mapId), m_instanceId(instanceId), m_creatorGuid(guid), m_creatorGroup(guid2), m_creation(start), m_expiration(expire), m_difficulty(diff), m_isUpdated(false), m_isBattleground(false) {}
+
+    void Update(uint32 msTime);
+
+    bool LoadFromDB(Field *fields, std::vector<std::pair<WoWGuid, uint8>> &spawnState);
     void SaveToDB();
     void DeleteFromDB();
 
@@ -166,28 +172,22 @@ public:
     void AcquireSaveLock() { m_savedLock.Acquire(); }
     void ReleaseSaveLock() { m_savedLock.Release(); }
 
-    void AddKilledNPC(uint32 counter) { m_killedNpcs.insert(counter); }
-    void AddSavedPlayer(uint32 counter) { m_SavedPlayers.insert(counter); }
-    void AddEnteredPlayer(uint32 counter) { m_EnteredPlayers.insert(counter); }
+    uint8 GetObjectState(WoWGuid guid);
+    void AddObjectState(WoWGuid guid, uint8 state);
 
-    bool HasKilledNPC(uint32 counter) { return m_killedNpcs.find(counter) != m_killedNpcs.end(); }
-    bool HasSavedPlayer(uint32 counter) { return m_SavedPlayers.find(counter) != m_SavedPlayers.end(); }
-    bool HasEnteredPlayer(uint32 counter) { return m_EnteredPlayers.find(counter) != m_EnteredPlayers.end(); }
+    void SetUpdated() { m_isUpdated = true; }
 
 private:
     uint32 m_instanceId;
     uint32 m_mapId;
 
     WoWGuid m_creatorGuid, m_creatorGroup;
-    time_t m_creation;
+    time_t m_creation, m_expiration;
 
-    uint32 m_difficulty;
+    uint16 m_difficulty;
 
-    time_t m_expiration;
-    bool m_isBattleground;
+    bool m_isUpdated, m_isBattleground;
 
     Mutex m_savedLock;
-    std::set<uint32> m_killedNpcs;
-    std::set<uint32> m_SavedPlayers;
-    std::set<uint32> m_EnteredPlayers;
+    Loki::AssocVector<WoWGuid, uint8> m_objectState;
 };

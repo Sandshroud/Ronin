@@ -248,7 +248,7 @@ uint16 Object::GetUpdateFlag(Player *target)
                     flag |= UF_FLAG_OWNER;
                 else if (target->GetGUID() == castPtr<Unit>(this)->GetUInt64Value(UNIT_FIELD_CREATEDBY))
                     flag |= UF_FLAG_OWNER;
-                if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupID() == target->GetGroupID())
+                if (IsPlayer() && castPtr<Player>(this)->InGroup() && castPtr<Player>(this)->GetGroupGuid() == target->GetGroupGuid())
                     flag |= UF_FLAG_PARTY_MEMBER;
             }break;
         case TYPEID_GAMEOBJECT:

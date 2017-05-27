@@ -1005,7 +1005,7 @@ public:
     bool IsGroupMember(Player* plyr);
     RONIN_INLINE int      HasBeenInvited() { return !m_GroupInviter.empty(); }
     RONIN_INLINE Group*   GetGroup() { return m_playerInfo != NULL ? m_playerInfo->m_Group : NULL; }
-    RONIN_INLINE uint32   GetGroupID() { return m_playerInfo != NULL ? m_playerInfo->m_Group != NULL ? m_playerInfo->m_Group->GetID(): NULL: NULL; }
+    RONIN_INLINE WoWGuid  GetGroupGuid() { return m_playerInfo != NULL ? m_playerInfo->m_Group != NULL ? m_playerInfo->m_Group->GetGuid(): NULL: NULL; }
     RONIN_INLINE int8     GetSubGroup() { return m_playerInfo->subGroup; }
     RONIN_INLINE bool     IsBanned()
     {

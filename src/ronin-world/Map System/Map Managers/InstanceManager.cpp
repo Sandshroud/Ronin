@@ -45,9 +45,17 @@ void InstanceManager::Launch()
     // Nullify these counters here
     m_creatureGUIDCounter = m_gameObjectGUIDCounter = 0;
 
+    // Assign a connection to this thread
+    StateDatabase.AssignThreadConnection();
     // clear any instances that have expired.
     sLog.Notice("WorldManager", "Deleting Expired Instances...");
     StateDatabase.WaitExecute("DELETE FROM instance_data WHERE expiration <= %u", UNIXTIME);
+    // Clear any states from deleted instances
+    StateDatabase.WaitExecute("DELETE FROM instance_data_object_state WHERE instanceId NOT IN (SELECT id FROM instance_data)");
+    // Clear any links from deleted instances
+    StateDatabase.WaitExecute("DELETE FROM instance_links WHERE instanceId NOT IN (SELECT id FROM instance_data)");
+    // Release our assigned thread connection
+    StateDatabase.ReleaseThreadConnection();
 
     // Load our instance data counter
     if( QueryResult *result = StateDatabase.Query( "SELECT MAX(id) FROM instance_data" ) )
@@ -71,6 +79,20 @@ void InstanceManager::_LoadInstances()
     for(itr = m_mapScriptAllocators.begin(); itr != m_mapScriptAllocators.end(); itr++)
         itr->second->CheckInstanceDataTables();
 
+    std::map<uint32, std::vector<std::pair<WoWGuid, uint8>>> objectCache;
+    // Preload and cache creature/gameobject state
+    if(QueryResult *result = StateDatabase.Query("SELECT * FROM instance_data_object_state"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 instanceId = fields[0].GetUInt32();
+            WoWGuid guid = fields[1].GetUInt64();
+            uint8 state = fields[2].GetUInt8();
+            objectCache[instanceId].push_back(std::make_pair(guid, state));
+        }while(result->NextRow());
+    }
+
     // load saved instances
     if(QueryResult *result = StateDatabase.Query("SELECT * FROM instance_data"))
     {
@@ -80,8 +102,10 @@ void InstanceManager::_LoadInstances()
             Field *fields = result->Fetch();
             uint32 instanceId = fields[0].GetUInt32();
             uint32 mapId = fields[1].GetUInt32();
-            /*if(!LoadInstanceData(instanceId, fields))
-                continue;*/
+            InstanceData *data = new InstanceData(mapId, instanceId);
+            if(!data->LoadFromDB(fields, objectCache[instanceId]))
+                continue;
+            m_instanceData.insert(std::make_pair(instanceId, data));
 
             if((itr = m_mapScriptAllocators.find(mapId)) != m_mapScriptAllocators.end())
                 itr->second->LoadExtraInstanceData(instanceId);
@@ -93,6 +117,23 @@ void InstanceManager::_LoadInstances()
         sLog.Success("WorldManager", "Loaded %u saved instance(s)." , count);
     } else sLog.Debug("WorldManager", "No saved instances found.");
 
+    // load saved instance links
+    if(QueryResult *result = StateDatabase.Query("SELECT * FROM instance_links"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            WoWGuid guid = fields[0].GetUInt64();
+            uint32 instanceId = fields[2].GetUInt32();
+
+            // Just link the mapped section to our instanceId
+            m_guidLinkedDungeons[guid][fields[1].GetUInt32()] = instanceId;
+            // Link instance side
+            m_dungeonLinkedGuids[instanceId].insert(guid);
+        } while(result->NextRow());
+    }
+
+    objectCache.clear();
 }
 
 MapScript *InstanceManager::AllocateMapScript(MapInstance *instance)
@@ -121,7 +162,9 @@ void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::Gro
     counterLock.Release();
 
     instanceStorageLock.Acquire();
-    MapInstance *instance = new MapInstance(mapData, mapId, dungeon->instanceId, new InstanceData());
+    InstanceData *data = new InstanceData(mapId, dungeon->instanceId, WoWGuid(), grp->GetGuid(), UNIXTIME, UNIXTIME+TIME_DAY, 0);//dungeon->difficulty);
+    m_instanceData.insert(std::make_pair(dungeon->instanceId, data));
+    MapInstance *instance = new MapInstance(mapData, mapId, dungeon->instanceId, data);
     _AddInstance(dungeon->instanceId, instance);
     instanceStorageLock.Release();
 
@@ -169,7 +212,9 @@ MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
         counterLock.Acquire();
         uint32 instanceId = ++m_instanceCounter;
         counterLock.Release();
-        _AddInstance(instanceId, ret = new MapInstance(mapData, mapId, instanceId, new InstanceData()));
+        InstanceData *data = new InstanceData(mapId, instanceId, obj->GetGUID(), castPtr<Player>(obj)->GetGroupGuid(), UNIXTIME, UNIXTIME+TIME_DAY, 0);//dungeon->difficulty);
+        m_instanceData.insert(std::make_pair(instanceId, data));
+        _AddInstance(instanceId, ret = new MapInstance(mapData, mapId, instanceId, data));
         LinkGuidToInstance(ret, obj->GetGUID(), false);
     }
 
@@ -275,6 +320,7 @@ bool InstanceManager::LinkGuidToInstance(MapInstance *instance, WoWGuid guid, bo
 
     if(guid.getHigh() == HIGHGUID_TYPE_GROUP)
     {
+        StateDatabase.Execute("DELETE FROM instance_links WHERE instanceId = '%u';", instanceId);
         while(m_dungeonLinkedGuids[instanceId].size())
         {
             WoWGuid guid2 = *m_dungeonLinkedGuids[instanceId].begin();
@@ -283,9 +329,13 @@ bool InstanceManager::LinkGuidToInstance(MapInstance *instance, WoWGuid guid, bo
             if(m_guidLinkedDungeons.find(guid2) != m_guidLinkedDungeons.end()
                 && m_guidLinkedDungeons[guid2].find(uniqueMapId) != m_guidLinkedDungeons[guid2].end()
                 && m_guidLinkedDungeons[guid2][uniqueMapId] == instanceId)
+            {
                 m_guidLinkedDungeons[guid2].erase(uniqueMapId);
+            }
         }
     }
+
+    StateDatabase.Execute("REPLACE INTO instance_links VALUES('%llu', '%u', '%u');", guid.raw(), uniqueMapId, instanceId);
 
     // Just link the mapped section to our instanceId
     m_guidLinkedDungeons[guid][uniqueMapId] = instanceId;
@@ -358,6 +408,10 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
                 instance->_ProcessInputQueue();
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
+                // Process all script updates before object updates
+                instance->_PerformScriptUpdates(msTimer, diff);
+                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
+                    break;
                 // Perform all combat state updates before any unit updates
                 instance->_PerformCombatUpdates(msTimer, diff);
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
@@ -418,4 +472,70 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
             break;
         Sleep(25);
     }
+}
+
+void InstanceData::Update(uint32 msTime)
+{
+    if(!m_isUpdated)
+        return;
+    m_isUpdated = false;
+
+    // TODO: Add a timer
+    SaveToDB();
+}
+
+bool InstanceData::LoadFromDB(Field *fields, std::vector<std::pair<WoWGuid, uint8>> &spawnState)
+{
+    m_creation = fields[2].GetUInt64();
+    m_expiration = fields[3].GetUInt64();
+    m_difficulty = fields[4].GetUInt16();
+    m_creatorGroup = fields[5].GetUInt64();
+    m_creatorGuid = fields[6].GetUInt64();
+
+    for(auto itr = spawnState.begin(); itr != spawnState.end(); ++itr)
+        m_objectState.insert(std::make_pair(itr->first, itr->second));
+    return true;
+}
+
+void InstanceData::SaveToDB()
+{
+    std::stringstream ss;
+    for(auto itr = m_objectState.begin(); itr != m_objectState.end(); ++itr)
+    {
+        if(ss.str().length())
+            ss << ", ";
+
+        ss << "('" << m_instanceId << "', '";
+        ss << itr->first.raw() << "', '";
+        ss << ((uint32)itr->second) << "')";
+    }
+
+    StateDatabase.Execute("DELETE FROM instance_data_object_state WHERE instanceId = %u", m_instanceId);
+    StateDatabase.Execute("REPLACE INTO instance_data VALUES('%u', '%u', '%llu', '%llu', '%u', '%llu', '%llu', '');", m_instanceId, m_mapId, m_creation, m_expiration, m_difficulty, m_creatorGroup.raw(), m_creatorGuid.raw());
+    if(ss.str().length())
+        StateDatabase.Execute("REPLACE INTO instance_data_object_state VALUES %s;", ss.str().c_str());
+}
+
+void InstanceData::DeleteFromDB()
+{
+    // Delete all links
+    StateDatabase.Execute("DELETE FROM instance_links WHERE instanceId = '%u';", m_instanceId);
+}
+
+uint8 InstanceData::GetObjectState(WoWGuid guid)
+{
+    Loki::AssocVector<WoWGuid, uint8>::iterator itr;
+    if((itr = m_objectState.find(guid)) != m_objectState.end())
+        return itr->second;
+    return 0;
+}
+
+void InstanceData::AddObjectState(WoWGuid guid, uint8 state)
+{
+    Loki::AssocVector<WoWGuid, uint8>::iterator itr;
+    if((itr = m_objectState.find(guid)) != m_objectState.end() && state == 0)
+        m_objectState.erase(itr);
+    else if(itr != m_objectState.end())
+        itr->second = state;
+    else m_objectState.insert(std::make_pair(guid, state));
 }

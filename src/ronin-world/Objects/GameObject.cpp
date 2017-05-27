@@ -631,6 +631,13 @@ void GameObject::GenerateLoot()
 
 }
 
+void GameObject::SetState(uint8 state)
+{
+    SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE, state);
+    if(IsInWorld())
+        m_mapInstance->SetGameObjState(m_spawn->guid, state);
+}
+
 void GameObject::SetDisplayId(uint32 id)
 {
     SetUInt32Value( GAMEOBJECT_DISPLAYID, id );

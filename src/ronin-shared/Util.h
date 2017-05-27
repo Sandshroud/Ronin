@@ -33,6 +33,8 @@ namespace RONIN_UTIL
     static const char * szDayNames[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
     static const char * szMonthNames[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 
+    RONIN_INLINE uint32 GetThreadId() { return ronin_GetThreadId(); }
+
     ///////////////////////////////////////////////////////////////////////////////
     // String Functions ///////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////

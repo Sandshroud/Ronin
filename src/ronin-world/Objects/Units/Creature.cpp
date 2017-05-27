@@ -135,7 +135,7 @@ void Creature::Reactivate()
 
         m_movementInterface.OnRespawn();
 
-        m_deathState = ALIVE;
+        SetDeathState(ALIVE);
 
         // Reload from proto and respawn at spawn loc
         Load(m_mapId, m_spawnLocation.x, m_spawnLocation.y, m_spawnLocation.z, m_spawnLocation.o, m_mapInstance->iInstanceMode, m_spawn, true);
@@ -279,7 +279,7 @@ void Creature::Tag(Player* plr)
 
 bool Creature::IsTaggedByPlayer(Player *plr)
 {
-    if(!m_taggedGroup.empty() && plr->GetGroupID() == m_taggedGroup.getLow())
+    if(!m_taggedGroup.empty() && plr->GetGroupGuid() == m_taggedGroup)
         return true;
     return m_taggedPlayer == plr->GetGUID();
 }
@@ -561,6 +561,9 @@ void Creature::SetDeathState(DeathState s)
         if ( lootmgr.IsSkinnable(GetEntry()))
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
     }
+
+    if(IsInWorld())
+        m_mapInstance->SetUnitState(m_spawn->guid, s == JUST_DIED ? DEAD : s);
 }
 
 bool Creature::CanAddToWorld()

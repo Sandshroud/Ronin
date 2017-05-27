@@ -60,9 +60,9 @@ _DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
     projectileSpellUpdateTime[0] = projectileSpellUpdateTime[1] = 0;
     projectileSpellIndex[0] = projectileSpellIndex[1] = 0;
 
-    if(m_instanceData = data ? new MapInstance::MapInstanceData() : NULL)
+    if(m_instanceData = (m_iData = data) ? new MapInstance::MapInstanceData() : NULL)
     {
-        m_instanceData->difficulty = data->getDifficulty();
+        m_instanceData->difficulty = m_iData->getDifficulty();
         m_instanceData->linkedGroupId = 0;
     }
 
@@ -1514,6 +1514,9 @@ void MapInstance::_ProcessInputQueue()
 
 void MapInstance::_PerformScriptUpdates(uint32 msTime, uint32 uiDiff)
 {
+    if(InstanceData *data = m_iData)
+        data->Update(msTime);
+
     // UPDATE THE SCRIPT, DO IT.
     if(MapScript *script = m_script)
         script->Update(msTime, uiDiff);
@@ -1932,6 +1935,24 @@ uint32 MapInstance::GetZoneModifier(uint32 zoneId)
 void MapInstance::AppendQuestList(WoWGuid guid, Player *plr, uint32 &count, WorldPacket *packet)
 {
     // Nothing yet
+}
+
+void MapInstance::SetUnitState(WoWGuid guid, uint8 state)
+{
+    if(InstanceData *data = m_iData) // Save raw death state for units
+    {
+        data->AddObjectState(guid, state);
+        data->SetUpdated();
+    }
+}
+
+void MapInstance::SetGameObjState(WoWGuid guid, uint8 state)
+{
+    if(InstanceData *data = m_iData) // Only save certain gameobject states to instance data
+    {
+        data->AddObjectState(guid, state&0xFF);
+        data->SetUpdated();
+    }
 }
 
 bool MapInstance::CheckCombatStatus(Unit *unit)

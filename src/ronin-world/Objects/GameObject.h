@@ -635,7 +635,7 @@ public:
     // loooot
     void GenerateLoot();
 
-    RONIN_INLINE void SetState(uint8 state) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE, state); }
+    RONIN_INLINE void SetState(uint8 state);
     RONIN_INLINE uint8 GetState() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE); }
     RONIN_INLINE void SetArtKit(uint8 kit) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ART_KIT, kit); }
     RONIN_INLINE uint8 GetArtKit() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ART_KIT); }

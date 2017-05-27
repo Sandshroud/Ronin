@@ -108,6 +108,9 @@ public:
     void thread_proc_query();
     void FreeQueryResult(QueryResult * p);
 
+    void AssignThreadConnection();
+    void ReleaseThreadConnection();
+
     DatabaseConnection *GetFreeConnection();
 
     void PerformQueryBuffer(QueryBuffer * b, DatabaseConnection *ccon);
@@ -130,6 +133,7 @@ protected:
     ////////////////////////////////
     FQueue<char*> queries_queue;
     DatabaseConnection *m_connections;
+    std::map<uint32, DatabaseConnection*> m_assignedConnections;
     
     uint32 _counter;
     ///////////////////////////////

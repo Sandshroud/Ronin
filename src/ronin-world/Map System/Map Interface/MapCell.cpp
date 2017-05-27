@@ -137,12 +137,15 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         return 0;
 
     uint32 loadCount = 0, mapId = _instance->GetMapId();
-    //MapInstance *pInstance = NULL;//_instance->IsInstance() ? castPtr<InstanceMgr>(_instance) : NULL;
+    InstanceData *data = _instance->m_iData;
     if(sp->CreatureSpawns.size())//got creatures
     {
         for(CreatureSpawnArray::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
             CreatureSpawn *spawn = *i;
+            if(data && data->GetObjectState(spawn->guid))
+                continue;
+
             WoWGuid guid = spawn->guid;
             if(_instance->IsInstance())
             {
@@ -175,6 +178,8 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         for(GameObjectSpawnArray::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
         {
             GameObjectSpawn *spawn = *i;
+            uint8 objState = data ? data->GetObjectState(spawn->guid) : 0x00;
+
             WoWGuid guid = spawn->guid;
             if(_instance->IsInstance())
             {
@@ -188,6 +193,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             {
                 go->Load(mapId, spawn->x, spawn->y, spawn->z, 0.f, spawn->rX, spawn->rY, spawn->rZ, spawn->rAngle, spawn);
                 go->SetInstanceID(_instance->GetInstanceID());
+                go->SetState(objState|spawn->state);
 
                 if(_instance->IsGameObjectPoolUpdating())
                     _instance->AddObject(go);

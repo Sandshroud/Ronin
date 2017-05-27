@@ -72,6 +72,10 @@ bool ContinentManager::run()
         m_continent->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+        // Process all script updates before object updates
+        m_continent->_PerformScriptUpdates(mstime, diff);
+        if(!SetThreadState(THREADSTATE_BUSY))
+            break;
         // Perform all combat state updates before any unit updates
         m_continent->_PerformCombatUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))

@@ -1335,7 +1335,7 @@ void GroupFinderMgr::SendProposalUpdate(QueueProposition *proposition, Player *p
         {
             for(Loki::AssocVector<WoWGuid, uint32>::iterator itr = proposition->memberRoles.begin(); itr != proposition->memberRoles.end(); itr++)
             {
-                data.WriteBit(player->GetGroup() && player->GetGroupID() == proposition->targetGroupId);
+                data.WriteBit(player->GetGroup() && player->GetGroupGuid().getLow() == proposition->targetGroupId);
                 data.WriteBit(plrGroup && plrGroup->memberRoles.find(itr->first) != plrGroup->memberRoles.end());
                 if(proposition->acceptedMembers.find(itr->first) != proposition->acceptedMembers.end())
                     data.WriteBits(0xFF, 2);

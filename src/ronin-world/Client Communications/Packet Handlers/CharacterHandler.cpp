@@ -680,7 +680,7 @@ void WorldSession::FullLogin(Player* plr)
     SendPacket(&data);
 
     data.Initialize(MSG_SET_DUNGEON_DIFFICULTY, 12);
-    data << plr->iInstanceType << uint32(0x01) << uint32(plr->GetGroupID() ? 1 : 0);
+    data << plr->iInstanceType << uint32(0x01) << uint32(plr->GetGroup() ? 1 : 0);
     SendPacket(&data);
 
     // Anti max level hack.

@@ -413,6 +413,9 @@ public:
     // Append quests based on guid and scripts
     void AppendQuestList(WoWGuid guid, Player *plr, uint32 &count, WorldPacket *packet);
 
+    void SetUnitState(WoWGuid guid, uint8 state);
+    void SetGameObjState(WoWGuid guid, uint8 state);
+
 public:
     // Combat functions
     bool CheckCombatStatus(Unit *unit = NULL);
@@ -741,6 +744,8 @@ public:
     WorldObject* _GetObject(WoWGuid guid);
 
 private:
+    InstanceData *m_iData;
+
     struct MapInstanceData
     {
         uint32 difficulty;

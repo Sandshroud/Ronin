@@ -90,9 +90,34 @@ bool DirectDatabase::Initialize(const char* Hostname, unsigned int port, const c
     return true;
 }
 
+void DirectDatabase::AssignThreadConnection()
+{
+    uint32 threadId = ronin_GetThreadId();
+    if(m_assignedConnections.find(threadId) != m_assignedConnections.end())
+        return;
+    m_assignedConnections.insert(std::make_pair(threadId, GetFreeConnection()));
+}
+
+void DirectDatabase::ReleaseThreadConnection()
+{
+    uint32 threadId = ronin_GetThreadId();
+    std::map<uint32, DatabaseConnection*>::iterator itr;
+    if((itr = m_assignedConnections.find(threadId)) != m_assignedConnections.end())
+    {
+        itr->second->Busy.Release();
+        m_assignedConnections.erase(itr);
+    }
+}
+
 DatabaseConnection * DirectDatabase::GetFreeConnection()
 {
-    uint32 i = 0;
+    uint32 i = 0, threadId = ronin_GetThreadId();
+
+    // Check for threadId assigned connections and wait for it to be free
+    std::map<uint32, DatabaseConnection*>::iterator itr;
+    if((itr = m_assignedConnections.find(threadId)) != m_assignedConnections.end())
+        return itr->second;
+
     for(;;)
     {
         DatabaseConnection * con = &m_connections[ ((i++) % mConnectionCount) ];
