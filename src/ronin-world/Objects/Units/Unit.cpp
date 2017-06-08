@@ -219,6 +219,7 @@ void Unit::OnAuraModChanged(uint32 modType)
         pendingIndex.push_back(UF_UTYPE_RESISTANCE);
         break;
     case SPELL_AURA_MOD_ATTACK_POWER_PCT:
+    case SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR:
         pendingIndex.push_back(UF_UTYPE_ATTACKPOWER);
         break;
     case SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT:
@@ -759,8 +760,8 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_ATTACK_POWER_PCT) != modMap.end())
     {
         float val = 100.0f;
-        if(AuraInterface::modifierMap *hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_PCT))
-            for(AuraInterface::modifierMap::iterator itr = hoverMod->begin(); itr != hoverMod->end(); itr++)
+        if(AuraInterface::modifierMap *attackPowerMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_PCT))
+            for(AuraInterface::modifierMap::iterator itr = attackPowerMod->begin(); itr != attackPowerMod->end(); itr++)
                 val += float(itr->second->m_amount);
         SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, val/100.0f);
     }
@@ -778,6 +779,19 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     gtFloat *HPPerStam = NULL;
     if(IsCreature() && (HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1))))
         attackPower *= 1.f + std::max<float>(0.f, (HPPerStam->val-fMaxLevelSqrt));
+
+    if(AuraInterface::modifierMap *apArmorMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR))
+    {
+        if(float resist = GetUInt32Value(UNIT_FIELD_RESISTANCES))
+        {
+            for(AuraInterface::modifierMap::iterator itr = apArmorMod->begin(); itr != apArmorMod->end(); itr++)
+            {
+                float modAmt = itr->second->m_spellInfo->EffectBasePoints[itr->second->i+1], reqAmount;
+                if((reqAmount = modAmt * itr->second->m_amount) > 0.f && resist > reqAmount)
+                    attackPower += modAmt*floor(resist/reqAmount);
+            }
+        }
+    }
 
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, attackPower);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, 0);
