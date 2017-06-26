@@ -2050,7 +2050,7 @@ void SpellEffectClass::SpellEffectRestoreHealthPct(uint32 i, WorldObject *target
     uint32 maxHp = (uint32)unitTarget->GetUInt32Value(UNIT_FIELD_MAXHEALTH);
     uint32 modHp = amount * maxHp / 100;
 
-    _unitCaster->Heal(unitTarget, m_spellInfo->Id, modHp);
+    _unitCaster->Heal(unitTarget, modHp, m_spellInfo->Id);
 }
 
 void SpellEffectClass::SpellEffectForceCast(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

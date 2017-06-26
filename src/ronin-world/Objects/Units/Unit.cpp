@@ -343,7 +343,7 @@ void Unit::UpdateStatValues()
     {
         ctrMod *= 1.f + std::max<float>(0.f, (HPPerStam->val-fMaxLevelSqrt));
         if(uint32 levelMod = sStatSystem.GetXPackModifierForLevel(getLevel(), castPtr<Creature>(this)->GetCreatureData()->rank > 0 ? 3 : 0))
-            ctrMod *= (levelMod+1);
+            ctrMod *= ((float)(levelMod+1))/2.f;
     }
 
     for(uint8 s = 0; s < MAX_STAT; s++)
@@ -547,7 +547,7 @@ void Unit::UpdateAttackTimeValues()
     uint8 updateMask = 0x00;
     for(uint8 i = 0; i < 3; i++)
     {
-        uint32 baseAttack = GetBaseAttackTime(i);
+        uint32 baseAttack = GetBaseAttackTime(i), attackTime = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i);
         if(baseAttack || i == 0) // Force an attack time for mainhand
         {
             float attackSpeedMod = 1.0f;
@@ -575,7 +575,8 @@ void Unit::UpdateAttackTimeValues()
         }
 
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i, baseAttack);
-        if(baseAttack == 0)
+        // Only update our attack timer if we've changed our attack time
+        if(baseAttack == attackTime)
             continue;
 
         updateMask |= 1<<i;
@@ -606,15 +607,33 @@ void Unit::UpdateAttackDamageValues()
         if(IsCreature())
         {   // Creature damage is AP times healthmod, with 1.5+rank times being the max damage
             CreatureData *data = castPtr<Creature>(this)->GetCreatureData();
-            baseMaxDamage = std::max<float>(2.f, apBonus * (1.f + (((float)data->rank) * 0.5f)));
+            uint32 levelMod = sStatSystem.GetXPackModifierForLevel(getLevel(), data->rank > 0 ? 3 : 0);
+            baseMaxDamage = std::max<float>(2.f, apBonus * (1.f + (((float)data->rank) * 0.5f)) * (levelMod ? ((float)(levelMod+1)) : 1.f));
             baseMaxDamage = ceil(baseMaxDamage * data->damageMod);
             baseMinDamage = std::max<float>(1.f, floor(baseMaxDamage * ((6.5f + ((float)data->rank+1) + data->damageRangeMod)/10.f)));
         }
         else if(IsInFeralForm())
         {
-            uint32 level = std::min<uint32>(getLevel(), 60);
-            baseMinDamage = level*0.85f*apBonus;
-            baseMaxDamage = level*1.25f*apBonus;
+            Item *currentWeapon = NULL;
+            if(IsPlayer() && !disarmed && (currentWeapon = castPtr<Player>(this)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND)) != NULL)
+            {
+                float modifier = ((float)currentWeapon->GetProto()->Delay)/1000.f;
+                if(GetShapeShift() == FORM_BEAR || GetShapeShift() == FORM_DIREBEAR)
+                {
+                    baseMaxDamage = std::max<float>(2.f, baseMaxDamage / modifier + (baseMaxDamage/2.5f));
+                    baseMinDamage = std::max<float>(1.f, baseMinDamage / modifier + (baseMinDamage/2.5f));
+                }
+                else
+                {
+                    baseMaxDamage = std::max<float>(2.f, baseMaxDamage / modifier);
+                    baseMinDamage = std::max<float>(1.f, baseMinDamage / modifier);
+                }
+            }
+            else 
+            {
+                baseMinDamage += apBonus;
+                baseMaxDamage += apBonus;
+            }
         }
         else // Add our AP bonus
         {
@@ -2372,8 +2391,9 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
     //---------------------------------------------------------
     // coefficient
     //---------------------------------------------------------
-    float coefficient = IsCreature() ? 1.0f : 0.0f;
-    if(spellInfo->School) coefficient += spellInfo->EffectBonusCoefficient[effIndex];
+    float coefficient = 0.0f;
+    if(spellInfo->School)
+        coefficient += spellInfo->EffectBonusCoefficient[effIndex];
 
     //---------------------------------------------------------
     // modifiers (increase spell dmg by spell power)
@@ -2427,7 +2447,7 @@ int32 Unit::GetSpellBonusDamage(Unit* pVictim, SpellEntry *spellInfo, uint8 effI
 
     bool ranged = spellInfo->isSpellRangedSpell();
     float ap_coeff = 0.0f;
-    if(spellInfo->School == SCHOOL_NORMAL)
+    if(spellInfo->spellType != NON_WEAPON)
         ap_coeff += spellInfo->EffectBonusCoefficient[effIndex];
     if(ap_coeff) bonus_damage += ap_coeff*(ranged ? caster->GetRangedAttackPower() : caster->GetAttackPower());
 

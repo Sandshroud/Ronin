@@ -378,6 +378,8 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
     if( m_modcount >= 3 || m_target == NULL || m_target->GetMechanicDispels(GetMechanicOfEffect(i)))
         return;
 
+    uint8 modIndex = m_modcount++;
+
     if(i == 0) m_auraFlags |= AFLAG_EFF_INDEX_0;
     else if(i == 1) m_auraFlags |= AFLAG_EFF_INDEX_1;
     else if(i == 2) m_auraFlags |= AFLAG_EFF_INDEX_2;
@@ -386,18 +388,17 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
         amount *= m_stackSizeorProcCharges;
     amount += b;
 
-    m_modList[m_modcount].i = i;
-    m_modList[m_modcount].m_type = t;
-    m_modList[m_modcount].m_amount = amount;
-    m_modList[m_modcount].m_baseAmount = a;
-    m_modList[m_modcount].m_miscValue[0] = m_spellProto->EffectMiscValue[i];
-    m_modList[m_modcount].m_miscValue[1] = m_spellProto->EffectMiscValueB[i];
-    m_modList[m_modcount].m_bonusAmount = b;
-    m_modList[m_modcount].fixed_amount = f;
-    m_modList[m_modcount].fixed_float_amount = ff;
-    m_modList[m_modcount].m_spellInfo = GetSpellProto();
-    CalculateBonusAmount(GetUnitCaster(), m_modcount);
-    m_modcount++;
+    m_modList[modIndex].i = i;
+    m_modList[modIndex].m_type = t;
+    m_modList[modIndex].m_amount = amount;
+    m_modList[modIndex].m_baseAmount = a;
+    m_modList[modIndex].m_miscValue[0] = m_spellProto->EffectMiscValue[i];
+    m_modList[modIndex].m_miscValue[1] = m_spellProto->EffectMiscValueB[i];
+    m_modList[modIndex].m_bonusAmount = b;
+    m_modList[modIndex].fixed_amount = f;
+    m_modList[modIndex].fixed_float_amount = ff;
+    m_modList[modIndex].m_spellInfo = GetSpellProto();
+    CalculateBonusAmount(GetUnitCaster(), modIndex);
 
     // Periodic effect adding
     switch(t)
@@ -422,9 +423,9 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
                     _periodicData->periodicMod[x] = NULL;
             }
 
-            _periodicData->periodicMod[i] = new PeriodicAura::PeriodicModifier();
-            _periodicData->periodicMod[i]->rate = m_spellProto->EffectAmplitude[i] > 0 ? m_spellProto->EffectAmplitude[i] : 3000;
-            _periodicData->periodicMod[i]->timer = 0;
+            _periodicData->periodicMod[modIndex] = new PeriodicAura::PeriodicModifier();
+            _periodicData->periodicMod[modIndex]->rate = m_spellProto->EffectAmplitude[i] > 0 ? m_spellProto->EffectAmplitude[i] : 3000;
+            _periodicData->periodicMod[modIndex]->timer = 0;
         }break;
     }
 }
@@ -597,7 +598,7 @@ void Aura::EventPeriodicDamagePercent(uint32 amount)
 void Aura::EventPeriodicHeal( uint32 amount )
 {
     int32 add = amount; // IMPORTANT: target heals himself, but the packet says the caster does it. This is important, to allow for casters to log out and players still get healed.
-    uint32 overheal = m_target->Heal(m_target, GetSpellId(), add, true);
+    uint32 overheal = m_target->Heal(m_target, add, GetSpellId(), true);
     SendPeriodicAuraLog( m_casterGuid, m_target, GetSpellProto(), add, 0, overheal, FLAG_PERIODIC_HEAL );
 
     if( m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP )
@@ -611,7 +612,7 @@ void Aura::EventPeriodicHealPct(float RegenPct)
         return;
 
     uint32 add = float2int32(m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * (RegenPct / 100.0f));
-    uint32 overheal = m_caster->Heal(m_target, GetSpellId(), add, true);
+    uint32 overheal = m_caster->Heal(m_target, add, GetSpellId(), true);
     SendPeriodicAuraLog( m_casterGuid, m_target, GetSpellProto(), add, 0, overheal, FLAG_PERIODIC_HEAL );
 
     if(m_spellProto->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
@@ -2133,7 +2134,7 @@ void Aura::SendPeriodicAuraLog(uint64 CasterGuid, Unit* Target, SpellEntry *sp, 
         abs_dmg = Amount;
 
     WorldPacket data(SMSG_PERIODICAURALOG, 46);
-    data << Target->GetGUID();       // target guid
+    data << Target->GetGUID().asPacked();   // target guid
     data << WoWGuid(CasterGuid).asPacked(); // caster guid
     data << uint32(spellId);            // spellid
     data << uint32(1);                  // count of logs going next
@@ -2249,7 +2250,7 @@ void Aura::CalculateBonusAmount(Unit *caster, uint8 index)
     if(caster == NULL || m_target == NULL)
         return;
 
-    m_modList[index].m_bonusAmount = caster->GetSpellBonusDamage(m_target, m_spellProto, index, m_modList[index].m_baseAmount, m_spellProto->isSpellHealingEffect());
+    m_modList[index].m_bonusAmount = caster->GetSpellBonusDamage(m_target, m_spellProto, m_modList[index].i, m_modList[index].m_baseAmount, m_spellProto->isSpellHealingEffect());
     if(m_modList[index].m_bonusAmount > m_modList[index].m_baseAmount)
         m_modList[index].m_bonusAmount -= m_modList[index].m_baseAmount;
     else m_modList[index].m_bonusAmount = 0;
