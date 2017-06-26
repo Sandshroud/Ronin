@@ -172,9 +172,9 @@ public:
 protected:
 
     /// Spell state's
-    bool    m_usesMana;
-    bool    m_Delayed;
-    bool    m_ForceConsumption;
+    bool m_usesMana;
+    bool m_Delayed;
+    bool m_ForceConsumption;
 
     // Current Targets to be used in effect handler
     WoWGuid objTargetGuid, itemTargetGuid, m_magnetTarget;

@@ -373,6 +373,17 @@ bool Player::Initialize()
 
     // set power type
     SetPowerType(myClass->powerType);
+    if(getClass() == DEATHKNIGHT && m_runeData == NULL)
+    {
+        m_runeData = new Player::RuneData();
+        m_runeData->runemask = 0x3F;
+        m_runeData->cooldownTimer = 10000;
+        for(uint8 i = 0; i < 6; i++)
+        {
+            m_runeData->runes[i] = baseRunes[i];
+            m_runeData->runeCD[i] = 0;
+        }
+    }
 
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
     m_regenPowerFraction.resize(classPower->size(), NULL);
@@ -508,6 +519,20 @@ void Player::Update(uint32 msTime, uint32 diff)
         {   // Clear update timer before interpolate, as it can invalidate our pointer
             m_taxiData->UpdateTimer = 0;
             EventTaxiInterpolate();
+        }
+    }
+
+    if(m_runeData && m_runeData->runemask != 0x3F)
+    {
+        for(uint8 i = 0; i < 6; ++i)
+        {
+            if(m_runeData->runeCD[i] > diff)
+                m_runeData->runeCD[i] -= diff;
+            else
+            {
+                m_runeData->runeCD[i] = 0;
+                m_runeData->runemask |= (1<<i);
+            }
         }
     }
 
@@ -705,6 +730,49 @@ uint32 Player::GetDifficulty(MapEntry *map)
     if(map->IsRaid())
         return group ? group->GetRaidDifficulty() : iRaidType;
     return group ? group->GetDifficulty() : iInstanceType;
+}
+
+uint8 Player::UseRunes(uint32 *runes, bool theoretical)
+{
+    if(m_runeData == NULL)
+        return 0x00;
+
+    uint32 runesAvailable[5] = {0,0,0,0,0},
+        runesToUse[4] = { runes[0], runes[1], runes[2], 0 };
+
+    for(uint8 i = 0; i < 6; i++)
+    {
+        uint8 mask = (1<<i);
+        if((m_runeData->runemask & mask) == 0)
+            continue;
+        ++runesAvailable[m_runeData->runes[i]];
+    }
+
+    for(uint8 i = 0; i < 3; ++i)
+        if(runesToUse[i] != std::min(runesAvailable[i], runesToUse[i]))
+            runesToUse[RUNE_TYPE_DEATH] += (runesToUse[i]-runesAvailable[i]);
+
+    if(theoretical && runesToUse[RUNE_TYPE_DEATH] && runesAvailable[RUNE_TYPE_DEATH] < runesToUse[RUNE_TYPE_DEATH])
+        return 0xFF;
+
+    uint8 runeMask = m_runeData->runemask;
+    for(uint8 i = 0; i < 6; i++)
+    {
+        uint8 mask = (1<<i);
+        if((runeMask & mask) == 0)
+            continue;
+        if(runesToUse[m_runeData->runes[i]] == 0)
+            continue;
+        --runesToUse[m_runeData->runes[i]];
+        runeMask &= ~mask;
+        if(theoretical)
+            continue;
+        m_runeData->runeCD[i] = m_runeData->cooldownTimer;
+    }
+
+    if(theoretical == false)
+        m_runeData->runemask = runeMask;
+    return runeMask;
 }
 
 void Player::ProcessImmediateItemUpdate(Item *item)

@@ -672,10 +672,7 @@ bool Spell::HasPower()
     }
 
     if(m_spellInfo->powerType == POWER_TYPE_RUNE)
-    {
-        uint8 runeMask = _unitCaster->GetUInt32Value(powerField);
-        return (runeMask & cost) == cost;
-    }
+        return _unitCaster->IsPlayer() && castPtr<Player>(_unitCaster)->UseRunes(m_spellInfo->runeCost, true) != 0xFF;
 
     // Unit has enough power (needed for creatures)
     return (cost <= _unitCaster->GetUInt32Value(powerField));
@@ -701,6 +698,7 @@ bool Spell::TakePower()
     {
         if(uint32 runicGain = m_spellInfo->runicGain)
             u_caster->ModPower(POWER_TYPE_RUNIC, runicGain);
+        if(_unitCaster->IsPlayer()) castPtr<Player>(_unitCaster)->UseRunes(m_spellInfo->runeCost, false);
         return true;
     }
 

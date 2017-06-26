@@ -670,6 +670,11 @@ public:
 
     uint32 GetDifficulty(MapEntry *map);
 
+    uint8 GetRuneMask() { return m_runeData ? m_runeData->runemask : 0x00; }
+    uint32 GetRuneCooldown(uint8 rune) { return m_runeData ? m_runeData->runeCD[rune] : 0; };
+    uint32 GetRuneCooldownTimer() { return m_runeData ? m_runeData->cooldownTimer : 0; }
+    uint8 UseRunes(uint32 *runes, bool theoretical);
+
 public: /// Interface Interaction Functions
     RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
     RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
@@ -1442,9 +1447,9 @@ private:
     struct RuneData
     {
         // Runes
-        uint8 m_runemask;
-        uint8 m_runes[6];
-        uint32 m_runeCD[6];
+        uint8 runemask;
+        uint8 runes[6];
+        uint32 runeCD[6], cooldownTimer;
     } *m_runeData;
 
     // Player cooldown storage

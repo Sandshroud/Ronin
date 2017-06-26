@@ -1257,7 +1257,11 @@ void SpellEffectClass::SpellEffectTriggerSpell(uint32 i, WorldObject *target, in
     if(m_spellInfo == spe) // Infinite loop fix.
         return;
 
-    SpellCastTargets tgt(spe->isNotSelfTargettable() ? unitTarget->GetGUID() : _unitCaster->GetGUID());
+    WoWGuid targetGuid = unitTarget->GetGUID();
+    if(spe->procFlags & 0x00)
+        targetGuid = _unitCaster->GetGUID();
+
+    SpellCastTargets tgt(targetGuid);
     if(Spell* sp = new Spell(_unitCaster, spe))
         sp->prepare(&tgt, true);
 }

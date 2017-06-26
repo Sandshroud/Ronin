@@ -221,6 +221,9 @@ protected:
 
     bool m_isCasting;
 
+    /// Rune use theoretical buffer created by hasPower
+    uint8 m_castRuneMask;
+
 protected: // Spell targetting
     SpellTargetStorage m_fullTargetMap, m_effectTargetMaps[3];
     SpellDelayTargets m_delayTargets;

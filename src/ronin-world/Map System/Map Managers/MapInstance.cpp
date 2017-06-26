@@ -1926,7 +1926,7 @@ uint32 MapInstance::GetZoneModifier(uint32 zoneId)
         case 4922: // Twilight Highlands
         case 5034: // Uldum
         case 5042: // Deepholm
-            return 4;
+            return 3;
         }
     }
     return pdbcMap->addon;

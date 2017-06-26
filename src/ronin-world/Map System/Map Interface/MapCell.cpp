@@ -142,8 +142,9 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
     {
         for(CreatureSpawnArray::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
         {
+            uint8 creatureState = 0;
             CreatureSpawn *spawn = *i;
-            if(data && data->GetObjectState(spawn->guid))
+            if(data && data->GetObjectState(spawn->guid, creatureState) && creatureState > 0)
                 continue;
 
             WoWGuid guid = spawn->guid;
@@ -177,8 +178,10 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
     {
         for(GameObjectSpawnArray::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
         {
+            uint8 gameObjState = 0x00;
             GameObjectSpawn *spawn = *i;
-            uint8 objState = data ? data->GetObjectState(spawn->guid) : 0x00;
+            if(data == NULL || !data->GetObjectState(spawn->guid, gameObjState))
+                gameObjState = spawn->state;
 
             WoWGuid guid = spawn->guid;
             if(_instance->IsInstance())
@@ -193,7 +196,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             {
                 go->Load(mapId, spawn->x, spawn->y, spawn->z, 0.f, spawn->rX, spawn->rY, spawn->rZ, spawn->rAngle, spawn);
                 go->SetInstanceID(_instance->GetInstanceID());
-                go->SetState(objState|spawn->state);
+                go->SetState(gameObjState);
 
                 if(_instance->IsGameObjectPoolUpdating())
                     _instance->AddObject(go);
@@ -211,14 +214,10 @@ void MapCell::UnloadCellData(bool preDestruction)
         return;
 
     _loaded = false;
-    std::set<WorldObject*> deletionSet;
-    //This time it's simpler! We just remove everything :)
-    for(MapCell::CellObjectMap::iterator itr = m_nonPlayerSet.begin(); itr != m_nonPlayerSet.end(); itr++)
+    while(!m_nonPlayerSet.empty())
     {
-        WorldObject *obj = itr->second;
-        if(obj == NULL)
-            continue;
-
+        WorldObject *obj = m_nonPlayerSet.begin()->second;
+        m_nonPlayerSet.erase(m_nonPlayerSet.begin());
         if( !preDestruction && _unloadpending )
         {
             if(obj->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
@@ -228,16 +227,13 @@ void MapCell::UnloadCellData(bool preDestruction)
                 continue;
         }
 
-        deletionSet.insert(obj);
-    }
-    m_nonPlayerSet.clear();
-
-    while(deletionSet.size())
-    {
-        WorldObject *obj = *deletionSet.begin();
-        deletionSet.erase(deletionSet.begin());
         obj->Cleanup();
     }
+
+    m_nonPlayerSet.clear();
+    m_gameObjectSet.clear();
+    m_creatureSet.clear();
+    m_sqlIdToGuid.clear();
 
     // Start calldown for cell map unloading
     _mapData->CellUnloaded(_x, _y);

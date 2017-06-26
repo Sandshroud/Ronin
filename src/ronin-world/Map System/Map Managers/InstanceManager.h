@@ -172,7 +172,7 @@ public:
     void AcquireSaveLock() { m_savedLock.Acquire(); }
     void ReleaseSaveLock() { m_savedLock.Release(); }
 
-    uint8 GetObjectState(WoWGuid guid);
+    bool GetObjectState(WoWGuid guid, uint8 &stateOut);
     void AddObjectState(WoWGuid guid, uint8 state);
 
     void SetUpdated() { m_isUpdated = true; }

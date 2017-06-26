@@ -91,6 +91,7 @@ void InstanceManager::_LoadInstances()
             uint8 state = fields[2].GetUInt8();
             objectCache[instanceId].push_back(std::make_pair(guid, state));
         }while(result->NextRow());
+        delete result;
     }
 
     // load saved instances
@@ -131,6 +132,7 @@ void InstanceManager::_LoadInstances()
             // Link instance side
             m_dungeonLinkedGuids[instanceId].insert(guid);
         } while(result->NextRow());
+        delete result;
     }
 
     objectCache.clear();
@@ -520,14 +522,18 @@ void InstanceData::DeleteFromDB()
 {
     // Delete all links
     StateDatabase.Execute("DELETE FROM instance_links WHERE instanceId = '%u';", m_instanceId);
+    // Clear all object states
+    StateDatabase.Execute("DELETE FROM instance_data_object_state WHERE instanceId = '%u';", m_instanceId);
 }
 
-uint8 InstanceData::GetObjectState(WoWGuid guid)
+bool InstanceData::GetObjectState(WoWGuid guid, uint8 &stateOut)
 {
     Loki::AssocVector<WoWGuid, uint8>::iterator itr;
-    if((itr = m_objectState.find(guid)) != m_objectState.end())
-        return itr->second;
-    return 0;
+    if((itr = m_objectState.find(guid)) == m_objectState.end())
+        return false;
+
+    stateOut = itr->second;
+    return true;
 }
 
 void InstanceData::AddObjectState(WoWGuid guid, uint8 state)

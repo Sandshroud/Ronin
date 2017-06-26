@@ -92,6 +92,7 @@ public:
     UnitBaseStats *GetUnitBaseStats(uint8 race, uint8 _class, uint16 level);
     EUnitFields GetPowerFieldForClassAndType(uint8 _class, uint8 powerType);
 
+    uint32 GetXPackModifierForLevel(uint32 level, uint32 mod);
     uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability);
     std::vector<uint8> *GetUnitPowersForClass(uint8 _class) { if(m_unitPowersForClass.find(_class) == m_unitPowersForClass.end()) return NULL; return &m_unitPowersForClass.at(_class); }
 

@@ -183,6 +183,20 @@ EUnitFields StatSystem::GetPowerFieldForClassAndType(uint8 _class, uint8 powerTy
     return m_unitPowersByClass.at(pair);
 }
 
+uint32 StatSystem::GetXPackModifierForLevel(uint32 level, uint32 mod)
+{
+    if(mod >= level)
+        return 0;
+    uint32 tgtLvl = level - mod;
+    if(tgtLvl > 80)
+        return 3;
+    if(tgtLvl > 70)
+        return 2;
+    if(tgtLvl > 60)
+        return 1;
+    return 0;
+}
+
 uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability ) // spellid is used only for 2-3 spells, that have AP bonus
 {
     //TODO: Some awesome formula to determine how much damage to deal

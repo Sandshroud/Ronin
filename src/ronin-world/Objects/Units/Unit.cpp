@@ -332,11 +332,19 @@ void Unit::UpdateStatValues()
 {
     int32 basepos,pos,neg;
     uint32 _class = getClass(), Level = getLevel();
-    float ctrMod = ((float)Level)/fMaxLevelSqrt;
+    float ctrMod = std::max<float>(1.f, ((float)Level)/fMaxLevelSqrt);
     bool strClass = _class == WARRIOR || _class == PALADIN || _class == DEATHKNIGHT;
     AuraInterface::modifierMap *statMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_STAT),
         *statPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_PERCENT_STAT),
         *totalStatMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
+
+    gtFloat *HPPerStam = NULL;
+    if(IsCreature() && (HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1))))
+    {
+        ctrMod *= 1.f + std::max<float>(0.f, (HPPerStam->val-fMaxLevelSqrt));
+        if(uint32 levelMod = sStatSystem.GetXPackModifierForLevel(getLevel(), castPtr<Creature>(this)->GetCreatureData()->rank > 0 ? 3 : 0))
+            ctrMod *= (levelMod+1);
+    }
 
     for(uint8 s = 0; s < MAX_STAT; s++)
     {
@@ -580,7 +588,7 @@ void Unit::UpdateAttackTimeValues()
     }
 }
 
-static uint32 minAttackPowers[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
+static uint32 minAttackDamages[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
 void Unit::UpdateAttackDamageValues()
 {
     uint32 attackPower = CalculateAttackPower(), rangedAttackPower = CalculateRangedAttackPower();
@@ -588,8 +596,8 @@ void Unit::UpdateAttackDamageValues()
     {
         if(GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i) == 0)
         {
-            SetFloatValue(minAttackPowers[i], 0);
-            SetFloatValue(minAttackPowers[i]+1, 0);
+            SetFloatValue(minAttackDamages[i], 0);
+            SetFloatValue(minAttackDamages[i]+1, 0);
             continue;
         }
 
@@ -655,8 +663,8 @@ void Unit::UpdateAttackDamageValues()
             baseMinDamage *= modifier, baseMaxDamage *= modifier;
         }
 
-        SetFloatValue(minAttackPowers[i], baseMinDamage);
-        SetFloatValue(minAttackPowers[i]+1, baseMaxDamage);
+        SetFloatValue(minAttackDamages[i], baseMinDamage);
+        SetFloatValue(minAttackDamages[i]+1, baseMaxDamage);
     }
 }
 
@@ -770,15 +778,11 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     int32 attackPower = GetBonusAttackPower();
     switch(_class)
     {
-    case DRUID: { attackPower += GetStrength() * 2 - 20; }break;
-    case HUNTER: case ROGUE: case SHAMAN: { attackPower += GetStrength()+GetAgility()+getLevel()*2-20; }break;
-    case WARRIOR: case DEATHKNIGHT: case PALADIN: { attackPower += GetStrength()*2+getLevel()*3-20; }break;
-    default: { attackPower += GetAgility() - 10; }break;
+    case DRUID: { attackPower += std::max<uint32>(30, GetStrength() * 2) - 20; }break;
+    case HUNTER: case ROGUE: case SHAMAN: { attackPower += std::max<uint32>(30, GetStrength()+GetAgility()+getLevel()*2)-20; }break;
+    case WARRIOR: case DEATHKNIGHT: case PALADIN: { attackPower += std::max<uint32>(30, GetStrength()*2+getLevel()*3)-20; }break;
+    default: { attackPower += std::max<uint32>(20, GetAgility()) - 10; }break;
     }
-
-    gtFloat *HPPerStam = NULL;
-    if(IsCreature() && (HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1))))
-        attackPower *= 1.f + std::max<float>(0.f, (HPPerStam->val-fMaxLevelSqrt));
 
     if(AuraInterface::modifierMap *apArmorMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR))
     {
@@ -1932,14 +1936,39 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
             if( weapon_damage_type == RANGED )
                 dmg.full_damage += pVictim->GetRangedDamageTakenMod();
 
-            if( ability && ability->MechanicsType == MECHANIC_BLEEDING )
-                disable_dR = true;
-
             // Bonus damage
             if( ability == NULL )
             {   // Bonus 
                 dmg.full_damage += GetDamageDoneMod(SCHOOL_NORMAL);
                 dmg.full_damage *= pVictim->GetDamageTakenModPct(SCHOOL_NORMAL);
+            }
+
+            if( ability && ability->MechanicsType == MECHANIC_BLEEDING )
+                disable_dR = true;
+            else if(ability == NULL || (ability->SchoolMask & spellMaskArray[SCHOOL_NORMAL]))
+            {
+                float armor = ((float)pVictim->GetResistance(SCHOOL_NORMAL));
+                // Armor pen and ignore modifiers
+                ////TODO
+
+                if(IsPlayer())
+                {
+                    float maxArmorPen = 0;
+                    if (pVictim->getLevel() < 60)
+                        maxArmorPen = float(400 + 85 * pVictim->getLevel());
+                    else maxArmorPen = 400 + 85 * pVictim->getLevel() + 4.5f * 85 * (pVictim->getLevel() - 59);
+
+                    // Cap armor penetration to this number
+                    maxArmorPen = std::min((armor + maxArmorPen) / 3, armor);
+                    armor -= std::min(maxArmorPen, ((maxArmorPen * ((float)castPtr<Player>(this)->GetUInt32Value(PLAYER_RATING_MODIFIER_ARMOR_PENETRATION_RATING)))/100.f));
+                }
+
+                float levelModifier = getLevel();
+                if (levelModifier > 59)
+                    levelModifier = levelModifier + 4.5f * (levelModifier - 59);
+
+                float modifiedArmor = 0.1f * armor / (8.5f * levelModifier + 40);
+                dmg.full_damage *= (1.0f - std::max<float>(0.f, std::min<float>(0.75f, modifiedArmor / (1.0f + modifiedArmor))));
             }
 
             if( HasDummyAura(SPELL_HASH_REND_AND_TEAR) && ability &&

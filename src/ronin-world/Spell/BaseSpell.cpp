@@ -115,6 +115,7 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
     m_isDelayedAOEMissile = false;
     m_missileTravelTime = 0;
     m_timer = m_castTime = m_delayedTimer = 0;
+    m_castRuneMask = 0;
     // Default trigger rate is 1 second
     m_channelTriggerTime = 1000;
     m_channelRunTime = 0;
@@ -128,6 +129,7 @@ void BaseSpell::_Prepare()
 {
     m_missilePitch = m_targets.missilepitch;
     m_missileTravelTime = floor(m_targets.traveltime);
+    m_castRuneMask = _unitCaster->IsPlayer() ? castPtr<Player>(_unitCaster)->GetRuneMask() : 0x00;
 
     if((m_missileTravelTime || m_spellInfo->speed > 0.0f) && !m_spellInfo->IsSpellChannelSpell())
     {
@@ -260,8 +262,19 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
 
     if( cast_flags & SPELL_CASTFLAG_RUNE_UPDATE ) //send new runes
     {
-        *data << uint8(0xFF) << uint8(0xFF);
-        // Runemask current, theoretical after, then 6 bytes detailing the rune data, one byte for each (mask & runeMask && !(mask & theoretical))
+        if(Player *plrCaster = _unitCaster->IsPlayer() ? castPtr<Player>(_unitCaster) : NULL)
+        {
+            uint8 currRuneMask = plrCaster->GetRuneMask(), usedRunes = m_castRuneMask & ~currRuneMask;
+            // Precast runemask and current runemask
+            *data << uint8(0xFF) << uint8(currRuneMask);
+            float baseCd = float(plrCaster->GetRuneCooldownTimer());
+            for (uint8 i = 0; i < 6; i++)
+            {
+                if(float runeCD = (float)plrCaster->GetRuneCooldown(i))
+                    *data << uint8(255 - (ceil(std::min<float>(baseCd, runeCD) / baseCd) * 255)); // rune cooldown passed
+                else *data << uint8(0);
+            }
+        } else *data << uint8(0xFF) << uint8(0xFF);
     }
 
     if (cast_flags & SPELL_CASTFLAG_MISSILE_INFO)
@@ -275,7 +288,7 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
 
     if(cast_flags & SPELL_CASTFLAG_EXTRA_MESSAGE)
         *data << uint32(0) << uint32(0);
-    
+
     if(cast_flags & SPELL_CASTFLAG_HEAL_UPDATE)
     {
         uint8 effIndex = 0;
