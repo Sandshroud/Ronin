@@ -69,8 +69,9 @@ struct __LootItem
     ItemPrototype *proto;
     uint32 StackSize;
     uint32 randSeed, randProp;
-    LooterSet has_looted;
+
     bool all_passed;
+    LooterSet has_looted;
 };
 
 struct ObjectLoot
@@ -80,8 +81,8 @@ struct ObjectLoot
     bool HasItems(Player* Looter);
     bool HasLoot(Player* Looter);
 
+    Mutex _lock;
     std::vector<__LootItem> items;
-    std::vector<uint8> _lootedItems;
 };
 
 struct StoreLootItem

@@ -2861,7 +2861,7 @@ void PlayerInventory::CheckAreaItems()
 /////////////////////////////////////////////////////////////////////////////
 // Crow: Adds an item by id, allowing for count, random prop, and if created, will send item push created, else, recieved.
 // This was supposed to be given to Arc :|
-bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop, uint8 addItemFlags, Player* creator /* = NULL*/ )
+uint32 PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop, uint8 addItemFlags, Player* creator /* = NULL*/ )
 {
     if( count < 1 )
         count = 1;
@@ -2877,24 +2877,24 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
         return false;
 
     uint32 maxStack = (it->MaxCount > 0 ? it->MaxCount : 1 ); // Our database is lacking :|
-    uint32 toadd;
+    uint32 added = count, toadd = 0;
     bool freeslots = true;
 
-    while( count > 0 && freeslots )
+    while( added > 0 && freeslots )
     {
-        if( count < maxStack )
+        if( added < maxStack )
         {
             // find existing item with free stack
-            Item* free_stack_item = FindItemLessMax( itemid, count, false );
+            Item* free_stack_item = FindItemLessMax( itemid, added, false );
             if( free_stack_item != NULL )
             {
                 // increase stack by new amount
                 uint8 inventorySlot = 0xFF;
                 uint16 bagSlot = GetBagSlotByGuid(free_stack_item->GetGUID(), inventorySlot);
-                _sendPushResult(free_stack_item, bagSlot, inventorySlot, count, addItemFlags);
-                free_stack_item->SetUInt32Value( ITEM_FIELD_STACK_COUNT, free_stack_item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + count );
+                _sendPushResult(free_stack_item, bagSlot, inventorySlot, added, addItemFlags);
+                free_stack_item->SetUInt32Value( ITEM_FIELD_STACK_COUNT, free_stack_item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + added );
                 free_stack_item->m_isDirty = true;
-                return true;
+                return 0; // None left
             }
         }
 
@@ -2911,7 +2911,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
             item->SetItemRandomPropertyData(randomprop ? randomprop : it->RandomPropId ? it->RandomPropId : it->RandomSuffixId, RandomUInt());
         item->LoadRandomProperties();
 
-        toadd = count > maxStack ? maxStack : count;
+        toadd = added > maxStack ? maxStack : added;
 
         item->SetUInt32Value( ITEM_FIELD_STACK_COUNT, toadd );
         if( AddItemToFreeSlot( item ) )
@@ -2919,7 +2919,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
             SlotResult *lr = LastSearchResult();
             _sendPushResult(item, lr->ContainerSlot, lr->Slot, toadd, addItemFlags);
             sQuestMgr.OnPlayerItemPickup(chr, item, toadd);
-            count -= toadd;
+            added -= toadd;
         }
         else
         {
@@ -2931,7 +2931,7 @@ bool PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop
                 creator->GetSession()->SendNotification("No free slots were found in target's inventory!");
         }
     }
-    return true;
+    return added;
 }
 
 void PlayerInventory::SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot, int16 DstSlot)

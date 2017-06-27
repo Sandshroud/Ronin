@@ -153,8 +153,7 @@ void WorldSession::SendCharterRequest(Creature* pCreature)
     }
     else
     {
-        WorldPacket data(29);
-        data.Initialize( SMSG_PETITION_SHOWLIST );
+        WorldPacket data(SMSG_PETITION_SHOWLIST, 29);
         data << pCreature->GetGUID();
         data << uint8(1);          // BOOL SHOW_COST = 1
         data << uint32(1);        // unknown

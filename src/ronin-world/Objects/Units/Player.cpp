@@ -3945,6 +3945,8 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     else lootEnt = m_mapInstance->_GetObject(guid);
     if( lootEnt == NULL )
         return;
+    lootEnt->LootLock();
+    ObjectLoot *loot = lootEnt->GetLoot();
 
     int8 loot_method = -1;
 
@@ -3953,8 +3955,13 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     {
         Creature* LootOwner = castPtr<Creature>( lootEnt );
         if( uint32 GroupId = LootOwner->m_taggedGroup.getLow() )
+        {
             if(m_Group == NULL || GroupId != m_Group->GetID())
+            {
+                lootEnt->LootUnlock();
                 return;
+            }
+        }
         loot_method = LootOwner->m_lootMethod;
     }
 
@@ -3967,19 +3974,19 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
     }
 
     // add to looter set
-    lootEnt->GetLoot()->looters.insert(GetLowGUID());
+    loot->looters.insert(GetLowGUID());
     m_lootGuid = guid;
 
     WorldPacket data(SMSG_LOOT_RESPONSE, 32), data2(32);
     data << uint64(guid);
     data << uint8(loot_type);//loot_type;
-    data << uint32(lootEnt->GetLoot()->gold);
+    data << uint32(loot->gold);
     data << uint8(0);//loot size reserve
     data << uint8(0);//unk
 
     uint32 count = 0;
-    std::vector<__LootItem>::iterator iter = lootEnt->GetLoot()->items.begin();
-    for(uint8 x = 0; iter != lootEnt->GetLoot()->items.end(); iter++, x++)
+    std::vector<__LootItem>::iterator iter = loot->items.begin();
+    for(uint8 x = 0; iter != loot->items.end(); iter++, x++)
     {
         if(x == 0xFF)
             break;
@@ -4142,6 +4149,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
 
     PushPacket(&data);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOOTING);
+    lootEnt->LootUnlock();
 }
 
 void Player::SendXPToggleConfirm()

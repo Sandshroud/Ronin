@@ -294,6 +294,9 @@ protected:
     EventHandler m_eventHandler;
 
 public:
+    RONIN_INLINE void LootLock() { m_loot._lock.Acquire(); }
+    RONIN_INLINE void LootUnlock() { m_loot._lock.Release(); }
+
     RONIN_INLINE ObjectLoot* GetLoot() { return &m_loot; }
     RONIN_INLINE bool IsLooted() { return m_looted; }
     RONIN_INLINE void SetLooted() { m_looted = true; }

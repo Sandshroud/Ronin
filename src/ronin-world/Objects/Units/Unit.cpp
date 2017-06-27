@@ -100,7 +100,6 @@ void Unit::Init()
 
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
     SetFloatValue(UNIT_FIELD_COMBATREACH, 5.f );
-    SetFloatValue(UNIT_FIELD_BASEATTACKTIME, 2000.0f);
     SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
     SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
@@ -1343,7 +1342,7 @@ void Unit::resetAttackDelay(uint8 typeMask)
 {
     for(uint8 i = 0; i < 2; i++)
     {
-        if((typeMask & 1<<i) == 0)
+        if((typeMask & (1<<i)) == 0)
             continue;
 
         uint32 baseAttackTime = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i);

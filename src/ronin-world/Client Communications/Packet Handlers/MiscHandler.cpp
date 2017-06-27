@@ -60,17 +60,29 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
         loot = source->GetLoot();
     }
 
-    if(loot == NULL || !loot->HasLoot(_player))
-        return;
-    __LootItem *item = &loot->items[lootSlot];
-    if(item == NULL || (item->has_looted.size())) // FFA check
-        return;
+    obj->LootLock();
+    if(loot && loot->HasLoot(_player))
+    {
+        if(__LootItem *item = &loot->items[lootSlot])
+        {
+            if(item->has_looted.empty()) // FFA check
+            {
+                if(uint32 countLeft = _player->GetInventory()->AddItemById(item->proto->ItemId, item->StackSize, item->randProp, ADDITEM_FLAG_LOOTED))
+                {
+                    if(countLeft == item->StackSize)
+                    {
+                        obj->LootUnlock();
+                        return; // We failed to remove any of them, so end here
+                    }
 
-    item->has_looted.insert(_player->GetGUID());
-    loot->_lootedItems.push_back(lootSlot);
-
-    _player->GetInventory()->AddItemById(item->proto->ItemId, item->StackSize, item->randProp, ADDITEM_FLAG_LOOTED);
-    _player->PushData(SMSG_LOOT_REMOVED, 1, &lootSlot);
+                    item->StackSize = countLeft;
+                }
+                else item->has_looted.insert(_player->GetGUID());
+            }
+            _player->PushData(SMSG_LOOT_REMOVED, 1, &lootSlot);
+        }
+    }
+    obj->LootUnlock();
 }
 
 void WorldSession::HandleLootMoneyOpcode( WorldPacket & recv_data )

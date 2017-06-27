@@ -356,11 +356,10 @@ int32 Creature::GetBaseAttackTime(uint8 weaponType)
     if(uint32 weaponDisplay = GetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+weaponType))
     {
         ItemPrototype *proto = sItemMgr.LookupEntry(weaponDisplay);
-        if(proto == NULL || proto->Class != ITEM_CLASS_WEAPON)
-            return 0;
-        return proto->Delay;//weaponType == RANGED ? _creatureData->rangedAttackTime : _creatureData->meleeAttackTime;
+        if(proto && proto->Class == ITEM_CLASS_WEAPON)
+            return std::max(_creatureData->meleeAttackTime, proto->Delay);
     }
-    return weaponType == MELEE ? 2000 : 0;
+    return weaponType == MELEE ? _creatureData->meleeAttackTime : 0;
 }
 
 void Creature::OnRemoveCorpse()
@@ -973,9 +972,6 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
 
     setLevel(level);
     SetFloatValue(OBJECT_FIELD_SCALE_X, _creatureData->scale);
-    SetUInt32Value(UNIT_FIELD_BASEATTACKTIME, _creatureData->meleeAttackTime);
-    SetUInt32Value(UNIT_FIELD_RANGEDATTACKTIME, _creatureData->rangedAttackTime);
-
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, _creatureData->inventoryItem[0]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+1, _creatureData->inventoryItem[1]);
     SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID+2, _creatureData->inventoryItem[2]);

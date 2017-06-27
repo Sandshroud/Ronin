@@ -624,7 +624,7 @@ void SpellEffectClass::SpellEffectCreateItem(uint32 i, WorldObject *target, int3
         return;
     }
 
-    if(!inventory->AddItemById(proto->ItemId, count, proto->RandomPropId, ADDITEM_FLAG_CREATED, playerTarget))
+    if(inventory->AddItemById(proto->ItemId, count, proto->RandomPropId, ADDITEM_FLAG_CREATED, playerTarget))
     {
         SendCastResult(SPELL_FAILED_TRY_AGAIN);
         return;

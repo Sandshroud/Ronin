@@ -850,12 +850,17 @@ bool ObjectLoot::HasItems(Player* Looter)
     // check items
     for(std::vector<__LootItem>::iterator itr = items.begin(); itr != items.end(); itr++)
     {
-        if(itr->has_looted.size())
-            continue;
-
         ItemPrototype * proto = itr->proto;
         if(proto == NULL)
             continue;
+
+        if((proto->Flags & DBC_ITEMFLAG_PARTY_LOOT) == 0)
+        {
+            if((*itr).has_looted.size())
+                continue;
+        } else if ((*itr).has_looted.find(Looter->GetGUID()) != (*itr).has_looted.end())
+            continue;
+
         //quest items check. type 4/5
         //quest items that dont start quests.
         if((proto->Bonding == ITEM_BIND_QUEST) && !(proto->QuestId) && !Looter->HasQuestForItem(proto->ItemId))

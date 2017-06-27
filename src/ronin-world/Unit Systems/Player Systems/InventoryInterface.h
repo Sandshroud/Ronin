@@ -183,7 +183,7 @@ public:
         return true;
     }
 
-    bool AddItemById(uint32 itemid, uint32 count, int32 randomprop, uint8 addFlag, Player* creator = NULL);
+    uint32 AddItemById(uint32 itemid, uint32 count, int32 randomprop, uint8 addFlag, Player* creator = NULL);
     void SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot, int16 DstSlot);
 
     RONIN_INLINE bool VerifyBagSlotsWithBank(int16 ContainerSlot, int16 Slot)
