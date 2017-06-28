@@ -975,7 +975,7 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
                 //dstitem exists, detect if its a container
                 if(dstitem->IsContainer())
                 {
-                    NewSlot = castPtr<Container>(dstitem)->FindFreeSlot();
+                    NewSlot = castPtr<Container>(dstitem)->FindFreeSlot(DstInv);
                     if(NewSlot == ITEM_NO_SLOT_AVAILABLE)
                     {
                         _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL, INV_ERR_BAG_FULL);
@@ -1540,7 +1540,7 @@ void WorldSession::HandleItemReforgeOpcode( WorldPacket& recv_data )
     uint32 slot, containerSlot, reforgeType;
     WorldPacket response(SMSG_REFORGE_RESULT, 1);
     recv_data >> reforgeType >> slot >> containerSlot;
-    if(containerSlot == INVENTORY_SLOT_NONE) containerSlot = -1;
+    if(containerSlot == 0xFF) containerSlot = -1;
     recv_data.ReadGuidBitString(8, guid, 2, 6, 3, 4, 1, 0, 7, 5);
     recv_data.ReadGuidByteString(8, guid, 2, 3, 6, 4, 1, 0, 7, 5);
 

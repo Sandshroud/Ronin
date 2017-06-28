@@ -1301,7 +1301,7 @@ bool PlayerInventory::countDownFreeSlots(ItemPrototype *proto, uint32 requiredSp
                 {
                     if (m_pItems[i]->GetProto()->BagFamily == proto->BagFamily)
                     {
-                        int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot();
+                        int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot(i);
                         if(slot != ITEM_NO_SLOT_AVAILABLE)
                         {
                             if(--count == 0)
@@ -1361,7 +1361,7 @@ uint32 PlayerInventory::CalculateFreeSlots(ItemPrototype *proto)
                 {
                     if (m_pItems[i]->GetProto()->BagFamily == proto->BagFamily)
                     {
-                        int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot();
+                        int8 slot = castPtr<Container>(m_pItems[i])->FindFreeSlot(i);
                         if(slot != ITEM_NO_SLOT_AVAILABLE)
                         {
                             count++;
@@ -1403,16 +1403,17 @@ uint32 PlayerInventory::CalculateFreeSlots(ItemPrototype *proto)
 //-------------------------------------------------------------------//
 //Description: finds a free slot on the backpack
 //-------------------------------------------------------------------//
-int16 PlayerInventory::FindFreeBackPackSlot()
+int16 PlayerInventory::FindFreeBackPackSlot(std::set<std::pair<int16, int16>> *ignoreSlots)
 {
-    //search for backpack slots
+    Item* item; //search for backpack slots
     for(int8 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; i++)
     {
-        Item* item = GetInventoryItem(i);
-        if(!item)
-        {
+        std::pair<int16, int16> slotPair = std::make_pair(ITEM_NO_SLOT_AVAILABLE, i);
+        if(ignoreSlots && ignoreSlots->find(slotPair) != ignoreSlots->end())
+            continue;
+
+        if((item = GetInventoryItem(i)) == NULL)
             return i;
-        }
     }
 
     return ITEM_NO_SLOT_AVAILABLE; //no slots available
@@ -2644,29 +2645,26 @@ int16 PlayerInventory::FindSpecialBag(Item* item)
     return ITEM_NO_SLOT_AVAILABLE;
 }
 
-SlotResult PlayerInventory::FindFreeInventorySlot(ItemPrototype *proto)
+SlotResult PlayerInventory::FindFreeInventorySlot(ItemPrototype *proto, std::set<std::pair<int16, int16>> *ignoreSlots)
 {
+    Item* item;
     //special item
     //special slots will be ignored of item is not set
-    if( proto != NULL )
+    if( proto != NULL && proto->BagFamily)
     {
-        //sLog.outDebug( "PlayerInventory::FindFreeInventorySlot called for item %s" , proto->Name1 );
-        if( proto->BagFamily)
+        for( uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++ )
         {
-            for( uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++ )
+            if((item = m_pItems[i]) != NULL && item->IsContainer() )
             {
-                if( m_pItems[i] != NULL && m_pItems[i]->IsContainer() )
+                if( item->GetProto()->BagFamily == proto->BagFamily )
                 {
-                    if( m_pItems[i]->GetProto()->BagFamily == proto->BagFamily )
+                    int32 slot = castPtr<Container>(item)->FindFreeSlot(i, ignoreSlots);
+                    if( slot != ITEM_NO_SLOT_AVAILABLE )
                     {
-                        int32 slot = castPtr<Container>( m_pItems[i] )->FindFreeSlot();
-                        if( slot != ITEM_NO_SLOT_AVAILABLE )
-                        {
-                            result.ContainerSlot = i;
-                            result.Slot = slot;
-                            result.Result = true;
-                            return result;
-                        }
+                        result.ContainerSlot = i;
+                        result.Slot = slot;
+                        result.Result = true;
+                        return result;
                     }
                 }
             }
@@ -2676,8 +2674,11 @@ SlotResult PlayerInventory::FindFreeInventorySlot(ItemPrototype *proto)
     //backpack
     for( uint32 i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; i++ )
     {
-        Item* item = GetInventoryItem( i );
-        if( item == NULL )
+        std::pair<int16, int16> slotPair = std::make_pair(ITEM_NO_SLOT_AVAILABLE, i);
+        if(ignoreSlots && ignoreSlots->find(slotPair) != ignoreSlots->end())
+            continue;
+
+        if( (item = GetInventoryItem(i)) == NULL )
         {
             result.ContainerSlot = ITEM_NO_SLOT_AVAILABLE;
             result.Slot = i;
@@ -2689,19 +2690,15 @@ SlotResult PlayerInventory::FindFreeInventorySlot(ItemPrototype *proto)
     //bags
     for( uint32 i = INVENTORY_SLOT_BAG_START; i < INVENTORY_SLOT_BAG_END; i++ )
     {
-        Item* item = GetInventoryItem(i);
-        if( item != NULL )
+        if( (item = GetInventoryItem(i)) && item->IsContainer() && !item->GetProto()->BagFamily )
         {
-            if( item->IsContainer() && !item->GetProto()->BagFamily )
+            int32 slot = castPtr<Container>( m_pItems[i] )->FindFreeSlot(i, ignoreSlots);
+            if( slot != ITEM_NO_SLOT_AVAILABLE )
             {
-                int32 slot = castPtr<Container>( m_pItems[i] )->FindFreeSlot();
-                if( slot != ITEM_NO_SLOT_AVAILABLE )
-                {
-                    result.ContainerSlot = i;
-                    result.Slot = slot;
-                    result.Result = true;
-                    return result;
-                }
+                result.ContainerSlot = i;
+                result.Slot = slot;
+                result.Result = true;
+                return result;
             }
         }
     }
@@ -2713,28 +2710,25 @@ SlotResult PlayerInventory::FindFreeInventorySlot(ItemPrototype *proto)
     return result;
 }
 
-SlotResult PlayerInventory::FindFreeBankSlot(ItemPrototype *proto)
+SlotResult PlayerInventory::FindFreeBankSlot(ItemPrototype *proto, std::set<std::pair<int16, int16>> *ignoreSlots)
 {
-    //special item
+    Item *item; //special item
     //special slots will be ignored of item is not set
-    if( proto != NULL )
+    if( proto != NULL && proto->BagFamily)
     {
-        if( proto->BagFamily )
+        for( uint32 i = BANK_SLOT_BAG_START; i < BANK_SLOT_BAG_END; i++ )
         {
-            for( uint32 i = BANK_SLOT_BAG_START; i < BANK_SLOT_BAG_END; i++ )
+            if( (item = m_pItems[i]) != NULL && item->IsContainer() )
             {
-                if( m_pItems[i] != NULL && m_pItems[i]->IsContainer() )
+                if( item->GetProto()->BagFamily == proto->BagFamily )
                 {
-                    if( m_pItems[i]->GetProto()->BagFamily == proto->BagFamily )
+                    int32 slot = castPtr<Container>( item )->FindFreeSlot(i, ignoreSlots);
+                    if( slot != ITEM_NO_SLOT_AVAILABLE )
                     {
-                        int32 slot = castPtr<Container>( m_pItems[i] )->FindFreeSlot();
-                        if( slot != ITEM_NO_SLOT_AVAILABLE )
-                        {
-                            result.ContainerSlot = i;
-                            result.Slot = slot;
-                            result.Result = true;
-                            return result;
-                        }
+                        result.ContainerSlot = i;
+                        result.Slot = slot;
+                        result.Result = true;
+                        return result;
                     }
                 }
             }
@@ -2744,8 +2738,11 @@ SlotResult PlayerInventory::FindFreeBankSlot(ItemPrototype *proto)
     //backpack
     for( uint32 i = BANK_SLOT_ITEM_START; i < BANK_SLOT_ITEM_END; i++ )
     {
-        Item* item = GetInventoryItem( i );
-        if( item == NULL )
+        std::pair<int16, int16> slotPair = std::make_pair(ITEM_NO_SLOT_AVAILABLE, i);
+        if(ignoreSlots && ignoreSlots->find(slotPair) != ignoreSlots->end())
+            continue;
+
+        if( (item = GetInventoryItem( i )) == NULL )
         {
             result.ContainerSlot = ITEM_NO_SLOT_AVAILABLE;
             result.Slot = i;
@@ -2757,19 +2754,15 @@ SlotResult PlayerInventory::FindFreeBankSlot(ItemPrototype *proto)
     //bags
     for( uint32 i = BANK_SLOT_BAG_START; i < BANK_SLOT_BAG_END; i++ )
     {
-        Item* item = GetInventoryItem(i);
-        if( item != NULL )
+        if( (item = GetInventoryItem(i)) && item->IsContainer() && !item->GetProto()->BagFamily )
         {
-            if( item->IsContainer() && !item->GetProto()->BagFamily )
+            int32 slot = castPtr<Container>( m_pItems[i] )->FindFreeSlot(i, ignoreSlots);
+            if( slot != ITEM_NO_SLOT_AVAILABLE)
             {
-                int32 slot = castPtr<Container>( m_pItems[i] )->FindFreeSlot();
-                if( slot != ITEM_NO_SLOT_AVAILABLE)
-                {
-                    result.ContainerSlot = i;
-                    result.Slot = slot;
-                    result.Result = true;
-                    return result;
-                }
+                result.ContainerSlot = i;
+                result.Slot = slot;
+                result.Result = true;
+                return result;
             }
         }
     }
@@ -2858,14 +2851,111 @@ void PlayerInventory::CheckAreaItems()
     }
 }
 
+bool PlayerInventory::BuildItemDestinations(AddItemDestination *concurrentAdds, uint32 itemId, uint32 count, int32 randomProp, uint8 addFlag, Player *creator)
+{
+    if(ItemPrototype *proto = sItemMgr.LookupEntry(itemId))
+    {
+        uint32 maxStack = (proto->MaxCount > 0 ? proto->MaxCount : 1 );
+        uint32 added = std::max<uint32>(count, 1), toadd = 0;
+        while( added > 0 )
+        {
+            SlotResult result;
+            result.Result = false;
+
+            if( added < maxStack )
+            {
+                // find existing item with free stack
+                if(Item *free_stack_item = FindItemLessMax( itemId, added, false ))
+                {
+                    toadd = added;
+                    uint8 inventorySlot = 0xFF;
+                    result.Result = true;
+                    result.ContainerSlot = GetBagSlotByGuid(free_stack_item->GetGUID(), inventorySlot);
+                    result.Slot = inventorySlot;
+                }
+            }
+
+            if(result.Result == false)
+            {
+                result = FindFreeInventorySlot(proto, &concurrentAdds->usedSlots);
+                toadd = std::min(added, maxStack);
+            }
+            if(result.Result == false)
+                return false;
+
+            added -= toadd;
+
+            AddItemDestination::DestinationSlot *slot = new AddItemDestination::DestinationSlot();
+            slot->itemId = itemId;
+            slot->count = toadd;
+            slot->invSlot = result.ContainerSlot;
+            slot->slot = result.Slot;
+            slot->addFlag = addFlag;
+            slot->randomProp = randomProp;
+            slot->creatorGuid = creator->GetGUID();
+
+            concurrentAdds->usedSlots.insert(std::make_pair(result.ContainerSlot, result.Slot));
+            concurrentAdds->m_destinationSlots.push_back(slot);
+        }
+        return true;
+    }
+    return false;
+}
+
+void PlayerInventory::ProcessItemDestination(AddItemDestination *dest)
+{
+    Player *chr = GetOwner();
+    if( chr == NULL )
+        return;
+
+    Item *item = NULL;
+    while(!dest->m_destinationSlots.empty())
+    {
+        AddItemDestination::DestinationSlot *slot = *dest->m_destinationSlots.begin();
+        dest->m_destinationSlots.erase(dest->m_destinationSlots.begin());
+
+        ItemPrototype* it = sItemMgr.LookupEntry(slot->itemId);
+        if(it == NULL )
+            continue;
+
+        if(item = GetInventoryItem(slot->invSlot, slot->slot))
+        {
+            _sendPushResult(item, slot->invSlot, slot->slot, slot->count, slot->addFlag);
+            item->SetUInt32Value( ITEM_FIELD_STACK_COUNT, item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + slot->count );
+            item->m_isDirty = true;
+        }
+        else
+        {
+            // create new item
+            item = objmgr.CreateItem(slot->itemId, chr, slot->count);
+            if( item == NULL )
+                continue;
+
+            if(!slot->creatorGuid.empty())
+                item->SetUInt64Value(ITEM_FIELD_CREATOR, slot->creatorGuid);
+
+            item->Bind(ITEM_BIND_ON_PICKUP);
+            if(slot->randomProp || it->RandomPropId || it->RandomSuffixId)
+                item->SetItemRandomPropertyData(slot->randomProp ? slot->randomProp : it->RandomPropId ? it->RandomPropId : it->RandomSuffixId, RandomUInt());
+            item->LoadRandomProperties();
+
+            if(SafeAddItem(item, slot->invSlot, slot->slot) != ADD_ITEM_RESULT_OK)
+            {
+                item->Destruct();
+                continue;
+            }
+
+            _sendPushResult(item, slot->invSlot, slot->slot, slot->count, slot->addFlag);
+            sQuestMgr.OnPlayerItemPickup(chr, item, slot->count);
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Crow: Adds an item by id, allowing for count, random prop, and if created, will send item push created, else, recieved.
 // This was supposed to be given to Arc :|
 uint32 PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randomprop, uint8 addItemFlags, Player* creator /* = NULL*/ )
 {
-    if( count < 1 )
-        count = 1;
-
     Player *chr = GetOwner();
 
     // checking if the PlayerInventory has owner, impossible to not have one
@@ -2877,7 +2967,7 @@ uint32 PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randompr
         return false;
 
     uint32 maxStack = (it->MaxCount > 0 ? it->MaxCount : 1 ); // Our database is lacking :|
-    uint32 added = count, toadd = 0;
+    uint32 added = std::max<uint32>(count, 1), toadd = 0;
     bool freeslots = true;
 
     while( added > 0 && freeslots )

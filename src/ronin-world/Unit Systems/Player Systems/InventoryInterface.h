@@ -26,8 +26,8 @@
 struct SlotResult
 {
     SlotResult() { ContainerSlot = -1, Slot = -1, Result = false; }
-    int8 ContainerSlot;
-    uint8 Slot;
+    int16 ContainerSlot;
+    int16 Slot;
     bool Result;
 };
 
@@ -133,10 +133,11 @@ public:
     SlotResult *LastSearchResult(){return &result;}
 
     //Searching functions
-    SlotResult FindFreeInventorySlot(ItemPrototype *proto);
-    SlotResult FindFreeBankSlot(ItemPrototype *proto);
+    SlotResult FindFreeInventorySlot(ItemPrototype *proto, std::set<std::pair<int16, int16>> *ignoreSlots = NULL);
+    SlotResult FindFreeBankSlot(ItemPrototype *proto, std::set<std::pair<int16, int16>> *ignoreSlots = NULL);
     SlotResult FindAmmoBag();
-    int16 FindFreeBackPackSlot();
+
+    int16 FindFreeBackPackSlot(std::set<std::pair<int16, int16>> *ignoreSlots = NULL);
     int16 FindSpecialBag(Item* item);
 
     uint32 GetEquippedCountByItemID(uint32 itemID);
@@ -182,6 +183,24 @@ public:
 
         return true;
     }
+
+    struct AddItemDestination
+    {
+        struct DestinationSlot
+        {
+            int16 invSlot, slot;
+            uint32 itemId, count;
+            int32 randomProp;
+            uint8 addFlag;
+            WoWGuid creatorGuid;
+        };
+
+        std::set<std::pair<int16, int16>> usedSlots;
+        std::vector<DestinationSlot*> m_destinationSlots;
+    };
+
+    bool BuildItemDestinations(AddItemDestination *concurrentAdds, uint32 itemId, uint32 count, int32 randomProp, uint8 addFlag, Player *creator = NULL);
+    void ProcessItemDestination(AddItemDestination *dest);
 
     uint32 AddItemById(uint32 itemid, uint32 count, int32 randomprop, uint8 addFlag, Player* creator = NULL);
     void SwapItems(int16 SrcInvSlot, int16 DstInvSlot, int16 SrcSlot, int16 DstSlot);

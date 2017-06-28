@@ -23,8 +23,9 @@
 
 #define CONTAINER_SLOT_NONE 0xFFFF
 
-enum InventorySlots : uint8
+enum InventorySlots : int16
 {
+    INVENTORY_SLOT_NONE = -1,
     EQUIPMENT_SLOT_START = 0,
     EQUIPMENT_SLOT_HEAD = 0,
     EQUIPMENT_SLOT_NECK,
@@ -128,9 +129,7 @@ enum InventorySlots : uint8
     BUYBACK_SLOT_11,
     BUYBACK_SLOT_12,
     BUYBACK_SLOT_END,
-    INVENTORY_SLOT_MAX = BUYBACK_SLOT_END,
-
-    INVENTORY_SLOT_NONE = 255
+    INVENTORY_SLOT_MAX = BUYBACK_SLOT_END
 };
 
 enum InventoryErrors : uint8

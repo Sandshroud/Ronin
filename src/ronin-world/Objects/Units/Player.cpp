@@ -7351,6 +7351,7 @@ void Player::StartQuest(uint32 Id)
         sQuestMgr.SendQuestLogFull(this);
         return;
     }
+
     QuestLogEntry *qle = new QuestLogEntry();
     qle->Init(qst, this, log_slot);
     qle->UpdatePlayerFields();

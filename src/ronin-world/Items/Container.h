@@ -40,7 +40,7 @@ public:
     Item* GetItem(WoWGuid guid);
     Item* GetItem(uint8 slot) { ASSERT(slot < GetSlotCount()); return m_itemSlots[slot]; }
 
-    uint8 FindFreeSlot();
+    int16 FindFreeSlot(int16 ourSlot, std::set<std::pair<int16, int16>> *ignoreSlots = NULL);
     bool HasItems();
 
     void SwapItems(uint8 SrcSlot, uint8 DstSlot);

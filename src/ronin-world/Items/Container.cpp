@@ -46,12 +46,19 @@ void Container::LoadFromDB( Field *fields )
     Item::LoadFromDB(fields);
 }
 
-uint8 Container::FindFreeSlot()
+int16 Container::FindFreeSlot(int16 ourSlot, std::set<std::pair<int16, int16>> *ignoreSlots)
 {
-    uint8 TotalSlots = GetSlotCount();
-    for (uint8 i = 0; i < TotalSlots; i++)
-        if(m_itemSlots[i] == NULL)
+    int16 TotalSlots = GetSlotCount();
+    for (int16 i = 0; i < TotalSlots; i++)
+    {
+        std::pair<int16, int16> slotPair = std::make_pair(ourSlot, i);
+        if(ignoreSlots && ignoreSlots->find(slotPair) != ignoreSlots->end())
+            continue;
+
+        if(m_itemSlots[i])
             return i;
+    }
+
     sLog.Debug( "Container","FindFreeSlot: no slot available" );
     return ITEM_NO_SLOT_AVAILABLE;
 }
