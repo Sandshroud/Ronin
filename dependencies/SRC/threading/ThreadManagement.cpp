@@ -35,14 +35,14 @@ int GenerateThreadId()
 
 #endif
 
-SERVER_DECL CThreadPool ThreadPool;
+SERVER_DECL ThreadManager sThreadManager;
 
-CThreadPool::CThreadPool()
+ThreadManager::ThreadManager() : taskCounter(0)
 {
 
 }
 
-void CThreadPool::ThreadExit(Thread * t)
+void ThreadManager::ThreadExit(Thread * t)
 {
     // we're definitely no longer active
     _mutex.Acquire();
@@ -53,7 +53,7 @@ void CThreadPool::ThreadExit(Thread * t)
     delete t;
 }
 
-void CThreadPool::ExecuteTask(const char* ThreadName, ThreadContext * ExecutionTarget)
+void ThreadManager::ExecuteTask(const char* ThreadName, ThreadContext * ExecutionTarget)
 {
     _mutex.Acquire();
 
@@ -63,18 +63,21 @@ void CThreadPool::ExecuteTask(const char* ThreadName, ThreadContext * ExecutionT
 
     // add the thread to the active set
 #ifdef WIN32
-    sLog.Debug("ThreadPool", "Thread %s(%u) is now executing task at 0x%p.", t->name, t->ThreadId, ExecutionTarget);
+    sLog.Debug("ThreadManager", "Thread %s(%u) is now executing task at 0x%p.", t->name, t->ThreadId, ExecutionTarget);
 #else
-    sLog.Debug("ThreadPool", "Thread %s(%u) is now executing task at %p.", t->name, t->ThreadId, ExecutionTarget);
+    sLog.Debug("ThreadManager", "Thread %s(%u) is now executing task at %p.", t->name, t->ThreadId, ExecutionTarget);
 #endif
     m_activeThreads.insert(t);
     _mutex.Release();
 }
 
-void CThreadPool::Shutdown()
+void ThreadManager::Shutdown()
 {
     _mutex.Acquire();
-    sLog.Debug("ThreadPool", "Shutting down %u threads.", uint32(m_activeThreads.size()));
+    sLog.Debug("ThreadManager", "Shutting down %u threads.", uint32(m_activeThreads.size()));
+    for(std::map<uint32, TaskPool*>::iterator itr = m_taskPools.begin(); itr != m_taskPools.end(); ++itr)
+        itr->second->kill();
+    m_taskPools.clear();
 
     for(ThreadSet::iterator itr = m_activeThreads.begin(), itr2; itr != m_activeThreads.end();)
     {
@@ -90,7 +93,7 @@ void CThreadPool::Shutdown()
         _mutex.Acquire();
         if(m_activeThreads.size())
         {
-            sLog.Debug("ThreadPool", "%u active threads remaining...", m_activeThreads.size() );
+            sLog.Debug("ThreadManager", "%u active threads remaining...", m_activeThreads.size() );
             _mutex.Release();
             Sleep(1000);
             continue;
@@ -120,7 +123,7 @@ static unsigned long WINAPI thread_proc(void* param)
 
     char* tName = t->name;
     uint32 tid = t->ThreadId;
-    CThreadPool::SetThreadName(tName);
+    ThreadManager::SetThreadName(tName);
 
     if(t->ExecutionTarget != NULL)
     {
@@ -130,10 +133,10 @@ static unsigned long WINAPI thread_proc(void* param)
         t->ExecutionTarget = NULL;
     }
 
-    ThreadPool.ThreadExit(t);
+    sThreadManager.ThreadExit(t);
     if(strlen(tName))
-        sLog.Debug("ThreadPool", "Thread %s(%u) exiting.", tName, tid);
-    else sLog.Debug("ThreadPool", "Thread %u exiting.", tid);
+        sLog.Debug("ThreadManager", "Thread %s(%u) exiting.", tName, tid);
+    else sLog.Debug("ThreadManager", "Thread %u exiting.", tid);
 
     // at this point the t pointer has already been freed, so we can just cleanly exit.
     ExitThread(0);
@@ -142,7 +145,7 @@ static unsigned long WINAPI thread_proc(void* param)
     return 0;
 }
 
-Thread * CThreadPool::StartThread(ThreadContext * ExecutionTarget)
+Thread * ThreadManager::StartThread(ThreadContext * ExecutionTarget)
 {
     Thread * t = new Thread("ThreadStarter");
     t->ExecutionTarget = ExecutionTarget;
@@ -166,17 +169,17 @@ static void * thread_proc(void * param)
         t->ExecutionTarget = NULL;
     }
 
-    ThreadPool.ThreadExit(t);
+    sThreadManager.ThreadExit(t);
     if(strlen(tName))
-        sLog.Debug("ThreadPool", "Thread %s(%u) exiting.", tName, tid);
+        sLog.Debug("ThreadManager", "Thread %s(%u) exiting.", tName, tid);
     else
-        sLog.Debug("ThreadPool", "Thread %u exiting.", tid);
+        sLog.Debug("ThreadManager", "Thread %u exiting.", tid);
 
     //pthread_exit(0);
     return NULL;
 }
 
-Thread * CThreadPool::StartThread(ThreadContext * ExecutionTarget)
+Thread * ThreadManager::StartThread(ThreadContext * ExecutionTarget)
 {
     Thread * t = new Thread("ThreadStarter");
     t->ExecutionTarget = ExecutionTarget;
@@ -188,15 +191,7 @@ Thread * CThreadPool::StartThread(ThreadContext * ExecutionTarget)
 
 #endif
 
-void CThreadPool::Suicide()
-{
-    uint i = 3;
-    uint t = 0;
-    for(uint b = 0; b < 6; b++)
-        t = b/--i;
-}
-
-void CThreadPool::SetThreadName(const char* thread_name)
+void ThreadManager::SetThreadName(const char* thread_name)
 {
     char buffer[255];
     strcpy(buffer, thread_name);
@@ -224,4 +219,48 @@ void CThreadPool::SetThreadName(const char* thread_name)
 
     }
 #endif
+}
+
+void ThreadManager::Suicide()
+{
+    uint i = 3;
+    uint t = 0;
+    for(uint b = 0; b < 6; b++)
+        t = b/--i;
+}
+
+ThreadManager::TaskPool *ThreadManager::SpawnPool(uint32 thread_count)
+{
+    _mutex.Acquire();
+    TaskPool *pool = new TaskPool(++taskCounter, thread_count);
+    m_taskPools.insert(std::make_pair(taskCounter, pool));
+    _mutex.Release();
+    pool->spawn();
+    return pool;
+}
+
+void ThreadManager::CleanPool(uint32 poolId)
+{
+    _mutex.Acquire();
+    std::map<uint32, TaskPool*>::iterator itr;
+    if((itr = m_taskPools.find(poolId)) != m_taskPools.end())
+    {
+        TaskPool *pool = itr->second;
+        m_taskPools.erase(itr);
+        // Pool will self terminate when all threads exit
+        pool->kill();
+    }
+    _mutex.Release();
+}
+
+void ThreadManager::TaskPool::spawn()
+{
+    _processLock.Acquire();
+    char buffer[MAX_PATH];
+    for(uint32 i = 0; i < _threadCount; ++i)
+    {
+        sprintf(&buffer[0], "Pool%uTask%u", _poolId, i);
+        sThreadManager.ExecuteTask(buffer, new TaskPoolSlave(this));
+    }
+    _processLock.Release();
 }

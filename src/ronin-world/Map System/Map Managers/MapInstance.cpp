@@ -52,10 +52,22 @@ _DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
 
     m_corpses.clear();
 
-    mCreaturePool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 8 : 4);
-    mGameObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 4 : 2);
-    mDynamicObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 : 1);
-    mUnitPathPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 : 1);
+    uint32 threadCount = 0;
+    if(pdbcMap && pdbcMap->IsContinent() && (threadCount = sWorld.GetContinentTaskPoolCount()))
+    {
+        if(_mapId == 530 || _mapId == 571 || _mapId == 646)
+            threadCount = std::max<uint32>(2, threadCount/2);
+        else if(_mapId == 609) // Ebon hold
+            threadCount = 2;
+    }
+
+    _updatePool = threadCount ? sThreadManager.SpawnPool(threadCount) : NULL;
+
+    // Objects and paths are updated in parallel threads, initialize pools for each update thread
+    mCreaturePool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 8 * std::max<uint32>(1, threadCount) : 4);
+    mGameObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 4 * std::max<uint32>(1, threadCount) : 2);
+    mDynamicObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 * std::max<uint32>(1, threadCount) : 1);
+    mUnitPathPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 * std::max<uint32>(1, threadCount) : 1);
 
     projectileSpellUpdateTime[0] = projectileSpellUpdateTime[1] = 0;
     projectileSpellIndex[0] = projectileSpellIndex[1] = 0;
@@ -85,6 +97,7 @@ void MapInstance::Init(uint32 msTime)
     mCreaturePool.ResetTime(msTime);
     mGameObjectPool.ResetTime(msTime);
     mDynamicObjectPool.ResetTime(msTime);
+    mUnitPathPool.ResetTime(msTime);
 }
 
 void MapInstance::Destruct()
@@ -96,9 +109,16 @@ void MapInstance::Destruct()
     }
 
     // Clean up our pools ahead of time
+    if(_updatePool)
+    {
+        sThreadManager.CleanPool(_updatePool->getPoolId());
+        _updatePool = NULL;
+    }
+
     mCreaturePool.Cleanup();
     mGameObjectPool.Cleanup();
     mDynamicObjectPool.Cleanup();
+    mUnitPathPool.Cleanup();
 
     _PerformPendingRemovals();
 
@@ -284,6 +304,7 @@ void MapInstance::PushObject(WorldObject* obj)
 
     obj->SetMapCell(objCell);
 
+    m_objectStorageLock.Acquire();
     //Add to the mapmanager's object list
     if(plObj)
     {
@@ -321,6 +342,7 @@ void MapInstance::PushObject(WorldObject* obj)
             break;
         }
     }
+    m_objectStorageLock.Release();
 
     // Handle activation of that object.
     if(objCell->IsActive())
@@ -823,11 +845,31 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
     }
 }
 
+class CellUpdateTask : public ThreadManager::PoolTask
+{
+public:
+    CellUpdateTask(MapInstance *instance, MapCell *cellInfo, CellSpawns *sp) : _instance(instance), _cellInfo(cellInfo), _spawns(sp) { }
+
+    virtual int call()
+    {
+        _cellInfo->SetActivity(true);
+        _cellInfo->LoadCellData(_spawns);
+        _instance->AddForcedCell(_cellInfo, 0);
+        return 0;
+    }
+
+private:
+    MapInstance *_instance;
+    MapCell *_cellInfo;
+    CellSpawns *_spawns;
+};
+
 void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
 {
     if(apply && areamask == 0)
     {
         m_mapPreloading = true;
+        uint32 startTime = getMSTime();
         if(m_instanceID == 0) sLog.Info("MapInstance", "Updating all cells for map %03u, server might lag.", _mapId);
         for(SpawnsMap::iterator itr = _map->GetSpawnsMapBegin(); itr != _map->GetSpawnsMapEnd(); itr++)
         {
@@ -839,11 +881,21 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
             } else if(cellInfo && cellInfo->IsLoaded())
                 continue;
 
+            if(_updatePool)
+            {
+                _updatePool->AddTask(new CellUpdateTask(this, cellInfo, &itr->second));
+                continue;
+            }
+
             cellInfo->SetActivity(true);
             cellInfo->LoadCellData(&itr->second);
             AddForcedCell(cellInfo, 0);
         }
-        if(m_instanceID == 0) sLog.Success("MapInstance", "Cell preload for map %03u finished", _mapId);
+
+        if(_updatePool)
+            _updatePool->wait();
+
+        if(m_instanceID == 0) sLog.Success("MapInstance", "Cell preload for map %03u finished in %ums", _mapId, getMSTimeDiff(getMSTime(), startTime));
         m_mapPreloading = false;
     }
     else
@@ -1589,21 +1641,21 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformCreatureUpdates(uint32 msTime, uint32 uiDiff)
 {
     m_poolLock.Acquire();
-    mCreaturePool.Update(msTime, uiDiff);
+    mCreaturePool.Update(msTime, uiDiff, _updatePool);
     m_poolLock.Release();
 }
 
 void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
     m_poolLock.Acquire();
-    mGameObjectPool.Update(msTime, uiDiff);
+    mGameObjectPool.Update(msTime, uiDiff, _updatePool);
     m_poolLock.Release();
 }
 
 void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
     m_poolLock.Acquire();
-    mDynamicObjectPool.Update(msTime, uiDiff);
+    mDynamicObjectPool.Update(msTime, uiDiff, _updatePool);
     m_poolLock.Release();
 }
 
@@ -1635,7 +1687,7 @@ void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff)
 {
     m_poolLock.Acquire();
-    mUnitPathPool.Update(msTime, uiDiff);
+    mUnitPathPool.Update(msTime, uiDiff, _updatePool);
     m_poolLock.Release();
 }
 
@@ -2034,14 +2086,16 @@ Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
         return NULL;
     }
 
+    m_objectCreationLock.Acquire();
     uint16 highGuid = (ctrData->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT);
     if(guid.empty() && IsInstance())
         guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), entry, highGuid);
     else if(guid.empty())
         guid = MAKE_NEW_GUID(++m_CreatureHighGuid, entry, highGuid);
     ASSERT( guid.getHigh() == highGuid );
-
     Creature *cr = new Creature(ctrData, guid);
+    m_objectCreationLock.Release();
+
     cr->Init();
     return cr;
 }
@@ -2055,7 +2109,10 @@ Summon* MapInstance::CreateSummon(uint32 entry, int32 duration)
         return NULL;
     }
 
+    m_objectCreationLock.Acquire();
     Summon *sum = new Summon(ctrData, MAKE_NEW_GUID(++m_CreatureHighGuid, entry, HIGHGUID_TYPE_UNIT), duration);
+    m_objectCreationLock.Release();
+
     sum->Init();
     ASSERT( sum->GetHighGUID() == HIGHGUID_TYPE_UNIT );
     return sum;
@@ -2073,14 +2130,20 @@ GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
     }
     ASSERT( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT );
 
+    m_objectCreationLock.Acquire();
     GameObject *go = new GameObject(goi, MAKE_NEW_GUID(++m_GOHighGuid, entry, HIGHGUID_TYPE_GAMEOBJECT));
+    m_objectCreationLock.Release();
+
     go->Init();
     return go;
 }
 
 DynamicObject* MapInstance::AllocateDynamicObject(WoWGuid source)
 {
+    m_objectCreationLock.Acquire();
     DynamicObject* dyn = new DynamicObject(HIGHGUID_TYPE_DYNAMICOBJECT, (++m_DynamicObjectHighGuid));
+    m_objectCreationLock.Release();
+
     dyn->Init();
     ASSERT( dyn->GetHighGUID() == HIGHGUID_TYPE_DYNAMICOBJECT );
     return dyn;

@@ -48,6 +48,7 @@ void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 
 void MapCell::AddObject(WorldObject* obj)
 {
+    Guard guard(cellLock);
     if(obj->IsPlayer())
         m_playerSet[obj->GetGUID()] = obj;
     else
@@ -62,6 +63,7 @@ void MapCell::AddObject(WorldObject* obj)
 
 void MapCell::RemoveObject(WorldObject* obj)
 {
+    Guard guard(cellLock);
     m_playerSet.erase(obj->GetGUID());
     m_nonPlayerSet.erase(obj->GetGUID());
     m_creatureSet.erase(obj->GetGUID());
@@ -70,6 +72,7 @@ void MapCell::RemoveObject(WorldObject* obj)
 
 WorldObject *MapCell::FindObject(WoWGuid guid)
 {
+    Guard guard(cellLock);
     MapCell::CellObjectMap::iterator itr;
     if((itr = m_playerSet.find(guid)) != m_playerSet.end() || (itr = m_nonPlayerSet.find(guid)) != m_nonPlayerSet.end())
         return itr->second;
@@ -78,6 +81,7 @@ WorldObject *MapCell::FindObject(WoWGuid guid)
 
 void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
 {
+    Guard guard(cellLock);
     WorldObject *curObj;
     if(objectMask == 0)
     {
@@ -115,6 +119,7 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
 
 void MapCell::SetActivity(bool state)
 {
+    Guard guard(cellLock);
     uint32 x = _x/8, y = _y/8;
     if(state && _unloadpending)
         CancelPendingUnload();
@@ -125,6 +130,7 @@ void MapCell::SetActivity(bool state)
 
 uint32 MapCell::LoadCellData(CellSpawns * sp)
 {
+    Guard guard(cellLock);
     if(_loaded == true)
         return 0;
 
@@ -210,6 +216,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
 
 void MapCell::UnloadCellData(bool preDestruction)
 {
+    Guard guard(cellLock);
     if(_loaded == false)
         return;
 
@@ -241,6 +248,7 @@ void MapCell::UnloadCellData(bool preDestruction)
 
 void MapCell::QueueUnloadPending()
 {
+    Guard guard(cellLock);
     if(_unloadpending)
         return;
 
@@ -250,13 +258,17 @@ void MapCell::QueueUnloadPending()
 
 void MapCell::CancelPendingUnload()
 {
-    sLog.Debug("MapCell", "Cancelling pending unload of cell %u %u", _x, _y);
+    Guard guard(cellLock);
     if(!_unloadpending)
         return;
+
+    _unloadpending = false;
+    sLog.Debug("MapCell", "Cancelling pending unload of cell %u %u", _x, _y);
 }
 
 void MapCell::Unload()
 {
+    Guard guard(cellLock);
     if(_active)
         return;
 

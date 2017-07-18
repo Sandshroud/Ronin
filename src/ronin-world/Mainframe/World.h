@@ -608,6 +608,8 @@ public:
     time_t GetLastDailyResetTime() { return m_lastDailyReset; }
     float GetAverageCPUUsage();
 
+    uint32 GetContinentTaskPoolCount() { return m_continentTaskPoolCount; }
+
 protected:
     void UpdateServerPerformance(uint32 uiDiff);
     void UpdateServerTimers(uint32 diff);
@@ -636,6 +638,8 @@ protected:
 
     uint32 m_playerLimit;
     std::string m_motd, m_hashInfo;
+
+    uint32 m_continentTaskPoolCount;
 
     Mutex m_timeDataLock;
     tm m_currentTimeData;
@@ -688,12 +692,11 @@ public:
 public:
     float GetRAMUsage(bool external = false);
 
-#ifdef WIN32
-
 private:
+    uint32 number_of_cpus;
+#ifdef WIN32
     __int64 m_lnOldValue;
     LARGE_INTEGER m_OldPerfTime100nSec;
-    uint32 number_of_cpus;
     uint32 m_current_holiday_mask;
 
 #endif // WIN32

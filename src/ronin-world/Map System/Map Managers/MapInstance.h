@@ -58,6 +58,35 @@ static const uint32 MaxViewDistance = 28000;
 #define TRIGGER_INSTANCE_EVENT( Mgr, Func )
 #define VECTOR_POOLS 1
 
+template <class T> class StoragePoolTask : public ThreadManager::PoolTask
+{
+public:
+#ifdef VECTOR_POOLS
+    StoragePoolTask(std::vector<T*> *targetPool, uint32 msTime, uint32 diff) : updatePool(targetPool), _msTime(msTime), _diff(diff) { }
+#else
+    StoragePoolTask(std::set<T*> *targetPool, uint32 diff) : updatePool(targetPool), _diff(diff) { }
+#endif
+
+    virtual int call()
+    {
+        std::for_each(updatePool->begin(), updatePool->end(), [this](T *elem)
+        {
+            if(elem->IsActiveObject() && !elem->IsActivated())
+                elem->InactiveUpdate(_msTime, _diff);
+            else elem->Update(_msTime, _diff);
+        } );
+        return 0;
+    }
+
+private:
+    uint32 _msTime, _diff;
+#ifdef VECTOR_POOLS
+    std::vector<T*> *updatePool;
+#else
+    std::set<T*> *updatePool;
+#endif
+};
+
 /// Storage pool used to store and dynamically update objects in our map
 template < class T > class SERVER_DECL StoragePool
 {
@@ -73,17 +102,19 @@ public: // Defined type
 #endif
 
 public:
-    StoragePool() : m_updating(false), mPoolCounter(0), mPoolAddCounter(0), mFullPoolSize(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
+    StoragePool() : m_updating(false), mPoolCounter(0), mFullPoolSize(0), mPoolSize(0) { mPoolStack = NULL; mPoolLastUpdateStack = NULL; }
 
     void Initialize(uint32 poolSize)
     {
+        Guard guard(poolLocks);
         mFullPoolSize = mPoolSize = poolSize;
-        poolIterator = mPool.end();
-        mPoolCounter = mPoolAddCounter = 0;
+        mPoolCounter = 0;
         if(mFullPoolSize == 1) // Don't initialize the single stack
             return;
         mPoolLastUpdateStack = new uint32[mFullPoolSize];
         mPoolStack = new PoolSet[mFullPoolSize];
+        for(uint32 i = 0; i < mFullPoolSize; ++i)
+            m_poolSizes[i] = 0;
     }
 
     void PreservePools(uint32 preserveSize)
@@ -94,6 +125,7 @@ public:
 
     void Cleanup()
     {
+        Guard guard(poolLocks);
         if(mPoolLastUpdateStack)
             delete [] mPoolLastUpdateStack;
         mPoolLastUpdateStack = NULL;
@@ -107,40 +139,60 @@ public:
     uint32 getCounter() { return mPoolCounter; }
 
     // Update our object stack, this includes inactivity timers
-    void Update(uint32 msTime, uint32 pDiff)
+    void Update(uint32 msTime, uint32 pDiff, ThreadManager::TaskPool *taskPool)
     {
-        uint32 diff = pDiff;
-        PoolSet *targetPool;
+        poolLocks.Acquire();
+        std::vector<std::pair<uint32, PoolSet*>> targetPools;
         if(mPoolStack == NULL) // No stack so use our main pool
-            targetPool = &mPool;
+            targetPools.push_back(std::make_pair(pDiff, &mPool));
         else
         {
-            // Select our next pool to update in the sequence
-            if(++mPoolCounter == mFullPoolSize)
-                mPoolCounter = 0;
-            // Recalculate the diff from the last time we updated this pool
-            diff = msTime - mPoolLastUpdateStack[mPoolCounter];
-            mPoolLastUpdateStack[mPoolCounter] = msTime;
-            // Set the target pool pointer
-            targetPool = &mPoolStack[mPoolCounter];
+            uint32 pushCount = taskPool ? std::min<uint32>(mFullPoolSize, taskPool->getThreadCount()) : 1;
+            for(uint32 i = 0; i < pushCount; ++i)
+            {
+                // Select our next pool to update in the sequence
+                if(++mPoolCounter == mFullPoolSize)
+                    mPoolCounter = 0;
+                // Recalculate the diff from the last time we updated this pool
+                uint32 diff = msTime - mPoolLastUpdateStack[mPoolCounter];
+                mPoolLastUpdateStack[mPoolCounter] = msTime;
+                // Set the target pool pointer
+                targetPools.push_back(std::make_pair(diff, &mPoolStack[mPoolCounter]));
+            }
         }
 
-        if(!targetPool->empty())
+        m_updating = true;
+        while(!targetPools.empty())
         {
-            m_updating = true;
-            std::for_each(targetPool->begin(), targetPool->end(), [msTime, diff](T *elem)
+            uint32 updateDiff = (*targetPools.begin()).first;
+            PoolSet *targetPool = (*targetPools.begin()).second;
+            targetPools.erase(targetPools.begin());
+            if(!targetPool->empty())
             {
-                if(elem->IsActiveObject() && !elem->IsActivated())
-                    elem->InactiveUpdate(msTime, diff);
-                else elem->Update(msTime, diff);
-            } );
-            m_updating = false;
+                if(taskPool)
+                    taskPool->AddTask(new StoragePoolTask<T>(targetPool, msTime, updateDiff));
+                else
+                {
+                    std::for_each(targetPool->begin(), targetPool->end(), [msTime, updateDiff](T *elem)
+                    {
+                        if(elem->IsActiveObject() && !elem->IsActivated())
+                            elem->InactiveUpdate(msTime, updateDiff);
+                        else elem->Update(msTime, updateDiff);
+                    } );
+                }
+            }
         }
+        poolLocks.Release();
+
+        if(taskPool != NULL)
+            taskPool->wait();
+        m_updating = false;
     }
 
     // Resets the stack timers
     void ResetTime(uint32 msTime)
     {
+        Guard guard(poolLocks);
         if(mPoolStack == NULL)
             return;
 
@@ -152,40 +204,52 @@ public:
     // Add our object to the stack, return value is a pool identifier
     uint8 Add(T *obj, uint8 forcedPool = 0)
     {
+        Guard guard(poolLocks);
+        std::map<T*, uint32>::iterator checkItr;
+        if((checkItr = includeCheck.find(obj)) != includeCheck.end())
+            return checkItr->second;
+
         uint8 pool = 0xFF;
         POOL_ADD(mPool, obj);
         if(mPoolStack)
         {
             if((pool = forcedPool) == 0 || pool >= mFullPoolSize)
-                pool = mPoolAddCounter++;
-            if(mPoolAddCounter == mPoolSize)
-                mPoolAddCounter = 0;
+            {
+                // Grab us from the front
+                pool = 0;
+                uint32 count = 0xFFFFFFFF;
+                for(auto itr = m_poolSizes.begin(); itr != m_poolSizes.end(); ++itr)
+                {
+                    if(itr->second < count)
+                    {
+                        pool = itr->first;
+                        count = itr->second;
+                    }
+                }
+            }
 
             POOL_ADD(mPoolStack[pool], obj);
+            m_poolSizes[pool] = mPoolStack[pool].size();
         }
+        includeCheck.insert(std::make_pair(obj, pool));
         return pool;
     }
 
     // Remove our object from the stack, poolID is needed to remove from the correct stack quickly
     void Remove(T *obj, uint8 poolId)
     {
+        Guard guard(poolLocks);
         PoolSet::iterator itr;
         if((POOL_FIND(itr, mPool, obj)) != mPool.end())
-        {
-            // check iterator
-            if( m_updating && poolIterator == itr )
-                poolIterator = mPool.erase(itr);
-            else mPool.erase(itr);
-        }
+            mPool.erase(itr);
+        includeCheck.erase(obj);
 
         if(mPoolStack && poolId != 0xFF)
         {
             if((POOL_FIND(itr, mPoolStack[poolId], obj)) != mPoolStack[poolId].end())
             {
-                // check iterator
-                if( m_updating && poolIterator == itr )
-                    poolIterator = mPoolStack[poolId].erase(itr);
-                else mPoolStack[poolId].erase(itr);
+                mPoolStack[poolId].erase(itr);
+                m_poolSizes[poolId] = mPoolStack[poolId].size();
             }
         }
     }
@@ -195,10 +259,12 @@ public:
 
 private:
 
+    Mutex poolLocks;
     bool m_updating;
+    std::map<T*, uint32> includeCheck;
     PoolSet mPool, *mPoolStack;
-    typename PoolSet::iterator poolIterator;
-    uint32 mPoolCounter, mPoolAddCounter, mFullPoolSize, mPoolSize, *mPoolLastUpdateStack;
+    std::map<uint32, uint32> m_poolSizes;
+    uint32 mPoolCounter, mFullPoolSize, mPoolSize, *mPoolLastUpdateStack;
 };
 
 class MapInstanceObjectProcessCallback : public ObjectProcessCallback
@@ -617,6 +683,7 @@ protected:
 
 public:
     Mutex m_poolLock;
+    ThreadManager::TaskPool *_updatePool;
     StoragePool<Creature> mCreaturePool;
     StoragePool<GameObject> mGameObjectPool;
     StoragePool<DynamicObject> mDynamicObjectPool;
@@ -641,10 +708,11 @@ public:
     ByteBuffer *GetUpdateBuffer() { return &m_updateBuffer; }
 
     // Object cell stacking
+    Mutex objectCellCacheLock;
     std::map<WoWGuid, uint32> m_objectCells;
 
-    void CacheObjectCell(WoWGuid guid, uint32 cellId) { m_objectCells[guid] = cellId; }
-    void RemoveCachedCell(WoWGuid guid) { m_objectCells.erase(guid); }
+    void CacheObjectCell(WoWGuid guid, uint32 cellId) { objectCellCacheLock.Acquire(); m_objectCells[guid] = cellId; objectCellCacheLock.Release(); }
+    void RemoveCachedCell(WoWGuid guid) { objectCellCacheLock.Acquire(); m_objectCells.erase(guid); objectCellCacheLock.Release(); }
 
 public:
     void ClearCorpse(Corpse* remove) { std::vector<Corpse* >::iterator itr; if((itr = std::find(m_corpses.begin(), m_corpses.end(), remove)) != m_corpses.end()) m_corpses.erase(itr); };
@@ -666,6 +734,9 @@ public:
     //This will be done in regular way soon
     Mutex m_objectinsertlock;
     ObjectSet m_objectinsertpool;
+    Mutex m_objectCreationLock;
+    Mutex m_objectStorageLock;
+
     void AddObject(WorldObject*);
     WorldObject* GetObjectClosestToCoords(uint32 entry, float x, float y, float z, float ClosestDist, int32 forcedtype = -1);
 

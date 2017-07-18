@@ -220,12 +220,12 @@ bool Master::Run(int argc, char ** argv)
     sWorld.SetStartTime(uint32(UNIXTIME));
 
     // Initialize the new worldRunnable
-    ThreadPool.ExecuteTask("WorldThread", World::getSingletonPtr());
+    sThreadManager.ExecuteTask("WorldThread", World::getSingletonPtr());
 
     _HookSignals();
 
     ConsoleThread* console = new ConsoleThread();
-    ThreadPool.ExecuteTask("ConsoleThread", console);
+    sThreadManager.ExecuteTask("ConsoleThread", console);
 
     // Start Network Subsystem
     sLog.Debug("Server","Starting network subsystem..." );
@@ -343,7 +343,7 @@ bool Master::Run(int argc, char ** argv)
     delete console;
 
     sLog.Notice("Thread", "Terminating thread pool...");
-    ThreadPool.Shutdown();
+    sThreadManager.Shutdown();
     DBCLoader::StartCleanup();
 
     sLog.Notice( "Network", "Deleting Network Subsystem..." );
@@ -371,7 +371,7 @@ bool Master::Run(int argc, char ** argv)
     delete OpcodeManager::getSingletonPtr();
 
     // Wait for cleanup thread to exit
-    ThreadPool.Shutdown();
+    sThreadManager.Shutdown();
 
     sLog.Notice( "Database", "Closing Connections..." );
     _StopDB();

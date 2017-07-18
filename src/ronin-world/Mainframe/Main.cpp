@@ -46,7 +46,7 @@ int unix_main(int argc, char ** argv)
 int win32_main( int argc, char ** argv )
 {
     int32 result = 0;
-    CThreadPool::SetThreadName( "Main Thread" );
+    ThreadManager::SetThreadName( "Main Thread" );
 #if defined(CRASHHANDLER_ENABLED)
     StartCrashHandler();
 #endif

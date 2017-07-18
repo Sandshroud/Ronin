@@ -136,7 +136,7 @@ void iocpEngine::SpawnThreads()
     {
         char ThreadName[45];
         sprintf(ThreadName, "SocketEngineThread|%u", i);
-        ThreadPool.ExecuteTask(ThreadName, new SocketEngineThread(this));
+        sThreadManager.ExecuteTask(ThreadName, new SocketEngineThread(this));
     }
 }
 

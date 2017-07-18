@@ -1939,7 +1939,7 @@ public:
     ~DBCLoader() {};
 
     void FillDBCLoadList(TaskList &tl, const char* datapath, bool *result);
-    static void StartCleanup() { ThreadPool.ExecuteTask("DBCCleanup", new DBCUnloader()); }
+    static void StartCleanup() { sThreadManager.ExecuteTask("DBCCleanup", new DBCUnloader()); }
 
 private:
     template<class T> void LoadDBC(bool *result, std::string filename, const char * format, T *l);

@@ -47,7 +47,7 @@ bool HandleInfoCommand(BaseConsole * pConsole, int argc, const char * argv[])
     pConsole->Write("Server Uptime: %s\r\n", sWorld.GetUptimeString().c_str());
     pConsole->Write("Useage(Win only): RAM:(%f), CPU:(%f)\r\n", sWorld.GetRAMUsage(), sWorld.GetAverageCPUUsage());
     pConsole->Write("SQL Query Cache Size: (W: %u/C: %u) queries delayed\r\n", WorldDatabase.GetQueueSize(), CharacterDatabase.GetQueueSize());
-    pConsole->Write("Active Thread Count: %u\r\n", ThreadPool.GetActiveThreadCount());
+    pConsole->Write("Active Thread Count: %u\r\n", sThreadManager.GetActiveThreadCount());
     pConsole->Write("Players Online: (%u Alliance/%u Horde/%u GMs)\r\n",sWorld.AlliancePlayers, sWorld.HordePlayers, gm);
     pConsole->Write("Average Latency: %.3fms\r\n", count ?  ((float)((float)avg / (float)count)) : 0.0f);
     pConsole->Write("Accepted Connections: %u\r\n", sWorld.mAcceptedConnections);

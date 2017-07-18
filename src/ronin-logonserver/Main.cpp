@@ -362,7 +362,7 @@ void LogonServer::Run(int argc, char ** argv)
     int atime = mainIni->ReadInteger("Rates", "AccountRefresh",600);
     atime *= 1000;
     PeriodicFunctionCaller<AccountMgr> * pfc = new PeriodicFunctionCaller<AccountMgr>(AccountMgr::getSingletonPtr(),&AccountMgr::ReloadAccountsCallback, atime);
-    ThreadPool.ExecuteTask("PeriodicFunctionCaller", pfc);
+    sThreadManager.ExecuteTask("PeriodicFunctionCaller", pfc);
 
     // Load conf settings..
     uint32 cport = mainIni->ReadInteger("Listen", "RealmListPort", 3724);
@@ -377,7 +377,7 @@ void LogonServer::Run(int argc, char ** argv)
     hash.Finalize();
     memcpy(sql_hash, hash.GetDigest(), 20);
 
-    ThreadPool.ExecuteTask("ConsoleThread", new LogonConsoleThread());
+    sThreadManager.ExecuteTask("ConsoleThread", new LogonConsoleThread());
 
     sLog.Debug("Server","Starting network subsystem..." );
     CreateSocketEngine(2);
@@ -416,7 +416,7 @@ void LogonServer::Run(int argc, char ** argv)
         fclose(fPid);
     }
     uint32 loop_counter = 0;
-    //ThreadPool.Gobble();
+    //sThreadManager.Gobble();
     sLog.Notice("LogonServer","Success! Ready for connections");
     while(mrunning && authsockcreated && intersockcreated)
     {
@@ -465,7 +465,7 @@ void LogonServer::Run(int argc, char ** argv)
     sLogonSQL->Shutdown();
     delete sLogonSQL;
 
-    ThreadPool.Shutdown();
+    sThreadManager.Shutdown();
 
     // delete pid file
     remove("logonserver.pid");

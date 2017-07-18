@@ -81,12 +81,12 @@ bool DirectDatabase::Initialize(const char* Hostname, unsigned int port, const c
 
     // Spawn Database thread
     sDBEngine.AddDatabase(this);
-//  ThreadPool.ExecuteTask("Database Execute Thread", this);
+//  sThreadManager.ExecuteTask("Database Execute Thread", this);
 
     // launch the query thread
     qt = new QueryThread(this);
     sDBEngine.AddQueryThread(qt);
-//  ThreadPool.ExecuteTask("QueryThread", qt);
+//  sThreadManager.ExecuteTask("QueryThread", qt);
     return true;
 }
 

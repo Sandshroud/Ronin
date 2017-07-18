@@ -48,6 +48,7 @@ World::World() : m_eventHandler(NULL)
     m_shutdownTime = 0;
     m_queueUpdateTimer = 180000;
     m_pushUpdateTimer = 0;
+    m_continentTaskPoolCount = 0;
 
 #ifdef WIN32
     m_cpuUsageTimer = 0;
@@ -57,6 +58,8 @@ World::World() : m_eventHandler(NULL)
     GetSystemInfo( &si );
     number_of_cpus = si.dwNumberOfProcessors;
     m_current_holiday_mask = 0;
+#else
+    number_of_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 #endif // WIN32
 }
 
@@ -491,7 +494,7 @@ bool World::SetInitialWorldSettings()
 
     Storage_LoadAdditionalTables();
 
-    ThreadPool.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
+    sThreadManager.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
 
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
     MAKE_TASK(GroupFinderMgr, LoadFromDB);
@@ -553,7 +556,7 @@ bool World::SetInitialWorldSettings()
         sLog.Notice("World", "Background loot loading...");
 
         // loot background loading in a lower priority thread.
-        ThreadPool.ExecuteTask("LootLoader", new BasicTaskExecutor(new CallbackP0<LootMgr>(LootMgr::getSingletonPtr(), &LootMgr::LoadDelayedLoot), BTE_PRIORITY_LOW));
+        sThreadManager.ExecuteTask("LootLoader", new BasicTaskExecutor(new CallbackP0<LootMgr>(LootMgr::getSingletonPtr(), &LootMgr::LoadDelayedLoot), BTE_PRIORITY_LOW));
     }
     else
     {
@@ -1293,7 +1296,7 @@ void TaskList::spawn()
 
     sLog.Notice("World", "Beginning %s server startup with %u thread(s).", (threadcount == 1) ? "progressive" : "parallel", threadcount);
     for(uint32 x = 0; x < threadcount; ++x)
-        ThreadPool.ExecuteTask(format("TaskExecutor|%u", x).c_str(), new TaskExecutor(this));
+        sThreadManager.ExecuteTask(format("TaskExecutor|%u", x).c_str(), new TaskExecutor(this));
 }
 
 void TaskList::wait()
@@ -1405,6 +1408,12 @@ void World::Rehash(bool load)
     LogoutDelay = mainIni->ReadInteger("ServerSettings", "Logout_Delay", 20);
     EnableFatigue = mainIni->ReadBoolean("ServerSettings", "EnableFatigue", true);
     ServerPreloading = mainIni->ReadInteger("Startup", "Preloading", 0);
+    m_continentTaskPoolCount = mainIni->ReadInteger("ServerSettings", "ContinentTaskPoolCount", 0);
+    // Negative performance when above physical CPU count, you should keep it around half of CPU count
+    if(m_continentTaskPoolCount > number_of_cpus)
+        m_continentTaskPoolCount = number_of_cpus;
+    if(m_continentTaskPoolCount < 2) // Makes no sense to allocate a thread to do work we can do ourself, so force at least 2 threads
+        m_continentTaskPoolCount = 0;
     if(LogoutDelay <= 0)
         LogoutDelay = 1;
 

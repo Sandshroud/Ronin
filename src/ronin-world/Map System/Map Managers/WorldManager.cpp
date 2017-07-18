@@ -640,7 +640,7 @@ void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)
     // Store the manager in the worldManager thread
     m_continentManagement.insert(std::make_pair(mapEntry->MapID, mgr));
     // Set manager to start it's internal thread
-    ThreadPool.ExecuteTask(format("ContinentMgr - %s", mapEntry->internalname).c_str(), mgr);
+    sThreadManager.ExecuteTask(format("ContinentMgr - %s", mapEntry->internalname).c_str(), mgr);
 }
 
 void WorldManager::_InitializeBattleGround(MapEntry *mapEntry, Map *map)

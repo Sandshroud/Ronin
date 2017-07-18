@@ -1712,7 +1712,11 @@ void System::cpuid(CPUIDFunction func, uint32& areg, uint32& breg, uint32& creg,
     dreg = d;
 #else /* G3DFIX: Don't check if on 64-bit platform */
  int CPUInfo[4];
- __cpuid(CPUInfo, func);
+#if(_MSC_VER > 1800)
+ __cpuidex(CPUInfo, func, 0);
+#else
+ __cpuide(CPUInfo, func);
+#endif
  memcpy(&areg, &CPUInfo[0], 4);
  memcpy(&breg, &CPUInfo[1], 4);
  memcpy(&creg, &CPUInfo[2], 4);

@@ -929,6 +929,7 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
             _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL, INV_ERR_DESTROY_NONEMPTY_BAG);
             return;
         }
+
         //check for destination now before swaping.
         //destination is backpack
         if(DstInv == INVENTORY_SLOT_NOT_SET)
@@ -969,43 +970,31 @@ void WorldSession::HandleAutoStoreBagItemOpcode( WorldPacket & recv_data )
             }
 
             //destination is a bag
-            dstitem = _player->GetInventory()->GetInventoryItem(DstInv);
-            if(dstitem)
+            if((dstitem = _player->GetInventory()->GetInventoryItem(DstInv)) && dstitem->IsContainer())
             {
-                //dstitem exists, detect if its a container
-                if(dstitem->IsContainer())
+                if((NewSlot = castPtr<Container>(dstitem)->FindFreeSlot(DstInv)) == ITEM_NO_SLOT_AVAILABLE)
                 {
-                    NewSlot = castPtr<Container>(dstitem)->FindFreeSlot(DstInv);
-                    if(NewSlot == ITEM_NO_SLOT_AVAILABLE)
-                    {
-                        _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL, INV_ERR_BAG_FULL);
-                        return;
-                    }
-                    else
-                    {
-                        srcitem = _player->GetInventory()->SafeRemoveAndRetreiveItemFromSlot(SrcInv, Slot, false);
-                        if( srcitem != NULL )
-                        {
-                            result = _player->GetInventory()->SafeAddItem(srcitem, DstInv, NewSlot);
-                            if(!result)
-                            {
-                                sLog.printf("HandleBuyItemInSlot: Error while adding item to newslot");
-                                srcitem->Destruct();
-                                srcitem = NULL;
-                                return;
-                            }
-                        }
-                    }
+                    _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL, INV_ERR_BAG_FULL);
+                    return;
                 }
                 else
                 {
-                    _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL,  INV_ERR_WRONG_SLOT);
-                    return;
+                    if( srcitem = _player->GetInventory()->SafeRemoveAndRetreiveItemFromSlot(SrcInv, Slot, false) )
+                    {
+                        result = _player->GetInventory()->SafeAddItem(srcitem, DstInv, NewSlot);
+                        if(!result)
+                        {
+                            sLog.printf("HandleBuyItemInSlot: Error while adding item to newslot");
+                            srcitem->Destruct();
+                            srcitem = NULL;
+                            return;
+                        }
+                    }
                 }
             }
             else
             {
-                _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL, INV_ERR_WRONG_SLOT);
+                _player->GetInventory()->BuildInventoryChangeError(srcitem, NULL,  INV_ERR_WRONG_SLOT);
                 return;
             }
         }
@@ -1029,15 +1018,12 @@ void WorldSession::HandleReadItemOpcode(WorldPacket &recvPacket)
     Item* item = _player->GetInventory()->GetInventoryItem(uslot, slot);
     sLog.Debug("WorldSession","Received CMSG_READ_ITEM %d", slot);
 
-    if(item)
+    if(item && item->GetProto()->PageId)
     {
-        if(item->GetProto()->PageId)
-        {
-            WorldPacket data(SMSG_READ_ITEM_OK, 8);
-            data << item->GetGUID();
-            SendPacket(&data);
-            sLog.Debug("WorldSession","Sent SMSG_READ_OK %d", item->GetGUID());
-        }
+        WorldPacket data(SMSG_READ_ITEM_OK, 8);
+        data << item->GetGUID();
+        SendPacket(&data);
+        sLog.Debug("WorldSession","Sent SMSG_READ_OK %d", item->GetGUID());
     }
 }
 

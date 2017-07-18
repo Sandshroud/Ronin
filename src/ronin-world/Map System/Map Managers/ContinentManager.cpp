@@ -37,6 +37,10 @@ bool ContinentManager::Initialize()
     return false;
 }
 
+#ifndef DEBUG_CONTINENT_PERF
+#define DEBUG_CONTINENT_PERF 0
+#endif
+
 bool ContinentManager::run()
 {
     // Preload all needed spawns etc
@@ -46,6 +50,11 @@ bool ContinentManager::run()
         Delay(50);
 
     sWorldMgr.MapLoaded(m_mapId);
+    FILE *file = NULL;
+#if DEBUG_CONTINENT_PERF == 1
+    if(fopen_s(&file, format("MAP_%03u_Perf.log", m_mapId).c_str(), "w") == 0)
+        fclose(file);
+#endif
 
     // Initialize the base continent timers
     uint32 mstime = getMSTime();
@@ -64,66 +73,140 @@ bool ContinentManager::run()
         // Update our collision system via singular map system
         sVMapInterface.UpdateSingleMap(m_mapId, diff);
 
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 msTimeNow = getMSTime();
+#endif
         // Process all pending removals in sequence
         m_continent->_PerformPendingRemovals();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performPendingRemovals = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Process all pending inputs in sequence
         m_continent->_ProcessInputQueue();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 processInputQueue = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Process all script updates before object updates
         m_continent->_PerformScriptUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performScriptUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all combat state updates before any unit updates
         m_continent->_PerformCombatUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performCombatUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all delayed spell updates before object updates
         m_continent->_PerformDelayedSpellUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performDelayedSpellUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all unit path updates in sequence
         m_continent->_PerformUnitPathUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performUnitPathUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all player updates in sequence
         m_continent->_PerformPlayerUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performPlayerUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all dynamic object updates in sequence
         m_continent->_PerformDynamicObjectUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performDynamicObjectUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all creature updates in sequence
         m_continent->_PerformCreatureUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performCreatureUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all object updates in sequence
         m_continent->_PerformObjectUpdates(mstime, diff);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performObjectUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all movement updates in sequence without player data
         m_continent->_PerformMovementUpdates(false);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performMovementUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all session updates in sequence
         m_continent->_PerformSessionUpdates();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performSessionUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all movement updates in sequence with player data
         m_continent->_PerformMovementUpdates(true);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performPlayerMovementUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Process secondary pending removals in sequence
         m_continent->_PerformPendingRemovals();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performLatePendingRemovals = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+#endif
         // Perform all pending object updates in sequence
         m_continent->_PerformPendingUpdates();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
+#if DEBUG_CONTINENT_PERF == 1
+        uint32 performPendingUpdates = getMSTime() - msTimeNow;
+        msTimeNow = getMSTime();
+
+        if(fopen_s(&file, format("MAP_%03u_Perf.log", m_mapId).c_str(), "a") == 0)
+        {
+            fprintf(file, "[%04u] %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u\n", (performPendingRemovals + processInputQueue + performScriptUpdates
+                + performCombatUpdates + performDelayedSpellUpdates + performUnitPathUpdates + performPlayerUpdates + performDynamicObjectUpdates
+                + performCreatureUpdates + performObjectUpdates + performMovementUpdates + performSessionUpdates + performPlayerMovementUpdates + performLatePendingRemovals + performPendingUpdates),
+                performPendingRemovals, processInputQueue, performScriptUpdates, performCombatUpdates, performDelayedSpellUpdates, performUnitPathUpdates,
+                performPlayerUpdates, performDynamicObjectUpdates, performCreatureUpdates, performObjectUpdates, performMovementUpdates, performSessionUpdates,
+                performPlayerMovementUpdates, performLatePendingRemovals, performPendingUpdates);
+            fclose(file);
+        }
+#endif
 
         // Set the thread to sleep to prevent thread overrun and wasted cycles
         if(!SetThreadState(THREADSTATE_SLEEPING))

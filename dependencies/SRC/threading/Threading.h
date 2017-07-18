@@ -60,7 +60,7 @@
 #include "LockedQueue.h"
 
 // Thread Pool
-#include "ThreadPool.h"
+#include "ThreadManagement.h"
 
 // Thread safe console log
 #include "ConsoleLog.h"

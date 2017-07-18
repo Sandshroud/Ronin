@@ -101,6 +101,7 @@ private:
 
     uint32 objectCount;
     MapInstance* _instance;
+    Mutex cellLock;
     Map *_mapData;
 
     // Non player set and player set

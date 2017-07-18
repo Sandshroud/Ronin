@@ -134,51 +134,51 @@ void Unit::Update(uint32 msTime, uint32 uiDiff)
 
     // Update aura triggers and modifiers
     m_AuraInterface.Update(uiDiff);
-    if(isDead())
-        return;
-
-    // Update attack timers
-    for(uint8 i = 0; i < 2; i++)
+    if(!isDead())
     {
-        if(m_attackDelay[i] == 0)
-            continue;
-        if(m_attackTimer[i] >= uiDiff)
-            m_attackTimer[i] -= uiDiff;
-        else m_attackTimer[i] = 0;
-    }
-
-    if(HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
-    {
-        if((m_combatStopTimer += uiDiff) > 1000)
+        // Update attack timers
+        for(uint8 i = 0; i < 2; i++)
         {
-            if(IsInWorld() && !m_mapInstance->CheckCombatStatus(this))
-                RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
-            m_combatStopTimer = 0;
+            if(m_attackDelay[i] == 0)
+                continue;
+            if(m_attackTimer[i] >= uiDiff)
+                m_attackTimer[i] -= uiDiff;
+            else m_attackTimer[i] = 0;
         }
-    }
 
-    /*-----------------------POWER & HP REGENERATION-----------------*/
-    if(!isFullHealth())
-    {
-        if( m_H_regenTimer <= uiDiff )
+        if(HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT))
         {
-            m_H_regenTimer = 1000;//set next regen time
-            RegenerateHealth(IsInCombat());
-        } else m_H_regenTimer -= uiDiff;
-    } else m_H_regenTimer = 1000;
+            if((m_combatStopTimer += uiDiff) > 1000)
+            {
+                if(IsInWorld() && !m_mapInstance->CheckCombatStatus(this))
+                    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+                m_combatStopTimer = 0;
+            }
+        }
 
-    m_P_regenTimer += uiDiff;
-    if(m_P_regenTimer >= 1000)
-    {
-        if(m_p_DelayTimer > m_P_regenTimer)
-            m_p_DelayTimer -= m_P_regenTimer;
-        else m_p_DelayTimer = 0;
+        /*-----------------------POWER & HP REGENERATION-----------------*/
+        if(!isFullHealth())
+        {
+            if( m_H_regenTimer <= uiDiff )
+            {
+                m_H_regenTimer = 1000;//set next regen time
+                RegenerateHealth(IsInCombat());
+            } else m_H_regenTimer -= uiDiff;
+        } else m_H_regenTimer = 1000;
 
-        RegeneratePower( m_p_DelayTimer > 0 );
-        m_P_regenTimer = 0;
+        m_P_regenTimer += uiDiff;
+        if(m_P_regenTimer >= 1000)
+        {
+            if(m_p_DelayTimer > m_P_regenTimer)
+                m_p_DelayTimer -= m_P_regenTimer;
+            else m_p_DelayTimer = 0;
+
+            RegeneratePower( m_p_DelayTimer > 0 );
+            m_P_regenTimer = 0;
+        }
+
+        m_movementInterface.Update(msTime, uiDiff);
     }
-
-    m_movementInterface.Update(msTime, uiDiff);
 }
 
 void Unit::OnAuraModChanged(uint32 modType)

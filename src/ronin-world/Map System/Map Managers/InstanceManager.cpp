@@ -40,7 +40,7 @@ void InstanceManager::Launch()
 {
     InstanceManagerSlave *worker = new InstanceManagerSlave();
     // Only need one instance management thread to start with, dynamically allocate more if we need them.
-    ThreadPool.ExecuteTask(format("InstanceManager - Worker %u", 0+1).c_str(), worker);
+    sThreadManager.ExecuteTask(format("InstanceManager - Worker %u", 0+1).c_str(), worker);
 
     // Nullify these counters here
     m_creatureGUIDCounter = m_gameObjectGUIDCounter = 0;

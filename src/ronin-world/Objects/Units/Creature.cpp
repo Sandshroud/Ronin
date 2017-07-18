@@ -164,7 +164,6 @@ void Creature::Despawn(uint32 respawntime)
 void Creature::Update(uint32 msTime, uint32 uiDiff)
 {
     Unit::Update(msTime, uiDiff);
-
     if(hasStateFlag(UF_CORPSE))
     {
         if(m_despawnTimer > uiDiff)

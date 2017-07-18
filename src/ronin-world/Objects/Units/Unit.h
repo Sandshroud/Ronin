@@ -460,9 +460,9 @@ public:
     RONIN_INLINE void SetDualWield(bool enabled) { m_dualWield = enabled; }
 
     /// State flags are server-only flags to help me know when to do stuff, like die, or attack
-    RONIN_INLINE void addStateFlag(uint32 f) { m_state |= f; };
-    RONIN_INLINE bool hasStateFlag(uint32 f) { return (m_state & f ? true : false); }
-    RONIN_INLINE void clearStateFlag(uint32 f) { m_state &= ~f; };
+    RONIN_INLINE void addStateFlag(const uint32 f) { m_state |= f; };
+    RONIN_INLINE bool hasStateFlag(const uint32 f) { return (m_state & f ? true : false); }
+    RONIN_INLINE void clearStateFlag(const uint32 f) { m_state &= ~f; };
 
     /// Stats
     RONIN_INLINE uint32 GetStrength() { return GetUInt32Value(UNIT_FIELD_STRENGTH); }
@@ -472,13 +472,13 @@ public:
     RONIN_INLINE uint32 GetSpirit() { return GetUInt32Value(UNIT_FIELD_SPIRIT); }
 
     RONIN_INLINE uint8 GetTeam() { return m_unitTeam; }
-    RONIN_INLINE void SetTeam(uint8 team) { m_unitTeam = team; }
+    RONIN_INLINE void SetTeam(const uint8 team) { m_unitTeam = team; }
     RONIN_INLINE const char *GetTeamName() { return teamNames[std::min<uint8>(TEAM_NONE, m_unitTeam)]; }
 
     virtual void setLevel(uint32 level);
-    RONIN_INLINE void setRace(uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
-    RONIN_INLINE void setClass(uint8 class_) { SetByte(UNIT_FIELD_BYTES_0,1, class_ ); }
-    RONIN_INLINE void setGender(uint8 gender) { SetByte(UNIT_FIELD_BYTES_0,2,gender); }
+    RONIN_INLINE void setRace(const uint8 race) { SetByte(UNIT_FIELD_BYTES_0,0,race); }
+    RONIN_INLINE void setClass(const uint8 class_) { SetByte(UNIT_FIELD_BYTES_0,1, class_ ); }
+    RONIN_INLINE void setGender(const uint8 gender) { SetByte(UNIT_FIELD_BYTES_0,2,gender); }
 
     RONIN_INLINE uint32 getLevel() { return GetUInt32Value(UNIT_FIELD_LEVEL); };
     RONIN_INLINE uint8 getRace() { return GetByte(UNIT_FIELD_BYTES_0,0); }
@@ -490,14 +490,14 @@ public:
     RONIN_INLINE uint8 getStandState() { return ((uint8)GetUInt32Value(UNIT_FIELD_BYTES_1)); }
     RONIN_INLINE uint8 GetShapeShift() { return GetByte(UNIT_FIELD_BYTES_2, 3); }
 
-    RONIN_INLINE std::string getClassName(bool FullCaps = false)
+    std::string getClassName(const bool FullCaps = false)
     {
         std::string className = classNames[getClass()-1];
         if(FullCaps) RONIN_UTIL::TOUPPER(className);
         return className;
     };
 
-    RONIN_INLINE std::string getRaceName(bool FullCaps = false)
+    std::string getRaceName(const bool FullCaps = false)
     {
         std::string _race = "UNKNOWN";
         switch(getRace()) {
@@ -519,7 +519,7 @@ public:
         return ( s == 1 || s == 5 || s == 8 );
     }
 
-    bool GetsDamageBonusFromOwner(uint8 school)
+    bool GetsDamageBonusFromOwner(const uint8 school)
     {
         bool result = false;
         switch(school)

@@ -118,8 +118,8 @@ void DBEngine::Init(bool MultiThreaded)
     else
     {
         sLog.Notice("DBEngine", "Starting engine with parallel threads...");
-        ThreadPool.ExecuteTask("QueryThread", m_QueryThread = new QThread());
-        ThreadPool.ExecuteTask("Database Execute Thread", m_DatabaseThread = new DBThread());
+        sThreadManager.ExecuteTask("QueryThread", m_QueryThread = new QThread());
+        sThreadManager.ExecuteTask("Database Execute Thread", m_DatabaseThread = new DBThread());
     }
 }
 
@@ -142,9 +142,9 @@ void DBEngine::StartThreads()
         m_DatabaseThreads[ThreadCount] = (new DBThreadHolder< DBThread >(new DBThread()));
         char qThreadName[255], eThreadName[255];
         sprintf(qThreadName, "QueryThread %u", ThreadCount);
-        ThreadPool.ExecuteTask(qThreadName, m_QueryThreads[ThreadCount]->m_Thread);
+        sThreadManager.ExecuteTask(qThreadName, m_QueryThreads[ThreadCount]->m_Thread);
         sprintf(eThreadName, "Database Execute Thread %u", ThreadCount);
-        ThreadPool.ExecuteTask(eThreadName, m_DatabaseThreads[ThreadCount]->m_Thread);
+        sThreadManager.ExecuteTask(eThreadName, m_DatabaseThreads[ThreadCount]->m_Thread);
     }
 }
 
