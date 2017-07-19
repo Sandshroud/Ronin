@@ -24,9 +24,8 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
-MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData *data) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), m_script(NULL), pdbcMap(dbcMap.LookupEntry(mapId)), m_stateManager(new WorldStateManager(this)),
-_processCallback(this), _removalCallback(this), _inRangeTargetCallback(this), _broadcastMessageCallback(this), _broadcastMessageInRangeCallback(this), _broadcastChatPacketCallback(this), _broadcastObjectUpdateCallback(this),
-_DynamicObjectTargetMappingCallback(this), _SpellTargetMappingCallback(this)
+MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData *data) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), m_script(NULL), pdbcMap(dbcMap.LookupEntry(mapId)),
+    m_stateManager(new WorldStateManager(this)), _processCallback(this), _removalCallback(this)
 {
     m_mapPreloading = false;
 
@@ -119,6 +118,11 @@ void MapInstance::Destruct()
     mGameObjectPool.Cleanup();
     mDynamicObjectPool.Cleanup();
     mUnitPathPool.Cleanup();
+
+    _inRangeTargetCBStack.cleanup();
+    _broadcastMessageCBStack.cleanup();
+    _broadcastMessageInRangeCBStack.cleanup();
+    _broadcastChatPacketCBStack.cleanup();
 
     _PerformPendingRemovals();
 
@@ -1144,18 +1148,23 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
 
 Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask)
 {
-    _inRangeTargetCallback.Lock();
-    _inRangeTargetCallback.ResetData(range);
-    ctr->GetCellManager()->CreateCellRange(&_InRangeTargetCellVector, range);
-    for(auto itr = _InRangeTargetCellVector.begin(); itr != _InRangeTargetCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    InrangeTargetCallbackStack::callbackStorage *storage = _inRangeTargetCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    // Lock the storage lock in case we are allocated to a few threads
+    storage->callback.Lock();
+    storage->callback.ResetData(range);
+    ctr->GetCellManager()->CreateCellRange(&storage->cellvector, range);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(ctr, &_inRangeTargetCallback, typeMask);
+            cell->ProcessObjectSets(ctr, &storage->callback, typeMask);
     }
-    Unit *Result = _inRangeTargetCallback.GetResult();
-    _InRangeTargetCellVector.clear();
-    _inRangeTargetCallback.Unlock();
+    Unit *Result = storage->callback.GetResult();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
     return Result;
 }
 
@@ -1171,17 +1180,21 @@ void MapInstanceBroadcastMessageCallback::operator()(WorldObject *obj, WorldObje
 
 void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packet, uint32 cell_radius /* = 2 */)
 {
-    _broadcastMessageCallback.Lock();
-    _broadcastMessageCallback.setPacketData(packet);
-    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageCellVector, cell_radius);
-    for(auto itr = _BroadcastMessageCellVector.begin(); itr != _BroadcastMessageCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    BroadcastMessageCallbackStack::callbackStorage *storage = _broadcastMessageCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    storage->callback.setPacketData(packet);
+    obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastMessageCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastMessageCellVector.clear();
-    _broadcastMessageCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 void MapInstanceBroadcastMessageInrangeCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1203,32 +1216,40 @@ void MapInstanceBroadcastMessageInrangeCallback::operator()(WorldObject *obj, Wo
 
 void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, const void *data, float range)
 {
-    _broadcastMessageInRangeCallback.Lock();
-    _broadcastMessageInRangeCallback.ResetData(range, opcodeId, Len, data, false, 0);
-    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageInRangeCellVector, range);
-    for(auto itr = _BroadcastMessageInRangeCellVector.begin(); itr != _BroadcastMessageInRangeCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    BroadcastMessageInRangeCallbackStack::callbackStorage *storage = _broadcastMessageInRangeCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    storage->callback.ResetData(range, opcodeId, Len, data, false, 0);
+    obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastMessageInRangeCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastMessageInRangeCellVector.clear();
-    _broadcastMessageInRangeCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float range, bool myTeam, uint32 teamId)
 {
-    _broadcastMessageInRangeCallback.Lock();
-    _broadcastMessageInRangeCallback.ResetData(range, data, myTeam, teamId);
-    obj->GetCellManager()->CreateCellRange(&_BroadcastMessageInRangeCellVector, range);
-    for(auto itr = _BroadcastMessageInRangeCellVector.begin(); itr != _BroadcastMessageInRangeCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    BroadcastMessageInRangeCallbackStack::callbackStorage *storage = _broadcastMessageInRangeCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    storage->callback.ResetData(range, data, myTeam, teamId);
+    obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastMessageInRangeCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastMessageInRangeCellVector.clear();
-    _broadcastMessageInRangeCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 void MapInstanceBroadcastChatPacketCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1245,17 +1266,21 @@ void MapInstanceBroadcastChatPacketCallback::operator()(WorldObject *obj, WorldO
 
 void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *packet, uint32 cell_radius, int32 lang, uint32 langpos, uint32 guidPos)
 {
-    _broadcastChatPacketCallback.Lock();
-    _broadcastChatPacketCallback.setPacketData(packet, lang, langpos, guidPos);
-    obj->GetCellManager()->CreateCellRange(&_BroadcastChatPacketCellVector, cell_radius);
-    for(auto itr = _BroadcastChatPacketCellVector.begin(); itr != _BroadcastChatPacketCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    BroadcastChatPacketCallbackStack::callbackStorage *storage = _broadcastChatPacketCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    storage->callback.setPacketData(packet, lang, langpos, guidPos);
+    obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastChatPacketCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastChatPacketCellVector.clear();
-    _broadcastChatPacketCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1290,16 +1315,20 @@ void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, Worl
 
 void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
 {
-    _broadcastObjectUpdateCallback.Lock();
-    obj->GetCellManager()->FillCellRange(&_BroadcastObjectUpdateCellVector);
-    for(auto itr = _BroadcastObjectUpdateCellVector.begin(); itr != _BroadcastObjectUpdateCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    BroadcastObjectUpdateCallbackStack::callbackStorage *storage = _broadcastObjectUpdateCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    obj->GetCellManager()->FillCellRange(&storage->cellvector);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &_broadcastObjectUpdateCallback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
     }
-    _BroadcastObjectUpdateCellVector.clear();
-    _broadcastObjectUpdateCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector)
@@ -1328,17 +1357,21 @@ void MapInstanceDynamicObjectTargetMappingCallback::operator()(WorldObject *obj,
 
 void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *callback, DynamicObject *object, Unit *caster, float minRange, float maxRange, uint32 typeMask)
 {
-    _DynamicObjectTargetMappingCallback.Lock();
-    _DynamicObjectTargetMappingCallback.SetData(callback, object, caster, minRange, maxRange);
-    ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &_DynamicObjectTargetMappingCellVector);
-    for(auto itr = _DynamicObjectTargetMappingCellVector.begin(); itr != _DynamicObjectTargetMappingCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    DynamicObjectTargetMappingCallbackStack::callbackStorage *storage = _dynamicObjectTargetMappingCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    storage->callback.SetData(callback, object, caster, minRange, maxRange);
+    ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &storage->cellvector);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(object, &_DynamicObjectTargetMappingCallback, typeMask);
+            cell->ProcessObjectSets(object, &storage->callback, typeMask);
     }
-    _DynamicObjectTargetMappingCellVector.clear();
-    _DynamicObjectTargetMappingCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1358,17 +1391,21 @@ void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldOb
 
 void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, uint32 targetType, float x, float y, float z, float minRange, float maxRange, uint32 typeMask)
 {
-    _SpellTargetMappingCallback.Lock();
-    _SpellTargetMappingCallback.SetData(callback, spell, i, targetType, x, y, z, minRange, maxRange);
-    ObjectCellManager::ConstructCellData(x, y, maxRange, &_SpellTargetMappingCellVector);
-    for(auto itr = _SpellTargetMappingCellVector.begin(); itr != _SpellTargetMappingCellVector.end(); itr++)
+    // Acquire our storage for this thread
+    SpellTargetMappingCallbackStack::callbackStorage *storage = _spellTargetMappingCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
+    ASSERT(storage != NULL);
+
+    storage->callback.Lock();
+    storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange, maxRange);
+    ObjectCellManager::ConstructCellData(x, y, maxRange, &storage->cellvector);
+    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(spell->GetCaster(), &_SpellTargetMappingCallback, typeMask);
+            cell->ProcessObjectSets(spell->GetCaster(), &storage->callback, typeMask);
     }
-    _SpellTargetMappingCellVector.clear();
-    _SpellTargetMappingCallback.Unlock();
+    storage->cellvector.clear();
+    storage->callback.Unlock();
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)

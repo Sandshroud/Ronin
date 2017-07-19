@@ -420,6 +420,42 @@ private:
     float _x, _y, _z, _minRange, _maxRange;
 };
 
+template <class T> class CallbackStack
+{
+public:
+    class callbackStorage
+    {
+    public:
+        callbackStorage(MapInstance *instance) : callback(instance) {}
+
+        T callback;
+        std::vector<uint32> cellvector;
+    };
+
+    callbackStorage *getOrAllocateCallback(uint32 threadId, MapInstance *instance)
+    {
+        allocationLock.Acquire();
+        callbackStorage *ret = NULL;
+        std::map<uint32, callbackStorage*>::iterator itr;
+        if((itr = m_callbackStorages.find(threadId)) != m_callbackStorages.end())
+            ret = itr->second;
+        else m_callbackStorages.insert(std::make_pair(threadId, ret = new callbackStorage(instance)));
+        allocationLock.Release();
+        return ret;
+    }
+
+    void cleanup()
+    {
+        for(std::map<uint32, callbackStorage*>::iterator itr = m_callbackStorages.begin(); itr != m_callbackStorages.end(); ++itr)
+            delete itr->second;
+        m_callbackStorages.clear();
+    }
+
+private:
+    Mutex allocationLock;
+    std::map<uint32, callbackStorage*> m_callbackStorages;
+};
+
 /// Map instance class for processing different map instances(duh)
 class SERVER_DECL MapInstance : public CellHandler <MapCell>
 {
@@ -518,33 +554,33 @@ protected:
     friend class MapInstanceObjectRemovalCallback;
     MapInstanceObjectRemovalCallback _removalCallback;
 
-    std::vector<uint32> _InRangeTargetCellVector;
+    typedef CallbackStack<MapInstanceInRangeTargetCallback> InrangeTargetCallbackStack;
     friend class MapInstanceInRangeTargetCallback;
-    MapInstanceInRangeTargetCallback _inRangeTargetCallback;
+    InrangeTargetCallbackStack _inRangeTargetCBStack;
 
-    std::vector<uint32> _BroadcastMessageCellVector;
+    typedef CallbackStack<MapInstanceBroadcastMessageCallback> BroadcastMessageCallbackStack;
     friend class MapInstanceBroadcastMessageCallback;
-    MapInstanceBroadcastMessageCallback _broadcastMessageCallback;
+    BroadcastMessageCallbackStack _broadcastMessageCBStack;
 
-    std::vector<uint32> _BroadcastMessageInRangeCellVector;
+    typedef CallbackStack<MapInstanceBroadcastMessageInrangeCallback> BroadcastMessageInRangeCallbackStack;
     friend class MapInstanceBroadcastMessageInrangeCallback;
-    MapInstanceBroadcastMessageInrangeCallback _broadcastMessageInRangeCallback;
+    BroadcastMessageInRangeCallbackStack _broadcastMessageInRangeCBStack;
 
-    std::vector<uint32> _BroadcastChatPacketCellVector;
+    typedef CallbackStack<MapInstanceBroadcastChatPacketCallback> BroadcastChatPacketCallbackStack;
     friend class MapInstanceBroadcastChatPacketCallback;
-    MapInstanceBroadcastChatPacketCallback _broadcastChatPacketCallback;
+    BroadcastChatPacketCallbackStack _broadcastChatPacketCBStack;
 
-    std::vector<uint32> _BroadcastObjectUpdateCellVector;
+    typedef CallbackStack<MapInstanceBroadcastObjectUpdateCallback> BroadcastObjectUpdateCallbackStack;
     friend class MapInstanceBroadcastObjectUpdateCallback;
-    MapInstanceBroadcastObjectUpdateCallback _broadcastObjectUpdateCallback;
+    BroadcastObjectUpdateCallbackStack _broadcastObjectUpdateCBStack;
 
-    std::vector<uint32> _DynamicObjectTargetMappingCellVector;
+    typedef CallbackStack<MapInstanceDynamicObjectTargetMappingCallback> DynamicObjectTargetMappingCallbackStack;
     friend class MapInstanceDynamicObjectTargetMappingCallback;
-    MapInstanceDynamicObjectTargetMappingCallback _DynamicObjectTargetMappingCallback;
+    DynamicObjectTargetMappingCallbackStack _dynamicObjectTargetMappingCBStack;
 
-    std::vector<uint32> _SpellTargetMappingCellVector;
+    typedef CallbackStack<MapInstanceSpellTargetMappingCallback> SpellTargetMappingCallbackStack;
     friend class MapInstanceSpellTargetMappingCallback;
-    MapInstanceSpellTargetMappingCallback _SpellTargetMappingCallback;
+    SpellTargetMappingCallbackStack _spellTargetMappingCBStack;
 
     // These are stored in SpellTargets.cpp with functions
 public:
