@@ -382,7 +382,9 @@ void MapInstance::PushObject(WorldObject* obj)
     // Add the session to our set if it is a player.
     if(plObj)
     {
+        m_poolLock.Acquire();
         MapSessions.insert(plObj->GetSession());
+        m_poolLock.Release();
 
         if(Group *grp = plObj->GetGroup())
             OnGroupEnter(plObj, grp);
@@ -1660,7 +1662,6 @@ void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 {
     // Now we process player updates, there is no pool as all players are constantly in our update set
-    m_poolLock.Acquire();
     if(!m_PlayerStorage.empty())
     {
         Player* ptr; // Update players.
@@ -1672,33 +1673,25 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
             ptr->Update( msTime, uiDiff );
         }
     }
-    m_poolLock.Release();
 }
 
 void MapInstance::_PerformCreatureUpdates(uint32 msTime, uint32 uiDiff)
 {
-    m_poolLock.Acquire();
     mCreaturePool.Update(msTime, uiDiff, _updatePool);
-    m_poolLock.Release();
 }
 
 void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
-    m_poolLock.Acquire();
     mGameObjectPool.Update(msTime, uiDiff, _updatePool);
-    m_poolLock.Release();
 }
 
 void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
-    m_poolLock.Acquire();
     mDynamicObjectPool.Update(msTime, uiDiff, _updatePool);
-    m_poolLock.Release();
 }
 
 void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
 {
-    m_poolLock.Acquire();
     projectileSpellUpdateTime[0] += uiDiff;
     projectileSpellUpdateTime[1] += uiDiff;
     uint8 index = projectileSpellIndex[0]++;
@@ -1718,14 +1711,11 @@ void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
         spell->Destruct();
     }
     projectileSpellUpdateTime[index] = 0;
-    m_poolLock.Release();
 }
 
 void MapInstance::_PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff)
 {
-    m_poolLock.Acquire();
     mUnitPathPool.Update(msTime, uiDiff, _updatePool);
-    m_poolLock.Release();
 }
 
 void MapInstance::_PerformMovementUpdates(bool includePlayers)

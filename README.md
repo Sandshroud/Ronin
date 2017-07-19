@@ -4,12 +4,13 @@ Rather than continue to update this emulator privately, I've decided to dump my 
 
 There is no database, sorry. Creating one from a mangos based cataclysm project is incredibly easy though, as the core has internal support for table based data modification.
 
-Hardware this core's fulltilt mode is (over)optimized for:
+This core features a fulltilt load mode and is optimized for the following hardware:
+Note: configuration files will affect server performance based on continent update settings
 
 64-bit Server Enviroment
-Intel® Core™ i7-5820K CPU @ 3.27GHz
-AMD Ryzen™ 5 1600 CPU @ 3.19GHz
-8GB RAM Minimum (12 Recommended)
+Virtual: Intel® Xeon® E5-2640v2 CPU @ 2.00GHz
+Direct: AMD Ryzen™ 7 1700 CPU @ 3.79GHz
+6GB RAM Minimum (8GB+ Recommended)
 
 Recent Contributors
 Karasu(Thetruecrow)

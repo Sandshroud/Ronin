@@ -223,10 +223,8 @@ void ThreadManager::SetThreadName(const char* thread_name)
 
 void ThreadManager::Suicide()
 {
-    uint i = 3;
-    uint t = 0;
-    for(uint b = 0; b < 6; b++)
-        t = b/--i;
+    HandleCrash(NULL);
+    exit(EXIT_FAILURE);
 }
 
 ThreadManager::TaskPool *ThreadManager::SpawnPool(uint32 thread_count)

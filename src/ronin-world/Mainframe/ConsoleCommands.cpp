@@ -59,8 +59,7 @@ bool HandleInfoCommand(BaseConsole * pConsole, int argc, const char * argv[])
 
 bool HandleSuicideCommand(BaseConsole * pConsole, int argc, const char * argv[])
 {
-    int32 i = 1;
-    { i = 3/--i; }
+    sThreadManager.Suicide();
     return true;
 }
 
