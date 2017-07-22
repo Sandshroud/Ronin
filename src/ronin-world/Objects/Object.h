@@ -276,6 +276,8 @@ protected:
         float *m_floatValues;
     };
 
+    //! Object access lock
+    std::mutex m_objLock;
     //! Object's guid
     WoWGuid m_objGuid;
     //! Object's type
@@ -294,6 +296,9 @@ protected:
     EventHandler m_eventHandler;
 
 public:
+    RONIN_INLINE std::mutex &GetLock() { return m_objLock; }
+    RONIN_INLINE void LockRelease() { m_objLock.unlock(); }
+
     RONIN_INLINE void LootLock() { m_loot._lock.Acquire(); }
     RONIN_INLINE void LootUnlock() { m_loot._lock.Release(); }
 

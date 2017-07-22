@@ -42,18 +42,8 @@ class MapTargetCallback;
 class DynamicObjectTargetCallback;
 class SpellTargetClass;
 
-enum ObjectActiveState
-{
-    OBJECT_STATE_NONE    = 0,
-    OBJECT_STATE_INACTIVE = 1,
-    OBJECT_STATE_ACTIVE   = 2,
-};
-
 // Keep in mind, squared size of a cell is around 4350, we only parse two cells around so max attainable view distance is around 18000([cell size * 2] ^ 2), so we scale to 2 cells away or 40K (([cell size * 3] ^ 2)) and cut down to inbetween, 28-35K
 static const uint32 MaxViewDistance = 28000;
-
-#define MAX_TRANSPORTERS_PER_MAP 25
-#define RESERVE_EXPAND_SIZE 1024
 
 #define TRIGGER_INSTANCE_EVENT( Mgr, Func )
 #define VECTOR_POOLS 1
@@ -75,6 +65,10 @@ public:
                 elem->InactiveUpdate(_msTime, _diff);
             else elem->Update(_msTime, _diff);
         } );
+        // Clear the pool
+        updatePool.clear();
+        // Clean up our vector since we reserved a lot of space
+        updatePool.shrink_to_fit();
         return 0;
     }
 
@@ -726,12 +720,15 @@ public:
 
     bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
 
+    void CellRemovalPending(MapCell *cell) { m_pendingCellRemovals.insert(cell); }
+
 protected:
     /* Map Information */
     MapEntry* pdbcMap;
 
     /* Update System */
     Mutex m_updateMutex;
+    std::set<MapCell*> m_pendingCellRemovals;
     ObjectSet _updates, _movedObjects, _pendingRemoval, _pendingCleanup;
     PlayerSet _processQueue, _movedPlayers, _softDCPlayers;
 

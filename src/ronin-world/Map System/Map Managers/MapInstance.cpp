@@ -60,7 +60,8 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData
             threadCount = 2;
     }
 
-    _updatePool = threadCount ? sThreadManager.SpawnPool(threadCount) : NULL;
+    if(_updatePool = threadCount ? sThreadManager.SpawnPool(threadCount) : NULL)
+        _updatePool->attach();
 
     // Objects and paths are updated in parallel threads, initialize pools for each update thread
     mCreaturePool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 8 * std::max<uint32>(1, threadCount) : 4);
@@ -134,6 +135,7 @@ void MapInstance::Destruct()
         RemoveObject(ctr);
     }
 
+    _PerformPendingRemovals();
     while(m_delQueue.size())
     {
         WorldObject *obj = *m_delQueue.begin();
@@ -148,6 +150,7 @@ void MapInstance::Destruct()
         RemoveObject(gObj);
     }
 
+    _PerformPendingRemovals();
     while(m_delQueue.size())
     {
         WorldObject *obj = *m_delQueue.begin();
@@ -162,6 +165,7 @@ void MapInstance::Destruct()
         RemoveObject(dynObj);
     }
 
+    _PerformPendingRemovals();
     while(m_delQueue.size())
     {
         WorldObject *obj = *m_delQueue.begin();
@@ -1830,6 +1834,13 @@ void MapInstance::_PerformPendingUpdates()
 void MapInstance::_PerformPendingRemovals()
 {
     m_updateMutex.Acquire();
+    while(!m_pendingCellRemovals.empty())
+    {
+        MapCell *cell = *m_pendingCellRemovals.begin();
+        m_pendingCellRemovals.erase(m_pendingCellRemovals.begin());
+        cell->ProcessRemovals();
+    }
+
     while(!_pendingRemoval.empty())
     {
         WorldObject *obj = *_pendingRemoval.begin();

@@ -5,7 +5,7 @@ Rather than continue to update this emulator privately, I've decided to dump my 
 There is no database, sorry. Creating one from a mangos based cataclysm project is incredibly easy though, as the core has internal support for table based data modification.
 
 This core features a fulltilt load mode and is optimized for the following hardware:
-Note: configuration files will affect server performance based on continent update settings
+Note: Configuration files will affect server performance based on continent update thread settings
 
 64-bit Server Enviroment
 Virtual: Intel® Xeon® E5-2640v2 CPU @ 2.00GHz

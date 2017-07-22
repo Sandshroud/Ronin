@@ -64,10 +64,22 @@ void MapCell::AddObject(WorldObject* obj)
 void MapCell::RemoveObject(WorldObject* obj)
 {
     Guard guard(cellLock);
-    m_playerSet.erase(obj->GetGUID());
-    m_nonPlayerSet.erase(obj->GetGUID());
-    m_creatureSet.erase(obj->GetGUID());
-    m_gameObjectSet.erase(obj->GetGUID());
+    m_pendingRemovals.insert(obj->GetGUID());
+    _instance->CellRemovalPending(this);
+}
+
+void MapCell::ProcessRemovals()
+{
+    Guard guard(cellLock);
+    while(!m_pendingRemovals.empty())
+    {
+        WoWGuid guid = *m_pendingRemovals.begin();
+        m_pendingRemovals.erase(m_pendingRemovals.begin());
+        m_playerSet.erase(guid);
+        m_nonPlayerSet.erase(guid);
+        m_creatureSet.erase(guid);
+        m_gameObjectSet.erase(guid);
+    }
 }
 
 WorldObject *MapCell::FindObject(WoWGuid guid)
@@ -81,38 +93,68 @@ WorldObject *MapCell::FindObject(WoWGuid guid)
 
 void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
 {
-    Guard guard(cellLock);
     WorldObject *curObj;
     if(objectMask == 0)
     {
         for(MapCell::CellObjectMap::iterator itr = m_nonPlayerSet.begin(); itr != m_nonPlayerSet.end(); itr++)
-            if((curObj = itr->second) && obj != curObj)
-                (*callback)(obj, curObj);
+        {
+            if((curObj = itr->second) == NULL || obj == curObj)
+                continue;
+            std::lock(obj->GetLock(), curObj->GetLock());
+            (*callback)(obj, curObj);
+            curObj->LockRelease();
+            obj->LockRelease();
+        }
+
         for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
-            if((curObj = itr->second) && obj != curObj)
-                (*callback)(obj, curObj);
+        {
+            if((curObj = itr->second) == NULL || obj == curObj)
+                continue;
+            std::lock(obj->GetLock(), curObj->GetLock());
+            (*callback)(obj, curObj);
+            curObj->LockRelease();
+            obj->LockRelease();
+        }
     }
     else
     {
         if(objectMask & TYPEMASK_TYPE_UNIT)
         {
             for(MapCell::CellObjectMap::iterator itr = m_creatureSet.begin(); itr != m_creatureSet.end(); itr++)
-                if((curObj = itr->second) && obj != curObj)
-                    (*callback)(obj, curObj);
+            {
+                if((curObj = itr->second) == NULL || obj == curObj)
+                    continue;
+                std::lock(obj->GetLock(), curObj->GetLock());
+                (*callback)(obj, curObj);
+                curObj->LockRelease();
+                obj->LockRelease();
+            }
         }
 
         if(objectMask & TYPEMASK_TYPE_PLAYER)
         {
             for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
-                if((curObj = itr->second) && obj != curObj)
-                    (*callback)(obj, curObj);
+            {
+                if((curObj = itr->second) == NULL || obj == curObj)
+                    continue;
+                std::lock(obj->GetLock(), curObj->GetLock());
+                (*callback)(obj, curObj);
+                curObj->LockRelease();
+                obj->LockRelease();
+            }
         }
 
         if(objectMask & TYPEMASK_TYPE_GAMEOBJECT)
         {
             for(MapCell::CellObjectMap::iterator itr = m_gameObjectSet.begin(); itr != m_gameObjectSet.end(); itr++)
-                if((curObj = itr->second) && obj != curObj)
-                    (*callback)(obj, curObj);
+            {
+                if((curObj = itr->second) == NULL || obj == curObj)
+                    continue;
+                std::lock(obj->GetLock(), curObj->GetLock());
+                (*callback)(obj, curObj);
+                curObj->LockRelease();
+                obj->LockRelease();
+            }
         }
     }
 }

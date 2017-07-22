@@ -69,6 +69,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <mutex>
 
 #include <threading/Threading.h>
 #include <database/Database.h>

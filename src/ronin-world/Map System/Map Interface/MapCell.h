@@ -59,6 +59,7 @@ public:
     //WorldObject Managing
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
+    void ProcessRemovals();
 
     void ReactivateObject(WorldObject *obj);
     void DeactivateObject(WorldObject *obj);
@@ -103,6 +104,9 @@ private:
     MapInstance* _instance;
     Mutex cellLock;
     Map *_mapData;
+
+    // Cell iterators
+    std::set<WoWGuid> m_pendingRemovals;
 
     // Non player set and player set
     CellObjectMap m_nonPlayerSet, m_playerSet;

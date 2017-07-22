@@ -83,11 +83,22 @@ public:
         }
         ~TaskPool() {}
 
+        void attach()
+        {
+            _processLock.Acquire();
+            ++_threadCount; // Increment thread counter since this thread is waiting inside the pointer
+            _processLock.Release();
+        }
+
         void AddTask(PoolTask* task) 
         {
             Guard guard(_processLock);
             if(_dead == true)
+            {
+                delete task;
                 return;
+            }
+
             ++taskCount;
             _processQueue.push_back(task);
 #if PLATFORM == PLATFORM_WIN
@@ -99,9 +110,6 @@ public:
 
         void wait()
         {
-            _processLock.Acquire();
-            ++_threadCount; // Increment thread counter since this thread is waiting inside the pointer
-            _processLock.Release();
             while(!_IsTasksEmpty())
             {
 #if PLATFORM == PLATFORM_WIN
@@ -122,17 +130,16 @@ public:
             ResetEvent(inputEvent);
             ResetEvent(endEvent);
 #endif
-            _processLock.Acquire();
-            uint32 threadCount = (--_threadCount);
-            _processLock.Release();
-            if(threadCount == 0)
-                delete this;
         }
 
         void kill()
         {
-            Guard guard(_processLock);
+            _processLock.Acquire();
             _dead = true;
+            uint32 threadCount = (--_threadCount);
+            _processLock.Release();
+            if(threadCount == 0)
+                delete this;
         }
 
         uint32 getPoolId() { return _poolId; }
