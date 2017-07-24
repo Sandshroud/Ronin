@@ -1628,6 +1628,7 @@ void MapInstance::_PerformScriptUpdates(uint32 msTime, uint32 uiDiff)
 
 void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
 {
+    Guard guard(m_combatLock);
     if(m_combatTimers.empty())
         return;
 
@@ -2047,6 +2048,7 @@ void MapInstance::SetGameObjState(WoWGuid guid, uint8 state)
 
 bool MapInstance::CheckCombatStatus(Unit *unit)
 {
+    Guard guard(m_combatLock);
     // If we're forcing combat ignore mapping states
     if(m_forceCombatState)
         return true;
@@ -2064,6 +2066,7 @@ bool MapInstance::CheckCombatStatus(Unit *unit)
 
 void MapInstance::ClearCombatTimers(WoWGuid guid, WoWGuid guid2)
 {
+    Guard guard(m_combatLock);
     if(guid2.empty())
     {   // Remove all guids tied to guid1'
         for(std::set<WoWGuid>::iterator itr = m_combatPartners[guid].begin(); itr != m_combatPartners[guid].end(); itr++)
@@ -2095,6 +2098,7 @@ void MapInstance::ClearCombatTimers(WoWGuid guid, WoWGuid guid2)
 
 void MapInstance::TriggerCombatTimer(WoWGuid guid, WoWGuid guid2, uint32 timer)
 {
+    Guard guard(m_combatLock);
     m_combatPartners[guid].insert(guid2);
     m_combatPartners[guid2].insert(guid);
     m_combatTimers[std::make_pair(guid, guid2)] = timer;

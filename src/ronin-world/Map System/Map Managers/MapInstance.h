@@ -543,6 +543,7 @@ public:
     void TriggerCombatTimer(WoWGuid guid, WoWGuid guid2, uint32 timer);
 
 private:
+    Mutex m_combatLock;
     bool m_forceCombatState;
     std::map<WoWGuid, std::set<WoWGuid>> m_combatPartners;
     std::map<std::pair<WoWGuid, WoWGuid>, uint32> m_combatTimers;
