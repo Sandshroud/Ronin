@@ -83,12 +83,7 @@ public:
         }
         ~TaskPool() {}
 
-        void attach()
-        {
-            _processLock.Acquire();
-            ++_threadCount; // Increment thread counter since this thread is waiting inside the pointer
-            _processLock.Release();
-        }
+        void attach() { ++_threadCount; } // Increment thread counter since this thread is waiting inside the pointer
 
         void AddTask(PoolTask* task) 
         {
@@ -132,13 +127,12 @@ public:
 #endif
         }
 
+        void shutdown() { _dead = true; }
+
         void kill()
         {
-            _processLock.Acquire();
             _dead = true;
-            uint32 threadCount = (--_threadCount);
-            _processLock.Release();
-            if(threadCount == 0)
+            if(--_threadCount == 0)
                 delete this;
         }
 
@@ -189,7 +183,7 @@ public:
 
                 if(task->call() == 0)
                     delete task;
-                _processLock.Acquire();
+
                 if((--taskCount) == 0); // Decrement task count after task finishes
                 {
 #if PLATFORM == PLATFORM_WIN
@@ -198,25 +192,22 @@ public:
                     pthread_cond_signal(&cond);
 #endif
                 }
-                _processLock.Release();
             }
 
-            _processLock.Acquire();
-            uint32 threadCount = (--_threadCount);
-            _processLock.Release();
-            if(threadCount == 0)
+            if(--_threadCount == 0)
                 delete this;
         }
 
         void spawn();
 
-        bool _dead;
-        uint32 _poolId, _threadCount;
+        uint32 _poolId;
+        std::atomic<bool> _dead;
+        std::atomic<int> _threadCount;
+        std::atomic<long> taskCount;
 
         Mutex _processLock;
-        uint32 taskCount;
         std::vector<PoolTask*> _processQueue;
-        bool _IsTasksEmpty() { _processLock.Acquire(); bool ret = (taskCount == 0); _processLock.Release(); return ret; }
+        bool _IsTasksEmpty() { return taskCount == 0; }
 
 #if PLATFORM == PLATFORM_WIN
         HANDLE inputEvent, endEvent;

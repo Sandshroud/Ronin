@@ -76,7 +76,7 @@ void ThreadManager::Shutdown()
     _mutex.Acquire();
     sLog.Debug("ThreadManager", "Shutting down %u threads.", uint32(m_activeThreads.size()));
     for(std::map<uint32, TaskPool*>::iterator itr = m_taskPools.begin(); itr != m_taskPools.end(); ++itr)
-        itr->second->kill();
+        itr->second->shutdown();
     m_taskPools.clear();
 
     for(ThreadSet::iterator itr = m_activeThreads.begin(), itr2; itr != m_activeThreads.end();)
@@ -246,7 +246,7 @@ void ThreadManager::CleanPool(uint32 poolId)
         TaskPool *pool = itr->second;
         m_taskPools.erase(itr);
         // Pool will self terminate when all threads exit
-        pool->kill();
+        pool->shutdown();
     }
     _mutex.Release();
 }

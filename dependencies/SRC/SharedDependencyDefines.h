@@ -39,6 +39,7 @@
 #include <sstream>
 #include <algorithm>
 #include <iostream>
+#include <atomic>
 
 // current platform and compiler
 #define PLATFORM_WIN   0
