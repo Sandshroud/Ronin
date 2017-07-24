@@ -39,6 +39,9 @@ bool ContinentManager::Initialize()
 
 #ifndef DEBUG_CONTINENT_PERF
 #define DEBUG_CONTINENT_PERF 0
+#endif
+
+#if DEBUG_CONTINENT_PERF == 1
 #include <chrono>
 namespace cClock = std::chrono;
 #endif

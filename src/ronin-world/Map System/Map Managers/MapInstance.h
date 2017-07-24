@@ -182,9 +182,11 @@ public:
                         ++poolIterator;
                         poolLocks.Release();
 
+                        elem->GetLock().lock();
                         if(elem->IsActiveObject() && !elem->IsActivated())
                             elem->InactiveUpdate(msTime, updateDiff);
                         else elem->Update(msTime, updateDiff);
+                        elem->LockRelease();
                     }
                 }
             }
@@ -721,7 +723,7 @@ public:
 
     bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
 
-    void CellRemovalPending(MapCell *cell) { m_pendingCellRemovals.insert(cell); }
+    void CellRemovalPending(uint16 x, uint16 y) { m_pendingCellRemovals.insert(std::make_pair(x, y)); }
 
 protected:
     /* Map Information */
@@ -729,7 +731,7 @@ protected:
 
     /* Update System */
     Mutex m_updateMutex;
-    std::set<MapCell*> m_pendingCellRemovals;
+    std::set<std::pair<uint16, uint16>> m_pendingCellRemovals;
     ObjectSet _updates, _movedObjects, _pendingRemoval, _pendingCleanup;
     PlayerSet _processQueue, _movedPlayers, _softDCPlayers;
 

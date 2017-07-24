@@ -65,7 +65,7 @@ void MapCell::RemoveObject(WorldObject* obj)
 {
     Guard guard(cellLock);
     m_pendingRemovals.insert(obj->GetGUID());
-    _instance->CellRemovalPending(this);
+    _instance->CellRemovalPending(_x, _y);
 }
 
 void MapCell::ProcessRemovals()

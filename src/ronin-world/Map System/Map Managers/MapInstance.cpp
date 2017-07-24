@@ -1837,9 +1837,10 @@ void MapInstance::_PerformPendingRemovals()
     m_updateMutex.Acquire();
     while(!m_pendingCellRemovals.empty())
     {
-        MapCell *cell = *m_pendingCellRemovals.begin();
+        std::pair<uint16, uint16> pair = *m_pendingCellRemovals.begin();
         m_pendingCellRemovals.erase(m_pendingCellRemovals.begin());
-        cell->ProcessRemovals();
+        if(MapCell *cell = GetCell(pair.first, pair.second))
+            cell->ProcessRemovals();
     }
 
     while(!_pendingRemoval.empty())

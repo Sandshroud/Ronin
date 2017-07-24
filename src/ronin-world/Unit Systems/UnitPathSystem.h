@@ -88,7 +88,11 @@ public:
     void AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage);
     void AppendMoveBytes(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage);
 
+    RONIN_INLINE std::recursive_mutex &GetLock() { return _accessLock; }
+    RONIN_INLINE void LockRelease() { _accessLock.unlock(); }
 private:
+    std::recursive_mutex _accessLock;
+
     Unit *m_Unit, *m_followTarget;
     bool m_autoPath;
 

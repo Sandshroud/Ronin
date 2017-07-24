@@ -439,8 +439,9 @@ namespace VMAP
         LoadedModelFilesLock.unlock();
 
         filenameMutexlock.lock();
+        uint32 count = --iModelNameLocks[filename].first;
         lock->unlock();
-        if((--iModelNameLocks[filename].first) == 0)
+        if(count == 0)
         {
             iModelNameLocks[filename].second = NULL;
             iModelNameLocks.erase(filename);

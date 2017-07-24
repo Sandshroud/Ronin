@@ -15,8 +15,10 @@ SpellInterface::~SpellInterface()
 
 void SpellInterface::Update(uint32 msTime, uint32 uiDiff)
 {
+    _spellLock.Acquire();
     if(m_currentSpell != NULL)
         m_currentSpell->Update(uiDiff);
+    _spellLock.Release();
 }
 
 void SpellInterface::Cleanup()
@@ -33,9 +35,11 @@ void SpellInterface::OnRemoveFromWorld()
 
 void SpellInterface::CleanupCurrentSpell()
 {
+    _spellLock.Acquire();
     if(m_currentSpell != NULL)
         m_currentSpell->cancel();
     m_currentSpell = NULL;
+    _spellLock.Release();
 }
 
 bool SpellInterface::CleanupSpecificSpell(SpellEntry *sp)
@@ -63,14 +67,18 @@ SpellEntry *SpellInterface::GetCurrentSpellProto()
 
 void SpellInterface::ProcessSpell(Spell *castingSpell)
 {
+    _spellLock.Acquire();
     m_currentSpell = castingSpell;
     m_lastSpell = castingSpell->GetSpellProto();
+    _spellLock.Release();
 }
 
 void SpellInterface::FinishSpell(Spell *finishedSpell)
 {
+    _spellLock.Acquire();
     if(m_currentSpell == finishedSpell)
         m_currentSpell = NULL;
+    _spellLock.Release();
 }
 
 void SpellInterface::InterruptCast(Spell *interruptSpell, uint32 interruptTime)
