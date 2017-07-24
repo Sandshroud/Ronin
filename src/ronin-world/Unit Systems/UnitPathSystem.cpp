@@ -30,7 +30,6 @@ void UnitPathSystem::InactiveUpdate(uint32 msTime, uint32 uiDiff)
 
 bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     // If it's the same mstime(same world tick), return
     if(m_lastMSTimeUpdate >= msTime)
     {
@@ -176,7 +175,6 @@ void UnitPathSystem::SetAutoPath(WaypointStorage *storage)
 bool UnitPathSystem::hasDestination() { return !(_destX == fInfinite && _destY == fInfinite); }
 bool UnitPathSystem::GetDestination(float &x, float &y, float *z)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     if(!hasDestination())
         return false;
     x = _destX;
@@ -187,7 +185,6 @@ bool UnitPathSystem::GetDestination(float &x, float &y, float *z)
 
 bool UnitPathSystem::closeToDestination(uint32 msTime)
 {   // Creatures update every 400ms, should be changed to be within the 500ms block creation
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     if(((msTime-m_pathStartTime) + 400) >= m_pathLength)
         return true;
     return false;
@@ -200,8 +197,6 @@ void UnitPathSystem::SetSpeed(MovementSpeedTypes speedType)
 
 void UnitPathSystem::_CleanupPath()
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
-
     _destX = _destY = fInfinite;
     while(!m_movementPoints.empty())
     {
@@ -230,7 +225,6 @@ void UnitPathSystem::SetFollowTarget(Unit *target, float distance)
 
 void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     if((_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
         return;
 
@@ -289,7 +283,6 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
 void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     float angle = NormAngle(m_Unit->GetAngle(unitTarget));
     if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
     {
@@ -336,7 +329,6 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
 
 void UnitPathSystem::SetOrientation(float orientation)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     // Only update if we need to
     if(RONIN_UTIL::fuzzyEq(orientation, m_Unit->GetOrientation()))
         return;
@@ -358,8 +350,6 @@ void UnitPathSystem::SetOrientation(float orientation)
 
 void UnitPathSystem::StopMoving()
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
-
     _CleanupPath();
     // Set destX/Y to infinite, zero out destZ and Orientation
     _destX = _destY = fInfinite; _destZ = _destO  = 0.f;
@@ -368,7 +358,6 @@ void UnitPathSystem::StopMoving()
 
 void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
 { 
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     // Grab our destination point data
     MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
     if(lastPoint == NULL)
@@ -443,7 +432,6 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
 
 void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
         return;
     MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
@@ -509,7 +497,6 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
 
 void UnitPathSystem::AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     bool finalized = false;
     // Grab our start point data
     LocationVector startPoint(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
@@ -543,7 +530,6 @@ void UnitPathSystem::AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vect
 
 void UnitPathSystem::AppendMoveBytes(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage)
 {
-    std::lock_guard<std::recursive_mutex> guard(_accessLock);
     LocationVector dest(_destZ, _destX, _destY);
     if(!pointStorage->empty())
     {

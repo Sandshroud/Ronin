@@ -93,6 +93,7 @@ WorldObject *MapCell::FindObject(WoWGuid guid)
 
 void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
 {
+    Guard guard(cellLock);
     WorldObject *curObj;
     if(objectMask == 0)
     {
@@ -100,20 +101,14 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
         {
             if((curObj = itr->second) == NULL || obj == curObj)
                 continue;
-            std::lock(obj->GetLock(), curObj->GetLock());
             (*callback)(obj, curObj);
-            curObj->LockRelease();
-            obj->LockRelease();
         }
 
         for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
         {
             if((curObj = itr->second) == NULL || obj == curObj)
                 continue;
-            std::lock(obj->GetLock(), curObj->GetLock());
             (*callback)(obj, curObj);
-            curObj->LockRelease();
-            obj->LockRelease();
         }
     }
     else
@@ -124,10 +119,7 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
             {
                 if((curObj = itr->second) == NULL || obj == curObj)
                     continue;
-                std::lock(obj->GetLock(), curObj->GetLock());
                 (*callback)(obj, curObj);
-                curObj->LockRelease();
-                obj->LockRelease();
             }
         }
 
@@ -137,10 +129,7 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
             {
                 if((curObj = itr->second) == NULL || obj == curObj)
                     continue;
-                std::lock(obj->GetLock(), curObj->GetLock());
                 (*callback)(obj, curObj);
-                curObj->LockRelease();
-                obj->LockRelease();
             }
         }
 
@@ -150,10 +139,7 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
             {
                 if((curObj = itr->second) == NULL || obj == curObj)
                     continue;
-                std::lock(obj->GetLock(), curObj->GetLock());
                 (*callback)(obj, curObj);
-                curObj->LockRelease();
-                obj->LockRelease();
             }
         }
     }

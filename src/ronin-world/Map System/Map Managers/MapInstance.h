@@ -182,11 +182,9 @@ public:
                         ++poolIterator;
                         poolLocks.Release();
 
-                        elem->GetLock().lock();
                         if(elem->IsActiveObject() && !elem->IsActivated())
                             elem->InactiveUpdate(msTime, updateDiff);
                         else elem->Update(msTime, updateDiff);
-                        elem->LockRelease();
                     }
                 }
             }

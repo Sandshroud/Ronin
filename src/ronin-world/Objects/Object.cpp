@@ -21,7 +21,7 @@
 
 #include "StdAfx.h"
 
-Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_valuesCount(fieldCount), m_objLock(), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false)
+Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false)
 {
     m_uint32Values = new uint32[m_valuesCount];
     memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
