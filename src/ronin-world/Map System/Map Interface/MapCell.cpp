@@ -91,9 +91,15 @@ WorldObject *MapCell::FindObject(WoWGuid guid)
     return NULL;
 }
 
-void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
+bool MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask, bool forced)
 {
-    Guard guard(cellLock);
+    if(!cellLock.AttemptAcquire())
+    {
+        if(forced == false)
+            return false;
+        cellLock.Acquire();
+    }
+
     WorldObject *curObj;
     if(objectMask == 0)
     {
@@ -143,6 +149,8 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
             }
         }
     }
+    cellLock.Release();
+    return true;
 }
 
 void MapCell::SetActivity(bool state)

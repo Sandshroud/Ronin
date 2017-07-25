@@ -69,7 +69,7 @@ public:
     bool HasPlayers() { return !m_playerSet.empty(); }
 
     // Iterating through different phases of sets
-    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0);
+    bool ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0, bool forced = false);
 
     //State Related
     void SetActivity(bool state);

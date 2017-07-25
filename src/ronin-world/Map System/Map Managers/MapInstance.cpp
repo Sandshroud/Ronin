@@ -766,7 +766,7 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
 
     _processCallback.Lock();
     _processCallback.SetCell(cellX, cellY);
-    objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
+    objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER, true);
     _processCallback.Unlock();
     return true;
 }
@@ -793,7 +793,7 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER, true);
     }
     _removalCallback.Unlock();
 }
@@ -1162,12 +1162,15 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
     storage->callback.Lock();
     storage->callback.ResetData(range);
     ctr->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(ctr, &storage->callback, typeMask);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(ctr, &storage->callback, typeMask, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
+
     Unit *Result = storage->callback.GetResult();
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1193,12 +1196,15 @@ void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packe
     storage->callback.Lock();
     storage->callback.setPacketData(packet);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1229,12 +1235,15 @@ void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, 
     storage->callback.Lock();
     storage->callback.ResetData(range, opcodeId, Len, data, false, 0);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1248,12 +1257,15 @@ void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float rang
     storage->callback.Lock();
     storage->callback.ResetData(range, data, myTeam, teamId);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1279,11 +1291,13 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *pa
     storage->callback.Lock();
     storage->callback.setPacketData(packet, lang, langpos, guidPos);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1327,11 +1341,13 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
 
     storage->callback.Lock();
     obj->GetCellManager()->FillCellRange(&storage->cellvector);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1370,11 +1386,13 @@ void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *c
     storage->callback.Lock();
     storage->callback.SetData(callback, object, caster, minRange, maxRange);
     ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &storage->cellvector);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(object, &storage->callback, typeMask);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(object, &storage->callback, typeMask, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1404,11 +1422,13 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     storage->callback.Lock();
     storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange, maxRange);
     ObjectCellManager::ConstructCellData(x, y, maxRange, &storage->cellvector);
-    for(auto itr = storage->cellvector.begin(); itr != storage->cellvector.end(); itr++)
+    while(!storage->cellvector.empty())
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
-        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(spell->GetCaster(), &storage->callback, typeMask);
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
+        storage->cellvector.erase(storage->cellvector.begin());
+        MapCell *cell = GetCell(cellPair.first, cellPair.second);
+        if(cell && !cell->ProcessObjectSets(spell->GetCaster(), &storage->callback, typeMask, storage->cellvector.empty()))
+            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
     }
     storage->cellvector.clear();
     storage->callback.Unlock();
