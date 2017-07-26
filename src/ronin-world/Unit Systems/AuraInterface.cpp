@@ -1503,6 +1503,8 @@ void AuraInterface::_RecalculateModAmountByType(Modifier *mod)
 void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
     m_Unit->OnAuraModChanged(mod->m_type);
+
+    Guard guard(m_modLock);
     uint16 mod_index = createModifierIndex(auraSlot, index);
     Loki::AssocVector<uint8, ModifierHolder*>::iterator itr;
     if(apply)
@@ -1587,6 +1589,16 @@ uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
 {
     group = uint8(float2int32(floor(float(value)/32.f)));
     return value%32;
+}
+
+void AuraInterface::TraverseModMap(uint32 modType, AuraInterface::ModCallback *callback)
+{
+    m_modLock.Acquire();
+    if(modifierMap *modMap = GetModMapByModType(modType))
+        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); ++itr)
+            (*callback)(itr->second);
+    (*callback).postTraverse();
+    m_modLock.Release();
 }
 
 void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )

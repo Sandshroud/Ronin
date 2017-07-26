@@ -742,8 +742,11 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 
 
 void ObjectCellManager::ConstructCellData(float x, float y, float range, std::vector<uint32> *fillVector)
 {
-    // Update pos pair
-    uint32 lowX = _getCellId(x-range), highX = _getCellId(x+range), lowY = _getCellId(y-range), highY = _getCellId(y+range);
+    // Update position pair
+    float dist = std::min<float>(range, TileSize); // Make sure we're less than an entire tile
+    ASSERT(dist == range);
+
+    uint32 lowX = _getCellId(x-dist), highX = _getCellId(x+dist), lowY = _getCellId(y-dist), highY = _getCellId(y+dist);
     if(highX < lowX) std::swap(lowX, highX);
     if(highY < lowY) std::swap(lowY, highY);
     for(uint16 x = lowX; x <= highX; x++)

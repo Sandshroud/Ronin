@@ -21,15 +21,6 @@
 
 #pragma once
 
-/** dummy lock to use a non-locked queue.
- */
-class DummyLock
-{
-public:
-    RONIN_INLINE void Acquire() { }
-    RONIN_INLINE void Release() { }
-};
-
 /** linked-list style queue
  */
 template<class T, class LOCK>
@@ -44,6 +35,7 @@ class FastQueue
     node * last;
     node * first;
     LOCK * m_lock;
+    size_t len;
 
 public:
 
@@ -51,32 +43,31 @@ public:
     {
         last = 0;
         first = 0;
+        len = 0;
         m_lock = new LOCK();
     }
 
     ~FastQueue()
     {
         Clear();
+
+        if(m_lock != NULL)
+            delete m_lock;
+        m_lock = NULL;
     }
 
     void Clear()
     {
         // clear any elements
+        Guard guard(*m_lock);
         while(last != 0)
             Pop();
-        if(m_lock != NULL)
-        {
-            delete m_lock;
-            m_lock = NULL;
-        }
+        len = 0;
     }
 
     void Push(T elem)
     {
-        if(m_lock == NULL)
-            return;
-
-        m_lock->Acquire();
+        Guard guard(*m_lock);
         node * n = new node;
         if(last)
             last->next = n;
@@ -86,20 +77,14 @@ public:
         last = n;
         n->next = 0;
         n->element = elem;
-        m_lock->Release();
+        ++len;
     }
 
     T Pop()
     {
-        if(m_lock == NULL)
-            return reinterpret_cast<T>(0);
-
-        m_lock->Acquire();
+        Guard guard(*m_lock);
         if(first == 0)
-        {
-            m_lock->Release();
-            return reinterpret_cast<T>(0);
-        }
+            return nullptr;
 
         T ret = first->element;
         node * td = first;
@@ -108,57 +93,53 @@ public:
             last = 0;
 
         delete td;
-        m_lock->Release();
         return ret;
     }
 
     T front()
     {
-        if(m_lock == NULL)
-            return reinterpret_cast<T>(0);
-
-        m_lock->Acquire();
+        Guard guard(*m_lock);
         if(first == 0)
-        {
-            m_lock->Release();
-            return reinterpret_cast<T>(0);
-        }
+            return nullptr;
 
         T ret = first->element;
-        m_lock->Release();
         return ret;
     }
 
+    T at(size_t pos)
+    {
+        Guard guard(*m_lock);
+        node * td = first;
+        while(pos > 0)
+        {
+            if(td->next == NULL)
+                return nullptr;
+            td = td->next;
+            --pos;
+        }
+
+        return td->element;
+    }
+
+    size_t size() { return len; }
+
     void pop_front()
     {
-        if(m_lock == NULL)
-            return;
-
-        m_lock->Acquire();
+        Guard guard(*m_lock);
         if(first == 0)
-        {
-            m_lock->Release();
             return;
-        }
 
         node * td = first;
         first = td->next;
         if(!first)
             last = 0;
-
         delete td;
-        m_lock->Release();
+        --len;
     }
 
     bool HasItems()
     {
-        if(m_lock == NULL)
-            return false;
-
-        bool ret;
-        m_lock->Acquire();
-        ret = (first != 0);
-        m_lock->Release();
-        return ret;
+        Guard guard(*m_lock);
+        return (first != 0);
     }
 };

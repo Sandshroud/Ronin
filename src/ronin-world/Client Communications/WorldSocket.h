@@ -119,7 +119,7 @@ private:
     WorldPacket *addonPacket;
 
     WorldSession *mSession;
-    FastQueue<WorldPacket*, DummyLock> _queue;
+    FastQueue<WorldPacket*, Mutex> _queue;
     Mutex queueLock;
 
     WowCrypt _crypt;

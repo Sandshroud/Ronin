@@ -1384,7 +1384,7 @@ void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *c
     ASSERT(storage != NULL);
 
     storage->callback.Lock();
-    storage->callback.SetData(callback, object, caster, minRange, maxRange);
+    storage->callback.SetData(callback, object, caster, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &storage->cellvector);
     while(!storage->cellvector.empty())
     {
@@ -1420,7 +1420,7 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     ASSERT(storage != NULL);
 
     storage->callback.Lock();
-    storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange, maxRange);
+    storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(x, y, maxRange, &storage->cellvector);
     while(!storage->cellvector.empty())
     {
@@ -1998,7 +1998,7 @@ bool MapInstance::canObjectsInteract(WorldObject *obj, WorldObject *curObj)
 
 bool MapInstance::IsInRange(float fRange, WorldObject* obj, WorldObject *curObj, float &distOut)
 {   // First distance check, are we in range?
-    if((distOut = curObj->GetDistance2dSq(obj)) > fRange)
+    if((distOut = curObj->GetDistance2dSq(obj)) > (fRange*fRange))
         return false;
     return true;
 }

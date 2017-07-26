@@ -103,7 +103,7 @@ private:
     MovementPoint srcPoint, lastUpdatePoint;
     float _destX, _destY, _destZ, _destO;
 
-    std::deque<MovementPoint*> m_movementPoints;
+    FastQueue<std::shared_ptr<MovementPoint>, Mutex> m_movementPoints;
 
     uint32 m_lastMSTimeUpdate, m_lastPositionUpdate;
     uint8 pathPoolId;

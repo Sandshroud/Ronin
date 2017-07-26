@@ -208,19 +208,18 @@ public:
     typedef Loki::AssocVector<uint16, Modifier*> modifierMap;
     typedef Loki::AssocVector<uint32, modifierMap > modifierTypeMap;
 
-    bool HasAurasWithModType(uint32 modType)
-    {
-        if(m_modifiersByModType.empty() || m_modifiersByModType.find(modType) == m_modifiersByModType.end())
-            return false;
-        return !m_modifiersByModType[modType].empty();
-    }
-    modifierMap *GetModMapByModType(uint32 modType)
-    {
-        if(!HasAurasWithModType(modType))
-            return NULL;
-        return &m_modifiersByModType[modType];
-    }
+    /// !DEPRECATED NOT THREAD SAFE
+    bool HasAurasWithModType(uint32 modType) { return false; }
+    /// !DEPRECATED NOT THREAD SAFE
+    modifierMap *GetModMapByModType(uint32 modType) { return NULL; }
 
+    // Used for traversing mod map, operator()(Modifier *mod) for operation
+    class ModCallback { public: virtual void operator()(Modifier *mod) = 0; virtual void postTraverse() {}; };
+
+    // Push our callback on all objects inside our modMap
+    void TraverseModMap(uint32 modType, ModCallback *callBack);
+
+    // Modifier calculations
     void SM_FIValue( uint32 modifier, int32* v, uint32* group );
     void SM_FFValue( uint32 modifier, float* v, uint32* group );
     void SM_PIValue( uint32 modifier, int32* v, uint32* group );
@@ -235,6 +234,8 @@ private:
     Loki::AssocVector<uint16, Loki::AssocVector<uint8, int32>> m_spellGroupModifiers;
     // Storage is <<SpellId, effIndex>, Modifier>
     Loki::AssocVector<std::pair<uint32, uint8>, int32> m_calcModCache;
+    // Access lock for using mod maps
+    Mutex m_modLock;
 
     static uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool silent);

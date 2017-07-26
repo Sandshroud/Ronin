@@ -327,15 +327,103 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
     }
 }
 
+class StatValueCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_STAT:
+            {
+                bool positive = mod->m_amount > 0;
+                if(mod->m_miscValue[0] == -1 || mod->m_miscValue[0] >= 5)
+                {
+                    for(uint8 s = 0; s < 5; ++s)
+                    {
+                        if(positive)
+                            pos[s] += mod->m_amount;
+                        else neg[s] -= mod->m_amount;
+                    }
+                } else if(positive)
+                    pos[mod->m_miscValue[1]] += mod->m_amount;
+                else neg[mod->m_miscValue[1]] -= mod->m_amount;
+            }break;
+        case SPELL_AURA_MOD_PERCENT_STAT:
+            {
+                bool positive = mod->m_amount > 0;
+                if(mod->m_miscValue[0] == -1 || mod->m_miscValue[0] >= 5)
+                {
+                    for(uint8 s = 0; s < 5; ++s)
+                    {
+                        if(positive)
+                            modpos[s] += (float(mod->m_amount)/100.0f);
+                        else modneg[s] -= (float(mod->m_amount)/100.0f);
+                    }
+                } else if(positive)
+                    modpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
+                else modneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+            }break;
+        case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
+            {
+                bool positive = mod->m_amount > 0;
+                if(mod->m_miscValue[0] == -1 || mod->m_miscValue[0] >= 5)
+                {
+                    for(uint8 s = 0; s < 5; ++s)
+                    {
+                        if(positive)
+                            tmodpos[s] += (float(mod->m_amount)/100.0f);
+                        else tmodneg[s] -= (float(mod->m_amount)/100.0f);
+                    }
+                } else if(positive)
+                    tmodpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
+                else tmodneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+            }break;
+        }
+    }
+
+    void Init(Unit *unit, UnitBaseStats *stats, uint32 level, bool strClass, float ctrMod)
+    {
+        for(uint8 s = 0; s < MAX_STAT; s++)
+        {
+            pos[s] = unit->GetBonusStat(s);
+            neg[s] = res[s] = 0;
+            modpos[s] = modneg[s] = 1.f;
+            tmodpos[s] = tmodneg[s] = 0.f;
+
+            basepos[s] = stats ? stats->baseStat[s] : level*25;
+            if(stats && stats->level < level)
+                basepos[s] += (level-stats->level)*15;
+            if(unit->IsCreature() && s == STAT_STRENGTH)
+                basepos[s] *= float2int32(ctrMod * (strClass ? 1.f : 0.5f));
+            else if(unit->IsCreature() && s == STAT_AGILITY)
+                basepos[s] *= float2int32(ctrMod * (strClass ? 0.5f : 1.0f));
+        }
+    }
+
+    // Calculate stats after every traverse
+    void postTraverse()
+    {
+        for(uint8 s = 0; s < MAX_STAT; s++)
+        {
+            pos[s] *= modpos[s];
+            neg[s] *= modneg[s];
+            int32 total = (basepos[s] + pos[s]) - neg[s];
+            pos[s] += tmodpos[s] * total;
+            neg[s] += tmodneg[s] * total;
+            res[s] = (basepos[s] + pos[s]) - neg[s];
+        }
+    }
+
+    int32 basepos[5], pos[5], neg[5], res[5];
+    float modpos[5], modneg[5], tmodpos[5], tmodneg[5];
+};
+
 void Unit::UpdateStatValues()
 {
-    int32 basepos,pos,neg;
     uint32 _class = getClass(), Level = getLevel();
     float ctrMod = std::max<float>(1.f, ((float)Level)/fMaxLevelSqrt);
     bool strClass = _class == WARRIOR || _class == PALADIN || _class == DEATHKNIGHT;
-    AuraInterface::modifierMap *statMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_STAT),
-        *statPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_PERCENT_STAT),
-        *totalStatMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE);
 
     gtFloat *HPPerStam = NULL;
     if(IsCreature() && (HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1))))
@@ -345,61 +433,17 @@ void Unit::UpdateStatValues()
             ctrMod *= ((float)(levelMod+1))/2.f;
     }
 
+    StatValueCallback valueCallback;
+    valueCallback.Init(this, baseStats, Level, strClass, ctrMod);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_STAT, &valueCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_PERCENT_STAT, &valueCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE, &valueCallback);
+
     for(uint8 s = 0; s < MAX_STAT; s++)
     {
-        basepos = baseStats ? baseStats->baseStat[s] : Level*25;
-        if(baseStats && baseStats->level < Level)
-            basepos += (Level-baseStats->level)*15;
-        if(IsCreature() && s == STAT_STRENGTH)
-            basepos *= float2int32(ctrMod * (strClass ? 1.f : 0.5f));
-        else if(IsCreature() && s == STAT_AGILITY)
-            basepos *= float2int32(ctrMod * (strClass ? 0.5f : 1.0f));
-
-        pos=GetBonusStat(s), neg=0;
-        if(statMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = statMod->begin(); itr != statMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] == -1 || itr->second->m_miscValue[0] == s)
-                {
-                    if(itr->second->m_amount > 0)
-                        pos += itr->second->m_amount;
-                    else neg -= itr->second->m_amount;
-                }
-            }
-        }
-
-        if(statPCTMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = statPCTMod->begin(); itr != statPCTMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] == -1 || itr->second->m_miscValue[0] == s)
-                {
-                    if(itr->second->m_amount > 0)
-                        pos = float(pos)*(float(itr->second->m_amount)/100.0f);
-                    else neg = float(neg)*(float(abs(itr->second->m_amount))/100.0f);
-                }
-            }
-        }
-
-        int32 res = basepos+pos+neg;
-        if(res > 0 && totalStatMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = totalStatMod->begin(); itr != totalStatMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] == -1 || itr->second->m_miscValue[0] == s)
-                {
-                    if(itr->second->m_amount > 0)
-                        pos += float(res)*(float(itr->second->m_amount)/100.0f);
-                    else neg -= float(res)*(float(abs(itr->second->m_amount))/100.0f);
-                }
-            }
-            res = basepos+pos+neg;
-        }
-
-        SetUInt32Value(UNIT_FIELD_STATS+s, res > 0 ? res : 0);
-        SetUInt32Value(UNIT_FIELD_POSSTATS+s, pos);
-        SetUInt32Value(UNIT_FIELD_NEGSTATS+s, neg);
+        SetUInt32Value(UNIT_FIELD_STATS+s, std::max<int32>(0, valueCallback.res[s]));
+        SetUInt32Value(UNIT_FIELD_POSSTATS+s, valueCallback.pos[s]);
+        SetUInt32Value(UNIT_FIELD_NEGSTATS+s, valueCallback.neg[s]);
     }
 
     // Set stat values as updated to update affected auras
@@ -510,6 +554,7 @@ void Unit::UpdateRegenValues()
         if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT))
             for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
                 interruptMod += itr->second->m_amount;
+
         if (interruptMod > 100) interruptMod = 100;
         SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER, base_regen + 0.001f + spirit_regen);
         SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, base_regen + (spirit_regen * (interruptMod / 100.0f)));

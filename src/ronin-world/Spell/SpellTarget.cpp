@@ -642,7 +642,7 @@ void SpellTargetClass::FillSpecifiedTargetsInArea(uint32 i, float srcx, float sr
         return;
 
     static FillAreaTargetsCallback _fillSpecificCallback;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r*r, typeMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r, typeMask);
 }
 
 void SpellTargetClass::FillAllTargetsInArea(LocationVector & location, uint32 effIndex)
@@ -664,7 +664,7 @@ void SpellTargetClass::FillAllTargetsInArea(uint32 i, float srcx, float srcy, fl
 
     static FillAreaTargetsCallback _fillAllCallback;
     uint32 targetMask = (includegameobjects || Spell::CanEffectTargetGameObjects(m_spellInfo, i)) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillAllCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r*r, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillAllCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r, targetMask);
     if(m_temporaryStorage)
     {   // Process our temporary storage
         WorldObject* chaintarget = NULL;
@@ -725,14 +725,14 @@ void SpellTargetClass::FillAllFriendlyInArea( uint32 i, float srcx, float srcy, 
 
     static FillAreaFriendliesCallback _fillFriendliesCallback;
     uint32 targetMask = Spell::CanEffectTargetGameObjects(m_spellInfo, i) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillFriendliesCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r*r, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillFriendliesCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r, targetMask);
 }
 
 /// We fill all the gameobject targets in the area
 void SpellTargetClass::FillAllGameObjectTargetsInArea(uint32 i,float srcx,float srcy,float srcz, float r)
 {
     static FillAreaTargetsCallback _fillSpecificCallback;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r*r, TYPEMASK_TYPE_GAMEOBJECT);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillSpecificCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, 0.f, r, TYPEMASK_TYPE_GAMEOBJECT);
 }
 
 WoWGuid SpellTargetClass::GetSinglePossibleEnemy(uint32 i,float prange)
@@ -757,7 +757,7 @@ WoWGuid SpellTargetClass::GetSinglePossibleEnemy(uint32 i,float prange)
 
     static FillAreaTargetsCallback _fillEnemyCallback;
     float srcx = _unitCaster->GetPositionX(), srcy = _unitCaster->GetPositionY(), srcz = _unitCaster->GetPositionZ();
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillEnemyCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, rMin*rMin, rMax*rMax, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillEnemyCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, rMin, rMax, targetMask);
     for(std::vector<WorldObject*>::iterator itr = tempStorage.begin(); itr != tempStorage.end(); itr++)
     {
         Unit *unit = castPtr<Unit>(*itr);
@@ -796,7 +796,7 @@ WoWGuid SpellTargetClass::GetSinglePossibleFriend(uint32 i,float prange)
 
     static FillAreaFriendliesCallback _fillFriendlyCallback;
     float srcx = _unitCaster->GetPositionX(), srcy = _unitCaster->GetPositionY(), srcz = _unitCaster->GetPositionZ();
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillFriendlyCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, rMin*rMin, rMax*rMax, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_fillFriendlyCallback, this, i, SPELL_TARGET_NONE, srcx, srcy, srcz, rMin, rMax, targetMask);
     for(std::vector<WorldObject*>::iterator itr = tempStorage.begin(); itr != tempStorage.end(); itr++)
     {
         Unit *unit = castPtr<Unit>(*itr);
@@ -843,7 +843,7 @@ void SpellTargetClass::AddAOETargets(uint32 i, uint32 TargetType, float r, uint3
 
     static FillInRangeTargetsCallback _inRangeCallback;
     uint32 targetMask = Spell::CanEffectTargetGameObjects(m_spellInfo, i) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeCallback, this, i, TargetType, source.x, source.y, source.z, 0.f, r*r, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeCallback, this, i, TargetType, source.x, source.y, source.z, 0.f, r, targetMask);
 }
 
 void SpellTargetClass::AddPartyTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
@@ -930,7 +930,7 @@ void SpellTargetClass::AddChainTargets(uint32 i, uint32 TargetType, float r, uin
     else callback = &_fillChainFriendlyCallback;
     // We've successfully set a callback pointer
     uint32 targetMask = RaidOnly ? TYPEMASK_TYPE_PLAYER : TYPEMASK_TYPE_UNIT;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(callback, this, i, TargetType, firstTarget->GetPositionX(), firstTarget->GetPositionY(), firstTarget->GetPositionZ(), 0.f, r*r, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(callback, this, i, TargetType, firstTarget->GetPositionX(), firstTarget->GetPositionY(), firstTarget->GetPositionZ(), 0.f, r, targetMask);
     // TODO: this technically during raid only should reprocess from each jump point to the nearest but lets be lazy
     std::vector<Unit*> backupPlans;
     for(std::vector<WorldObject*>::iterator itr = ChainTargetContainer.begin(); itr != ChainTargetContainer.end(); itr++)
@@ -978,7 +978,7 @@ void SpellTargetClass::AddConeTargets(uint32 i, uint32 TargetType, float r, uint
 {
     static FillInRangeConeTargetsCallback _inRangeConeCallback;
     uint32 targetMask = Spell::CanEffectTargetGameObjects(m_spellInfo, i) ? 0x00000000 : (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER);
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeConeCallback, this, i, TargetType, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), 0.f, r*r, targetMask);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_inRangeConeCallback, this, i, TargetType, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), 0.f, r, targetMask);
 }
 
 void FillSpecificGameObjectsCallback::operator()(SpellTargetClass *spell, uint32 i, uint32 targetType, WorldObject *target)
@@ -995,7 +995,7 @@ void FillSpecificGameObjectsCallback::operator()(SpellTargetClass *spell, uint32
 void SpellTargetClass::AddScriptedOrSpellFocusTargets(uint32 i, uint32 TargetType, float r, uint32 maxtargets)
 {
     static FillSpecificGameObjectsCallback _specificGameObjectsCallback;
-    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_specificGameObjectsCallback, this, i, TargetType, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), 0.f, r*r, TYPEMASK_TYPE_GAMEOBJECT);
+    _unitCaster->GetMapInstance()->HandleSpellTargetMapping(&_specificGameObjectsCallback, this, i, TargetType, _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), 0.f, r, TYPEMASK_TYPE_GAMEOBJECT);
 }
 
 // returns Guid of lowest percentage health friendly party or raid target within sqrt('dist') yards

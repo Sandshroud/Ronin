@@ -151,8 +151,6 @@ void DynamicObject::UpdateTargets(uint32 p_time)
         float radius = 0.f;
         if(radius = GetFloatValue(DYNAMICOBJECT_RADIUS))
         {
-            radius *= radius;
-
             static FillDynamicObjectTargetMapCallback _callback;
             m_mapInstance->HandleDynamicObjectRangeMapping(&_callback, this, u_caster, 0.f, radius, (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER));
         }

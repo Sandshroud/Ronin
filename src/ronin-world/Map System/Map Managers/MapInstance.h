@@ -562,7 +562,7 @@ public:
     // Dynamic object target mapping
     void HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *callback, DynamicObject *object, Unit *caster, float minRange, float maxRange, uint32 typeMask = 0);
 
-    // Spell targetting functions
+    // Spell targetting functions: note range is squared in the function, do not input squared range
     void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, uint32 targetType, float x, float y, float z, float minRange, float maxRange, uint32 typeMask = 0);
 
 protected:

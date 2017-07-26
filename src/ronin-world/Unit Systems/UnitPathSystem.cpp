@@ -54,7 +54,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
         if(msTime <= m_pathStartTime)
             return false;
         uint32 timeWalked = msTime-m_pathStartTime;
-        if(timeWalked >= m_pathLength || m_movementPoints.empty())
+        if(timeWalked >= m_pathLength || !m_movementPoints.HasItems())
         {
             m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
             _CleanupPath();
@@ -62,13 +62,13 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
         else
         {
             // Move towards destination
-            MovementPoint *lastPoint = &srcPoint, *nextPoint = m_movementPoints.front();
+            MovementPoint *lastPoint = &srcPoint, *nextPoint = m_movementPoints.front().get();
             if(timeWalked >= nextPoint->timeStamp && m_movementPoints.size() != 1)
             {
                 lastPoint = nextPoint;
                 while(m_movementPoints.size() >= 2)
                 {
-                    if((nextPoint = m_movementPoints.at(1))->timeStamp >= timeWalked)
+                    if((nextPoint = m_movementPoints.at(1).get())->timeStamp >= timeWalked)
                     {
                         if(nextPoint->timeStamp == timeWalked)
                         {   // 
@@ -80,7 +80,6 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 
                     // Remove the last point since we don't need it
                     m_movementPoints.pop_front();
-                    delete lastPoint;
                     // Get the new last point
                     lastPoint = nextPoint;
                     nextPoint = NULL;
@@ -198,12 +197,7 @@ void UnitPathSystem::SetSpeed(MovementSpeedTypes speedType)
 void UnitPathSystem::_CleanupPath()
 {
     _destX = _destY = fInfinite;
-    while(!m_movementPoints.empty())
-    {
-        MovementPoint *point = m_movementPoints.front();
-        m_movementPoints.pop_front();
-        delete point;
-    }
+    m_movementPoints.Clear();
 
     lastUpdatePoint.timeStamp = 0; // Clean up our last update point
     lastUpdatePoint.pos.x = lastUpdatePoint.pos.y = lastUpdatePoint.pos.z = fInfinite;
@@ -248,7 +242,6 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
         MapInstance *instance = m_Unit->GetMapInstance();
         float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
 
-        MovementPoint *lastPoint = &srcPoint; // Store our starting position
         m_pathLength = (dist/speed)*1000.f;
         if(m_pathLength > 800)
         {
@@ -259,7 +252,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
                 posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
             else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
 
-            float lastCalcPoint = lastPoint->pos.z;// Path calculation
+            float lastCalcPoint = srcPoint.pos.z;// Path calculation
             uint32 timeToMove = 500;
             while((m_pathLength-timeToMove) > 500)
             {
@@ -271,11 +264,11 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
                 if(ignoreTerrainHeight && lastCalcPoint > targetZ)
                     targetZ = lastCalcPoint;
 
-                m_movementPoints.push_back(lastPoint = new MovementPoint(timeToMove, px, py, targetZ));
+                m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, px, py, targetZ))));
             }
         }
 
-        m_movementPoints.push_back(new MovementPoint(m_pathLength, _destX, _destY, _destZ));
+        m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ))));
     }
 
     BroadcastMovementPacket();
@@ -312,7 +305,7 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
         data << uint32(0); // movement point counter
         for(uint32 i = 0; i < m_movementPoints.size(); i++)
         {
-            if(MovementPoint *path = m_movementPoints[i])
+            if(MovementPoint *path = m_movementPoints.at(i).get())
             {
                 if(path->timeStamp <= lastUpdatePoint.timeStamp)
                     continue;
@@ -359,7 +352,7 @@ void UnitPathSystem::StopMoving()
 void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
 { 
     // Grab our destination point data
-    MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
+    MovementPoint *lastPoint = m_movementPoints.HasItems() ? m_movementPoints.at(m_movementPoints.size()-1).get() : NULL;
     if(lastPoint == NULL)
         return;
     // Grab our start point data
@@ -392,7 +385,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
         {
             for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
             {
-                if(MovementPoint *path = m_movementPoints[i])
+                if(MovementPoint *path = m_movementPoints.at(i).get())
                 {
                     if(path->timeStamp <= lastUpdatePoint.timeStamp)
                         continue;
@@ -414,7 +407,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
             middle.z = (middle.z+lastPoint->pos.z)/2.f;
             for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
             {
-                if(MovementPoint *path = m_movementPoints[i])
+                if(MovementPoint *path = m_movementPoints.at(i).get())
                 {
                     if(path->timeStamp <= lastUpdatePoint.timeStamp)
                         continue;
@@ -434,7 +427,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
 {
     if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
         return;
-    MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
+    MovementPoint *lastPoint = m_movementPoints.HasItems() ? m_movementPoints.at(m_movementPoints.size()-1).get() : NULL;
     if(lastPoint == NULL)
         return;
 
@@ -456,7 +449,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
     {
         for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
         {
-            if(MovementPoint *path = m_movementPoints[i])
+            if(MovementPoint *path = m_movementPoints.at(i).get())
             {
                 if(path->timeStamp <= lastUpdatePoint.timeStamp)
                     continue;
@@ -478,7 +471,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
         middle.z = (middle.z+lastPoint->pos.z)/2.f;
         for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
         {
-            if(MovementPoint *path = m_movementPoints[i])
+            if(MovementPoint *path = m_movementPoints.at(i).get())
             {
                 if(path->timeStamp <= lastUpdatePoint.timeStamp)
                     continue;
@@ -508,14 +501,14 @@ void UnitPathSystem::AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vect
         finalized = true;
     else if(closeToDestination(msTime))
         finalized = true;
-    MovementPoint *lastPoint = m_movementPoints.empty() ? NULL : m_movementPoints[m_movementPoints.size()-1];
+    MovementPoint *lastPoint = m_movementPoints.HasItems() ? m_movementPoints.at(m_movementPoints.size()-1).get() : NULL;
     if(lastPoint == NULL)
         finalized = true;
     if(!buffer->WriteBit(!finalized))
         return;
 
     for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
-        if(MovementPoint *path = m_movementPoints[i])
+        if(MovementPoint *path = m_movementPoints.at(i).get())
             if(path->timeStamp > lastUpdatePoint.timeStamp)
                 pointStorage->push_back(path);
 
