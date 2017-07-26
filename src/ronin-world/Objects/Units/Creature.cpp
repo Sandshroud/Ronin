@@ -560,7 +560,7 @@ void Creature::SetDeathState(DeathState s)
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
     }
 
-    if(IsInWorld())
+    if(IsInWorld() && IsSpawn())
         m_mapInstance->SetUnitState(m_spawn->guid, s == JUST_DIED ? DEAD : s);
 }
 
