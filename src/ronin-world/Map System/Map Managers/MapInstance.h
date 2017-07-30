@@ -52,32 +52,30 @@ template <class T> class StoragePoolTask : public ThreadManager::PoolTask
 {
 public:
 #ifdef VECTOR_POOLS
-    StoragePoolTask(std::vector<T*> *targetPool, uint32 msTime, uint32 diff) : _msTime(msTime), _diff(diff) { updatePool.reserve(targetPool->size()); updatePool.insert(updatePool.end(), targetPool->begin(), targetPool->end()); }
+    StoragePoolTask(std::vector<T*> *pool, uint32 msTime, uint32 diff) : targetPool(pool), _msTime(msTime), _diff(diff) { }
 #else
-    StoragePoolTask(std::set<T*> *targetPool, uint32 diff) : updatePool(targetPool), _diff(diff) { }
+    StoragePoolTask(std::set<T*> *pool, uint32 diff) : targetPool(pool), _msTime(msTime), _diff(diff) { }
 #endif
 
     virtual int call()
     {
+        std::vector<T*> updatePool(*targetPool);
         std::for_each(updatePool.begin(), updatePool.end(), [this](T *elem)
         {
             if(elem->IsActiveObject() && !elem->IsActivated())
                 elem->InactiveUpdate(_msTime, _diff);
             else elem->Update(_msTime, _diff);
         } );
-        // Clear the pool
         updatePool.clear();
-        // Clean up our vector since we reserved a lot of space
-        updatePool.shrink_to_fit();
         return 0;
     }
 
 private:
     uint32 _msTime, _diff;
 #ifdef VECTOR_POOLS
-    std::vector<T*> updatePool;
+    std::vector<T*> *targetPool;
 #else
-    std::set<T*> updatePool;
+    std::set<T*> *targetPool;
 #endif
 };
 

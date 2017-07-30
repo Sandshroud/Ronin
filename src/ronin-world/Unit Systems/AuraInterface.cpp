@@ -1594,10 +1594,11 @@ uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
 void AuraInterface::TraverseModMap(uint32 modType, AuraInterface::ModCallback *callback)
 {
     m_modLock.Acquire();
-    if(modifierMap *modMap = GetModMapByModType(modType))
+    AuraInterface::modifierMap *modMap = NULL;
+    if(m_modifiersByModType.find(modType) != m_modifiersByModType.end() && (modMap = &m_modifiersByModType[modType]))
         for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); ++itr)
             (*callback)(itr->second);
-    (*callback).postTraverse();
+    (*callback).postTraverse(modType);
     m_modLock.Release();
 }
 

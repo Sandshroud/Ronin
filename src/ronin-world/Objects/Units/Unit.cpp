@@ -299,9 +299,9 @@ void Unit::UpdateFieldValues()
     while(m_modQueuedModUpdates.size())
     {
         uint32 modType = m_modQueuedModUpdates.begin()->first;
-        std::vector<uint32> vect = m_modQueuedModUpdates.begin()->second;
-        ProcessModUpdate(modType, vect);
+        std::vector<uint32> vect(m_modQueuedModUpdates.begin()->second);
         m_modQueuedModUpdates.erase(m_modQueuedModUpdates.begin());
+        ProcessModUpdate(modType, vect);
     }
     m_modQueuedModUpdates.clear();
 }
@@ -337,47 +337,59 @@ public:
         case SPELL_AURA_MOD_STAT:
             {
                 bool positive = mod->m_amount > 0;
-                if(mod->m_miscValue[0] == -1 || mod->m_miscValue[0] >= 5)
+                if(mod->m_miscValue[1] == -1)
                 {
-                    for(uint8 s = 0; s < 5; ++s)
+                    for(uint8 s = 0; s < MAX_STAT; ++s)
                     {
                         if(positive)
                             pos[s] += mod->m_amount;
                         else neg[s] -= mod->m_amount;
                     }
-                } else if(positive)
-                    pos[mod->m_miscValue[1]] += mod->m_amount;
-                else neg[mod->m_miscValue[1]] -= mod->m_amount;
+                }
+                else if(mod->m_miscValue[1] < MAX_STAT)
+                {
+                    if(positive)
+                        pos[mod->m_miscValue[1]] += mod->m_amount;
+                    else neg[mod->m_miscValue[1]] -= mod->m_amount;
+                }
             }break;
         case SPELL_AURA_MOD_PERCENT_STAT:
             {
                 bool positive = mod->m_amount > 0;
-                if(mod->m_miscValue[0] == -1 || mod->m_miscValue[0] >= 5)
+                if(mod->m_miscValue[1] == -1)
                 {
-                    for(uint8 s = 0; s < 5; ++s)
+                    for(uint8 s = 0; s < MAX_STAT; ++s)
                     {
                         if(positive)
                             modpos[s] += (float(mod->m_amount)/100.0f);
                         else modneg[s] -= (float(mod->m_amount)/100.0f);
                     }
-                } else if(positive)
-                    modpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
-                else modneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+                }
+                else if(mod->m_miscValue[1] < MAX_STAT)
+                {
+                    if(positive)
+                        modpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
+                    else modneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+                }
             }break;
         case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
             {
                 bool positive = mod->m_amount > 0;
-                if(mod->m_miscValue[0] == -1 || mod->m_miscValue[0] >= 5)
+                if(mod->m_miscValue[1] == -1)
                 {
-                    for(uint8 s = 0; s < 5; ++s)
+                    for(uint8 s = 0; s < MAX_STAT; ++s)
                     {
                         if(positive)
                             tmodpos[s] += (float(mod->m_amount)/100.0f);
                         else tmodneg[s] -= (float(mod->m_amount)/100.0f);
                     }
-                } else if(positive)
-                    tmodpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
-                else tmodneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+                }
+                else if(mod->m_miscValue[1] < MAX_STAT)
+                {
+                    if(positive)
+                        tmodpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
+                    else tmodneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+                }
             }break;
         }
     }
@@ -402,7 +414,7 @@ public:
     }
 
     // Calculate stats after every traverse
-    void postTraverse()
+    void postTraverse(uint32 modType)
     {
         for(uint8 s = 0; s < MAX_STAT; s++)
         {
@@ -415,8 +427,8 @@ public:
         }
     }
 
-    int32 basepos[5], pos[5], neg[5], res[5];
-    float modpos[5], modneg[5], tmodpos[5], tmodneg[5];
+    int32 basepos[MAX_STAT], pos[MAX_STAT], neg[MAX_STAT], res[MAX_STAT];
+    float modpos[MAX_STAT], modneg[MAX_STAT], tmodpos[MAX_STAT], tmodneg[MAX_STAT];
 };
 
 void Unit::UpdateStatValues()
@@ -446,55 +458,108 @@ void Unit::UpdateStatValues()
         SetUInt32Value(UNIT_FIELD_NEGSTATS+s, valueCallback.neg[s]);
     }
 
-    // Set stat values as updated to update affected auras
     TriggerModUpdate(UF_UTYPE_HEALTH);
     TriggerModUpdate(UF_UTYPE_POWER);
-    TriggerModUpdate(UF_UTYPE_REGEN);
-    TriggerModUpdate(UF_UTYPE_RESISTANCE);
     TriggerModUpdate(UF_UTYPE_ATTACKPOWER);
     TriggerModUpdate(UF_UTYPE_RANGEDATTACKPOWER);
+
+    // Set stat values as updated to update affected auras
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_RESISTANCE_OF_STAT_PERCENT)) TriggerModUpdate(UF_UTYPE_RESISTANCE);
     if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
     if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERRATINGS);
 }
 
+class HealthUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_BASE_HEALTH_PCT:
+            bonusBaseHP += baseHp * (((float)abs(mod->m_amount))/100.f);
+            break;
+        case SPELL_AURA_MOD_INCREASE_HEALTH:
+        case SPELL_AURA_MOD_INCREASE_MAX_HEALTH:
+        case SPELL_AURA_MOD_INCREASE_HEALTH_2:
+            bonusHp += mod->m_amount;
+            break;
+        case SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT:
+            bonusHp += Hp * (((float)abs(mod->m_amount))/100.f);
+            break;
+        }
+    }
+
+    void Init(Unit *unit, UnitBaseStats *stats)
+    {
+        bonusBaseHP = bonusHp = 0;
+        baseHp = stats ? stats->baseHP*unit->GetHealthMod() : 20;
+        int32 stam = unit->GetStat(STAT_STAMINA), baseStam = stam < 20 ? stam : 20;
+        if(unit->IsCreature() && (castPtr<Creature>(unit)->isCritter() || castPtr<Creature>(unit)->isTrainingDummy()))
+            baseStam = 1;
+
+        stam = (stam <= baseStam ? 0 : stam-baseStam);
+        int32 stamHp = baseStam;
+        if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((unit->getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(unit->getLevel()-1)))
+            stamHp += stam*(HPPerStam->val*unit->GetHealthMod());
+        // Set base
+        Hp = baseHp + stamHp + unit->GetBonusHealth();
+    }
+
+    uint32 GetBaseHP() { return baseHp + bonusBaseHP; }
+    uint32 GetHP() { return baseHp + bonusBaseHP + Hp + bonusHp; }
+
+    uint32 Hp, baseHp, bonusBaseHP, bonusHp;
+};
+
 void Unit::UpdateHealthValues()
 {
-    uint32 HP = baseStats ? baseStats->baseHP*GetHealthMod() : 20;
-    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, HP);
-    if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_HEALTH_PCT))
-        for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
-            HP *= float(abs(itr->second->m_amount))/100.f;
+    HealthUpdateCallback healthCallback;
+    healthCallback.Init(this, baseStats);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_BASE_HEALTH_PCT, &healthCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_HEALTH, &healthCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_MAX_HEALTH, &healthCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_HEALTH_2, &healthCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT, &healthCallback);
 
-    int32 stam = GetStat(STAT_STAMINA), baseStam = stam < 20 ? stam : 20;
-    if(IsCreature() && (castPtr<Creature>(this)->isCritter() || castPtr<Creature>(this)->isTrainingDummy()))
-        baseStam = 1;
-
-    stam = (stam <= baseStam ? 0 : stam-baseStam);
-    HP += GetBonusHealth()+baseStam;
-    if(gtFloat *HPPerStam = dbcHPPerStam.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL+(getLevel()-1)))
-        HP += stam*HPPerStam->val*GetHealthMod();
-
-    if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH))
-        for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
-            HP += itr->second->m_amount;
-    if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_MAX_HEALTH))
-        for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
-            HP += itr->second->m_amount;
-    if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH_2))
-        for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
-            HP += itr->second->m_amount;
-    if(AuraInterface::modifierMap *increaseHPMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_HEALTH_PERCENT))
-        for(AuraInterface::modifierMap::iterator itr = increaseHPMod->begin(); itr != increaseHPMod->end(); itr++)
-            HP *= float(abs(itr->second->m_amount))/100.f;
-
-    if(GetUInt32Value(UNIT_FIELD_HEALTH) > HP)
-        SetUInt32Value(UNIT_FIELD_HEALTH, HP);
-    SetUInt32Value(UNIT_FIELD_MAXHEALTH, HP );
+    // Set values from calculated results
+    SetUInt32Value(UNIT_FIELD_BASE_HEALTH, healthCallback.GetBaseHP());
+    if(GetUInt32Value(UNIT_FIELD_HEALTH) > healthCallback.GetHP())
+        SetUInt32Value(UNIT_FIELD_HEALTH, healthCallback.GetHP());
+    SetUInt32Value(UNIT_FIELD_MAXHEALTH, healthCallback.GetHP());
 }
+
+class PowerUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != _powerType)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_INCREASE_ENERGY:
+            _bonusPower += mod->m_amount;
+            break;
+        case SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT:
+            _bonusPower += _basePower * (((float)abs(mod->m_amount))/100.f);
+            break;
+        }
+    }
+
+    void Init(uint8 powerType, uint32 power) { _powerType = powerType, _basePower = power, _bonusPower = 0; }
+
+    uint32 GetPower() { return _basePower + _bonusPower; }
+
+    uint8 _powerType;
+    uint32 _basePower, _bonusPower;
+};
 
 static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 0xFF, 1000, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
+    bool hasMana = false;
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
     for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
     {
@@ -502,6 +567,7 @@ void Unit::UpdatePowerValues()
         uint32 power = basePowerValues[powerType];
         if(powerType == POWER_TYPE_MANA)
         {
+            hasMana = true;
             if(baseStats)
                 power += baseStats->basePower*GetPowerMod();
             SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
@@ -515,25 +581,68 @@ void Unit::UpdatePowerValues()
             SetPower(powerType, power);
         else if(powerType <= POWER_TYPE_RUNIC)
         {
-            if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY))
-                for(AuraInterface::modifierMap::iterator itr2 = increaseEnergyMod->begin(); itr2 != increaseEnergyMod->end(); itr2++)
-                    if(itr2->second->m_miscValue[0] == powerType) power += itr2->second->m_amount;
-            if(AuraInterface::modifierMap *increaseEnergyMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT))
-                for(AuraInterface::modifierMap::iterator itr2 = increaseEnergyMod->begin(); itr2 != increaseEnergyMod->end(); itr2++)
-                    if(itr2->second->m_miscValue[0] == powerType) power *= float(abs(itr2->second->m_amount))/100.f;
+            PowerUpdateCallback powerCallback;
+            powerCallback.Init(powerType, power);
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_ENERGY, &powerCallback);
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT, &powerCallback);
+            power = powerCallback.GetPower();
         }
 
         if(GetPower(powerType) > power)
             SetPower(powerType, power);
         SetMaxPower(powerType, power);
     }
+
+    if(hasMana) TriggerModUpdate(UF_UTYPE_REGEN);
 }
+
+class RegenUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_POWER_REGEN:
+            if(mod->m_miscValue[0] != _powerType)
+                return;
+            _baseRegen += mod->m_amount;
+            break;
+        case SPELL_AURA_MOD_POWER_REGEN_PERCENT:
+            if(mod->m_miscValue[0] != _powerType)
+                return;
+            _regenMod += _regenVal * ((float)mod->m_amount);
+            break;
+        case SPELL_AURA_MOD_MANA_REGEN_INTERRUPT:
+            _interruptMod += mod->m_amount;
+            if (_interruptMod > 100) _interruptMod = 100;
+            break;
+        }
+    }
+
+    void Init(uint8 powerType, float baseRegen, float regenVal, int32 interruptMod)
+    {
+        _powerType = powerType;
+        _baseRegen = baseRegen;
+        _regenVal = regenVal, _regenMod = 0.f;
+        _interruptMod = interruptMod;
+    }
+    
+    float getBaseRegen() { return _baseRegen; }
+    float getRegenValue() { return _regenVal + _regenMod; }
+    int32 getInterruptMod() { return _interruptMod; }
+
+    uint8 _powerType;
+    float _baseRegen, _regenVal, _regenMod;
+    int32 _interruptMod;
+};
 
 static uint32 baseRegenValues[POWER_TYPE_MAX] = { 0, 10, 5, 5, 250, 10, 0, 0, 0, 0 };
 void Unit::UpdateRegenValues()
 {
-    float base_regen = GetUInt32Value(UNIT_FIELD_BASE_MANA) * 0.01f;
-    if(base_regen)
+    float base_regen = 0.01f;
+    RegenUpdateCallback regenCallback;
+    if(base_regen *= GetUInt32Value(UNIT_FIELD_BASE_MANA))
     {
         float spirit_regen = sqrt(GetStat(STAT_INTELLECT));
 
@@ -541,81 +650,81 @@ void Unit::UpdateRegenValues()
         if(gtFloat *ratio = dbcManaRegenBase.LookupEntry((getClass()-1)*100+level-1))
             spirit_regen *= GetStat(STAT_SPIRIT)*ratio->val;
 
-        if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_REGEN))
-            for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
-                if(itr->second->m_miscValue[0] == POWER_TYPE_MANA)
-                    base_regen += itr->second->m_amount;
-        if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_REGEN_PERCENT))
-            for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
-                if(itr->second->m_miscValue[0] == POWER_TYPE_MANA)
-                    spirit_regen *= itr->second->m_amount;
+        regenCallback.Init(POWER_TYPE_MANA, base_regen, spirit_regen, 1);
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_REGEN, &regenCallback);
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_REGEN_PERCENT, &regenCallback);
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT, &regenCallback);
 
-        int32 interruptMod = 1;
-        if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT))
-            for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
-                interruptMod += itr->second->m_amount;
-
-        if (interruptMod > 100) interruptMod = 100;
-        SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER, base_regen + 0.001f + spirit_regen);
-        SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, base_regen + (spirit_regen * (interruptMod / 100.0f)));
+        SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER, regenCallback.getBaseRegen() + 0.001f + regenCallback.getRegenValue());
+        SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, regenCallback.getBaseRegen() + (regenCallback.getRegenValue() * (regenCallback.getInterruptMod() / 100.0f)));
     }
 
     if(uint8 powerType = getPowerType())
     {
         if(base_regen = baseRegenValues[powerType])
         {
-            int32 interruptMod = 1, regen_value = 0;
-            if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_REGEN))
-                for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
-                    if(itr->second->m_miscValue[0] == powerType)
-                        regen_value += itr->second->m_amount;
-            if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_REGEN_PERCENT))
-                for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
-                    if(itr->second->m_miscValue[0] == powerType)
-                        base_regen *= itr->second->m_amount;
+            regenCallback.Init(powerType, base_regen, 0.f, 1);
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_REGEN, &regenCallback);
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_REGEN_PERCENT, &regenCallback);
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT, &regenCallback);
 
-            if(AuraInterface::modifierMap *regenMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT))
-                for(AuraInterface::modifierMap::iterator itr = regenMod->begin(); itr != regenMod->end(); itr++)
-                    interruptMod += itr->second->m_amount;
-            if (interruptMod > 100)
-                interruptMod = 100;
-
-            SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER+powerType, regen_value+base_regen + 0.001f);
-            SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER+powerType, regen_value+float2int32(floor(base_regen * (interruptMod / 100.f))));
+            SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER+powerType, regenCallback.getRegenValue()+regenCallback.getBaseRegen() + 0.001f);
+            SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER+powerType, regenCallback.getRegenValue()+float2int32(floor(regenCallback.getBaseRegen() * (regenCallback.getInterruptMod() / 100.f))));
         }
     }
 }
 
+class AttackTimeUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_ATTACKSPEED:
+            for(uint8 i = 0; i < 3; ++i)
+                attackSpeedMod[i] += ((float)abs(mod->m_amount))/100.f;
+            break;
+        case SPELL_AURA_MOD_MELEE_HASTE:
+            attackSpeedMod[MELEE] += ((float)abs(mod->m_amount))/100.f;
+            attackSpeedMod[OFFHAND] += ((float)abs(mod->m_amount))/100.f;
+            break;
+        case SPELL_AURA_MOD_RANGED_HASTE:
+            attackSpeedMod[RANGED] += ((float)abs(mod->m_amount))/100.f;
+            break;
+        }
+    }
+
+    void Init(Unit *unit)
+    {
+        for(uint8 i = 0; i < 3; ++i)
+            attackSpeedMod[i] = 1.f;
+    }
+
+    float getAttackSpeedMod(uint8 index) { return attackSpeedMod[index]; }
+
+    float attackSpeedMod[3];
+};
+
 void Unit::UpdateAttackTimeValues()
 {
+    AttackTimeUpdateCallback attackTimeCallback;
+    attackTimeCallback.Init(this);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_ATTACKSPEED, &attackTimeCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MELEE_HASTE, &attackTimeCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RANGED_HASTE, &attackTimeCallback);
+
     uint8 updateMask = 0x00;
     for(uint8 i = 0; i < 3; i++)
     {
         uint32 baseAttack = GetBaseAttackTime(i), attackTime = GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i);
         if(baseAttack || i == 0) // Force an attack time for mainhand
         {
-            float attackSpeedMod = 1.0f;
-            AuraInterface::modifierMap *attackTimeMod = NULL;
-            if(attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKSPEED))
-                for(AuraInterface::modifierMap::iterator itr = attackTimeMod->begin(); itr != attackTimeMod->end(); itr++)
-                    attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
-
-            if(i == RANGED) attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_HASTE);
-            else attackTimeMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_HASTE);
-            if(attackTimeMod)
-            {
-                for(AuraInterface::modifierMap::iterator itr = attackTimeMod->begin(); itr != attackTimeMod->end(); itr++)
-                    attackSpeedMod += float(abs(itr->second->m_amount))/100.f;
-            }
-
+            float attackSpeedMod = attackTimeCallback.getAttackSpeedMod(i);
             if(IsPlayer() && i == RANGED) attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_RANGED_HASTE)/100.f));
             else if(IsPlayer()) attackSpeedMod *= (1.f+(castPtr<Player>(this)->CalcRating(PLAYER_RATING_MODIFIER_MELEE_HASTE)/100.f));
 
-            baseAttack = float2int32(floor(float(baseAttack)/attackSpeedMod));
-            if(baseAttack < 500)
-                baseAttack = 500;
-            else if(baseAttack > 12000)
-                baseAttack = 12000;
+            baseAttack = std::min<uint32>(12000, std::max<uint32>(500, float2int32(floor(float(baseAttack)/attackSpeedMod))));
         }
 
         SetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i, baseAttack);
@@ -633,9 +742,67 @@ void Unit::UpdateAttackTimeValues()
     }
 }
 
+class AttackDamageUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DAMAGE_DONE:
+            if((mod->m_miscValue[0] & 0x01) == 0)
+                return;
+
+            for(uint8 i = 0; i < 3; ++i)
+                flatMod[i] += mod->m_amount;
+            break;
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
+            {
+                if(mod->m_spellInfo->EquippedItemClass != -1)
+                {
+                    for(uint8 i = 0; i < 3; ++i)
+                        if(equippedWpnMask[i] == mod->m_spellInfo->EquippedItemClass)
+                            pctMod[i] += mod->m_amount;
+                    return;
+                }
+
+                if((mod->m_miscValue[0] & 0x01) == 0)
+                    return;
+                for(uint8 i = 0; i < 3; ++i)
+                    pctMod[i] += mod->m_amount;
+            }break;
+        }
+    }
+
+    void Init(Unit *unit)
+    {
+        Item *item = NULL;
+        for(uint32 i = 0; i < 3; ++i)
+        {
+            flatMod[i] = 0;
+            pctMod[i] = 100.f;
+            equippedWpnMask[i] = -1;
+            if(unit->IsPlayer() && (item = castPtr<Player>(unit)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i)))
+                equippedWpnMask[i] = item->GetProto()->SubClass;
+        }
+    }
+
+    int32 getFlatMod(uint8 index) { return flatMod[index]; }
+    float getPctMod(uint8 index) { return pctMod[index]; }
+
+    int32 flatMod[3];
+    float pctMod[3];
+    int32 equippedWpnMask[3];
+};
+
 static uint32 minAttackDamages[3] = { UNIT_FIELD_MINDAMAGE, UNIT_FIELD_MINOFFHANDDAMAGE, UNIT_FIELD_MINRANGEDDAMAGE };
 void Unit::UpdateAttackDamageValues()
 {
+    AttackDamageUpdateCallback attackDamageCallback;
+    attackDamageCallback.Init(this);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_DONE, &attackDamageCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE, &attackDamageCallback);
+
     uint32 attackPower = CalculateAttackPower(), rangedAttackPower = CalculateRangedAttackPower();
     for(uint8 i = 0; i < 3; i++)
     {
@@ -686,44 +853,18 @@ void Unit::UpdateAttackDamageValues()
         }
 
         // Add up our damage done modificiation auras
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
-        {
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            {
-                if((itr->second->m_miscValue[0] & 0x01) == 0)
-                    continue;
-                baseMinDamage += itr->second->m_amount;
-                baseMaxDamage += itr->second->m_amount;
-            }
-        }
+        baseMinDamage += attackDamageCallback.getFlatMod(i);
+        baseMaxDamage += attackDamageCallback.getFlatMod(i);
 
         // Percentage based damage done auras
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE))
-        {
-            float modifier = 100.f;
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            {
-                if(IsPlayer() && itr->second->m_spellInfo->EquippedItemClass != -1)
-                {
-                    if(Item *item = castPtr<Player>(this)->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+i))
-                        if(itr->second->m_spellInfo->EquippedItemClass == item->GetProto()->SubClass)
-                            modifier += itr->second->m_amount;
-                    continue;
-                }
-
-                if(itr->second->m_miscValue[0] & 0x01)
-                    modifier += itr->second->m_amount;
-            }
-
-            modifier /= 100.f;
-            baseMinDamage *= modifier;
-            baseMaxDamage *= modifier;
-        }
+        baseMinDamage *= (attackDamageCallback.getPctMod(i)/100.f);
+        baseMaxDamage *= (attackDamageCallback.getPctMod(i)/100.f);
 
         if(i == OFFHAND) // Offhand weapons do 50% of actual damage, dual wield spec they do 75%
         {
             float modifier = HasDummyAura(SPELL_HASH_DUAL_WIELD_SPECIALIZATION) ? 0.75f : 0.5f;
-            baseMinDamage *= modifier, baseMaxDamage *= modifier;
+            baseMinDamage *= modifier;
+            baseMaxDamage *= modifier;
         }
 
         SetFloatValue(minAttackDamages[i], baseMinDamage);
@@ -731,98 +872,136 @@ void Unit::UpdateAttackDamageValues()
     }
 }
 
+class ResistanceUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        for(uint8 s = 0; s < MAX_RESISTANCE; ++s)
+        {
+            switch(mod->m_type)
+            {
+            case SPELL_AURA_MOD_RESISTANCE:
+                {
+                    if(mod->m_miscValue[0] & (1 << s))
+                    {
+                        if(mod->m_amount > 0)
+                            resPos[s] += mod->m_amount;
+                        else resNeg[s] -= mod->m_amount;
+                    }
+                }break;
+            case SPELL_AURA_MOD_RESISTANCE_PCT:
+                {
+                    if(mod->m_miscValue[0] & (1 << s))
+                    {
+                        if(mod->m_amount > 100)
+                            bonusPos[s] += mod->m_amount-100;
+                        else bonusNeg[s] += 100-mod->m_amount;
+                    }
+                }break;
+            case SPELL_AURA_MOD_BASE_RESISTANCE:
+                {
+                    if(mod->m_miscValue[0] & (1 << s))
+                    {
+                        if(mod->m_amount > 0)
+                            basePos[s] += mod->m_amount;
+                        else baseNeg[s] -= mod->m_amount;
+                    }
+                }break;
+            case SPELL_AURA_MOD_BASE_RESISTANCE_PCT:
+                {
+                    if(mod->m_miscValue[0] & (1 << s))
+                    {
+                        if(mod->m_amount > 100)
+                            baseBonusPos[s] += mod->m_amount-100;
+                        else baseBonusNeg[s] += 100-mod->m_amount;
+                    }
+                }break;
+            case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
+                {
+                    if(mod->m_miscValue[0] & (1 << s))
+                        excluseRes[s] = std::max<int32>(excluseRes[s], mod->m_amount);
+                }break;
+            case SPELL_AURA_MOD_RESISTANCE_OF_STAT_PERCENT:
+                {
+                    if(mod->m_miscValue[0] & (1 << s))
+                        resFromStat[s][mod->m_miscValue[1]] += mod->m_amount;
+                }break;
+            }
+        }
+    }
+
+    void Init(Unit *unit)
+    {
+        for(uint8 s = 0; s < MAX_STAT; ++s)
+            statCache[s] = unit->GetStat(s);
+        for(uint8 i = 0; i < MAX_RESISTANCE; ++i)
+        {
+            startRes[i] = unit->GetBonusResistance(i);
+            basePos[i] = resPos[i] = resNeg[i] = baseNeg[i] = excluseRes[i] = 0;
+            baseBonusPos[i] = baseBonusNeg[i] = bonusPos[i] = bonusNeg[i] = 100.f;
+            for(uint8 s = 0; s < MAX_STAT; ++s)
+                resFromStat[i][s] = 0;
+        }
+    }
+
+    uint32 GetTotalResist(uint8 res)
+    {
+        // Get our base resist: pos + neg
+        int32 resist = basePos[res]+baseNeg[res];
+        // Multiply base by % modifiers
+        if(resist <= 0) // If base is zero or negative, just set it to zero
+            resist = 0; // Else modify base by % values
+        else resist = float2int32((((float)resist) * (baseBonusPos[res]/100.f)) / (baseBonusNeg[res]/100.f));
+        int32 modResist = startRes[res] + resPos[res] + resNeg[res];
+        if(modResist <= 0) // If base is zero or negative, just set it to zero
+            modResist = 0; // Else modify base by % values
+        else modResist = float2int32((((float)modResist) * (bonusPos[res]/100.f)) / (bonusNeg[res]/100.f));
+        resist += modResist;
+        for(uint8 i = 0; i < MAX_STAT; ++i)
+            resist += resFromStat[res][i] * statCache[i];
+        if(resist < excluseRes[res])
+            resist = excluseRes[res];
+        return resist;
+    }
+
+    uint32 GetPosResist(uint8 res)
+    {
+        int32 resist = float2int32(((float)basePos[res]) * (fabs(baseBonusPos[res])/100.f)) + float2int32(((float)(startRes[res]+resPos[res])) * (fabs(bonusPos[res])/100.f));
+        for(uint8 i = 0; i < MAX_STAT; ++i)
+            resist += resFromStat[res][i] * statCache[i];
+        if(resist < excluseRes[res])
+            resist = excluseRes[res];
+        return std::max<int32>(0, resist);
+    }
+
+    uint32 GetNegResist(uint8 res)
+    {
+        int32 resist = float2int32(((float)baseNeg[res]) * (((float)baseBonusNeg[res])/100.f)) + float2int32(((float)resNeg[res]) * ((fabs(bonusNeg[res]))/100.f));
+        return std::max<int32>(0, resist);
+    }
+
+    int32 startRes[MAX_RESISTANCE], basePos[MAX_RESISTANCE], baseNeg[MAX_RESISTANCE], resPos[MAX_RESISTANCE], resNeg[MAX_RESISTANCE], excluseRes[MAX_RESISTANCE];
+    float baseBonusPos[MAX_RESISTANCE], baseBonusNeg[MAX_RESISTANCE], bonusPos[MAX_RESISTANCE], bonusNeg[MAX_RESISTANCE];
+    int32 statCache[MAX_STAT], resFromStat[MAX_RESISTANCE][MAX_STAT];
+};
+
 void Unit::UpdateResistanceValues()
 {
-    int32 basepos,baseneg,pos,neg;
-    AuraInterface::modifierMap *resistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE),
-        *ResistPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE_PCT),
-        *baseResistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_RESISTANCE),
-        *baseResistPCTMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BASE_RESISTANCE_PCT),
-        *exclusiveResistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE),
-        *statbasedResistMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RESISTANCE_OF_STAT_PERCENT);
+    ResistanceUpdateCallback resistanceCallback;
+    resistanceCallback.Init(this);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RESISTANCE, &resistanceCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RESISTANCE_PCT, &resistanceCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_BASE_RESISTANCE, &resistanceCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_BASE_RESISTANCE_PCT, &resistanceCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE, &resistanceCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RESISTANCE_OF_STAT_PERCENT, &resistanceCallback);
+
     for(uint8 s = 0; s < MAX_RESISTANCE; s++)
     {
-        basepos=baseneg=pos=neg=0;
-        if(baseResistMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = baseResistMod->begin(); itr != baseResistMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] & (1 << s))
-                {
-                    if(itr->second->m_amount > 0)
-                        basepos += itr->second->m_amount;
-                    else baseneg -= itr->second->m_amount;
-                }
-            }
-        }
-
-        if(baseResistPCTMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = baseResistPCTMod->begin(); itr != baseResistPCTMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] & (1 << s))
-                {
-                    if(itr->second->m_amount > 0)
-                        basepos = float(basepos)*(float(itr->second->m_amount)/100.0f);
-                    else baseneg = float(baseneg)*(float(abs(itr->second->m_amount))/100.0f);
-                }
-            }
-        }
-
-        pos += GetBonusResistance(s);
-        if(resistMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = resistMod->begin(); itr != resistMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] & (1 << s))
-                {
-                    if(itr->second->m_amount > 0)
-                        pos += itr->second->m_amount;
-                    else neg -= itr->second->m_amount;
-                }
-            }
-        }
-
-        if(ResistPCTMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = ResistPCTMod->begin(); itr != ResistPCTMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] & (1 << s))
-                {
-                    if(itr->second->m_amount > 0)
-                        pos = float(pos)*(float(itr->second->m_amount)/100.0f);
-                    else neg = float(neg)*(float(abs(itr->second->m_amount))/100.0f);
-                }
-            }
-        }
-
-        if(statbasedResistMod && statbasedResistMod->size())
-        {
-            float statMod[5] = {0,0,0,0,0};
-            for(AuraInterface::modifierMap::iterator itr = statbasedResistMod->begin(); itr != statbasedResistMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1 << s))
-                    statMod[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
-            for(uint8 i = 0; i < 5; i++)
-                pos += GetStat(i)*statMod[i];
-        }
-
-        if(exclusiveResistMod)
-        {
-            for(AuraInterface::modifierMap::iterator itr = exclusiveResistMod->begin(); itr != exclusiveResistMod->end(); itr++)
-            {
-                if(itr->second->m_miscValue[0] & (1 << s))
-                {
-                    if(itr->second->m_amount >= 0)
-                        pos = ((pos < itr->second->m_amount) ? itr->second->m_amount : pos);
-                    else neg = ((neg > itr->second->m_amount) ? itr->second->m_amount : neg);
-                }
-            }
-        }
-
-        int32 res = basepos+baseneg+pos+neg;
-        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, res > 0 ? res : 0);
-        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+s, pos);
-        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+s, neg);
+        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, resistanceCallback.GetTotalResist(s));
+        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+s, resistanceCallback.GetPosResist(s));
+        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+s, resistanceCallback.GetNegResist(s));
     }
 }
 

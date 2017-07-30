@@ -208,13 +208,21 @@ public:
     typedef Loki::AssocVector<uint16, Modifier*> modifierMap;
     typedef Loki::AssocVector<uint32, modifierMap > modifierTypeMap;
 
-    /// !DEPRECATED NOT THREAD SAFE
-    bool HasAurasWithModType(uint32 modType) { return false; }
+    bool HasAurasWithModType(uint32 modType)
+    {
+        bool ret = false;
+        m_modLock.Acquire();
+        if(!m_modifiersByModType.empty() && m_modifiersByModType.find(modType) == m_modifiersByModType.end())
+            ret = !m_modifiersByModType[modType].empty();
+        m_modLock.Release();
+        return ret;
+    }
+
     /// !DEPRECATED NOT THREAD SAFE
     modifierMap *GetModMapByModType(uint32 modType) { return NULL; }
 
     // Used for traversing mod map, operator()(Modifier *mod) for operation
-    class ModCallback { public: virtual void operator()(Modifier *mod) = 0; virtual void postTraverse() {}; };
+    class ModCallback { public: virtual void operator()(Modifier *mod) = 0; virtual void postTraverse(uint32 modType) {}; };
 
     // Push our callback on all objects inside our modMap
     void TraverseModMap(uint32 modType, ModCallback *callBack);
