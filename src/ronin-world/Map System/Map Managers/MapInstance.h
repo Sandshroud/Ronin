@@ -100,7 +100,6 @@ public:
     {
         Guard guard(poolLocks);
         mFullPoolSize = mPoolSize = poolSize;
-        poolIterator = mPool.end();
         mPoolCounter = 0;
         if(mFullPoolSize == 1) // Don't initialize the single stack
             return;
@@ -169,21 +168,12 @@ public:
                     taskPool->AddTask(new StoragePoolTask<T>(targetPool, msTime, updateDiff));
                 else
                 {
-                    poolIterator = targetPool->begin();
-                    while(true)
+                    std::for_each(targetPool->begin(), targetPool->end(), [this, msTime, updateDiff](T *elem)
                     {
-                        poolLocks.Acquire();
-                        if(poolIterator == targetPool->end())
-                            break;
-
-                        T *elem = *poolIterator;
-                        ++poolIterator;
-                        poolLocks.Release();
-
                         if(elem->IsActiveObject() && !elem->IsActivated())
                             elem->InactiveUpdate(msTime, updateDiff);
                         else elem->Update(msTime, updateDiff);
-                    }
+                    } );
                 }
             }
         }
@@ -209,12 +199,12 @@ public:
     }
 
     // Add our object to the stack, return value is a pool identifier
-    uint8 Add(T *obj, uint8 forcedPool = 0)
+    void Add(T *obj, uint8 forcedPool = 0)
     {
         Guard guard(poolLocks);
-        std::map<T*, uint32>::iterator checkItr;
-        if((checkItr = includeCheck.find(obj)) != includeCheck.end())
-            return checkItr->second;
+        std::map<T*, uint8>::iterator checkItr;
+        if((checkItr = _poolTracking.find(obj)) != _poolTracking.end())
+            return;
 
         uint8 pool = 0xFF;
         POOL_ADD(mPool, obj);
@@ -238,35 +228,43 @@ public:
             POOL_ADD(mPoolStack[pool], obj);
             m_poolSizes[pool] = mPoolStack[pool].size();
         }
-        includeCheck.insert(std::make_pair(obj, pool));
-        return pool;
+        _poolTracking.insert(std::make_pair(obj, pool));
     }
 
     // Remove our object from the stack, poolID is needed to remove from the correct stack quickly
-    void Remove(T *obj, uint8 poolId)
+    void QueueRemoval(T *obj)
     {
         Guard guard(poolLocks);
-        PoolSet::iterator itr;
-        if((POOL_FIND(itr, mPool, obj)) != mPool.end())
-        {
-            // check iterator
-            if( m_updating && poolIterator == itr )
-                poolIterator = mPool.erase(itr);
-            else mPool.erase(itr);
-        }
-        includeCheck.erase(obj);
+        std::map<T*, uint8>::iterator checkItr;
+        if((checkItr = _poolTracking.find(obj)) == _poolTracking.end())
+            return;
+        uint8 poolId = checkItr->second;
+        _poolTracking.erase(checkItr);
+        _pendingRemovals.push_back(std::make_pair(obj, poolId));
+    }
 
-        if(mPoolStack && poolId != 0xFF)
+    // Delayed removal of objects
+    void ProcessRemovals()
+    {
+        std::for_each(_pendingRemovals.begin(), _pendingRemovals.end(), [this](std::pair<T*, uint8> pair)
         {
-            if((POOL_FIND(itr, mPoolStack[poolId], obj)) != mPoolStack[poolId].end())
+            T *obj = pair.first;
+            uint8 poolId = pair.second;
+
+            PoolSet::iterator itr;
+            if((POOL_FIND(itr, mPool, obj)) != mPool.end())
+                mPool.erase(itr);
+
+            if(mPoolStack && poolId != 0xFF)
             {
-                // check iterator
-                if( m_updating && poolIterator == itr )
-                    poolIterator = mPoolStack[poolId].erase(itr);
-                else mPoolStack[poolId].erase(itr);
-                m_poolSizes[poolId] = mPoolStack[poolId].size();
+                if((POOL_FIND(itr, mPoolStack[poolId], obj)) != mPoolStack[poolId].end())
+                {
+                    mPoolStack[poolId].erase(itr);
+                    m_poolSizes[poolId] = mPoolStack[poolId].size();
+                }
             }
-        }
+        } );
+        _pendingRemovals.clear();
     }
 
     typename PoolSet::iterator begin() { return mPool.begin(); };
@@ -276,9 +274,10 @@ private:
 
     Mutex poolLocks;
     bool m_updating;
-    std::map<T*, uint32> includeCheck;
+    std::map<T*, uint8> _poolTracking;
+    std::vector<std::pair<T*, uint8>> _pendingRemovals;
+
     PoolSet mPool, *mPoolStack;
-    typename PoolSet::iterator poolIterator;
     std::map<uint32, uint32> m_poolSizes;
     uint32 mPoolCounter, mFullPoolSize, mPoolSize, *mPoolLastUpdateStack;
 };

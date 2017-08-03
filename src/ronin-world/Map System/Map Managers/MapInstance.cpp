@@ -333,8 +333,7 @@ void MapInstance::PushObject(WorldObject* obj)
                 Creature *creature = castPtr<Creature>(obj);
                 m_CreatureStorage.insert(std::make_pair(obj->GetGUID(), creature));
                 TRIGGER_INSTANCE_EVENT( this, OnCreaturePushToWorld )( creature );
-                UnitPathSystem *path = creature->GetMovementInterface()->GetPath();
-                path->setPathPool(mUnitPathPool.Add(path));
+                mUnitPathPool.Add(creature->GetMovementInterface()->GetPath());
             }break;
 
         case HIGHGUID_TYPE_GAMEOBJECT:
@@ -361,23 +360,19 @@ void MapInstance::PushObject(WorldObject* obj)
         case TYPEID_UNIT:
             {
                 Creature *cObj = castPtr<Creature>(obj);
-                uint8 poolID = GetPoolOverrideForZone(obj->GetZoneId());
-                poolID = mCreaturePool.Add(cObj, poolID);
-                cObj->AssignCreaturePool(poolID);
+                mCreaturePool.Add(cObj, GetPoolOverrideForZone(obj->GetZoneId()));
             }break;
 
         case TYPEID_GAMEOBJECT:
             {
                 GameObject *gObj = castPtr<GameObject>(obj);
-                uint8 poolID = mGameObjectPool.Add(gObj);
-                gObj->AssignGameObjectPool(poolID);
+                mGameObjectPool.Add(gObj, GetPoolOverrideForZone(obj->GetZoneId()));
             }break;
 
         case TYPEID_DYNAMICOBJECT:
             {
                 DynamicObject *dObj = castPtr<DynamicObject>(obj);
-                uint8 poolID = mDynamicObjectPool.Add(dObj);
-                dObj->AssignDynamicObjectPool(poolID);
+                mDynamicObjectPool.Add(dObj, GetPoolOverrideForZone(obj->GetZoneId()));
             }break;
         }
         m_poolLock.Release();
@@ -454,22 +449,19 @@ void MapInstance::RemoveObject(WorldObject* obj)
     case TYPEID_UNIT:
         {
             Creature *cObj = castPtr<Creature>(obj);
-            mCreaturePool.Remove(cObj, cObj->GetCreaturePool());
-            cObj->AssignCreaturePool(0xFF);
+            mCreaturePool.QueueRemoval(cObj);
         }break;
 
     case TYPEID_GAMEOBJECT:
         {
             GameObject *gObj = castPtr<GameObject>(obj);
-            mGameObjectPool.Remove(gObj, gObj->GetGameObjectPool());
-            gObj->AssignGameObjectPool(0xFF);
+            mGameObjectPool.QueueRemoval(gObj);
         }break;
 
     case TYPEID_DYNAMICOBJECT:
         {
             DynamicObject *dObj = castPtr<DynamicObject>(obj);
-            mDynamicObjectPool.Remove(dObj, dObj->GetDynamicObjectPool());
-            dObj->AssignDynamicObjectPool(0xFF);
+            mDynamicObjectPool.QueueRemoval(dObj);
         }break;
     }
     m_poolLock.Release();
@@ -498,8 +490,7 @@ void MapInstance::RemoveObject(WorldObject* obj)
                 m_CreatureStorage.erase(obj->GetGUID());
                 TRIGGER_INSTANCE_EVENT( this, OnCreatureRemoveFromWorld )( castPtr<Creature>(obj) );
                 UnitPathSystem *path = castPtr<Creature>(obj)->GetMovementInterface()->GetPath();
-                mUnitPathPool.Remove(path, path->getPathPool());
-                path->setPathPool(0xFF);
+                mUnitPathPool.QueueRemoval(path);
             }break;
 
         case HIGHGUID_TYPE_CORPSE:
@@ -1703,16 +1694,19 @@ void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformCreatureUpdates(uint32 msTime, uint32 uiDiff)
 {
     mCreaturePool.Update(msTime, uiDiff, _updatePool);
+    mCreaturePool.ProcessRemovals();
 }
 
 void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
     mGameObjectPool.Update(msTime, uiDiff, _updatePool);
+    mGameObjectPool.ProcessRemovals();
 }
 
 void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
     mDynamicObjectPool.Update(msTime, uiDiff, _updatePool);
+    mDynamicObjectPool.ProcessRemovals();
 }
 
 void MapInstance::_PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff)
@@ -1862,6 +1856,11 @@ void MapInstance::_PerformPendingRemovals()
         if(MapCell *cell = GetCell(pair.first, pair.second))
             cell->ProcessRemovals();
     }
+
+    mCreaturePool.ProcessRemovals();
+    mGameObjectPool.ProcessRemovals();
+    mDynamicObjectPool.ProcessRemovals();
+    mUnitPathPool.ProcessRemovals();
 
     while(!_pendingRemoval.empty())
     {

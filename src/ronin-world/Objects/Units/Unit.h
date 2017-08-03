@@ -531,10 +531,10 @@ public:
         return result;
     }
 
-    int32 GetDamageDoneMod(uint8 school);
-    float GetDamageDonePctMod(uint8 school);
-    int32 GetHealingDoneMod();
-    float GetHealingDonePctMod();
+    int32 GetDamageDoneMod(uint8 school, bool forceCalc = false, int32 *negativeOut = NULL);
+    int32 GetHealingDoneMod(bool forceCalc = false, int32 *negativeOut = NULL);
+    float GetDamageDonePctMod(uint8 school, bool forceCalc = false);
+    float GetHealingDonePctMod(bool forceCalc = false);
 
     uint32 GetMechanicDispels(uint8 mechanic);
     float GetMechanicResistPCT(uint8 mechanic);

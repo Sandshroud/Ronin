@@ -290,9 +290,6 @@ public:
 
     float GetAggroRange();
 
-    RONIN_INLINE uint8 GetCreaturePool() { return m_creaturePool; }
-    RONIN_INLINE void AssignCreaturePool(uint8 pool) { m_creaturePool = pool; }
-
     void Respawn(bool addrespawnevent, bool free_guid);
 
     // AIInterface
@@ -451,8 +448,6 @@ public:
     ItemPrototype *GetShieldProto() { return m_shieldProto; }
 
 public: // values
-    uint8 m_creaturePool;
-
     bool m_isGuard;
     bool b_has_shield;
     bool m_corpseEvent;

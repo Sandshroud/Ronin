@@ -31,7 +31,6 @@ GameObject::GameObject(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount) : 
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
 
     counter = 0;
-    m_gameobjectPool = 0xFF;
     bannerslot = bannerauraslot = -1;
     m_summonedGo = false;
     invisible = false;

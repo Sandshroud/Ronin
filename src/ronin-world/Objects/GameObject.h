@@ -559,9 +559,6 @@ public:
 
     virtual void Reactivate();
 
-    RONIN_INLINE uint8 GetGameObjectPool() { return m_gameobjectPool; }
-    RONIN_INLINE void AssignGameObjectPool(uint8 pool) { m_gameobjectPool = pool; }
-
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }
 
@@ -678,7 +675,6 @@ public:
 protected:
     bool m_summonedGo, m_deleted;
     GameObjectInfo *pInfo;
-    uint8 m_gameobjectPool;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX];
 
     float m_triggerRange;

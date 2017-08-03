@@ -3,7 +3,9 @@
 
 float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
-UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0), m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0), pathPoolId(0xFF)
+UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
+m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
+srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f)
 {
 
 }

@@ -1922,10 +1922,12 @@ DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcMeleeCrit);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcMeleeCritBase);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCrit);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellCritBase);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcBaseHPForClass);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcBaseMPForClass);
+DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPPerStam);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegen);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegenBase);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellScalar);
-DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcHPPerStam);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 
 class TaskList;

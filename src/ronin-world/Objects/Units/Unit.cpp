@@ -94,6 +94,7 @@ void Unit::Init()
     // Trigger a stat update
     TriggerModUpdate(UF_UTYPE_STATS);
     TriggerModUpdate(UF_UTYPE_ATTACKTIME);
+    TriggerModUpdate(UF_UTYPE_POWERCOST);
 
     // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
@@ -342,53 +343,51 @@ public:
                     for(uint8 s = 0; s < MAX_STAT; ++s)
                     {
                         if(positive)
-                            pos[s] += mod->m_amount;
-                        else neg[s] -= mod->m_amount;
+                            statPos[s] += mod->m_amount;
+                        else statNeg[s] -= mod->m_amount;
                     }
                 }
                 else if(mod->m_miscValue[1] < MAX_STAT)
                 {
                     if(positive)
-                        pos[mod->m_miscValue[1]] += mod->m_amount;
-                    else neg[mod->m_miscValue[1]] -= mod->m_amount;
+                        statPos[mod->m_miscValue[1]] += mod->m_amount;
+                    else statNeg[mod->m_miscValue[1]] -= mod->m_amount;
                 }
             }break;
         case SPELL_AURA_MOD_PERCENT_STAT:
             {
-                bool positive = mod->m_amount > 0;
                 if(mod->m_miscValue[1] == -1)
                 {
                     for(uint8 s = 0; s < MAX_STAT; ++s)
                     {
-                        if(positive)
-                            modpos[s] += (float(mod->m_amount)/100.0f);
-                        else modneg[s] -= (float(mod->m_amount)/100.0f);
+                        if(mod->m_amount > 0)
+                            modPos[s] += mod->m_amount;
+                        else modNeg[s] -= mod->m_amount;
                     }
                 }
                 else if(mod->m_miscValue[1] < MAX_STAT)
                 {
-                    if(positive)
-                        modpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
-                    else modneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+                    if(mod->m_amount > 0)
+                        modPos[mod->m_miscValue[1]] += mod->m_amount;
+                    else modNeg[mod->m_miscValue[1]] -= mod->m_amount;
                 }
             }break;
         case SPELL_AURA_MOD_TOTAL_STAT_PERCENTAGE:
             {
-                bool positive = mod->m_amount > 0;
                 if(mod->m_miscValue[1] == -1)
                 {
                     for(uint8 s = 0; s < MAX_STAT; ++s)
                     {
-                        if(positive)
-                            tmodpos[s] += (float(mod->m_amount)/100.0f);
-                        else tmodneg[s] -= (float(mod->m_amount)/100.0f);
+                        if(mod->m_amount > 0)
+                            modTPos[s] += mod->m_amount;
+                        else modTNeg[s] -= mod->m_amount;
                     }
                 }
                 else if(mod->m_miscValue[1] < MAX_STAT)
                 {
-                    if(positive)
-                        tmodpos[mod->m_miscValue[1]] += (float(mod->m_amount)/100.0f);
-                    else tmodneg[mod->m_miscValue[1]] -= (float(mod->m_amount)/100.0f);
+                    if(mod->m_amount > 0)
+                        modTPos[mod->m_miscValue[1]] += mod->m_amount;
+                    else modTNeg[mod->m_miscValue[1]] -= mod->m_amount;
                 }
             }break;
         }
@@ -398,37 +397,45 @@ public:
     {
         for(uint8 s = 0; s < MAX_STAT; s++)
         {
-            pos[s] = unit->GetBonusStat(s);
-            neg[s] = res[s] = 0;
-            modpos[s] = modneg[s] = 1.f;
-            tmodpos[s] = tmodneg[s] = 0.f;
+            statPos[s] = statNeg[s] = 0;
+            modPos[s] = modNeg[s] = modTPos[s] = modTNeg[s] = 0.f;
 
-            basepos[s] = stats ? stats->baseStat[s] : level*25;
+            statBase[s] = stats ? stats->baseStat[s] : level*25;
             if(stats && stats->level < level)
-                basepos[s] += (level-stats->level)*15;
+                statBase[s] += (level-stats->level)*15;
             if(unit->IsCreature() && s == STAT_STRENGTH)
-                basepos[s] *= float2int32(ctrMod * (strClass ? 1.f : 0.5f));
+                statBase[s] *= float2int32(ctrMod * (strClass ? 1.f : 0.5f));
             else if(unit->IsCreature() && s == STAT_AGILITY)
-                basepos[s] *= float2int32(ctrMod * (strClass ? 0.5f : 1.0f));
+                statBase[s] *= float2int32(ctrMod * (strClass ? 0.5f : 1.0f));
+            statBase[s] += unit->GetBonusStat(s);
         }
     }
 
-    // Calculate stats after every traverse
-    void postTraverse(uint32 modType)
+    int32 GetStatValue(uint8 stat, int32 &posOut, int32 &negOut)
     {
-        for(uint8 s = 0; s < MAX_STAT; s++)
+        int32 base = statBase[stat];
+        int32 statMod = (posOut = statPos[stat]) - (negOut = statNeg[stat]);
+        if(statMod <= 0)
+            statMod = 0;
+        else
         {
-            pos[s] *= modpos[s];
-            neg[s] *= modneg[s];
-            int32 total = (basepos[s] + pos[s]) - neg[s];
-            pos[s] += tmodpos[s] * total;
-            neg[s] += tmodneg[s] * total;
-            res[s] = (basepos[s] + pos[s]) - neg[s];
+            posOut += float2int32(statMod*(modPos[stat]/100.f));
+            negOut += float2int32(statMod*(modNeg[stat]/100.f));
         }
+
+        int32 fullStat = base + (posOut - negOut);
+        if(fullStat > 0)
+        {
+            posOut += float2int32(statMod*(modTPos[stat]/100.f));
+            negOut += float2int32(statMod*(modTNeg[stat]/100.f));
+        }
+
+        return base + (posOut - negOut);
     }
 
-    int32 basepos[MAX_STAT], pos[MAX_STAT], neg[MAX_STAT], res[MAX_STAT];
-    float modpos[MAX_STAT], modneg[MAX_STAT], tmodpos[MAX_STAT], tmodneg[MAX_STAT];
+    int32 statBase[MAX_STAT];
+    int32 statPos[MAX_STAT], statNeg[MAX_STAT];
+    float modPos[MAX_STAT], modNeg[MAX_STAT], modTPos[MAX_STAT], modTNeg[MAX_STAT];
 };
 
 void Unit::UpdateStatValues()
@@ -453,9 +460,10 @@ void Unit::UpdateStatValues()
 
     for(uint8 s = 0; s < MAX_STAT; s++)
     {
-        SetUInt32Value(UNIT_FIELD_STATS+s, std::max<int32>(0, valueCallback.res[s]));
-        SetUInt32Value(UNIT_FIELD_POSSTATS+s, valueCallback.pos[s]);
-        SetUInt32Value(UNIT_FIELD_NEGSTATS+s, valueCallback.neg[s]);
+        int32 pos, neg;
+        SetUInt32Value(UNIT_FIELD_STATS+s, valueCallback.GetStatValue(s, pos, neg));
+        SetUInt32Value(UNIT_FIELD_POSSTATS+s, pos);
+        SetUInt32Value(UNIT_FIELD_NEGSTATS+s, neg);
     }
 
     TriggerModUpdate(UF_UTYPE_HEALTH);
@@ -493,7 +501,7 @@ public:
     void Init(Unit *unit, UnitBaseStats *stats)
     {
         bonusBaseHP = bonusHp = 0;
-        baseHp = stats ? stats->baseHP*unit->GetHealthMod() : 20;
+        baseHp = stats ? stats->baseHP->val*unit->GetHealthMod() : 20;
         int32 stam = unit->GetStat(STAT_STAMINA), baseStam = stam < 20 ? stam : 20;
         if(unit->IsCreature() && (castPtr<Creature>(unit)->isCritter() || castPtr<Creature>(unit)->isTrainingDummy()))
             baseStam = 1;
@@ -534,59 +542,70 @@ class PowerUpdateCallback : public AuraInterface::ModCallback
 public:
     virtual void operator()(Modifier *mod)
     {
-        if(mod->m_miscValue[0] != _powerType)
+        if(_basePowers.find(mod->m_miscValue[0]) == _basePowers.end())
             return;
 
         switch(mod->m_type)
         {
         case SPELL_AURA_MOD_INCREASE_ENERGY:
-            _bonusPower += mod->m_amount;
+            _bonusPowers[mod->m_miscValue[0]] += mod->m_amount;
             break;
         case SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT:
-            _bonusPower += _basePower * (((float)abs(mod->m_amount))/100.f);
+            _bonusPowers[mod->m_miscValue[0]] += _basePowers[mod->m_miscValue[0]] * (((float)abs(mod->m_amount))/100.f);
             break;
         }
     }
 
-    void Init(uint8 powerType, uint32 power) { _powerType = powerType, _basePower = power, _bonusPower = 0; }
+    bool Init(Unit *unit, UnitBaseStats *baseStats, std::vector<uint8> *classPower, uint32 *basePowers)
+    {
+        bool hasMana = false;
+        for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
+        {
+            if((*itr) > POWER_TYPE_RUNIC)
+                continue;
 
-    uint32 GetPower() { return _basePower + _bonusPower; }
+            uint32 basePower = basePowers[*itr];
+            // Set mana base value
+            if((*itr) == POWER_TYPE_MANA)
+            {
+                uint32 baseMana = baseStats ? baseStats->baseMP->val*unit->GetPowerMod() : 0;
+                unit->SetUInt32Value(UNIT_FIELD_BASE_MANA, basePower+baseMana);
 
-    uint8 _powerType;
-    uint32 _basePower, _bonusPower;
+                int32 intellect = unit->GetStat(STAT_INTELLECT), baseIntellect = intellect < 20 ? intellect : 20;
+                intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
+                basePower += baseMana + unit->GetBonusMana() + baseIntellect + intellect*15.f*unit->GetPowerMod();
+                hasMana = true;
+            }
+
+            _basePowers.insert(std::make_pair(*itr, basePower));
+            _bonusPowers.insert(std::make_pair(*itr, 0));
+        }
+        return hasMana;
+    }
+
+    void IncrementBPower(uint8 powerType, uint32 baseIncr) { _basePowers[powerType] += baseIncr; }
+    uint32 GetPower(uint8 powerType) { return _basePowers[powerType] + _bonusPowers[powerType]; }
+
+    std::map<uint8, uint32> _basePowers, _bonusPowers;
 };
 
 static uint32 basePowerValues[POWER_TYPE_MAX] = { 0, 1000, 100, 100, 1050000, 0xFF, 1000, 3, 100, 3 };
 void Unit::UpdatePowerValues()
 {
-    bool hasMana = false;
+    PowerUpdateCallback powerCallback;
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
+    if(classPower->size() == 1 && POWER_TYPE_MANA != *classPower->begin())
+        SetPowerType(*classPower->begin());
+
+    bool hasMana = powerCallback.Init(this, baseStats, classPower, basePowerValues);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_ENERGY, &powerCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT, &powerCallback);
     for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
     {
         uint8 powerType = *itr;
-        uint32 power = basePowerValues[powerType];
-        if(powerType == POWER_TYPE_MANA)
-        {
-            hasMana = true;
-            if(baseStats)
-                power += baseStats->basePower*GetPowerMod();
-            SetUInt32Value(UNIT_FIELD_BASE_MANA, power);
-
-            int32 intellect = GetStat(STAT_INTELLECT), baseIntellect = intellect < 20 ? intellect : 20;
-            intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
-            power += GetBonusMana() + baseIntellect + intellect*15.f*GetPowerMod();
-        }
-
+        uint32 power = powerCallback.GetPower(powerType);
         if(powerType == POWER_TYPE_RUNE)
-            SetPower(powerType, power);
-        else if(powerType <= POWER_TYPE_RUNIC)
-        {
-            PowerUpdateCallback powerCallback;
-            powerCallback.Init(powerType, power);
-            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_ENERGY, &powerCallback);
-            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_INCREASE_ENERGY_PERCENT, &powerCallback);
-            power = powerCallback.GetPower();
-        }
+            SetPower(powerType, power = basePowerValues[powerType]);
 
         if(GetPower(powerType) > power)
             SetPower(powerType, power);
@@ -894,9 +913,9 @@ public:
                 {
                     if(mod->m_miscValue[0] & (1 << s))
                     {
-                        if(mod->m_amount > 100)
-                            bonusPos[s] += mod->m_amount-100;
-                        else bonusNeg[s] += 100-mod->m_amount;
+                        if(mod->m_amount >= 0)
+                            bonusPos[s] += mod->m_amount;
+                        else bonusNeg[s] -= mod->m_amount;
                     }
                 }break;
             case SPELL_AURA_MOD_BASE_RESISTANCE:
@@ -912,9 +931,9 @@ public:
                 {
                     if(mod->m_miscValue[0] & (1 << s))
                     {
-                        if(mod->m_amount > 100)
-                            baseBonusPos[s] += mod->m_amount-100;
-                        else baseBonusNeg[s] += 100-mod->m_amount;
+                        if(mod->m_amount >= 0)
+                            baseBonusPos[s] += mod->m_amount;
+                        else baseBonusNeg[s] -= mod->m_amount;
                     }
                 }break;
             case SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE:
@@ -939,46 +958,39 @@ public:
         {
             startRes[i] = unit->GetBonusResistance(i);
             basePos[i] = resPos[i] = resNeg[i] = baseNeg[i] = excluseRes[i] = 0;
-            baseBonusPos[i] = baseBonusNeg[i] = bonusPos[i] = bonusNeg[i] = 100.f;
+            baseBonusPos[i] = baseBonusNeg[i] = bonusPos[i] = bonusNeg[i] = 0.f;
             for(uint8 s = 0; s < MAX_STAT; ++s)
                 resFromStat[i][s] = 0;
         }
     }
 
-    uint32 GetTotalResist(uint8 res)
+    int32 CalcResistance(uint8 res, int32 &posOut, int32 &negOut)
     {
         // Get our base resist: pos + neg
-        int32 resist = basePos[res]+baseNeg[res];
+        int32 baseRes = startRes[res]+basePos[res]-baseNeg[res];
+
         // Multiply base by % modifiers
-        if(resist <= 0) // If base is zero or negative, just set it to zero
-            resist = 0; // Else modify base by % values
-        else resist = float2int32((((float)resist) * (baseBonusPos[res]/100.f)) / (baseBonusNeg[res]/100.f));
-        int32 modResist = startRes[res] + resPos[res] + resNeg[res];
-        if(modResist <= 0) // If base is zero or negative, just set it to zero
-            modResist = 0; // Else modify base by % values
-        else modResist = float2int32((((float)modResist) * (bonusPos[res]/100.f)) / (bonusNeg[res]/100.f));
-        resist += modResist;
-        for(uint8 i = 0; i < MAX_STAT; ++i)
-            resist += resFromStat[res][i] * statCache[i];
-        if(resist < excluseRes[res])
-            resist = excluseRes[res];
-        return resist;
-    }
+        if(baseRes <= 0) // If base is zero or negative, just set it to zero
+            baseRes = 0; // Else modify base by % values
+        else
+        {
+            int32 resist = baseRes;
+            baseRes += float2int32(resist*(baseBonusPos[res]/100.f));
+            baseRes -= float2int32(resist*(baseBonusNeg[res]/100.f));
+        }
 
-    uint32 GetPosResist(uint8 res)
-    {
-        int32 resist = float2int32(((float)basePos[res]) * (fabs(baseBonusPos[res])/100.f)) + float2int32(((float)(startRes[res]+resPos[res])) * (fabs(bonusPos[res])/100.f));
-        for(uint8 i = 0; i < MAX_STAT; ++i)
-            resist += resFromStat[res][i] * statCache[i];
-        if(resist < excluseRes[res])
-            resist = excluseRes[res];
-        return std::max<int32>(0, resist);
-    }
+        int32 modResist = (posOut = resPos[res]) + (negOut = resNeg[res]);
+        if(modResist > 0)
+        {
+            posOut += float2int32(modResist*(bonusPos[res]/100.f));
+            negOut += float2int32(modResist*(bonusNeg[res]/100.f));
+        }
 
-    uint32 GetNegResist(uint8 res)
-    {
-        int32 resist = float2int32(((float)baseNeg[res]) * (((float)baseBonusNeg[res])/100.f)) + float2int32(((float)resNeg[res]) * ((fabs(bonusNeg[res]))/100.f));
-        return std::max<int32>(0, resist);
+        for(uint8 i = 0; i < MAX_STAT; ++i)
+            posOut += resFromStat[res][i] * statCache[i];
+        if(posOut < excluseRes[res])
+            posOut = excluseRes[res];
+        return baseRes + std::max<int32>(0, posOut - negOut);
     }
 
     int32 startRes[MAX_RESISTANCE], basePos[MAX_RESISTANCE], baseNeg[MAX_RESISTANCE], resPos[MAX_RESISTANCE], resNeg[MAX_RESISTANCE], excluseRes[MAX_RESISTANCE];
@@ -999,22 +1011,61 @@ void Unit::UpdateResistanceValues()
 
     for(uint8 s = 0; s < MAX_RESISTANCE; s++)
     {
-        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, resistanceCallback.GetTotalResist(s));
-        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+s, resistanceCallback.GetPosResist(s));
-        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+s, resistanceCallback.GetNegResist(s));
+        int32 pos, neg;
+        SetUInt32Value(UNIT_FIELD_RESISTANCES+s, resistanceCallback.CalcResistance(s, pos, neg));
+        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE+s, pos);
+        SetUInt32Value(UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE+s, neg);
     }
 }
 
+class AttackPowerUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_ATTACK_POWER_PCT:
+            attackPowerMod += ((float)mod->m_amount);
+            break;
+        case SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR:
+            {
+                float modAmt = mod->m_spellInfo->EffectBasePoints[mod->i+1], reqAmount;
+                if((reqAmount = modAmt * mod->m_amount) > 0.f && resist_cache > reqAmount)
+                    attackPowerBonus += float2int32(modAmt*floor(resist_cache/reqAmount));
+            }break;
+        }
+    }
+
+    bool Init(Unit *unit, std::vector<uint32> *modMap)
+    {
+        bool ret = false;
+        attackPowerBonus = 0;
+        resist_cache = unit->GetUInt32Value(UNIT_FIELD_RESISTANCES);
+        attackPowerMod = unit->GetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER) * 100.f;
+        if(std::find(modMap->begin(), modMap->end(), SPELL_AURA_MOD_ATTACK_POWER_PCT) != modMap->end())
+        {
+            attackPowerMod = 100.f;
+            ret = true;
+        }
+
+        return ret;
+    }
+
+    int32 GetAttackPowerBonus() { return attackPowerBonus; }
+    float GetAttackPowerMod() { return attackPowerMod/100.f; }
+
+    float resist_cache;
+    int32 attackPowerBonus;
+    float attackPowerMod;
+};
+
 void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
 {
-    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_ATTACK_POWER_PCT) != modMap.end())
-    {
-        float val = 100.0f;
-        if(AuraInterface::modifierMap *attackPowerMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_PCT))
-            for(AuraInterface::modifierMap::iterator itr = attackPowerMod->begin(); itr != attackPowerMod->end(); itr++)
-                val += float(itr->second->m_amount);
-        SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, val/100.0f);
-    }
+    AttackPowerUpdateCallback attackPowerCallback;
+    if(attackPowerCallback.Init(this, &modMap))
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_ATTACK_POWER_PCT, &attackPowerCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR, &attackPowerCallback);
 
     uint8 _class = getClass();
     int32 attackPower = GetBonusAttackPower();
@@ -1026,38 +1077,54 @@ void Unit::UpdateAttackPowerValues(std::vector<uint32> modMap)
     default: { attackPower += std::max<uint32>(20, GetAgility()) - 10; }break;
     }
 
-    if(AuraInterface::modifierMap *apArmorMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACK_POWER_OF_ARMOR))
-    {
-        if(float resist = GetUInt32Value(UNIT_FIELD_RESISTANCES))
-        {
-            for(AuraInterface::modifierMap::iterator itr = apArmorMod->begin(); itr != apArmorMod->end(); itr++)
-            {
-                float modAmt = itr->second->m_spellInfo->EffectBasePoints[itr->second->i+1], reqAmount;
-                if((reqAmount = modAmt * itr->second->m_amount) > 0.f && resist > reqAmount)
-                    attackPower += modAmt*floor(resist/reqAmount);
-            }
-        }
-    }
+    attackPower += attackPowerCallback.GetAttackPowerBonus();
 
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER, attackPower);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_ATTACK_POWER_MOD_NEG, 0);
+    SetFloatValue(UNIT_FIELD_ATTACK_POWER_MULTIPLIER, attackPowerCallback.GetAttackPowerMod());
 
     TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
     if(IsPlayer())
         TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
 }
 
+class RangedAttackPowerUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT:
+            rangedAttackPowerMod += ((float)mod->m_amount);
+            break;
+        }
+    }
+
+    bool Init(Unit *unit, std::vector<uint32> *modMap)
+    {
+        bool ret = false;
+        rangedAttackPowerMod = unit->GetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER) * 100.f;
+        if(std::find(modMap->begin(), modMap->end(), SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT) != modMap->end())
+        {
+            rangedAttackPowerMod = 100.f;
+            ret = true;
+        }
+
+        return ret;
+    }
+
+    float GetRangedAttackPowerMod() { return rangedAttackPowerMod/100.f; }
+
+    float rangedAttackPowerMod;
+};
+
 void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
 {
-    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT) != modMap.end())
-    {
-        float val = 100.0f;
-        if(AuraInterface::modifierMap *hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_ATTACK_POWER_PCT))
-            for(AuraInterface::modifierMap::iterator itr = hoverMod->begin(); itr != hoverMod->end(); itr++)
-                val += float(itr->second->m_amount);
-        SetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER, val/100.0f);
-    }
+    RangedAttackPowerUpdateCallback rangedAttackPowerCallback;
+    if(rangedAttackPowerCallback.Init(this, &modMap))
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_ATTACK_POWER_PCT, &rangedAttackPowerCallback);
 
     int32 rangedAttackPower = GetBonusRangedAttackPower();
     switch (getClass())
@@ -1074,61 +1141,140 @@ void Unit::UpdateRangedAttackPowerValues(std::vector<uint32> modMap)
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER, rangedAttackPower);
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_POS, 0);
     SetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER_MOD_NEG, 0);
+    SetFloatValue(UNIT_FIELD_RANGED_ATTACK_POWER_MULTIPLIER, rangedAttackPowerCallback.GetRangedAttackPowerMod());
 
     TriggerModUpdate(UF_UTYPE_ATTACKDAMAGE);
     if(IsPlayer()) TriggerModUpdate(UF_UTYPE_PLAYERDAMAGEMODS);
 }
 
-void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
+class PowerCostUpdateCallback : public AuraInterface::ModCallback
 {
-    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_POWER_COST_SCHOOL) != modMap.end())
+public:
+    virtual void operator()(Modifier *mod)
     {
-        if(AuraInterface::modifierMap *powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST_SCHOOL))
+        switch(mod->m_type)
         {
-            for(uint8 s = 0; s < MAX_RESISTANCE; s++)
+        case SPELL_AURA_MOD_POWER_COST_SCHOOL:
             {
-                float val = 1.f;
-                for(AuraInterface::modifierMap::iterator itr = powerCostMods->begin(); itr != powerCostMods->end(); itr++)
+                for(uint8 s = 0; s < MAX_RESISTANCE; s++)
                 {
-                    if(itr->second->m_miscValue[0] & (1 << s))
-                        val += itr->second->m_amount;
+                    if((mod->m_miscValue[0] & (1<<s)) == 0)
+                        continue;
+                    costModifier[s] += mod->m_amount;
                 }
-                SetFloatValue(UNIT_FIELD_POWER_COST_MODIFIER+s,val);
-            }
+            }break;
+        case SPELL_AURA_MOD_POWER_COST:
+            {
+                for(uint8 s = 0; s < MAX_RESISTANCE; s++)
+                {
+                    if((mod->m_miscValue[0] & (1<<s)) == 0)
+                        continue;
+                    costMultiplier[s] += mod->m_amount;
+                }
+            }break;
         }
     }
 
-    if(std::find(modMap.begin(), modMap.end(), SPELL_AURA_MOD_POWER_COST) != modMap.end())
+    void Init(Unit *unit, uint32 &updateFlag, std::vector<uint32> *modMap)
     {
-        if(AuraInterface::modifierMap *powerCostMods = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_POWER_COST))
+        if(std::find(modMap->begin(), modMap->end(), SPELL_AURA_MOD_POWER_COST_SCHOOL) != modMap->end())
+            updateFlag |= 0x01;
+
+        if(std::find(modMap->begin(), modMap->end(), SPELL_AURA_MOD_POWER_COST) != modMap->end())
+            updateFlag |= 0x02;
+
+        for(uint8 s = 0; s < MAX_RESISTANCE; s++)
         {
-            for(uint8 s = 0; s < MAX_RESISTANCE; s++)
-            {
-                float val = 0.f;
-                for(AuraInterface::modifierMap::iterator itr = powerCostMods->begin(); itr != powerCostMods->end(); itr++)
-                {
-                    if(itr->second->m_miscValue[0] & (1 << s))
-                        val += itr->second->m_amount;
-                }
-                SetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER+s,val/100.0f);
-            }
+            costModifier[s] = 0;
+            costMultiplier[s] = 100.f;
+
+            if((updateFlag & 0x01) == 0)
+                costModifier[s] += unit->GetUInt32Value(UNIT_FIELD_POWER_COST_MODIFIER+s);
+            if((updateFlag & 0x02) == 0)
+                costMultiplier[s] *= unit->GetFloatValue(UNIT_FIELD_POWER_COST_MODIFIER+s);
         }
     }
+
+    float GetCostModifier(uint8 school) { return costModifier[school]; }
+    float GetCostMultipler(uint8 school) { return costMultiplier[school]/100.f; }
+
+    uint32 costModifier[MAX_RESISTANCE];
+    float costMultiplier[MAX_RESISTANCE];
+};
+
+void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
+{
+    uint32 updateFlag;
+    PowerCostUpdateCallback powerCostCallback;
+    powerCostCallback.Init(this, updateFlag, &modMap);
+
+    if(updateFlag & 0x01) m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_COST_SCHOOL, &powerCostCallback);
+    if(updateFlag & 0x02) m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_COST, &powerCostCallback);
+
+    for(uint8 s = 0; s < MAX_RESISTANCE; s++)
+    {
+        SetUInt32Value(UNIT_FIELD_POWER_COST_MODIFIER+s,powerCostCallback.GetCostModifier(s));
+        SetFloatValue(UNIT_FIELD_POWER_COST_MULTIPLIER+s,0.f);
+    }
 }
+
+class HoverValueUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_HOVER: { height += mod->m_amount; }break;
+        }
+    }
+
+    void Init() { height = 0.002f; }
+
+    float GetHeight() { return height/2.f; }
+
+    float height;
+};
 
 void Unit::UpdateHoverValues()
 {
-    float val = 0.001f;
-    if(AuraInterface::modifierMap *hoverMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_HOVER))
-        for(AuraInterface::modifierMap::iterator itr = hoverMod->begin(); itr != hoverMod->end(); itr++)
-            val += float(itr->second->m_amount)/2.0f;
-    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, val);
+    HoverValueUpdateCallback hoverValueCallback;
+    hoverValueCallback.Init();
+    m_AuraInterface.TraverseModMap(SPELL_AURA_HOVER, &hoverValueCallback);
+
+    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, hoverValueCallback.GetHeight());
 }
 
-int32 Unit::GetDamageDoneMod(uint8 school)
+class DamageDoneModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DAMAGE_DONE:
+            break;
+        case SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
+            break;
+        case SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER:
+            break;
+        }
+    }
+
+    void Init(Unit *unit, uint8 school)
+    {
+        for(uint8 s = 0; s < MAX_STAT; ++s)
+            statCache[s] = unit->GetStat(s);
+    }
+
+    uint32 statCache[MAX_STAT];
+
+};
+
+int32 Unit::GetDamageDoneMod(uint8 school, bool forceCalc, int32 *negativeOut)
 {
     int32 res = 0;
-    if(IsPlayer())
+    if(IsPlayer() && forceCalc == false)
     {
         res += GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school);
         res -= GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school);
@@ -1142,6 +1288,8 @@ int32 Unit::GetDamageDoneMod(uint8 school)
             res += castPtr<Unit>(summoner)->GetDamageDoneMod(school);
     }
 
+    DamageDoneModCallback DamageDoneCallback;
+    DamageDoneCallback.Init(this, school);
     if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
         for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
             if(itr->second->m_miscValue[0] & (1<<school))
@@ -1172,23 +1320,38 @@ int32 Unit::GetDamageDoneMod(uint8 school)
     return res;
 }
 
-float Unit::GetDamageDonePctMod(uint8 school)
+class HealingDoneModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_HEALING_DONE:
+            break;
+        case SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT:
+            break;
+        case SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER:
+            break;
+        }
+    }
+
+    void Init(Unit *unit, uint8 school)
+    {
+        for(uint8 s = 0; s < MAX_STAT; ++s)
+            statCache[s] = unit->GetStat(s);
+    }
+
+    uint32 statCache[MAX_STAT];
+
+    uint32 statModPos;
+};
+
+int32 Unit::GetHealingDoneMod(bool forceCalc, int32 *negativeOut)
 {
     // If we're a player, this is already precalculated
-    if(IsPlayer()) return GetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+school);
-
-    float result = 1.f;
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE))
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<school))
-                result += itr->second->m_amount;
-    return result;
-}
-
-int32 Unit::GetHealingDoneMod()
-{
-    // If we're a player, this is already precalculated
-    if(IsPlayer()) return GetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS);
+    if(IsPlayer() && forceCalc == false)
+        return GetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS);
 
     int32 result = 0;
     if(AuraInterface::modifierMap *healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE))
@@ -1215,10 +1378,25 @@ int32 Unit::GetHealingDoneMod()
     return result;
 }
 
-float Unit::GetHealingDonePctMod()
+float Unit::GetDamageDonePctMod(uint8 school, bool forceCalc)
 {
     // If we're a player, this is already precalculated
-    if(IsPlayer()) return GetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT);
+    if(IsPlayer() && forceCalc == false)
+        return GetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+school);
+
+    float result = 1.f;
+    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE))
+        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
+            if(itr->second->m_miscValue[0] & (1<<school))
+                result += itr->second->m_amount;
+    return result;
+}
+
+float Unit::GetHealingDonePctMod(bool forceCalc)
+{
+    // If we're a player, this is already precalculated
+    if(IsPlayer() && forceCalc == false)
+        return GetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT);
 
     float result = 1.f;
     if(AuraInterface::modifierMap *healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE_PERCENT))

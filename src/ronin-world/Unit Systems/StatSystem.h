@@ -54,8 +54,7 @@ struct UnitBaseStats
 {
     uint16 level;
 
-    uint32 baseHP;
-    uint32 basePower;
+    gtFloat *baseHP, *baseMP;
     uint32 baseStat[5];
 };
 
@@ -106,6 +105,7 @@ public:
     TalentSpellPair GetTalentMasterySpells(uint8 classId, uint8 tabId) { return m_talentMasterySpells.equal_range(std::make_pair(classId, tabId)); }
 
 protected:
+    void LoadClassBaseStats();
     void LoadClassPowers();
     void LoadClassTalentData();
     bool LoadUnitStats();
@@ -119,6 +119,9 @@ private:
     // Talent handling
     TalentSpellStorage m_talentMasterySpells, m_talentPrimarySpells;
     std::map<std::pair<uint8, uint8>, uint32> m_talentRoleMasks;
+
+    // Base HP/MP storage
+    std::map<std::pair<uint8, uint32>, gtFloat*> m_baseHPByClassLevel, m_baseMPByClassLevel;
 };
 
 #define sStatSystem StatSystem::getSingleton()

@@ -51,7 +51,6 @@ Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(
 
     m_aggroRangeMod = 0.f;
 
-    m_creaturePool = 0xFF;
     m_skinned = false; // 0x02
     b_has_shield = false; // 0x04
     m_noDeleteAfterDespawn = false; // 0x08

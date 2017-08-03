@@ -345,10 +345,12 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcMeleeCrit);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcMeleeCritBase);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellCrit);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellCritBase);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcBaseHPForClass);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcBaseMPForClass);
+DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcHPPerStam);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegen);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcManaRegenBase);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcSpellScalar);
-DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcHPPerStam);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 static const char *gtFloatFormat = "uf";
 
@@ -548,6 +550,8 @@ void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result
     ADD_LOAD_DB(format("%s/gtChanceToSpellCrit.dbc", datapath), gtFloatFormat, dbcSpellCrit);
     ADD_LOAD_DB(format("%s/gtChanceToSpellCritBase.dbc", datapath), gtFloatFormat, dbcSpellCritBase);
     ADD_LOAD_DB(format("%s/gtCombatRatings.dbc", datapath), gtFloatFormat, dbcCombatRating);
+    ADD_LOAD_DB(format("%s/gtOCTBaseHPByClass.dbc", datapath), gtFloatFormat, dbcBaseHPForClass);
+    ADD_LOAD_DB(format("%s/gtOCTBaseMPByClass.dbc", datapath), gtFloatFormat, dbcBaseMPForClass);
     ADD_LOAD_DB(format("%s/gtOCTHpPerStamina.dbc", datapath), gtFloatFormat, dbcHPPerStam);
     ADD_LOAD_DB(format("%s/gtOCTRegenMP.dbc", datapath), gtFloatFormat, dbcManaRegen);
     ADD_LOAD_DB(format("%s/gtRegenMPPerSpt.dbc", datapath), gtFloatFormat, dbcManaRegenBase);

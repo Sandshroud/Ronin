@@ -1547,7 +1547,6 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool si
     assert(mod->m_miscValue[0] < SPELL_MODIFIERS);
     uint8 index1 = mod->m_miscValue[0] & 0x7F, index2 = mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER ? 0 : 1;
     uint16 index = createModifierIndex(index1, index2);
-    Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     uint32 count = 0;
     WorldPacket *data = NULL;
     if(m_Unit->IsPlayer() && m_Unit->IsInWorld() && !silent)
@@ -1555,6 +1554,8 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool si
         data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index2, 20);
         *data << uint32(1) << count << uint8(index1);
     }
+    m_modLock.Acquire();
+    Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit)
     {
         if(bit && (bit%32 == 0)) ++intbit;
@@ -1576,6 +1577,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool si
             count++;
         }
     }
+    m_modLock.Release();
 
     if(data)
     {
@@ -1595,11 +1597,13 @@ void AuraInterface::TraverseModMap(uint32 modType, AuraInterface::ModCallback *c
 {
     m_modLock.Acquire();
     AuraInterface::modifierMap *modMap = NULL;
-    if(m_modifiersByModType.find(modType) != m_modifiersByModType.end() && (modMap = &m_modifiersByModType[modType]))
+    if(m_modifiersByModType.find(modType) != m_modifiersByModType.end() && !(modMap = &m_modifiersByModType[modType])->empty())
         for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); ++itr)
             (*callback)(itr->second);
-    (*callback).postTraverse(modType);
     m_modLock.Release();
+
+    // Tell the callback we've finished processing the mod list
+    (*callback).postTraverse(modType);
 }
 
 void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
@@ -1611,12 +1615,14 @@ void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
 
     uint32 flag;
     uint8 groupOffset;
+    m_modLock.Acquire();
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += itr->second;
     }
+    m_modLock.Release();
 }
 
 void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
@@ -1628,12 +1634,14 @@ void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
 
     uint32 flag;
     uint8 groupOffset;
+    m_modLock.Acquire();
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += itr->second;
     }
+    m_modLock.Release();
 }
 
 void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
@@ -1645,12 +1653,14 @@ void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
 
     uint32 flag;
     uint8 groupOffset;
+    m_modLock.Acquire();
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += float2int32(floor((float(*v)*float(itr->second))/100.f));
     }
+    m_modLock.Release();
 }
 
 void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
@@ -1662,10 +1672,12 @@ void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
 
     uint32 flag;
     uint8 groupOffset;
+    m_modLock.Acquire();
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
         flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
         if(flag & group[groupOffset]) (*v) += ((*v)*float(itr->second))/100.f;
     }
+    m_modLock.Release();
 }

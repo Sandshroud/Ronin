@@ -68,9 +68,6 @@ public: // Class functions
 
     void SetSpeed(MovementSpeedTypes speedType);
 
-    uint8 getPathPool() { return pathPoolId; }
-    void setPathPool(uint8 poolId) { pathPoolId = poolId; }
-
 private:
     void _CleanupPath();
     uint32 buildMonsterMoveFlags(uint8 packetSendFlags);
@@ -106,5 +103,4 @@ private:
     FastQueue<std::shared_ptr<MovementPoint>, Mutex> m_movementPoints;
 
     uint32 m_lastMSTimeUpdate, m_lastPositionUpdate;
-    uint8 pathPoolId;
 };

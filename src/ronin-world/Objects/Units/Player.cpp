@@ -1032,59 +1032,15 @@ void Player::UpdatePlayerDamageDoneMods()
         spellPowerOverride = float2int32(float(CalculateAttackPower())*attackPowerMod);
     }
 
+    int32 negative = 0;
     for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
     {
-        uint32 amount = itemBonus;
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1<<school))
-                    amount += itr->second->m_amount;
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT))
-        {
-            float statMods[5] = {0,0,0,0,0};
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1<<school))
-                    statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
-            for(uint8 i = 0; i < 5; i++)
-                if(statMods[i])
-                    amount += statMods[i]*GetStat(i);
-        }
-
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER))
-        {
-            float attackPowerMod = 0.0f;
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1<<school))
-                    attackPowerMod += float(itr->second->m_amount)/100.f;
-            amount += float2int32(float(CalculateAttackPower())*attackPowerMod);
-        }
-        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, amount));
-
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, itemBonus+GetDamageDoneMod(school, true, &negative)));
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, negative);
     }
 
-    uint32 amount = itemBonus;
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE))
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            amount += itr->second->m_amount;
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT))
-    {
-        float statMods[5] = {0,0,0,0,0};
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
-
-        for(uint8 i = 0; i < 5; i++)
-            if(statMods[i])
-                amount += statMods[i]*GetStat(i);
-    }
-
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER))
-    {
-        float attackPowerMod = 0.0f;
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            attackPowerMod += float(itr->second->m_amount)/100.f;
-        amount += float2int32(float(CalculateAttackPower())*attackPowerMod);
-    }
-    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, amount));
+    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, itemBonus+GetHealingDoneMod(true, &negative)));
+    SetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT, GetHealingDonePctMod(true));
 }
 
 static uint32 statToModBonus[MAX_STAT] = 
@@ -2407,7 +2363,7 @@ void Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
         if(UnitBaseStats *new_stats = sStatSystem.GetUnitBaseStats(getRace(), getClass(), level))
         {
             hpGain += new_stats->baseHP-stats->baseHP;
-            manaGain += new_stats->basePower-stats->basePower;
+            manaGain += new_stats->baseMP ? stats->baseMP ? new_stats->baseMP->val-stats->baseMP->val : new_stats->baseMP->val : 0;
             for(uint8 i = 0; i < 5; i++)
                 statGain[i] += new_stats->baseStat[i]-stats->baseStat[i];
             stats = new_stats;

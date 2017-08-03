@@ -39,9 +39,47 @@ StatSystem::~StatSystem()
 
 bool StatSystem::Load()
 {
+    LoadClassBaseStats();
     LoadClassPowers();
     LoadClassTalentData();
     return LoadUnitStats();
+}
+
+void StatSystem::LoadClassBaseStats()
+{
+    for(uint8 _class = WARRIOR; _class < CLASS_MAX; ++_class)
+    {
+        // Only process classes that exist
+        if(dbcCharClass.LookupEntry(_class) == NULL)
+            continue;
+
+        gtFloat *lastHP = dbcBaseHPForClass.LookupEntry((_class-1) * 100);
+        if(lastHP == NULL)
+            continue;
+        m_baseHPByClassLevel.insert(std::make_pair(std::make_pair(_class, ((uint32)1)), lastHP));
+        gtFloat *lastMP = dbcBaseMPForClass.LookupEntry((_class-1) * 100);
+        // Classes are not required to have MP
+        if(lastMP != NULL && lastMP->val > 0) m_baseMPByClassLevel.insert(std::make_pair(std::make_pair(_class, ((uint32)1)), lastHP));
+
+        for(uint32 level = 2; level < MAXIMUM_ATTAINABLE_LEVEL; ++level)
+        {
+            gtFloat *currentHP = dbcBaseHPForClass.LookupEntry(((_class-1) * 100)+level-1);
+            if(currentHP == NULL)
+                currentHP = lastHP;
+            else lastHP = currentHP;
+            m_baseHPByClassLevel.insert(std::make_pair(std::make_pair(_class, level), currentHP));
+
+            // Classes are not required to have MP
+            gtFloat *currentMP = dbcBaseMPForClass.LookupEntry((_class-1) * 100+level-1);
+            if(currentMP == NULL || currentMP->val <= 0)
+                currentMP = lastMP;
+            else lastMP = currentMP;
+            if(currentMP == NULL || currentMP->val <= 0)
+                continue;
+
+            m_baseMPByClassLevel.insert(std::make_pair(std::make_pair(_class, level), currentMP));
+        }
+    }
 }
 
 void StatSystem::LoadClassPowers()
@@ -140,17 +178,18 @@ bool StatSystem::LoadUnitStats()
         uint16 level = fields[2].GetUInt16();
         uint32 index = uint32(level) | uint32(uint32(race)<<16) | uint32(uint32(_class)<<24);
         UnitBaseStats *baseStats = new UnitBaseStats();
+        baseStats->baseHP = baseStats->baseMP = NULL;
         baseStats->level = level;
-        baseStats->baseHP = fields[3].GetUInt32();
-        baseStats->basePower = fields[4].GetUInt32();
-        baseStats->baseStat[0] = fields[5].GetUInt32();
-        baseStats->baseStat[1] = fields[6].GetUInt32();
-        baseStats->baseStat[2] = fields[7].GetUInt32();
-        baseStats->baseStat[3] = fields[8].GetUInt32();
-        baseStats->baseStat[4] = fields[9].GetUInt32();
+        for(uint8 i = 0; i < 5; ++i)
+            baseStats->baseStat[i] = fields[3+i].GetUInt32();
         m_UnitBaseStats.insert(std::make_pair(index, baseStats));
-        std::pair<uint8, uint8> pair = std::make_pair(race, _class);
 
+        baseStats->baseHP = m_baseHPByClassLevel.at(std::make_pair(_class, ((uint32)level)));
+        std::map<std::pair<uint8, uint32>, gtFloat*>::iterator itr;
+        if((itr = m_baseMPByClassLevel.find(std::make_pair(_class, ((uint32)level)))) != m_baseMPByClassLevel.end())
+            baseStats->baseMP = itr->second;
+
+        std::pair<uint8, uint8> pair = std::make_pair(race, _class);
         if(m_maxBaseStats.find(pair) == m_maxBaseStats.end())
             m_maxBaseStats.insert(std::make_pair(pair, baseStats));
         else if(m_maxBaseStats.at(pair)->level < level)
