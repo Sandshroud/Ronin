@@ -19,23 +19,3 @@
 
 #pragma once
 
-#include "Mutex.h"
-
-/************************************************************************/
-/* Guard class, unlocks mutex on destroy                                */
-/************************************************************************/
-// crossplatform :)
-
-class SERVER_DECL Guard
-{
-public:
-    Guard(Mutex& mutex) : target(mutex) { target.Acquire(); }
-
-    ~Guard() { target.Release(); }
-
-    // Disable = operator
-    Guard& operator=(Guard& src) = delete;
-
-protected:
-    Mutex& target;
-};

@@ -22,16 +22,14 @@
 #ifdef __DragonFly__                                                            
 #include <pthread.h>                                                            
 #endif         
-#if PLATFORM == PLATFORM_WIN
+
+#if PLATFORM == PLATFORM_WIN && _MSC_VER <= 1700
 
 /* Windows Critical Section Implementation */
 EasyMutex::EasyMutex() { InitializeCriticalSection(&cs); }
 EasyMutex::~EasyMutex() { DeleteCriticalSection(&cs); }
 
-SmartMutex::SmartMutex() { InitializeCriticalSection(&cs); m_activeThread = m_ThreadCalls = 0; }
-SmartMutex::~SmartMutex() { DeleteCriticalSection(&cs); }
-
-#else
+#elif PLATFORM != PLATFORM_WIN
 
 /* this is done slightly differently on bsd-variants */
 #if defined(__FreeBSD__) ||  defined(__APPLE_CC__) || defined(__OpenBSD__) || defined(__DragonFly__)
@@ -57,24 +55,5 @@ EasyMutex::EasyMutex()
 }
 
 EasyMutex::~EasyMutex() { pthread_mutex_destroy(&mutex); }
-
-// Smart locking mutex
-bool SmartMutex::attr_initalized = false;
-pthread_mutexattr_t SmartMutex::attr;
-
-SmartMutex::SmartMutex()
-{
-    m_activeThread = m_ThreadCalls = 0;
-    if(!attr_initalized)
-    {
-        pthread_mutexattr_init(&attr);
-        pthread_mutexattr_settype(&attr, recursive_mutex_flag);
-        attr_initalized = true;
-    }
-
-    pthread_mutex_init(&mutex, &attr);
-}
-
-SmartMutex::~SmartMutex() { pthread_mutex_destroy(&mutex); }
 
 #endif

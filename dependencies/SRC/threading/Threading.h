@@ -41,6 +41,9 @@
 // Platform Specific Lock Implementation
 #include "Mutex.h"
 
+// Implementation of an atomic rotator
+#include "AtomicRotator.h"
+
 // Platform Independant Guard
 #include "Guard.h"
 
