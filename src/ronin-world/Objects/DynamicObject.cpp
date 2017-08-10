@@ -152,6 +152,7 @@ void DynamicObject::UpdateTargets(uint32 p_time)
         {
             static FillDynamicObjectTargetMapCallback _callback;
             m_mapInstance->HandleDynamicObjectRangeMapping(&_callback, this, u_caster, 0.f, radius, (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_PLAYER));
+            radius *= radius;
         }
 
         // loop the targets, check the range of all of them

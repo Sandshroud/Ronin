@@ -1636,31 +1636,35 @@ void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
     for(std::map<std::pair<WoWGuid, WoWGuid>, uint32>::iterator itr = m_combatTimers.begin(); itr != m_combatTimers.end(); itr++)
     {
         bool toDelete = false;
+        itr->second -= std::min<uint32>(itr->second, uiDiff);
         Unit *unit1 = GetUnit(itr->first.first), *unit2 = GetUnit(itr->first.second);
         if(unit1 == NULL || unit2 == NULL)
             toDelete = true;
         else if(!(unit1->ValidateAttackTarget(itr->first.second) || unit2->ValidateAttackTarget(itr->first.first)))
             toDelete = true;
+        else if(itr->second == 0)
+            toDelete = true;
         if(toDelete == false)
             continue;
-        // Remove our combatants from our partner lists
-        m_combatPartners[itr->first.first].erase(itr->first.second);
-        m_combatPartners[itr->first.second].erase(itr->first.first);
-        // Clean up our combat partner list
-        if(m_combatPartners[itr->first.first].empty())
-            m_combatPartners.erase(itr->first.first);
-        if(m_combatPartners[itr->first.second].empty())
-            m_combatPartners.erase(itr->first.second);
         // Queue our combat into deletion queue
         deletionQueue.push_back(itr->first);
     }
 
     // Cleaning up finished combat
-    while(!deletionQueue.empty())
+    std::for_each(deletionQueue.begin(), deletionQueue.end(), [this](std::pair<WoWGuid, WoWGuid> pair)
     {
-        m_combatTimers.erase(*deletionQueue.begin());
-        deletionQueue.erase(deletionQueue.begin());
-    }
+        // Remove our combatants from our partner lists
+        m_combatPartners[pair.first].erase(pair.second);
+        m_combatPartners[pair.second].erase(pair.first);
+        // Clean up our combat partner list
+        if(m_combatPartners[pair.first].empty())
+            m_combatPartners.erase(pair.first);
+        if(m_combatPartners[pair.second].empty())
+            m_combatPartners.erase(pair.second);
+        m_combatTimers.erase(pair);
+    });
+
+    deletionQueue.clear();
 }
 
 void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)

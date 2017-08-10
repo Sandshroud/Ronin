@@ -744,8 +744,6 @@ void ObjectCellManager::ConstructCellData(float x, float y, float range, std::ve
 {
     // Update position pair
     float dist = std::min<float>(range, TileSize); // Make sure we're less than an entire tile
-    ASSERT(dist == range);
-
     uint32 lowX = _getCellId(x-dist), highX = _getCellId(x+dist), lowY = _getCellId(y-dist), highY = _getCellId(y+dist);
     if(highX < lowX) std::swap(lowX, highX);
     if(highY < lowY) std::swap(lowY, highY);
