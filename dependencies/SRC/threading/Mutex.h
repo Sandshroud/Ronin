@@ -21,6 +21,7 @@
 
 #if PLATFORM == PLATFORM_WIN && _MSC_VER > 1700
 #include <mutex>
+#include <shared_mutex>
 
 // A standard mutex wrapper class
 class SERVER_DECL StandardMutex : protected std::recursive_mutex
@@ -34,7 +35,68 @@ public:
     RONIN_INLINE bool AttemptAcquire() { return try_lock(); }
 };
 
+class SERVER_DECL PriorityMutex : protected std::shared_mutex
+{
+public:
+    PriorityMutex() : std::shared_mutex(), count(0), owner() {}
+    ~PriorityMutex() {}
+
+    // Shared access here
+
+    // Acquire sharedlock
+    RONIN_INLINE void LowAcquire()
+    {
+        if(owner == std::this_thread::get_id())
+            return;
+
+        lock_shared();
+    }
+
+    // Release shared lock
+    RONIN_INLINE void LowRelease()
+    {
+        if(owner == std::this_thread::get_id())
+            return;
+
+        unlock_shared();
+    }
+
+    // Note: shared mutex is not recursive, so we set our own recursive system here
+
+    // Acquire full lock
+    RONIN_INLINE void HighAcquire()
+    {
+        std::thread::id this_id = std::this_thread::get_id();
+        if(owner == this_id)
+            ++count;
+        else
+        {
+            lock();
+            owner = this_id;
+            ++count;
+        }
+    }
+
+    // Release full lock
+    RONIN_INLINE void HighRelease()
+    {
+        if(count > 1)
+            --count;
+        else
+        {
+            owner = std::thread::id();
+            --count;
+            unlock();
+        }
+    }
+
+private:
+    std::atomic<std::thread::id> owner;
+    int count;
+};
+
 #define Mutex StandardMutex
+#define RWMutex PriorityMutex
 
 #else
 
@@ -110,6 +172,73 @@ protected:
 #endif
 };
 
+class SERVER_DECL PriorityMutex
+{
+public:
+    PriorityMutex();
+    ~PriorityMutex();
+
+    // Enter atomic state and wait for acquired count to equal zero
+    RONIN_INLINE void HighAcquire()
+    {
+#if PLATFORM != PLATFORM_WIN
+        pthread_mutex_lock(&mutex);
+#else
+        EnterCriticalSection(&csHigh);
+#endif
+        while(acquiredCount);
+    }
+
+    // Release atomic state
+    RONIN_INLINE void HighRelease()
+    {
+#if PLATFORM != PLATFORM_WIN
+        pthread_mutex_unlock(&mutex);
+#else
+        LeaveCriticalSection(&csHigh);
+#endif
+    }
+
+    // Enter critical state to set our atomic counter higher, do not use highacquire when entering atomic state
+    RONIN_INLINE void LowAcquire()
+    {
+#if PLATFORM != PLATFORM_WIN
+        pthread_mutex_lock(&mutex);
+#else
+        EnterCriticalSection(&csHigh);
+#endif
+        ++acquiredCount;
+#if PLATFORM != PLATFORM_WIN
+        pthread_mutex_unlock(&mutex);
+#else
+        LeaveCriticalSection(&csHigh);
+#endif
+    }
+
+    // Note, acquireCount is atomic so we don't need to lock to decrement it
+    RONIN_INLINE void LowRelease() { --acquiredCount; }
+
+private:
+    std::atomic<int> acquiredCount;
+
+#if PLATFORM == PLATFORM_WIN
+    /** Critical section used for system calls
+     */
+    CRITICAL_SECTION csHigh;
+
+#else
+    /** Static mutex attribute
+     */
+    static bool prio_attr_initalized;
+    static pthread_mutexattr_t prio_attr;
+
+    /** pthread struct used in system calls
+     */
+    pthread_mutex_t mutex;
+#endif
+};
+
 #define Mutex EasyMutex
+#define RWMutex PriorityMutex
 
 #endif

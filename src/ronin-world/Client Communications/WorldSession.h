@@ -709,7 +709,6 @@ protected:
     void EmptyPacket(WorldPacket &recv_data);
 
 public:
-    void SendTradeStatus(uint32 TradeStatus);
     void SendCharterRequest(Creature* pCreature);
     void SendInnkeeperBind(Creature* pCreature);
     void SendBattlegroundList(Creature* pCreature, uint32 type);

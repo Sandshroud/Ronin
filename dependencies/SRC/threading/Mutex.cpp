@@ -29,6 +29,9 @@
 EasyMutex::EasyMutex() { InitializeCriticalSection(&cs); }
 EasyMutex::~EasyMutex() { DeleteCriticalSection(&cs); }
 
+PriorityMutex::PriorityMutex() : acquiredCount(0) { InitializeCriticalSection(&csHigh); }
+PriorityMutex::~PriorityMutex() { DeleteCriticalSection(&csHigh); }
+
 #elif PLATFORM != PLATFORM_WIN
 
 /* this is done slightly differently on bsd-variants */
@@ -55,5 +58,23 @@ EasyMutex::EasyMutex()
 }
 
 EasyMutex::~EasyMutex() { pthread_mutex_destroy(&mutex); }
+
+/* Linux mutex implementation */
+bool PriorityMutex::prio_attr_initalized = false;
+pthread_mutexattr_t PriorityMutex::prio_attr;
+
+PriorityMutex::PriorityMutex() : acquiredCount(0)
+{
+    if(!prio_attr_initalized)
+    {
+        pthread_mutexattr_init(&prio_attr);
+        pthread_mutexattr_settype(&prio_attr, recursive_mutex_flag);
+        prio_attr_initalized = true;
+    }
+
+    pthread_mutex_init(&mutex, &prio_attr);
+}
+
+PriorityMutex::~PriorityMutex() { pthread_mutex_destroy(&mutex); }
 
 #endif

@@ -125,7 +125,7 @@ void MapInstance::Destruct()
     _broadcastMessageInRangeCBStack.cleanup();
     _broadcastChatPacketCBStack.cleanup();
 
-    _PerformPendingRemovals();
+    _PerformPendingActions();
 
     std::vector<WorldObject*> m_delQueue;
     while(m_CreatureStorage.size())
@@ -135,7 +135,7 @@ void MapInstance::Destruct()
         RemoveObject(ctr);
     }
 
-    _PerformPendingRemovals();
+    _PerformPendingActions();
     while(m_delQueue.size())
     {
         WorldObject *obj = *m_delQueue.begin();
@@ -150,7 +150,7 @@ void MapInstance::Destruct()
         RemoveObject(gObj);
     }
 
-    _PerformPendingRemovals();
+    _PerformPendingActions();
     while(m_delQueue.size())
     {
         WorldObject *obj = *m_delQueue.begin();
@@ -165,7 +165,7 @@ void MapInstance::Destruct()
         RemoveObject(dynObj);
     }
 
-    _PerformPendingRemovals();
+    _PerformPendingActions();
     while(m_delQueue.size())
     {
         WorldObject *obj = *m_delQueue.begin();
@@ -757,7 +757,7 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
 
     _processCallback.Lock();
     _processCallback.SetCell(cellX, cellY);
-    objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER, true);
+    objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
     _processCallback.Unlock();
     return true;
 }
@@ -784,7 +784,7 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER, true);
+            cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER);
     }
     _removalCallback.Unlock();
 }
@@ -1153,14 +1153,12 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
     storage->callback.Lock();
     storage->callback.ResetData(range);
     ctr->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, ctr, typeMask, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(ctr, &storage->callback, typeMask, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(ctr, &storage->callback, typeMask);
+    });
 
     Unit *Result = storage->callback.GetResult();
     storage->cellvector.clear();
@@ -1187,14 +1185,12 @@ void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packe
     storage->callback.Lock();
     storage->callback.setPacketData(packet);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+    });
 
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1226,14 +1222,12 @@ void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, 
     storage->callback.Lock();
     storage->callback.ResetData(range, opcodeId, Len, data, false, 0);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+    });
 
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1248,14 +1242,12 @@ void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float rang
     storage->callback.Lock();
     storage->callback.ResetData(range, data, myTeam, teamId);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+    });
 
     storage->cellvector.clear();
     storage->callback.Unlock();
@@ -1282,14 +1274,13 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *pa
     storage->callback.Lock();
     storage->callback.setPacketData(packet, lang, langpos, guidPos);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+    });
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1332,14 +1323,13 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
 
     storage->callback.Lock();
     obj->GetCellManager()->FillCellRange(&storage->cellvector);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+    });
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1377,14 +1367,13 @@ void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *c
     storage->callback.Lock();
     storage->callback.SetData(callback, object, caster, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &storage->cellvector);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, object, typeMask, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(object, &storage->callback, typeMask, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(object, &storage->callback, typeMask);
+    });
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1413,14 +1402,13 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     storage->callback.Lock();
     storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(x, y, maxRange, &storage->cellvector);
-    while(!storage->cellvector.empty())
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, spell, typeMask, storage](uint32 cellId)
     {
-        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*storage->cellvector.begin());
-        storage->cellvector.erase(storage->cellvector.begin());
-        MapCell *cell = GetCell(cellPair.first, cellPair.second);
-        if(cell && !cell->ProcessObjectSets(spell->GetCaster(), &storage->callback, typeMask, storage->cellvector.empty()))
-            storage->cellvector.push_back(ObjectCellManager::_makeCell(cellPair.first, cellPair.second));
-    }
+        std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
+        if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
+            cell->ProcessObjectSets(spell->GetCaster(), &storage->callback, typeMask);
+    });
+
     storage->cellvector.clear();
     storage->callback.Unlock();
 }
@@ -1846,15 +1834,15 @@ void MapInstance::_PerformPendingUpdates()
     m_updateMutex.Release();
 }
 
-void MapInstance::_PerformPendingRemovals()
+void MapInstance::_PerformPendingActions()
 {
     m_updateMutex.Acquire();
-    while(!m_pendingCellRemovals.empty())
+    while(!m_pendingCellActions.empty())
     {
-        std::pair<uint16, uint16> pair = *m_pendingCellRemovals.begin();
-        m_pendingCellRemovals.erase(m_pendingCellRemovals.begin());
+        std::pair<uint16, uint16> pair = *m_pendingCellActions.begin();
+        m_pendingCellActions.erase(m_pendingCellActions.begin());
         if(MapCell *cell = GetCell(pair.first, pair.second))
-            cell->ProcessRemovals();
+            cell->ProcessPendingActions();
     }
 
     mCreaturePool.ProcessRemovals();
@@ -2322,4 +2310,67 @@ void MapInstance::SendPvPCaptureMessage(int32 iZoneMask, uint32 ZoneId, const ch
             ptr->PushPacket(&data);
         }
     }
+}
+
+uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid)
+{
+    if(m_tradeData.find(ownerGuid) != m_tradeData.end())
+        return 0x00; // No error, just exit
+
+    Player *owner = GetPlayer(ownerGuid), *target = GetPlayer(targetGuid);
+    if(target == NULL || !target->IsInWorld())
+        return TRADE_STATUS_NO_TARGET;
+    else if(owner->isDead())
+        return TRADE_STATUS_YOU_DEAD;
+    else if(target->isDead())
+        return TRADE_STATUS_TARGET_DEAD;
+    else if(owner->IsStunned())
+        return TRADE_STATUS_YOU_STUNNED;
+    else if(target->IsStunned())
+        return TRADE_STATUS_TARGET_STUNNED;
+    else if(m_tradeData.find(targetGuid) != m_tradeData.end())
+        return TRADE_STATUS_BUSY;
+    else if(target->GetTeam() != owner->GetTeam() && !owner->hasGMTag())
+        return TRADE_STATUS_WRONG_FACTION;
+    else if(target->hasIgnored(owner->GetGUID()))
+        return TRADE_STATUS_IGNORE_YOU;
+    else if(owner->GetDistanceSq(target) > 100.0f)     // This needs to be checked
+        return TRADE_STATUS_TARGET_TO_FAR;
+    else if(target->GetSession() == NULL || target->GetSession()->GetSocket() == NULL)
+        return TRADE_STATUS_TARGET_LOGOUT;
+
+    TradeData *tradeData = new TradeData();
+    // Set our guids for the trade, we're the owner since we initiated
+    tradeData->traders[0] = ownerGuid;
+    tradeData->traders[1] = targetGuid;
+    // Set accepted to false
+    tradeData->accepted[0] = tradeData->accepted[1] = false;
+    // Set trade information to 0
+    tradeData->gold[0] = tradeData->gold[1] = 0;
+    for(uint8 i = 0; i < 7; ++i)
+        tradeData->items[i] = tradeData->items[7+i] = 0;
+    tradeData->enchantId[0] = tradeData->enchantId[1] = 0;
+
+    m_tradeData.insert(std::make_pair(ownerGuid, tradeData));
+    m_tradeData.insert(std::make_pair(targetGuid, tradeData));
+    return TRADE_STATUS_BEGIN_TRADE;
+}
+
+void MapInstance::SetTradeStatus(WoWGuid trader, uint8 status)
+{
+    std::map<WoWGuid, TradeData*>::iterator itr;
+    if((itr = m_tradeData.find(trader)) != m_tradeData.end())
+        return; // No error, just exit
+
+    TradeData *tradeData = itr->second;
+    uint8 index = tradeData->getIndex(trader);
+    switch(status)
+    {
+
+    }
+}
+
+void MapInstance::SetTradeAccepted(WoWGuid trader, bool set)
+{
+
 }

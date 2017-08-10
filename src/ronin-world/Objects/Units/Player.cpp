@@ -205,7 +205,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_bgData = NULL;
     m_runeData = NULL;
     m_taxiData = NULL;
-    m_tradeData = NULL;
     m_gmData = NULL;
     memset(&m_bindData, 0, sizeof(Player::BindData));
 
@@ -422,17 +421,6 @@ void Player::Destruct()
     Player* pTarget;
     if(pTarget = objmgr.GetPlayer(GetInviter()))
         pTarget->SetInviter(0);
-
-    if(m_tradeData)
-    {
-        if((pTarget = GetTradeTarget()) && pTarget->m_tradeData)
-        {
-            delete pTarget->m_tradeData;
-            pTarget->m_tradeData = NULL;
-        }
-        delete m_tradeData;
-        m_tradeData = NULL;
-    }
 
     m_selectedGo.Clean();
 
@@ -2901,15 +2889,6 @@ void Player::RemoveFromWorld()
 
     m_mapInstance->GetStateManager().ClearWorldStates(this);
 
-    // Cancel trade if it's active.
-    if(m_tradeData)
-    {
-        if(Player* pTarget = GetTradeTarget())
-            pTarget->ResetTradeVariables();
-
-        ResetTradeVariables();
-    }
-
     if(m_SummonedObject)
     {
         m_SummonedObject->Cleanup();
@@ -5074,152 +5053,6 @@ void Player::SetGuildId(uint32 guildId)
         RemoveFlag(PLAYER_FLAGS, 0x10000000);
         RemoveFlag(OBJECT_FIELD_TYPE, TYPEMASK_FLAG_IN_GUILD);
     }
-}
-
-void Player::SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourStatus, uint32 misc, uint32 misc2)
-{
-    WorldPacket data;
-    if(extended)
-    {
-        data.Initialize(SMSG_TRADE_STATUS_EXTENDED, 100);
-        uint32 count = 0;
-        if(m_tradeData)
-        {
-            for(uint32 i = 0; i < 7; i++)
-                if(m_tradeData->tradeItems[i])
-                    count++;
-        }
-
-        data << uint32(0); // TradeId
-        data << uint32(0); // unk
-        data << uint64(m_tradeData->gold);
-        data << uint32(m_tradeData->enchantId);
-        data << uint32(7);
-        data << uint32(0);
-        data << uint8(ourStatus);
-        data << uint32(7);
-        data.WriteBits(count, 22);
-        ByteBuffer itemData;
-        if(m_tradeData)
-        {
-            for(uint32 i = 0; i < 7; i++)
-            {
-                /*if(Item *item = m_tradeData->tradeItems[i])
-                {
-                    WoWGuid giftCreatorGuid = m_tradeData->tradeItems[i]->GetUInt64Value(ITEM_FIELD_GIFTCREATOR);
-                    WoWGuid creatorGuid = m_tradeData->tradeItems[i]->GetUInt64Value(ITEM_FIELD_CREATOR);
-
-                    data.WriteBit(giftCreatorGuid[7]);
-                    data.WriteBit(giftCreatorGuid[1]);
-                    bool notWrapped = data.WriteBit(!item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FLAG_WRAPPED));
-                    data.WriteBit(giftCreatorGuid[3]);
-
-                    if (notWrapped)
-                    {
-                        data.WriteBit(creatorGuid[7]);
-                        data.WriteBit(creatorGuid[1]);
-                        data.WriteBit(creatorGuid[4]);
-                        data.WriteBit(creatorGuid[6]);
-                        data.WriteBit(creatorGuid[2]);
-                        data.WriteBit(creatorGuid[3]);
-                        data.WriteBit(creatorGuid[5]);
-                        data.WriteBit(item->GetProto()->LockId != 0);
-                        data.WriteBit(creatorGuid[0]);
-                        itemData.WriteByteSeq(creatorGuid[1]);
-
-                        itemData << uint32(0); // Perm enchantment
-                        // Sockets
-                        itemData << uint32(0) << uint32(0) << uint32(0);
-                        itemData << uint32(item->GetUInt32Value(ITEM_FIELD_MAXDURABILITY));
-
-                        itemData.WriteByteSeq(creatorGuid[6]);
-                        itemData.WriteByteSeq(creatorGuid[2]);
-                        itemData.WriteByteSeq(creatorGuid[7]);
-                        itemData.WriteByteSeq(creatorGuid[4]);
-
-                        itemData << uint32(0); // Reforge type
-                        itemData << uint32(item->GetUInt32Value(ITEM_FIELD_DURABILITY));
-                        itemData << uint32(0); // Property id
-                        itemData.WriteByteSeq(creatorGuid[3]);
-                        itemData << uint32(0); // unk7
-                        itemData.WriteByteSeq(creatorGuid[0]);
-                        itemData << uint32(5); // Highest charges
-                        itemData << uint32(0); // Seed
-                        itemData.WriteByteSeq(creatorGuid[5]);
-                    }
-
-                    data.WriteBit(giftCreatorGuid[6]);
-                    data.WriteBit(giftCreatorGuid[4]);
-                    data.WriteBit(giftCreatorGuid[2]);
-                    data.WriteBit(giftCreatorGuid[0]);
-                    data.WriteBit(giftCreatorGuid[5]);
-                    itemData.WriteByteSeq(giftCreatorGuid[6]);
-                    itemData.WriteByteSeq(giftCreatorGuid[1]);
-                    itemData.WriteByteSeq(giftCreatorGuid[7]);
-                    itemData.WriteByteSeq(giftCreatorGuid[4]);
-                    itemData << uint32(item->GetEntry());
-                    itemData.WriteByteSeq(giftCreatorGuid[0]);
-                    itemData << uint32(item->GetStackSize());
-                    itemData.WriteByteSeq(giftCreatorGuid[5]);
-                    itemData << uint8(i);
-                    itemData.WriteByteSeq(giftCreatorGuid[2]);
-                    itemData.WriteByteSeq(giftCreatorGuid[3]);
-                }*/
-            }
-        }
-        data.FlushBits();
-        if(itemData.size())
-            data.append(itemData.contents(), itemData.size());
-    }
-    else
-    {
-        data.Initialize(SMSG_TRADE_STATUS, 20);
-        data.WriteBit(0);
-        data.WriteBits(status, 5);
-        if(status == TRADE_STATUS_BEGIN_TRADE)
-        {
-            if(m_tradeData == NULL)
-                data.WriteBitString(8, 0, 0, 0, 0, 0, 0, 0, 0);
-            else
-            {
-                data.WriteBit(m_tradeData->targetGuid[2]);
-                data.WriteBit(m_tradeData->targetGuid[4]);
-                data.WriteBit(m_tradeData->targetGuid[6]);
-                data.WriteBit(m_tradeData->targetGuid[0]);
-                data.WriteBit(m_tradeData->targetGuid[1]);
-                data.WriteBit(m_tradeData->targetGuid[3]);
-                data.WriteBit(m_tradeData->targetGuid[7]);
-                data.WriteBit(m_tradeData->targetGuid[5]);
-                data.WriteByteSeq(m_tradeData->targetGuid[4]);
-                data.WriteByteSeq(m_tradeData->targetGuid[1]);
-                data.WriteByteSeq(m_tradeData->targetGuid[2]);
-                data.WriteByteSeq(m_tradeData->targetGuid[3]);
-                data.WriteByteSeq(m_tradeData->targetGuid[0]);
-                data.WriteByteSeq(m_tradeData->targetGuid[7]);
-                data.WriteByteSeq(m_tradeData->targetGuid[6]);
-                data.WriteByteSeq(m_tradeData->targetGuid[5]);
-            }
-        }
-        else if(status == TRADE_STATUS_OPEN_WINDOW)
-            data << uint32(0);
-        else if(status == TRADE_STATUS_CLOSE_WINDOW)
-        {
-            data.WriteBit(ourStatus);
-            data << uint32(misc);
-            data << uint32(misc2);
-        }
-        else if(status == TRADE_STATUS_ONLY_CONJURABLE_CROSSREALM || status == TRADE_STATUS_NOT_ON_TAPLIST)
-            data << uint8(misc);
-        else if(status == TRADE_STATUS_CURRENCY_IS_BOUND || status == TRADE_STATUS_TRADING_CURRENCY)
-            data << uint32(misc) << uint32(status == TRADE_STATUS_TRADING_CURRENCY ? misc2 : 0);
-        else data.FlushBits();
-    }
-
-    if(ourStatus || m_tradeData == NULL)
-        PushPacket(&data);
-    else if(Player *plr = objmgr.GetPlayer(m_tradeData->targetGuid))
-        if(plr->GetInstanceID() == GetInstanceID())
-            plr->PushPacket(&data);
 }
 
 void Player::RequestDuel(Player* pTarget)

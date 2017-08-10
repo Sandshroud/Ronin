@@ -313,41 +313,6 @@ class GossipMenu;
 #define RESTSTATE_TIRED50            4
 #define RESTSTATE_EXHAUSTED          5
 
-enum PlayerTradeStatus : uint8
-{
-    TRADE_STATUS_OPEN_WINDOW = 0,
-    TRADE_STATUS_NOT_ON_TAPLIST,
-    TRADE_STATUS_SELF_CANCEL,
-    TRADE_STATUS_TARGET_IGNORING_YOU,
-    TRADE_STATUS_TARGET_IS_DEAD,
-    TRADE_STATUS_TRADE_ACCEPTED,
-    TRADE_STATUS_TARGET_LOGGING_OUT,
-    TRADE_STATUS_UNK1,
-    TRADE_STATUS_TRADE_COMPLETED,
-    TRADE_STATUS_TARGET_TRIAL_ACCOUNT,
-    TRADE_STATUS_UNK2,
-    TRADE_STATUS_BEGIN_TRADE,
-    TRADE_STATUS_YOU_ARE_DEAD,
-    TRADE_STATUS_UNK3,
-    TRADE_STATUS_UNK4,
-    TRADE_STATUS_TARGET_TOO_FAR,
-    TRADE_STATUS_NO_TARGET,
-    TRADE_STATUS_TARGET_IS_BUSY,
-    TRADE_STATUS_CURRENCY_IS_BOUND,
-    TRADE_STATUS_TARGET_WRONG_FACTION,
-    TRADE_STATUS_TARGET_IS_BUSY_2,
-    TRADE_STATUS_UNK5,
-    TRADE_STATUS_TRADE_CANCELLED,
-    TRADE_STATUS_TRADING_CURRENCY,
-    TRADE_STATUS_BACK_TO_TRADE,
-    TRADE_STATUS_ONLY_CONJURABLE_CROSSREALM,
-    TRADE_STATUS_YOU_ARE_STUNNED,
-    TRADE_STATUS_UNK6,
-    TRADE_STATUS_TARGET_IS_STUNNED,
-    TRADE_STATUS_UNK7,
-    TRADE_STATUS_CLOSE_WINDOW
-};
-
 enum DUEL_STATUS
 {
     DUEL_STATUS_OUTOFBOUNDS,
@@ -674,6 +639,9 @@ public:
     uint32 GetRuneCooldown(uint8 rune) { return m_runeData ? m_runeData->runeCD[rune] : 0; };
     uint32 GetRuneCooldownTimer() { return m_runeData ? m_runeData->cooldownTimer : 0; }
     uint8 UseRunes(uint32 *runes, bool theoretical);
+
+    bool hasIgnored(WoWGuid guid) { return m_ignores.find(guid) != m_ignores.end(); }
+    bool hasMuted(WoWGuid guid) { return m_mutes.find(guid) != m_mutes.end(); }
 
 public: /// Interface Interaction Functions
     RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
@@ -1045,29 +1013,6 @@ public:
     void                SetDuelState(uint8 state) { m_duelState = state; }
     RONIN_INLINE uint8        GetDuelState() { return m_duelState; }
 
-    /************************************************************************/
-    /* Trade                                                                */
-    /************************************************************************/
-    void SendTradeUpdate(bool extended, PlayerTradeStatus status, bool ourStatus = true, uint32 misc = 0, uint32 misc2 = 0);
-    void ResetTradeVariables()
-    {
-        if(m_tradeData)
-            delete m_tradeData;
-        m_tradeData = NULL;
-    }
-
-    void CreateNewTrade(WoWGuid targetGuid)
-    {
-        ResetTradeVariables();
-        m_tradeData = new Player::PlayerTradeData();
-        m_tradeData->targetGuid = targetGuid;
-        m_tradeData->enchantId = 0;
-        m_tradeData->gold = 0;
-        for(uint8 i = 0; i < 7; i++)
-            m_tradeData->tradeItems[i] = NULL;
-        m_tradeData->tradeStep = TRADE_STATUS_BEGIN_TRADE;
-    }
-
 public:
     /************************************************************************/
     /* Player Items                                                         */
@@ -1292,24 +1237,6 @@ public:
     RONIN_INLINE void SetName(std::string& name) { m_name = name; }
     void SendAreaTriggerMessage(const char * message, ...);
 
-    // Trade Target
-    //Player* getTradeTarget() {return mTradeTarget;};
-
-    RONIN_INLINE Player* GetTradeTarget()
-    {
-        if(!IsInWorld() || m_tradeData == NULL)
-            return NULL;
-        return m_mapInstance->GetPlayer(m_tradeData->targetGuid);
-    }
-
-    Item* getTradeItem(uint8 slot)
-    {
-        if(m_tradeData == NULL)
-            return NULL;
-
-        return m_tradeData->tradeItems[slot];
-    }
-
     /* Mind Control */
     void Possess(Unit* pTarget);
     void UnPossess();
@@ -1510,17 +1437,6 @@ private:
         std::vector<TaxiPath*> paths; // Pending taxi paths
     } *m_taxiData;
 
-    // Player trade related variables
-    struct PlayerTradeData
-    {
-        // Trade data
-        uint64 gold;
-        uint32 enchantId;
-        WoWGuid targetGuid;
-        Item* tradeItems[7];
-        PlayerTradeStatus tradeStep;
-    } *m_tradeData;
-
     // Player Game Master data
     struct PlayerGMData
     {
@@ -1627,10 +1543,6 @@ public:
     int32 m_summonInstanceId;
     uint32 m_summonMapId;
     WorldObject* m_summoner;
-
-    /************************************************************************/
-    /* Trade                                                                */
-    /************************************************************************/
 
     /************************************************************************/
     /* Player Class systems, info and misc things                           */

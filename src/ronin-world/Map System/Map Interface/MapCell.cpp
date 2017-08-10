@@ -25,7 +25,7 @@
 
 #include "StdAfx.h"
 
-MapCell::MapCell()
+MapCell::MapCell() : _pendingLock(), _objLock()
 {
     _forcedActive = false;
 }
@@ -48,7 +48,7 @@ void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 
 void MapCell::AddObject(WorldObject* obj)
 {
-    Guard guard(cellLock);
+    RWGuard guard(_objLock, true);
     if(obj->IsPlayer())
         m_playerSet[obj->GetGUID()] = obj;
     else
@@ -63,14 +63,15 @@ void MapCell::AddObject(WorldObject* obj)
 
 void MapCell::RemoveObject(WorldObject* obj)
 {
-    Guard guard(cellLock);
+    Guard guard(_pendingLock);
     m_pendingRemovals.insert(obj->GetGUID());
-    _instance->CellRemovalPending(_x, _y);
+    _instance->CellActionPending(_x, _y);
 }
 
-void MapCell::ProcessRemovals()
+void MapCell::ProcessPendingActions()
 {
-    Guard guard(cellLock);
+    Guard guard(_pendingLock);
+    RWGuard objguard(_objLock, true);
     while(!m_pendingRemovals.empty())
     {
         WoWGuid guid = *m_pendingRemovals.begin();
@@ -84,21 +85,16 @@ void MapCell::ProcessRemovals()
 
 WorldObject *MapCell::FindObject(WoWGuid guid)
 {
-    Guard guard(cellLock);
+    RWGuard guard(_objLock, false);
     MapCell::CellObjectMap::iterator itr;
     if((itr = m_playerSet.find(guid)) != m_playerSet.end() || (itr = m_nonPlayerSet.find(guid)) != m_nonPlayerSet.end())
         return itr->second;
     return NULL;
 }
 
-bool MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask, bool forced)
+void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
 {
-    if(!cellLock.AttemptAcquire())
-    {
-        if(forced == false)
-            return false;
-        cellLock.Acquire();
-    }
+    RWGuard guard(_objLock, false);
 
     WorldObject *curObj;
     if(objectMask == 0)
@@ -149,13 +145,10 @@ bool MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
             }
         }
     }
-    cellLock.Release();
-    return true;
 }
 
 void MapCell::SetActivity(bool state)
 {
-    Guard guard(cellLock);
     uint32 x = _x/8, y = _y/8;
     if(state && _unloadpending)
         CancelPendingUnload();
@@ -166,7 +159,7 @@ void MapCell::SetActivity(bool state)
 
 uint32 MapCell::LoadCellData(CellSpawns * sp)
 {
-    Guard guard(cellLock);
+    RWGuard guard(_objLock, true);
     if(_loaded == true)
         return 0;
 
@@ -252,11 +245,11 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
 
 void MapCell::UnloadCellData(bool preDestruction)
 {
-    Guard guard(cellLock);
     if(_loaded == false)
         return;
 
     _loaded = false;
+    RWGuard guard(_objLock, true);
     while(!m_nonPlayerSet.empty())
     {
         WorldObject *obj = m_nonPlayerSet.begin()->second;
@@ -284,7 +277,6 @@ void MapCell::UnloadCellData(bool preDestruction)
 
 void MapCell::QueueUnloadPending()
 {
-    Guard guard(cellLock);
     if(_unloadpending)
         return;
 
@@ -294,7 +286,6 @@ void MapCell::QueueUnloadPending()
 
 void MapCell::CancelPendingUnload()
 {
-    Guard guard(cellLock);
     if(!_unloadpending)
         return;
 
@@ -304,7 +295,6 @@ void MapCell::CancelPendingUnload()
 
 void MapCell::Unload()
 {
-    Guard guard(cellLock);
     if(_active)
         return;
 

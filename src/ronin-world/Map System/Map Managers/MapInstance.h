@@ -54,19 +54,17 @@ public:
 #ifdef VECTOR_POOLS
     StoragePoolTask(std::vector<T*> *pool, uint32 msTime, uint32 diff) : targetPool(pool), _msTime(msTime), _diff(diff) { }
 #else
-    StoragePoolTask(std::set<T*> *pool, uint32 diff) : targetPool(pool), _msTime(msTime), _diff(diff) { }
+    StoragePoolTask(std::set<T*> *pool, uint32 msTime, uint32 diff) : targetPool(pool), _msTime(msTime), _diff(diff) { }
 #endif
 
     virtual int call()
     {
-        std::vector<T*> updatePool(*targetPool);
-        std::for_each(updatePool.begin(), updatePool.end(), [this](T *elem)
+        std::for_each(targetPool->begin(), targetPool->end(), [this](T *elem)
         {
             if(elem->IsActiveObject() && !elem->IsActivated())
                 elem->InactiveUpdate(_msTime, _diff);
             else elem->Update(_msTime, _diff);
         } );
-        updatePool.clear();
         return 0;
     }
 
@@ -647,7 +645,7 @@ public:
     void _PerformMovementUpdates(bool includePlayers);
     void _PerformSessionUpdates();
     void _PerformPendingUpdates();
-    void _PerformPendingRemovals();
+    void _PerformPendingActions();
 
     void EventCorpseDespawn(uint64 guid);
 
@@ -718,7 +716,7 @@ public:
 
     bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
 
-    void CellRemovalPending(uint16 x, uint16 y) { m_pendingCellRemovals.insert(std::make_pair(x, y)); }
+    void CellActionPending(uint16 x, uint16 y) { m_pendingCellActions.insert(std::make_pair(x, y)); }
 
 protected:
     /* Map Information */
@@ -726,7 +724,7 @@ protected:
 
     /* Update System */
     Mutex m_updateMutex;
-    std::set<std::pair<uint16, uint16>> m_pendingCellRemovals;
+    std::set<std::pair<uint16, uint16>> m_pendingCellActions;
     ObjectSet _updates, _movedObjects, _pendingRemoval, _pendingCleanup;
     PlayerSet _processQueue, _movedPlayers, _softDCPlayers;
 
@@ -878,4 +876,61 @@ private:
         uint32 linkedGroupId;
         uint32 encounterMask;
     } *m_instanceData;
+
+public:
+    enum PlayerTradeStatus : uint8
+    {
+        TRADE_STATUS_OPEN_WINDOW = 0,
+        // For trading boss loot
+        TRADE_STATUS_NOT_ON_TAPLIST = 2,
+        TRADE_STATUS_YOU_LOGOUT = 3,
+        TRADE_STATUS_IGNORE_YOU = 4,
+        TRADE_STATUS_TARGET_DEAD = 5,
+        TRADE_STATUS_TRADE_ACCEPT = 6,
+        TRADE_STATUS_TARGET_LOGOUT = 7,
+        TRADE_STATUS_TRADE_COMPLETE = 9,
+        TRADE_STATUS_TRIAL_ACCOUNT = 10,
+        TRADE_STATUS_BEGIN_TRADE = 12,
+        TRADE_STATUS_YOU_DEAD = 13,
+        TRADE_STATUS_TARGET_TO_FAR = 16,
+        TRADE_STATUS_NO_TARGET = 17,
+        TRADE_STATUS_BUSY_2 = 18,
+        TRADE_STATUS_CURRENCY_NOT_TRADABLE = 19,
+        TRADE_STATUS_WRONG_FACTION = 20,
+        TRADE_STATUS_BUSY = 21,
+        TRADE_STATUS_TRADE_CANCELED = 23,
+        TRADE_STATUS_CURRENCY = 24,
+        TRADE_STATUS_BACK_TO_TRADE = 25,
+        // Can only trade conjured items
+        TRADE_STATUS_WRONG_REALM = 26,
+        TRADE_STATUS_YOU_STUNNED = 27,
+        TRADE_STATUS_TARGET_STUNNED = 29,
+        TRADE_STATUS_CLOSE_WINDOW = 31,
+    };
+
+    uint8 StartTrade(WoWGuid owner, WoWGuid target);
+    void SetTradeStatus(WoWGuid trader, uint8 status);
+    void SetTradeAccepted(WoWGuid trader, bool set);
+
+private:
+    struct TradeData
+    {
+        WoWGuid traders[2];
+        bool accepted[2];
+
+        uint64 gold[2];
+        WoWGuid items[14];
+        uint32 enchantId[2];
+
+        uint8 getIndex(WoWGuid guid)
+        {
+            if(guid == traders[0])
+                return 0x00;
+            if(guid == traders[1])
+                return 0x01;
+            return 0xFF;
+        }
+    };
+
+    std::map<WoWGuid, TradeData*> m_tradeData;
 };

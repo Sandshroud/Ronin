@@ -21,50 +21,47 @@
 
 #include "StdAfx.h"
 
-void WorldSession::SendTradeStatus(uint32 TradeStatus)
+void SendTradeStatus(Player *target, uint32 TradeStatus, WoWGuid owner, WoWGuid trader, bool linkedbNetAccounts, uint8 slotError = -1, bool hasInvError = false, uint32 invError = 0, uint32 limitCategoryId = 0)
 {
-    OutPacket(SMSG_TRADE_STATUS, 4, &TradeStatus);
+    WorldPacket data(SMSG_TRADE_STATUS, 13);
+    data.WriteBit(linkedbNetAccounts ? 1 : 0);
+    data.WriteBits(TradeStatus, 5);
+    switch (TradeStatus)
+    {
+    case MapInstance::TRADE_STATUS_BEGIN_TRADE:
+        data.WriteGuidBitString(8, trader, 2, 4, 6, 0, 1, 3, 7, 5);
+        data.WriteSeqByteString(8, trader, 4, 1, 2, 3, 0, 7, 6, 5);
+        break;
+    case MapInstance::TRADE_STATUS_OPEN_WINDOW: data << uint32(0); break;
+    case MapInstance::TRADE_STATUS_CLOSE_WINDOW:
+        data.WriteBit(hasInvError);
+        data << uint32(invError) << uint32(limitCategoryId);
+        break;
+    case MapInstance::TRADE_STATUS_WRONG_REALM:
+    case MapInstance::TRADE_STATUS_NOT_ON_TAPLIST:
+        data << uint8(slotError);
+        break;
+    case MapInstance::TRADE_STATUS_CURRENCY:
+    case MapInstance::TRADE_STATUS_CURRENCY_NOT_TRADABLE:
+        data << uint32(0); // Trading Currency Id
+        data << uint32(0); // Trading Currency Amount
+    default:
+        data.FlushBits();
+        break;
+    }
+
+    target->PushPacket(&data);
 };
 
 void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
-    recv_data >> guid;
-
-    PlayerTradeStatus tradeStatus = TRADE_STATUS_BEGIN_TRADE;
-    Player* pTarget = _player->GetMapInstance()->GetPlayer((uint32)guid);
-    if(pTarget == NULL || !pTarget->IsInWorld())
-        tradeStatus = TRADE_STATUS_NO_TARGET;
-    else if(_player->isDead())
-        tradeStatus = TRADE_STATUS_YOU_ARE_DEAD;
-    else if(pTarget->isDead())
-        tradeStatus = TRADE_STATUS_TARGET_IS_DEAD;
-    else if(_player->IsStunned())
-        tradeStatus = TRADE_STATUS_YOU_ARE_STUNNED;
-    else if(pTarget->IsStunned())
-        tradeStatus = TRADE_STATUS_TARGET_IS_STUNNED;
-    else if(pTarget->m_tradeData)
-        tradeStatus = TRADE_STATUS_TARGET_IS_BUSY;
-    else if(pTarget->GetTeam() != _player->GetTeam() && GetPermissionCount() == 0)
-        tradeStatus = TRADE_STATUS_TARGET_WRONG_FACTION;
-    else if(pTarget->m_ignores.find(_player->GetGUID()) != pTarget->m_ignores.end())
-        tradeStatus = TRADE_STATUS_TARGET_IGNORING_YOU;
-    else if(_player->GetDistanceSq(pTarget) > 100.0f)     // This needs to be checked
-        tradeStatus = TRADE_STATUS_TARGET_TOO_FAR;
-    else if(pTarget->m_session == NULL || pTarget->m_session->GetSocket() == NULL)
-        tradeStatus = TRADE_STATUS_TARGET_LOGGING_OUT;
-    else
-    {
-        pTarget->CreateNewTrade(_player->GetGUID());
-        _player->CreateNewTrade(pTarget->GetGUID());
-        pTarget->SendTradeUpdate(false, tradeStatus);
-        return;
-    }
-
-    _player->SendTradeUpdate(false, tradeStatus);
-    _player->ResetTradeVariables(); // Clear our trade data
+    WoWGuid guid;
+    recv_data.ReadGuidBitString(8, guid, 0, 3, 5, 1, 4, 6, 7, 2);
+    recv_data.ReadGuidByteString(8, guid, 7, 4, 3, 5, 1, 2, 6, 0);
+    if(uint8 result = _player->GetMapInstance()->StartTrade(_player->GetGUID(), guid))
+        SendTradeStatus(_player, result, WoWGuid(0), WoWGuid(0), false);
 }
 
 void WorldSession::HandleBeginTrade(WorldPacket & recv_data)
@@ -74,7 +71,7 @@ void WorldSession::HandleBeginTrade(WorldPacket & recv_data)
 
 void WorldSession::HandleBusyTrade(WorldPacket & recv_data)
 {
-
+    _player->GetMapInstance()->SetTradeStatus(_player->GetGUID(), MapInstance::TRADE_STATUS_BUSY_2);
 }
 
 void WorldSession::HandleIgnoreTrade(WorldPacket & recv_data)

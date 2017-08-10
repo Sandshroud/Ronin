@@ -59,7 +59,7 @@ public:
     //WorldObject Managing
     void AddObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
-    void ProcessRemovals();
+    void ProcessPendingActions();
 
     void ReactivateObject(WorldObject *obj);
     void DeactivateObject(WorldObject *obj);
@@ -69,7 +69,7 @@ public:
     bool HasPlayers() { return !m_playerSet.empty(); }
 
     // Iterating through different phases of sets
-    bool ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0, bool forced = false);
+    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0);
 
     //State Related
     void SetActivity(bool state);
@@ -97,17 +97,19 @@ private:
     bool _forcedActive;
     uint16 _x,_y;
 
-    bool _active, _loaded;
-    bool _unloadpending;
+    bool _loaded;
+    std::atomic<bool> _active, _unloadpending;
 
     uint32 objectCount;
     MapInstance* _instance;
-    Mutex cellLock;
     Map *_mapData;
 
-    // Cell iterators
+    // Deferred object removal
+    Mutex _pendingLock;
     std::set<WoWGuid> m_pendingRemovals;
 
+    // Object storage/locks
+    RWMutex _objLock;
     // Non player set and player set
     CellObjectMap m_nonPlayerSet, m_playerSet;
     // Object type sets

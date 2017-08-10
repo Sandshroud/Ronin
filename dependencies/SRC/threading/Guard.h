@@ -39,3 +39,28 @@ public:
 protected:
     Mutex& target;
 };
+
+class SERVER_DECL RWGuard
+{
+public:
+    RWGuard(RWMutex& mutex, bool high) : target(mutex), highLock(high)
+    {
+        if(highLock)
+            target.HighAcquire();
+        else target.LowAcquire();
+    }
+
+    ~RWGuard()
+    {
+        if(highLock)
+            target.HighRelease();
+        else target.LowRelease();
+    }
+
+    // Disable = operator
+    RWGuard& operator=(Guard& src) = delete;
+
+protected:
+    bool highLock;
+    RWMutex& target;
+};

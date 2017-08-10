@@ -402,8 +402,8 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
                 // Update our collision system via instanced map system
                 sVMapInterface.UpdateSingleMap(instance->GetMapId(), diff, instance->GetInstanceID());
 
-                // Process all pending removals in sequence
-                instance->_PerformPendingRemovals();
+                // Process all pending actions in sequence
+                instance->_PerformPendingActions();
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
                 // Process all pending inputs in sequence
@@ -454,8 +454,8 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
                 instance->_PerformMovementUpdates(true);
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
-                // Process secondary pending removals in sequence
-                instance->_PerformPendingRemovals();
+                // Process secondary pending actions in sequence
+                instance->_PerformPendingActions();
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
                 // Perform all pending object updates in sequence

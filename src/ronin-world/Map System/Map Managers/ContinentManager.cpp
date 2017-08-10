@@ -81,8 +81,8 @@ bool ContinentManager::run()
 #if DEBUG_CONTINENT_PERF == 1
         auto currentTime = cClock::system_clock::now();
 #endif
-        // Process all pending removals in sequence
-        m_continent->_PerformPendingRemovals();
+        // Process all pending actions in sequence
+        m_continent->_PerformPendingActions();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
 #if DEBUG_CONTINENT_PERF == 1
@@ -185,8 +185,8 @@ bool ContinentManager::run()
         uint32 performPlayerMovementUpdates = cClock::duration_cast<cClock::milliseconds>(cClock::system_clock::now() - currentTime).count();
         currentTime = cClock::system_clock::now();
 #endif
-        // Process secondary pending removals in sequence
-        m_continent->_PerformPendingRemovals();
+        // Process secondary pending actions in sequence
+        m_continent->_PerformPendingActions();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
 #if DEBUG_CONTINENT_PERF == 1
