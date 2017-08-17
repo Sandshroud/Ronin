@@ -49,17 +49,82 @@ World::World() : m_eventHandler(NULL)
     m_queueUpdateTimer = 180000;
     m_pushUpdateTimer = 0;
     m_continentTaskPoolCount = 0;
+    m_current_holiday_mask = 0;
 
 #ifdef WIN32
     m_cpuUsageTimer = 0;
     m_lnOldValue = 0;
     memset( &m_OldPerfTime100nSec, 0, sizeof( m_OldPerfTime100nSec ) );
-    SYSTEM_INFO si;
-    GetSystemInfo( &si );
-    number_of_cpus = si.dwNumberOfProcessors;
-    m_current_holiday_mask = 0;
+
+    bool useBasic = true;
+    DWORD logicalSize = 0;
+    if(!GetLogicalProcessorInformation(NULL, &logicalSize))
+    {   // Here we wanna grab numa and cache information so we can group thread pools into similar processing cores to cut down on hardware overhead
+        DWORD FullSize = logicalSize;
+        logicalSize /= sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+        SYSTEM_LOGICAL_PROCESSOR_INFORMATION *logicalInfo = new SYSTEM_LOGICAL_PROCESSOR_INFORMATION[logicalSize];
+        if(GetLogicalProcessorInformation(logicalInfo, &FullSize))
+        {
+            uint32 cacheCoreIndex = 0;
+            uint64 cpuMask = 0, cacheAssignedCoreMask = 0;
+            for(DWORD i = 0; i < logicalSize; ++i)
+            {
+                cpuMask |= logicalInfo[i].ProcessorMask;
+                switch(logicalInfo[i].Relationship)
+                {
+                case RelationNumaNode: // Different numa nodes
+                    m_coresByNodes[logicalInfo[i].NumaNode.NodeNumber] |= logicalInfo[i].ProcessorMask;
+                    break;
+                case RelationCache: // Cache breakdown for different CPU cores
+                    {
+                        switch(logicalInfo[i].Cache.Level)
+                        {
+                        case 1: break; // Level 1 cache
+                        case 2: break; // Level 2 cache
+                        case 3: // Level 3 cache: We use level 3 cache to see what the CPU breaks access up into
+                            if(cacheAssignedCoreMask & logicalInfo[i].ProcessorMask)
+                                break; // We've already assigned this cache
+                            m_coresByCache[cacheCoreIndex++] |= logicalInfo[i].ProcessorMask;
+                            cacheAssignedCoreMask |= logicalInfo[i].ProcessorMask;
+                            break;
+                        }
+                    }break;
+                }
+            }
+
+            delete [] logicalInfo;
+            number_of_cpus = RONIN_UTIL::getBitCount(cpuMask);
+            if(m_coresByCache.size() == number_of_cpus)
+            {  // If we're in a VM then we'll get individual core cache data, which is useless
+                m_coresByCache.clear();
+                // Just fill with numa data
+                m_coresByCache.insert(m_coresByNodes.begin(), m_coresByNodes.end());
+            }
+
+            useBasic = false;
+        }
+    }
+
+    if(useBasic)
+    {   // If size in is 0 and we pass then give up and use system info
+        SYSTEM_INFO si;
+        GetSystemInfo( &si );
+        number_of_cpus = si.dwNumberOfProcessors;
+        // Assign all CPUs to the same cache/numa
+        for(uint32 i = 0; i < number_of_cpus; ++i)
+        {
+            m_coresByNodes[0] |= (1<<i);
+            m_coresByCache[0] |= (1<<i);
+        }
+    }
 #else
     number_of_cpus = sysconf(_SC_NPROCESSORS_ONLN);
+    // Assign all CPUs to the same cache/numa
+    for(uint32 i = 0; i < number_of_cpus; ++i)
+    {
+        m_coresByNodes[0] |= (1<<i);
+        m_coresByCache[0] |= (1<<i);
+    }
 #endif // WIN32
 }
 
@@ -1133,6 +1198,64 @@ double World::GetCPUUsage()
 #endif
 }
 
+uint64 World::GetCoreAffinity(uint32 mapId, uint32 *coreCount)
+{
+    if(m_ignoreSystemTopology)
+    {
+        if(coreCount)
+            *coreCount = m_continentTaskPoolCount;
+        return 0x0000000000000000;
+    }
+
+    uint64 ret = 0x0000000000000000;
+#ifdef WIN32
+    std::map<uint32, uint64>::iterator itr;
+    if((itr = assignedCoreCache.find(mapId)) != assignedCoreCache.end())
+        ret = itr->second;
+    else
+    {
+        if(mapId <= 1)
+        {
+            // First assign by numa node
+            if(m_coresByNodes.size() > 1)
+                ret = m_coresByNodes[mapId]; // Numa assignment is easy, just grab a few nodes
+            else
+            {
+                if(m_coresByCache.size() > 1) // If we're not assigning by numa, assign by cache level
+                {
+                    uint32 curCoreCount = 0, assignmentCount = 0;
+                    for(auto itr = m_coresByCache.begin(); itr != m_coresByCache.end(); ++itr)
+                    {
+                        if(assignedCoreMasks & itr->second)
+                            continue;
+
+                        ret |= itr->second;
+                        curCoreCount += RONIN_UTIL::getBitCount(itr->second);
+                        if(++assignmentCount >= m_coresByCache.size()/2)
+                            break;
+                        if(curCoreCount >= m_continentTaskPoolCount)
+                            break;
+                    }
+                }
+            }
+        }
+        else if(mapId == 609 && coreCount) // Ebon hold
+            *coreCount = 0x02;
+        else if(coreCount) // Whatever is left
+            *coreCount = m_continentTaskPoolCount/2;
+
+        if(ret && ret != 0xFFFFFFFFFFFFFFFF)
+        {
+            assignedCoreMasks |= ret;
+            assignedCoreCache.insert(std::make_pair(mapId, ret));
+        }
+    }
+#endif
+    if(ret && coreCount)
+        *coreCount = RONIN_UTIL::getBitCount(ret);
+    return ret;
+}
+
 float World::GetRAMUsage(bool external)
 {
     float RAMUsage = 0.0f;
@@ -1408,6 +1531,7 @@ void World::Rehash(bool load)
     LogoutDelay = mainIni->ReadInteger("ServerSettings", "Logout_Delay", 20);
     EnableFatigue = mainIni->ReadBoolean("ServerSettings", "EnableFatigue", true);
     ServerPreloading = mainIni->ReadInteger("Startup", "Preloading", 0);
+    m_ignoreSystemTopology = mainIni->ReadBoolean("ServerSettings", "IgnoreSystemTopology", true);
     m_continentTaskPoolCount = mainIni->ReadInteger("ServerSettings", "ContinentTaskPoolCount", 0);
     // Negative performance when above physical CPU count, you should keep it around half of CPU count
     if(m_continentTaskPoolCount > number_of_cpus && mainIni->ReadBoolean("ServerSettings", "SensibleContinentPoolCap", true))

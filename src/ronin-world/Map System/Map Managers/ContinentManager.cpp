@@ -48,6 +48,10 @@ namespace cClock = std::chrono;
 
 bool ContinentManager::run()
 {
+    DWORD affinityMask = sWorld.GetCoreAffinity(m_mapId, NULL);
+    if(affinityMask && SetThreadAffinityMask(sThreadManager.GetSecurityHandle(RONIN_UTIL::GetThreadId()), affinityMask) == 0)
+        sLog.Error("ThreadManager", "Failed to assign continent manager %u to affinity mask %llu", m_mapId, affinityMask);
+
     // Preload all needed spawns etc
     m_continent->Preload();
     // Wait for our thread to be activated

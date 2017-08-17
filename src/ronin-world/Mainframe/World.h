@@ -663,6 +663,7 @@ public:
 
     // shutdown
     uint32 m_shutdownTime, m_shutdownType, m_shutdownLastTime;
+    uint32 m_current_holiday_mask;
 
     bool ShutdownQueued();
     void QueueShutdown(uint32 delay, uint32 type);
@@ -692,13 +693,19 @@ public:
 public:
     float GetRAMUsage(bool external = false);
 
+    uint64 GetCoreAffinity(uint32 mapId, uint32 *coreCount);
+
 private:
     uint32 number_of_cpus;
+    std::map<uint32, uint64> m_coresByNodes, m_coresByCache;
+    std::map<uint32, uint64> assignedCoreCache;
+    uint64 assignedCoreMasks;
+
+    bool m_ignoreSystemTopology;
+
 #ifdef WIN32
     __int64 m_lnOldValue;
     LARGE_INTEGER m_OldPerfTime100nSec;
-    uint32 m_current_holiday_mask;
-
 #endif // WIN32
 };
 

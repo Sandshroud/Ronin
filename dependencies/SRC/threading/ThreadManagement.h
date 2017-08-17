@@ -41,8 +41,11 @@ class SERVER_DECL ThreadManager
 {
     Mutex _mutex;
 
-    typedef std::set<Thread*> ThreadSet;
-    ThreadSet m_activeThreads;
+    typedef std::map<uint32, Thread*> ThreadMap;
+    ThreadMap m_activeThreads;
+#ifdef WIN32
+    std::map<uint32, HANDLE> m_securityHandles;
+#endif
 
 public:
     ThreadManager();
@@ -56,6 +59,16 @@ public:
 
     // creates a thread, returns a handle to it.
     Thread * StartThread(ThreadContext * ExecutionTarget);
+
+#ifdef WIN32
+    HANDLE GetSecurityHandle(uint32 threadId)
+    {
+        std::map<uint32, HANDLE>::iterator itr;
+        if((itr = m_securityHandles.find(threadId)) == m_securityHandles.end())
+            return NULL;
+        return itr->second;
+    }
+#endif
 
     // grabs/spawns a thread, and tells it to execute a task.
     void ExecuteTask(const char* ThreadName, ThreadContext * ExecutionTarget);
@@ -74,7 +87,7 @@ public:
     class TaskPool
     {
     public:
-        TaskPool(uint32 poolId, uint32 thread_count) : _dead(false), taskCount(0), _poolId(poolId), _threadCount(thread_count)
+        TaskPool(ThreadManager *manager, uint32 poolId, uint32 thread_count, uint64 coreAffinity) : _manager(manager), _dead(false), taskCount(0), _poolId(poolId), _threadCount(thread_count), _affinityMask(coreAffinity)
         {
 #if PLATFORM == PLATFORM_WIN
             inputEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -151,63 +164,19 @@ public:
         };
         friend class TaskPoolSlave;
 
-        void slave_run()
-        {
-            for(;;)
-            {
-                _processLock.Acquire();
-                bool isDead = _dead;
-                PoolTask *task = NULL;
-                if(!_processQueue.empty() && (task = *_processQueue.begin()) != NULL)
-                    _processQueue.erase(_processQueue.begin());
-                _processLock.Release();
-                if(task == NULL)
-                {
-                    if(isDead == true)
-                        break;
-#if PLATFORM == PLATFORM_WIN
-                    WaitForSingleObject(inputEvent, 1000);
-#else
-                    timeval now;
-                    timespec tv;
-                    gettimeofday(&now, NULL);
-                    tv.tv_sec = now.tv_sec;
-                    tv.tv_nsec = (now.tv_usec * 1000) + 1000;
-
-                    pthread_mutex_lock(&mutex);
-                    pthread_cond_timedwait(&cond, &mutex, &tv);
-                    pthread_mutex_unlock(&mutex);
-#endif
-                    continue;
-                }
-
-                if(task->call() == 0)
-                    delete task;
-
-                if((--taskCount) == 0); // Decrement task count after task finishes
-                {
-#if PLATFORM == PLATFORM_WIN
-                    SetEvent(endEvent);
-#else
-                    pthread_cond_signal(&cond);
-#endif
-                }
-            }
-
-            if(--_threadCount == 0)
-                delete this;
-        }
-
+        void slave_run();
         void spawn();
 
         uint32 _poolId;
         std::atomic<bool> _dead;
         std::atomic<int> _threadCount;
         std::atomic<long> taskCount;
+        unsigned long long _affinityMask;
 
         Mutex _processLock;
         std::vector<PoolTask*> _processQueue;
         bool _IsTasksEmpty() { return taskCount == 0; }
+        ThreadManager *_manager;
 
 #if PLATFORM == PLATFORM_WIN
         HANDLE inputEvent, endEvent;
@@ -217,7 +186,7 @@ public:
 #endif
     };
 
-    TaskPool *SpawnPool(uint32 thread_count);
+    TaskPool *SpawnPool(uint32 thread_count, uint64 coreAffinity);
     void CleanPool(uint32 poolId);
 
 private:

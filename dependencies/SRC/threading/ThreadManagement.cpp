@@ -46,7 +46,7 @@ void ThreadManager::ThreadExit(Thread * t)
 {
     // we're definitely no longer active
     _mutex.Acquire();
-    m_activeThreads.erase(t);
+    m_activeThreads.erase(t->ThreadId);
     _mutex.Release();
     
     // kill us.
@@ -67,7 +67,7 @@ void ThreadManager::ExecuteTask(const char* ThreadName, ThreadContext * Executio
 #else
     sLog.Debug("ThreadManager", "Thread %s(%u) is now executing task at %p.", t->name, t->ThreadId, ExecutionTarget);
 #endif
-    m_activeThreads.insert(t);
+    m_activeThreads.insert(std::make_pair(t->ThreadId, t));
     _mutex.Release();
 }
 
@@ -79,11 +79,11 @@ void ThreadManager::Shutdown()
         itr->second->shutdown();
     m_taskPools.clear();
 
-    for(ThreadSet::iterator itr = m_activeThreads.begin(), itr2; itr != m_activeThreads.end();)
+    for(ThreadMap::iterator itr = m_activeThreads.begin(), itr2; itr != m_activeThreads.end();)
     {
         itr2 = itr++;
-        if((*itr2)->ExecutionTarget)
-            (*itr2)->ExecutionTarget->OnShutdown();
+        if(itr2->second->ExecutionTarget)
+            itr2->second->ExecutionTarget->OnShutdown();
         else m_activeThreads.erase(itr2);
     }
     _mutex.Release();
@@ -149,7 +149,9 @@ Thread * ThreadManager::StartThread(ThreadContext * ExecutionTarget)
 {
     Thread * t = new Thread("ThreadStarter");
     t->ExecutionTarget = ExecutionTarget;
-    CreateThread(NULL, 0, &thread_proc, (LPVOID)t, 0, (LPDWORD)&t->ThreadId);
+
+    HANDLE securityHandle = CreateThread(NULL, 0, &thread_proc, (LPVOID)t, 0, (LPDWORD)&t->ThreadId);
+    m_securityHandles.insert(std::make_pair(t->ThreadId, securityHandle));
     return t;
 }
 
@@ -227,10 +229,10 @@ void ThreadManager::Suicide()
     exit(EXIT_FAILURE);
 }
 
-ThreadManager::TaskPool *ThreadManager::SpawnPool(uint32 thread_count)
+ThreadManager::TaskPool *ThreadManager::SpawnPool(uint32 thread_count, uint64 coreAffinity)
 {
     _mutex.Acquire();
-    TaskPool *pool = new TaskPool(++taskCounter, thread_count);
+    TaskPool *pool = new TaskPool(this, ++taskCounter, thread_count, coreAffinity);
     m_taskPools.insert(std::make_pair(taskCounter, pool));
     _mutex.Release();
     pool->spawn();
@@ -261,4 +263,56 @@ void ThreadManager::TaskPool::spawn()
         sThreadManager.ExecuteTask(buffer, new TaskPoolSlave(this));
     }
     _processLock.Release();
+}
+
+void ThreadManager::TaskPool::slave_run()
+{
+#ifdef WIN32
+    if(_affinityMask && SetThreadAffinityMask(_manager->GetSecurityHandle(GetCurrentThreadId()), _affinityMask) == 0)
+        sLog.Error("ThreadManager", "Failed to assign thread pool %u slave to affinity mask %llu", _poolId, _affinityMask);
+#endif
+
+    for(;;)
+    {
+        _processLock.Acquire();
+        bool isDead = _dead;
+        PoolTask *task = NULL;
+        if(!_processQueue.empty() && (task = *_processQueue.begin()) != NULL)
+            _processQueue.erase(_processQueue.begin());
+        _processLock.Release();
+        if(task == NULL)
+        {
+            if(isDead == true)
+                break;
+#if PLATFORM == PLATFORM_WIN
+            WaitForSingleObject(inputEvent, 1000);
+#else
+            timeval now;
+            timespec tv;
+            gettimeofday(&now, NULL);
+            tv.tv_sec = now.tv_sec;
+            tv.tv_nsec = (now.tv_usec * 1000) + 1000;
+
+            pthread_mutex_lock(&mutex);
+            pthread_cond_timedwait(&cond, &mutex, &tv);
+            pthread_mutex_unlock(&mutex);
+#endif
+            continue;
+        }
+
+        if(task->call() == 0)
+            delete task;
+
+        if((--taskCount) == 0); // Decrement task count after task finishes
+        {
+#if PLATFORM == PLATFORM_WIN
+            SetEvent(endEvent);
+#else
+            pthread_cond_signal(&cond);
+#endif
+        }
+    }
+
+    if(--_threadCount == 0)
+        delete this;
 }

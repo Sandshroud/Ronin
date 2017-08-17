@@ -52,15 +52,11 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData
     m_corpses.clear();
 
     uint32 threadCount = 0;
-    if(pdbcMap && pdbcMap->IsContinent() && (threadCount = sWorld.GetContinentTaskPoolCount()))
-    {
-        if(_mapId == 530 || _mapId == 571 || _mapId == 646)
-            threadCount = std::max<uint32>(2, threadCount/2);
-        else if(_mapId == 609) // Ebon hold
-            threadCount = 2;
-    }
+    uint64 coreAffinity = 0;
+    if(pdbcMap && pdbcMap->IsContinent() && (coreAffinity = sWorld.GetCoreAffinity(_mapId, &threadCount)) != 0)
+        sLog.Notice("MapInstance", "Map %u assigned %u cores, mask %llu\n", _mapId, threadCount, coreAffinity);
 
-    if(_updatePool = threadCount ? sThreadManager.SpawnPool(threadCount) : NULL)
+    if(_updatePool = threadCount ? sThreadManager.SpawnPool(threadCount, coreAffinity) : NULL)
         _updatePool->attach();
 
     // Objects and paths are updated in parallel threads, initialize pools for each update thread
