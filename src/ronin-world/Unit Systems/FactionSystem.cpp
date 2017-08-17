@@ -328,11 +328,7 @@ bool FactionSystem::IsInteractionLocked(WorldObject *objA, WorldObject *objB, bo
         Unit *uObj = castPtr<Unit>(objA);
         if(!uObj->isAlive())
             return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, objB->IsPlayer() ? UNIT_FLAG_IGNORE_PC : UNIT_FLAG_IGNORE_NPC))
-            return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI))
-            return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_MOUNTED_TAXI|UNIT_FLAG_NOT_SELECTABLE|(objB->IsPlayer() ? UNIT_FLAG_IGNORE_PC : UNIT_FLAG_IGNORE_NPC))))
             return true;
         else if(uObj->IsPlayer())
         {
@@ -350,11 +346,7 @@ bool FactionSystem::IsInteractionLocked(WorldObject *objA, WorldObject *objB, bo
         Unit *uObj = castPtr<Unit>(objB);
         if(!uObj->isAlive())
             return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, objA->IsPlayer() ? UNIT_FLAG_IGNORE_PC : UNIT_FLAG_IGNORE_NPC))
-            return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI))
-            return true;
-        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
+        else if(uObj->HasFlag(UNIT_FIELD_FLAGS, (UNIT_FLAG_MOUNTED_TAXI|UNIT_FLAG_NOT_SELECTABLE|(objA->IsPlayer() ? UNIT_FLAG_IGNORE_PC : UNIT_FLAG_IGNORE_NPC))))
             return true;
         else if(uObj->IsPlayer())
         {

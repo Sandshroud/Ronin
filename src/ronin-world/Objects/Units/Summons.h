@@ -112,7 +112,12 @@ public:
 
     void Init();
     void Destruct();
+
     virtual void Update(uint32 msTime, uint32 uiDiff);
+    void InactiveUpdate(uint32 msTime, uint32 uiDiff) override;
+
+    // Removes us from world after update
+    virtual void DetatchFromSummoner();
 
     void OnPushToWorld();
     void CreateAs(SummonHandler* NewHandle);
@@ -128,6 +133,7 @@ public:
 
 private:
     SummonHandler* m_Internal;
+    bool m_deleted;
 
     int32 m_expireTime;
     int32 summonslot;       // Summon slot of the creature in the owner's summonhandler, -1 means no slot

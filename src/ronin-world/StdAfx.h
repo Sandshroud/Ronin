@@ -134,6 +134,7 @@ extern size_t __line__;
 #include "SpellManager.h"
 #include "EventHandler.h"
 #include "LootMgr.h"
+#include "SmartBoundBox.h"
 #include "Object.h"
 #include "CellHandler.h"
 #include "TerrainMgr.h"

@@ -20,6 +20,9 @@
 #pragma once
 
 #if PLATFORM == PLATFORM_WIN && _MSC_VER > 1700
+
+#define USE_STANDARD_MUTEX 1
+
 #include <mutex>
 #include <shared_mutex>
 

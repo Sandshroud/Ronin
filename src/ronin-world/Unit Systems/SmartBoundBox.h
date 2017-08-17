@@ -30,17 +30,18 @@ public:
     SmartBounding() {}
     ~SmartBounding() {}
 
-    void Update(uint32 msTime, uint32 uiDiff) {}
+    void UpdatePosition(uint32 startTime, float sX, float sY, float sZ, uint32 timeDistance, float eX, float eY, float eZ) {}
+    void Finalize(float x, float y, float z) {}
 
-    LocationVector GetPosition(uint32 msTime) {}
-
-    void Process(float sX, float sY, float sZ, float eX, float eY, float eZ) {}
-    void OverridePosition(float x, float y, float z) {}
+    void GetPosition(uint32 msTime, LocationVector *output) {}
 
 private:
     uint32 lastUpdateMS, timeToTarget;
+    // Planned implementation is a different bound in all directions
+    //float _boundX, _boundY, _boundZ; // However we only have a bound radius stored
+    float _boundRadius; // Used in calculating if bound is in range
 
-    float startX, startY, startZ;
+    float lastPointX, lastPointY, lastPointZ;
     float endX, endY, endZ;
 
     std::vector<std::shared_ptr<VectPoint>> m_history;

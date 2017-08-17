@@ -723,7 +723,7 @@ protected:
     MapEntry* pdbcMap;
 
     /* Update System */
-    Mutex m_updateMutex;
+    Mutex m_updateMutex, m_setLock;
     std::set<std::pair<uint16, uint16>> m_pendingCellActions;
     ObjectSet _updates, _movedObjects, _pendingRemoval, _pendingCleanup;
     PlayerSet _processQueue, _movedPlayers, _softDCPlayers;

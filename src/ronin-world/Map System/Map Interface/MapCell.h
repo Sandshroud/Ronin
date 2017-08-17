@@ -32,17 +32,7 @@ class Map;
 
 class MapCellObjectStorage;
 
-class ObjectProcessCallback
-{
-public:
-    virtual void operator()(WorldObject *obj, WorldObject *curObj) = 0;
-
-    void Lock() { processLock.Acquire(); }
-    void Unlock() { processLock.Release(); }
-
-private:
-    Mutex processLock;
-};
+class ObjectProcessCallback { public: virtual void operator()(WorldObject *obj, WorldObject *curObj) = 0; };
 
 class SERVER_DECL MapCell
 {
@@ -64,9 +54,9 @@ public:
     void ReactivateObject(WorldObject *obj);
     void DeactivateObject(WorldObject *obj);
 
-    WorldObject *FindObject(WoWGuid guid);
+    WorldObject *FindObject(WoWGuid guid, bool searchDeactivated = false);
 
-    bool HasPlayers() { return !m_playerSet.empty(); }
+    RONIN_INLINE bool HasPlayers() { return !m_activePlayerSet.empty(); }
 
     // Iterating through different phases of sets
     void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0);
@@ -87,11 +77,11 @@ public:
     void CancelPendingUnload();
     void Unload();
 
-    void SetPermanentActivity(bool val) { _forcedActive = val; }
-    bool IsForcedActive() { return _forcedActive; }
+    RONIN_INLINE void SetPermanentActivity(bool val) { _forcedActive = val; }
+    RONIN_INLINE bool IsForcedActive() { return _forcedActive; }
 
-    uint16 GetPositionX() { return _x; }
-    uint16 GetPositionY() { return _y; }
+    RONIN_INLINE uint16 GetPositionX() { return _x; }
+    RONIN_INLINE uint16 GetPositionY() { return _y; }
 
 private:
     bool _forcedActive;
@@ -106,12 +96,12 @@ private:
 
     // Deferred object removal
     Mutex _pendingLock;
-    std::set<WoWGuid> m_pendingRemovals;
+    std::set<WoWGuid> m_pendingRemovals, m_pendingReactivate, m_pendingDeactivate;
 
     // Object storage/locks
     RWMutex _objLock;
     // Non player set and player set
-    CellObjectMap m_nonPlayerSet, m_playerSet;
+    CellObjectMap m_activeNonPlayerSet, m_activePlayerSet;
     // Object type sets
     CellObjectMap m_gameObjectSet, m_creatureSet;
     // Deactivated objects

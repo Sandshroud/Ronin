@@ -556,7 +556,7 @@ public:
     PlayerCellManager(WorldObject *obj) : ObjectCellManager(obj) {}
 
     virtual void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
-    virtual void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange) override;
+    virtual void SetCurrentCell(MapInstance *instance, float newX, float newY, float newZ, uint8 cellRange) override;
 
     void AddProcessedCell(uint16 cellX, uint16 cellY) { _processedCells.insert(_makeCell(cellX, cellY)); }
 

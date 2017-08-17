@@ -262,6 +262,7 @@ void MapInstance::PushObject(WorldObject* obj)
 
     float mx = obj->GetPositionX();
     float my = obj->GetPositionY();
+    float mz = obj->GetPositionZ();
     uint32 cx = GetPosX(mx), cy = GetPosY(my);
 
     if( mx > _maxX || my > _maxY ||
@@ -429,7 +430,7 @@ void MapInstance::PushObject(WorldObject* obj)
     // Update our cell manager with current position data
     // Skip cell loading for preloading maps or inactive objects
     bool skipCellLoad = m_mapPreloading || (obj->IsActiveObject() && !obj->IsActivated());
-    obj->GetCellManager()->SetCurrentCell(skipCellLoad ? NULL : this, objCell->GetPositionX(), objCell->GetPositionY(), ObjectCellManager::VisibleCellRange);
+    obj->GetCellManager()->SetCurrentCell(skipCellLoad ? NULL : this, mx, my, mz, ObjectCellManager::VisibleCellRange);
     CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cx, cy));
 }
 
@@ -528,17 +529,24 @@ void MapInstance::RemoveObject(WorldObject* obj)
 
 void MapInstance::QueueRemoval(WorldObject *obj)
 {
+    m_setLock.Acquire();
     _pendingRemoval.insert(obj);
+    m_setLock.Release();
 }
 
 void MapInstance::QueueCleanup(WorldObject *obj)
 {
+    m_setLock.Acquire();
     _pendingCleanup.insert(obj);
+    obj->MarkForCleanup();
+    m_setLock.Release();
 }
 
 void MapInstance::QueueSoftDisconnect(Player *plr)
 {
+    m_setLock.Acquire();
     _softDCPlayers.insert(plr);
+    m_setLock.Release();
 }
 
 void MapInstance::ChangeObjectLocation( WorldObject* obj )
@@ -547,7 +555,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         return;
 
     // Grab our cell data from position
-    float fposX = obj->GetPositionX(), fposY = obj->GetPositionY();
+    float fposX = obj->GetPositionX(), fposY = obj->GetPositionY(), fposZ = obj->GetPositionZ();
     uint16 cellX = GetPosX(fposX), cellY = GetPosY(fposY);
     if(cellX >= _sizeX || cellY >= _sizeY)
         return; // No data outside parameters
@@ -712,7 +720,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 obj->UpdateAreaInfo(this);
 
             // Set our cellId
-            obj->GetCellManager()->SetCurrentCell(this, cellX, cellY, ObjectCellManager::VisibleCellRange);
+            obj->GetCellManager()->SetCurrentCell(this, fposX, fposY, fposZ, ObjectCellManager::VisibleCellRange);
             CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cellX, cellY));
         }
     }
@@ -755,10 +763,8 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
     if(objCell == NULL)
         return false;
 
-    _processCallback.Lock();
     _processCallback.SetCell(cellX, cellY);
     objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
-    _processCallback.Unlock();
     return true;
 }
 
@@ -778,7 +784,6 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     if(!forced && IsFullRangeObject(Obj))
         return;
 
-    _removalCallback.Lock();
     _removalCallback.setForced(forced);
     for(auto itr = set.begin(); itr != set.end(); itr++)
     {
@@ -786,7 +791,6 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
             cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER);
     }
-    _removalCallback.Unlock();
 }
 
 bool MapInstance::HasActivatedCondition(uint32 conditionId, WorldObject *obj)
@@ -1150,7 +1154,6 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
     ASSERT(storage != NULL);
 
     // Lock the storage lock in case we are allocated to a few threads
-    storage->callback.Lock();
     storage->callback.ResetData(range);
     ctr->GetCellManager()->CreateCellRange(&storage->cellvector, range);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, ctr, typeMask, storage](uint32 cellId)
@@ -1162,7 +1165,6 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
 
     Unit *Result = storage->callback.GetResult();
     storage->cellvector.clear();
-    storage->callback.Unlock();
     return Result;
 }
 
@@ -1182,7 +1184,6 @@ void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packe
     BroadcastMessageCallbackStack::callbackStorage *storage = _broadcastMessageCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     storage->callback.setPacketData(packet);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
@@ -1193,7 +1194,6 @@ void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packe
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 void MapInstanceBroadcastMessageInrangeCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1219,7 +1219,6 @@ void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, 
     BroadcastMessageInRangeCallbackStack::callbackStorage *storage = _broadcastMessageInRangeCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     storage->callback.ResetData(range, opcodeId, Len, data, false, 0);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
@@ -1230,7 +1229,6 @@ void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, 
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float range, bool myTeam, uint32 teamId)
@@ -1239,7 +1237,6 @@ void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float rang
     BroadcastMessageInRangeCallbackStack::callbackStorage *storage = _broadcastMessageInRangeCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     storage->callback.ResetData(range, data, myTeam, teamId);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
@@ -1250,7 +1247,6 @@ void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float rang
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 void MapInstanceBroadcastChatPacketCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1271,7 +1267,6 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *pa
     BroadcastChatPacketCallbackStack::callbackStorage *storage = _broadcastChatPacketCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     storage->callback.setPacketData(packet, lang, langpos, guidPos);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
@@ -1282,7 +1277,6 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *pa
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1321,7 +1315,6 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
     BroadcastObjectUpdateCallbackStack::callbackStorage *storage = _broadcastObjectUpdateCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     obj->GetCellManager()->FillCellRange(&storage->cellvector);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
     {
@@ -1331,7 +1324,6 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector)
@@ -1364,7 +1356,6 @@ void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *c
     DynamicObjectTargetMappingCallbackStack::callbackStorage *storage = _dynamicObjectTargetMappingCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     storage->callback.SetData(callback, object, caster, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &storage->cellvector);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, object, typeMask, storage](uint32 cellId)
@@ -1375,7 +1366,6 @@ void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *c
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 void MapInstanceSpellTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1399,7 +1389,6 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     SpellTargetMappingCallbackStack::callbackStorage *storage = _spellTargetMappingCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    storage->callback.Lock();
     storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(x, y, maxRange, &storage->cellvector);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, spell, typeMask, storage](uint32 cellId)
@@ -1410,7 +1399,6 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     });
 
     storage->cellvector.clear();
-    storage->callback.Unlock();
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)
@@ -1587,8 +1575,8 @@ bool MapInstance::CanUseCollision(WorldObject* obj)
 {
     if(GetBaseMap()->IsCollisionEnabled())
     {
-        uint32 tileX = (GetPosX(obj->GetPositionX())/8);
-        uint32 tileY = (GetPosY(obj->GetPositionY())/8);
+        uint32 tileX = (GetPosX(obj->GetPositionX())/CellsPerTile);
+        uint32 tileY = (GetPosY(obj->GetPositionY())/CellsPerTile);
         if(sVMapInterface.IsActiveTile(_mapId, tileX, tileY))
             return true;
     }

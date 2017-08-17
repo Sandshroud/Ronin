@@ -205,9 +205,8 @@ bool ContinentManager::run()
             fprintf(file, "[%04u] %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u\n", (performPendingRemovals + processInputQueue + performScriptUpdates
                 + performCombatUpdates + performDelayedSpellUpdates + performUnitPathUpdates + performPlayerUpdates + performDynamicObjectUpdates
                 + performCreatureUpdates + performObjectUpdates + performMovementUpdates + performSessionUpdates + performPlayerMovementUpdates + performLatePendingRemovals + performPendingUpdates),
-                performPendingRemovals, processInputQueue, performScriptUpdates, performCombatUpdates, performDelayedSpellUpdates, performUnitPathUpdates,
-                performPlayerUpdates, performDynamicObjectUpdates, performCreatureUpdates, performObjectUpdates, performMovementUpdates, performSessionUpdates,
-                performPlayerMovementUpdates, performLatePendingRemovals, performPendingUpdates);
+                performPendingRemovals, processInputQueue, performScriptUpdates, performCombatUpdates, performDelayedSpellUpdates, performUnitPathUpdates, performPlayerUpdates, performDynamicObjectUpdates,
+                performCreatureUpdates, performObjectUpdates, performMovementUpdates, performSessionUpdates, performPlayerMovementUpdates, performLatePendingRemovals, performPendingUpdates);
             fclose(file);
         }
 #endif

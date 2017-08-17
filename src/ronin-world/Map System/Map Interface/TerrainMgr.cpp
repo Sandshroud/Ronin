@@ -482,7 +482,7 @@ bool TerrainMgr::CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &AreaID)
     CellGoneActive(CellX, CellY);
 
     mutex.Acquire();
-    uint32 TileX = CellX/8, TileY = CellY/8;
+    uint32 TileX = CellX/CellsPerTile, TileY = CellY/CellsPerTile;
     if(TileTerrainInformation *tile = GetTileInformation(TileX, TileY))
     {
         for(uint32 xc = (CellX%CellsPerTile)*16/CellsPerTile;xc<(CellX%CellsPerTile)*16/CellsPerTile+16/CellsPerTile;xc++)
@@ -523,7 +523,7 @@ float TerrainMgr::GetLandHeight(float x, float y)
 
 void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
 {
-    uint32 tileX = x/8, tileY = y/8;
+    uint32 tileX = x/CellsPerTile, tileY = y/CellsPerTile;
     mutex.Acquire();
     FILE *input = NULL;
     fopen_s(&input, file_name.c_str(), "rb");
@@ -540,7 +540,7 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
 
 void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
 {
-    uint32 tileX = x/8, tileY = y/8;
+    uint32 tileX = x/CellsPerTile, tileY = y/CellsPerTile;
     mutex.Acquire();
     if((--LoadCounter[tileX][tileY]) == 0)
         UnloadTileInformation(tileX, tileY);

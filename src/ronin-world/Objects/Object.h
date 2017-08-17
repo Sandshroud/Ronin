@@ -60,7 +60,7 @@ enum TypeMask
     TYPEMASK_TYPE_UNUSED5       = 0x00001000,
     TYPEMASK_TYPE_UNUSED6       = 0x00002000,
     TYPEMASK_TYPE_UNUSED7       = 0x00004000,
-    TYPEMASK_TYPE_UNUSED8       = 0x00008000,
+    TYPEMASK_TYPE_DEACTIVATED   = 0x00008000, // internal
     TYPEMASK_TYPE_MASK          = 0x0000FFFF,
     // Upper 16 bits are flag
     TYPEMASK_FLAG_IN_GUILD      = 0x00010000
@@ -327,7 +327,7 @@ public:
     static bool cutCorners;
 
     virtual void Update(MapInstance *instance, uint32 msTime, uint32 uiDiff);
-    virtual void SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange);
+    virtual void SetCurrentCell(MapInstance *instance, float newX, float newY, float newZ, uint8 cellRange);
 
     virtual void OnRelocate(MapInstance *instance, LocationVector &destination);
     virtual void ClearInRangeObjects(MapInstance *instance);
@@ -341,6 +341,8 @@ public:
     void FillCellRange(std::vector<uint32> *fillVector);
     void CreateCellRange(std::vector<uint32> *fillVector, float range);
     void CreateCellRange(std::vector<uint32> *fillVector, uint32 range);
+
+    bool IsLocationChanged(float x, float y, float z);
     static void ConstructCellData(float x, float y, float range, std::vector<uint32> *fillVector);
 
     void AddVisibleBy(WoWGuid guid) { m_visibleTo.insert(guid); }
@@ -377,6 +379,7 @@ protected:
     uint16 _currX, _currY, _lowX, _lowY, _highX, _highY;
 
     WorldObject *_object;
+    float _luX, _luY, _luZ;
 
     // Players that can see us
     std::set<WoWGuid> m_visibleTo;
@@ -397,7 +400,7 @@ public:
     void Cleanup();
 
     virtual void Update(uint32 msTime, uint32 uiDiff);
-    void InactiveUpdate(uint32 msTime, uint32 uiDiff);
+    virtual void InactiveUpdate(uint32 msTime, uint32 uiDiff);
 
     virtual bool IsObject() { return true; }
     virtual bool IsActiveObject() { return false; }
@@ -455,6 +458,8 @@ public:
     RONIN_INLINE void GetPosition(LocationVector &loc) { loc = m_position; }
     RONIN_INLINE void GetPosition(float &x, float &y, float &z) { x = m_position.x; y = m_position.y; z = m_position.z; }
     RONIN_INLINE void GetPosition(float &x, float &y, float &z, float &o) { x = m_position.x; y = m_position.y; z = m_position.z; o = m_position.o; }
+
+    RONIN_INLINE SmartBounding *GetBoundBox() { return &m_boundBox; }
 
     bool IsInBox(float centerX, float centerY, float centerZ, float BLength, float BWidth, float BHeight, float BOrientation, float delta);
 
@@ -564,6 +569,8 @@ public:
     uint16 const GetLiqFlags() { return m_liquidFlags; }
     float const GetLiqHeight() { return m_liquidHeight; }
 
+    void MarkForCleanup() { m_isMarkedForCleanup = true; }
+
 protected:
     void _Create( uint32 mapid, float x, float y, float z, float ang);
 
@@ -605,8 +612,12 @@ protected:
     FactionTemplateEntry *m_factionTemplate;
     // Current map location
     LocationVector m_position, m_spawnLocation;
+    //! Bound box implementation for inrange checks/location offset
+    SmartBounding m_boundBox;
     //! Inrange cell management
     ObjectCellManager *m_cellManager;
+    //! Marked for mapinstance cleanup
+    bool m_isMarkedForCleanup;
 
 public:
     bool IsInLineOfSight(WorldObject* pObj);

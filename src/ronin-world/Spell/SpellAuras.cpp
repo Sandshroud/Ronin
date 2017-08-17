@@ -458,6 +458,8 @@ void Aura::ApplyModifiers( bool apply )
 {
     if(!m_applied && !apply)    // Don't want to unapply modifiers if they haven't been applied
         return;
+    if(m_deleted && apply == true)
+        return;
 
     m_applied = apply;
     if( apply && m_spellProto->CasterAuraState && m_target && !(m_target->GetUInt32Value(UNIT_FIELD_AURASTATE) & (uint32(1) << (m_spellProto->CasterAuraState - 1) ) ) )

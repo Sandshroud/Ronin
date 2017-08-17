@@ -3381,8 +3381,9 @@ void Unit::SummonExpireSlot(uint8 Slot)
             {
                 mSum = *itr;
                 mSum->m_AuraInterface.RemoveAllAuras();
-                mSum->Cleanup();
+                mSum->DetatchFromSummoner();
             }
+
             m_Summons[Slot].clear();
             m_Summons.erase(Slot);
         }
@@ -3772,7 +3773,7 @@ bool Unit::IsFactionNonHostile()
 
 bool Unit::IsFactionNPCHostile()
 {
-    return false;
+    return true;
 }
 
 void Unit::SetFaction(uint32 faction, bool save)

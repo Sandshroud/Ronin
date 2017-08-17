@@ -55,12 +55,15 @@ void PlayerCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
     }
 }
 
-void PlayerCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
+void PlayerCellManager::SetCurrentCell(MapInstance *instance, float newX, float newY, float newZ, uint8 cellRange)
 {
     // Current cell set
     _visRange = cellRange;
-    _currX = newX;
-    _currY = newY;
+    _luX = newX;
+    _luY = newY;
+    _luZ = newZ;
+    _currX = _getCellId(_luX);
+    _currY = _getCellId(_luY);
 
     // Remove any pending cell handling
     _delayedCells[0].clear();

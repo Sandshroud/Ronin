@@ -268,6 +268,7 @@ public:
 
     bool CanAddToWorld();
     void OnPushToWorld();
+    virtual void DetatchFromSummoner() { Cleanup(); }
 
     void BuildTrainerData(WorldPacket *data, Player *plr);
     bool CanTrainPlayer(Player *plr);

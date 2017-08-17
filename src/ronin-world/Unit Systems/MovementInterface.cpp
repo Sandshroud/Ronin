@@ -1185,6 +1185,8 @@ void MovementInterface::SetFacing(float orientation)
 void MovementInterface::MoveClientPosition(float x, float y, float z, float o)
 {
     m_clientLocation.ChangeCoords(x, y, z, o);
+    m_Unit->GetBoundBox()->Finalize(x, y, z);
+
     // Post read heartbeat call
     UpdatePostRead(MSG_MOVE_HEARTBEAT, MOVEMENT_CODE_HEARTBEAT, NULL);
 }

@@ -21,7 +21,7 @@
 
 #include "StdAfx.h"
 
-Summon::Summon(CreatureData* data, uint64 guid, int32 duration) : Creature(data, guid), m_expireTime(duration)
+Summon::Summon(CreatureData* data, uint64 guid, int32 duration) : Creature(data, guid), m_expireTime(duration), m_deleted(false)
 {
     m_Internal = NULL;
 }
@@ -45,6 +45,9 @@ void Summon::Destruct()
 
 void Summon::Update(uint32 msTime, uint32 uiDiff)
 {
+    if(m_deleted == true)
+        return;
+
     Creature::Update(msTime, uiDiff);
     if(m_expireTime == -1)
         return;
@@ -56,7 +59,21 @@ void Summon::Update(uint32 msTime, uint32 uiDiff)
     }
 
     s_Owner->RemoveSummon(this);
+    Deactivate(0);
+}
+
+void Summon::InactiveUpdate(uint32 msTime, uint32 uiDiff)
+{
     Cleanup();
+}
+
+void Summon::DetatchFromSummoner()
+{
+    if(m_deleted)
+        return;
+
+    m_deleted = true;
+    Deactivate(0);
 }
 
 void Summon::OnPushToWorld()

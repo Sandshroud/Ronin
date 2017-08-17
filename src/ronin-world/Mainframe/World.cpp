@@ -1410,7 +1410,7 @@ void World::Rehash(bool load)
     ServerPreloading = mainIni->ReadInteger("Startup", "Preloading", 0);
     m_continentTaskPoolCount = mainIni->ReadInteger("ServerSettings", "ContinentTaskPoolCount", 0);
     // Negative performance when above physical CPU count, you should keep it around half of CPU count
-    if(m_continentTaskPoolCount > number_of_cpus)
+    if(m_continentTaskPoolCount > number_of_cpus && mainIni->ReadBoolean("ServerSettings", "SensibleContinentPoolCap", true))
         m_continentTaskPoolCount = number_of_cpus;
     if(m_continentTaskPoolCount < 2) // Makes no sense to allocate a thread to do work we can do ourself, so force at least 2 threads
         m_continentTaskPoolCount = 0;

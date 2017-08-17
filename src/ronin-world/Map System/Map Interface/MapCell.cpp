@@ -49,11 +49,13 @@ void MapCell::Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance)
 void MapCell::AddObject(WorldObject* obj)
 {
     RWGuard guard(_objLock, true);
-    if(obj->IsPlayer())
-        m_playerSet[obj->GetGUID()] = obj;
+    if(obj->IsActiveObject() && !obj->IsActivated())
+        m_deactivatedObjects[obj->GetGUID()] = obj;
+    else if(obj->IsPlayer())
+        m_activePlayerSet[obj->GetGUID()] = obj;
     else
     {
-        m_nonPlayerSet[obj->GetGUID()] = obj;
+        m_activeNonPlayerSet[obj->GetGUID()] = obj;
         if(obj->IsCreature())
             m_creatureSet[obj->GetGUID()] = obj;
         else if(obj->IsGameObject())
@@ -76,18 +78,60 @@ void MapCell::ProcessPendingActions()
     {
         WoWGuid guid = *m_pendingRemovals.begin();
         m_pendingRemovals.erase(m_pendingRemovals.begin());
-        m_playerSet.erase(guid);
-        m_nonPlayerSet.erase(guid);
+        m_activePlayerSet.erase(guid);
+        m_activeNonPlayerSet.erase(guid);
         m_creatureSet.erase(guid);
         m_gameObjectSet.erase(guid);
+        m_deactivatedObjects.erase(guid);
+    }
+
+    MapCell::CellObjectMap::iterator itr;
+    while(!m_pendingDeactivate.empty())
+    {
+        WoWGuid guid = *m_pendingDeactivate.begin();
+        m_pendingDeactivate.erase(m_pendingDeactivate.begin());
+        if((itr = m_activeNonPlayerSet.find(guid)) != m_activeNonPlayerSet.end())
+        {
+            WorldObject *obj = itr->second;
+            m_activeNonPlayerSet.erase(itr);
+            m_activePlayerSet.erase(guid);
+            m_activeNonPlayerSet.erase(guid);
+            m_creatureSet.erase(guid);
+            m_gameObjectSet.erase(guid);
+            m_deactivatedObjects[obj->GetGUID()] = obj;
+        }
+    }
+
+    while(!m_pendingReactivate.empty())
+    {
+        WoWGuid guid = *m_pendingReactivate.begin();
+        m_pendingReactivate.erase(m_pendingReactivate.begin());
+        if((itr = m_deactivatedObjects.find(guid)) != m_deactivatedObjects.end())
+        {
+            WorldObject *obj = itr->second;
+            m_deactivatedObjects.erase(itr);
+            AddObject(obj);
+        }
     }
 }
 
-WorldObject *MapCell::FindObject(WoWGuid guid)
+void MapCell::ReactivateObject(WorldObject *obj)
+{
+    m_pendingReactivate.insert(obj->GetGUID());
+}
+
+void MapCell::DeactivateObject(WorldObject *obj)
+{
+    m_pendingDeactivate.insert(obj->GetGUID());
+}
+
+WorldObject *MapCell::FindObject(WoWGuid guid, bool searchDeactivated)
 {
     RWGuard guard(_objLock, false);
     MapCell::CellObjectMap::iterator itr;
-    if((itr = m_playerSet.find(guid)) != m_playerSet.end() || (itr = m_nonPlayerSet.find(guid)) != m_nonPlayerSet.end())
+    if((itr = m_activePlayerSet.find(guid)) != m_activePlayerSet.end() || (itr = m_activeNonPlayerSet.find(guid)) != m_activeNonPlayerSet.end())
+        return itr->second;
+    if(searchDeactivated && (itr = m_deactivatedObjects.find(guid)) != m_deactivatedObjects.end())
         return itr->second;
     return NULL;
 }
@@ -99,14 +143,14 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
     WorldObject *curObj;
     if(objectMask == 0)
     {
-        for(MapCell::CellObjectMap::iterator itr = m_nonPlayerSet.begin(); itr != m_nonPlayerSet.end(); itr++)
+        for(MapCell::CellObjectMap::iterator itr = m_activeNonPlayerSet.begin(); itr != m_activeNonPlayerSet.end(); itr++)
         {
             if((curObj = itr->second) == NULL || obj == curObj)
                 continue;
             (*callback)(obj, curObj);
         }
 
-        for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
+        for(MapCell::CellObjectMap::iterator itr = m_activePlayerSet.begin(); itr != m_activePlayerSet.end(); itr++)
         {
             if((curObj = itr->second) == NULL || obj == curObj)
                 continue;
@@ -127,7 +171,7 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
 
         if(objectMask & TYPEMASK_TYPE_PLAYER)
         {
-            for(MapCell::CellObjectMap::iterator itr = m_playerSet.begin(); itr != m_playerSet.end(); itr++)
+            for(MapCell::CellObjectMap::iterator itr = m_activePlayerSet.begin(); itr != m_activePlayerSet.end(); itr++)
             {
                 if((curObj = itr->second) == NULL || obj == curObj)
                     continue;
@@ -144,12 +188,22 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
                 (*callback)(obj, curObj);
             }
         }
+
+        if(objectMask & TYPEMASK_TYPE_DEACTIVATED)
+        {
+            for(MapCell::CellObjectMap::iterator itr = m_deactivatedObjects.begin(); itr != m_deactivatedObjects.end(); itr++)
+            {
+                if((curObj = itr->second) == NULL || obj == curObj)
+                    continue;
+                (*callback)(obj, curObj);
+            }
+        }
     }
 }
 
 void MapCell::SetActivity(bool state)
 {
-    uint32 x = _x/8, y = _y/8;
+    uint32 x = _x/CellsPerTile, y = _y/CellsPerTile;
     if(state && _unloadpending)
         CancelPendingUnload();
     else if(!state && !_unloadpending)
@@ -250,23 +304,40 @@ void MapCell::UnloadCellData(bool preDestruction)
 
     _loaded = false;
     RWGuard guard(_objLock, true);
-    while(!m_nonPlayerSet.empty())
+    std::for_each(m_activeNonPlayerSet.begin(), m_activeNonPlayerSet.end(), [this, preDestruction](std::pair<WoWGuid, WorldObject *> pair)
     {
-        WorldObject *obj = m_nonPlayerSet.begin()->second;
-        m_nonPlayerSet.erase(m_nonPlayerSet.begin());
+        bool cleanupObj = true;
         if( !preDestruction && _unloadpending )
         {
-            if(obj->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
-                continue;
+            if(pair.second->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
+                cleanupObj = false;
 
-            if(obj->GetTypeId() == TYPEID_CORPSE && obj->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
-                continue;
+            if(pair.second->GetTypeId() == TYPEID_CORPSE && pair.second->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
+                cleanupObj = false;
         }
 
-        obj->Cleanup();
-    }
+        if(cleanupObj)
+            pair.second->Cleanup();
+    });
 
-    m_nonPlayerSet.clear();
+    std::for_each(m_deactivatedObjects.begin(), m_deactivatedObjects.end(), [this, preDestruction](std::pair<WoWGuid, WorldObject *> pair)
+    {
+        bool cleanupObj = true;
+        if( !preDestruction && _unloadpending )
+        {
+            if(pair.second->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
+                cleanupObj = false;
+
+            if(pair.second->GetTypeId() == TYPEID_CORPSE && pair.second->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
+                cleanupObj = false;
+        }
+
+        if(cleanupObj)
+            pair.second->Cleanup();
+    });
+
+    m_activeNonPlayerSet.clear();
+    m_deactivatedObjects.clear();
     m_gameObjectSet.clear();
     m_creatureSet.clear();
     m_sqlIdToGuid.clear();

@@ -69,7 +69,7 @@ bool CNavMeshInterface::IsNavmeshLoadedAtPosition(uint32 mapid, float x, float y
 {
     if(!AreCoordinatesValid(x, y))
         return false;
-    return IsNavmeshLoaded(mapid, (GetPosX(x)/8), (GetPosY(y)/8));
+    return IsNavmeshLoaded(mapid, (GetPosX(x)/CellsPerTile), (GetPosY(y)/CellsPerTile));
 }
 
 bool CNavMeshInterface::LoadNavMesh(uint32 mapid, uint32 x, uint32 y)

@@ -65,6 +65,14 @@ public:
         return (delta_x*delta_x + delta_y*delta_y);
     }
 
+    RONIN_INLINE static float DistanceSq(float x, float y, float z, float x2, float y2, float z2)
+    {
+        float delta_x = RONIN_UTIL::Diff(x2, x);
+        float delta_y = RONIN_UTIL::Diff(y2, y);
+        float delta_z = RONIN_UTIL::Diff(z2, z);
+        return (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+    }
+
     // atan2(dx / dy)
     float CalcAngTo(const LocationVector & dest)
     {

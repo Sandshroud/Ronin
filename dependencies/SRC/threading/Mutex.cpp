@@ -23,7 +23,7 @@
 #include <pthread.h>                                                            
 #endif         
 
-#if PLATFORM == PLATFORM_WIN && _MSC_VER <= 1700
+#if PLATFORM == PLATFORM_WIN && USE_STANDARD_MUTEX == 0
 
 /* Windows Critical Section Implementation */
 EasyMutex::EasyMutex() { InitializeCriticalSection(&cs); }

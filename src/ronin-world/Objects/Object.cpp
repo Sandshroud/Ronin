@@ -740,6 +740,19 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 
             fillVector->push_back(_makeCell(x, y));
 }
 
+bool ObjectCellManager::IsLocationChanged(float x, float y, float z)
+{
+    float dist = LocationVector::DistanceSq(x, y, z, _luX, _luY, _luZ);
+    if(RONIN_UTIL::fuzzyGt(dist, 4.f))
+    {
+        _luX = x;
+        _luY = y;
+        _luZ = z;
+        return true;
+    }
+    return false;
+}
+
 void ObjectCellManager::ConstructCellData(float x, float y, float range, std::vector<uint32> *fillVector)
 {
     // Update position pair
@@ -758,7 +771,7 @@ void ObjectCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
     //Ny
 }
 
-void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint16 newY, uint8 cellRange)
+void ObjectCellManager::SetCurrentCell(MapInstance *instance, float newX, float newY, float newZ, uint8 cellRange)
 {
     std::set<uint32> prev;
     std::vector<uint32> newCells;
@@ -775,9 +788,13 @@ void ObjectCellManager::SetCurrentCell(MapInstance *instance, uint16 newX, uint1
         }
     }
 
+    _luX = newX;
+    _luY = newY;
+    _luZ = newZ;
+
     _visRange = cellRange;
-    _currX = newX;
-    _currY = newY;
+    _currX = _getCellId(_luX);
+    _currY = _getCellId(_luY);
     _lowX = _currX >= cellRange ? _currX-cellRange : 0;
     _lowY = _currY >= cellRange ? _currY-cellRange : 0;
     _highX = std::min<uint16>(_currX+cellRange, _sizeX-1);
@@ -864,8 +881,6 @@ void WorldObject::Destruct()
         SetMapCell(NULL);
     }
 
-    //ClearInRangeObjects();
-
     m_factionTemplate = NULL;
 
     m_mapId = -1;
@@ -879,6 +894,9 @@ void WorldObject::Destruct()
 
 void WorldObject::Cleanup()
 {
+    if(m_isMarkedForCleanup)
+        return;
+
     if(m_mapInstance)
         m_mapInstance->QueueCleanup(this);
     else Destruct();
@@ -950,6 +968,8 @@ void WorldObject::InactiveUpdate(uint32 msTime, uint32 uiDiff)
 
     m_objDeactivationTimer = 0;
     m_inactiveFlags &= ~OBJECT_INACTIVE_FLAG_INACTIVE;
+    if(MapCell *cell = m_mapCell)
+        cell->ReactivateObject(this);
     Reactivate();
 }
 
@@ -1026,6 +1046,9 @@ void WorldObject::Deactivate(uint32 reactivationTime)
     if(!IsInWorld())
         return;
 
+    if(MapCell *cell = m_mapCell)
+        cell->DeactivateObject(this);
+
     // clear our managed cells
     GetCellManager()->ClearInRangeObjects(m_mapInstance);
 }
@@ -1081,10 +1104,8 @@ void WorldObject::SetPosition( float newX, float newY, float newZ, float newOrie
     float dist = m_position.DistanceSq(newX, newY, newZ);
 
     m_position.ChangeCoords(newX, newY, newZ, NormAngle(newOrientation));
-    if(!IsInWorld() || RONIN_UTIL::fuzzyEq(dist, 0.0f))
-        return;
-
-    m_mapInstance->ObjectLocationChange(this);
+    if(IsInWorld() && m_cellManager->IsLocationChanged(newX, newY, newZ))
+        m_mapInstance->ObjectLocationChange(this);
 }
 
 void WorldObject::OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self, float maxRange)
