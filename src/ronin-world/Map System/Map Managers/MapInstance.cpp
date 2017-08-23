@@ -121,6 +121,7 @@ void MapInstance::Destruct()
     _broadcastMessageInRangeCBStack.cleanup();
     _broadcastChatPacketCBStack.cleanup();
 
+    UnloadCells();
     _PerformPendingActions();
 
     std::vector<WorldObject*> m_delQueue;
@@ -128,7 +129,7 @@ void MapInstance::Destruct()
     {
         Creature *ctr = m_CreatureStorage.begin()->second;
         m_delQueue.push_back(ctr);
-        RemoveObject(ctr);
+        ctr->RemoveFromWorld();
     }
 
     _PerformPendingActions();
@@ -143,7 +144,7 @@ void MapInstance::Destruct()
     {
         GameObject *gObj = m_gameObjectStorage.begin()->second;
         m_delQueue.push_back(gObj);
-        RemoveObject(gObj);
+        gObj->RemoveFromWorld();
     }
 
     _PerformPendingActions();
@@ -158,7 +159,7 @@ void MapInstance::Destruct()
     {
         DynamicObject *dynObj = m_DynamicObjectStorage.begin()->second;
         m_delQueue.push_back(dynObj);
-        RemoveObject(dynObj);
+        dynObj->RemoveFromWorld();
     }
 
     _PerformPendingActions();
@@ -168,7 +169,6 @@ void MapInstance::Destruct()
         m_delQueue.erase(m_delQueue.begin());
         obj->Destruct();
     }
-    UnloadCells();
 
     if(m_corpses.size())
     {
@@ -1849,7 +1849,8 @@ void MapInstance::_PerformPendingActions()
     {
         WorldObject *obj = *_pendingCleanup.begin();
         _pendingCleanup.erase(_pendingCleanup.begin());
-        obj->RemoveFromWorld();
+        if(obj->IsInWorld())
+            obj->RemoveFromWorld();
         obj->Destruct();
     }
 

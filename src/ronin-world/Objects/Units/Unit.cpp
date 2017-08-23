@@ -284,12 +284,14 @@ void Unit::OnAuraModChanged(uint32 modType)
     if(pendingIndex.empty())
         return;
 
+    queueModLock.Acquire();
     while(pendingIndex.size())
     {
         uint8 index = *pendingIndex.begin();
         pendingIndex.erase(pendingIndex.begin());
         m_modQueuedModUpdates[index].push_back(modType);
     }
+    queueModLock.Release();
 }
 
 void Unit::UpdateFieldValues()
@@ -297,14 +299,18 @@ void Unit::UpdateFieldValues()
     if(m_modQueuedModUpdates.empty())
         return;
 
+    queueModLock.Acquire();
     while(m_modQueuedModUpdates.size())
     {
         uint32 modType = m_modQueuedModUpdates.begin()->first;
         std::vector<uint32> vect(m_modQueuedModUpdates.begin()->second);
         m_modQueuedModUpdates.erase(m_modQueuedModUpdates.begin());
+        queueModLock.Release();
         ProcessModUpdate(modType, vect);
+        queueModLock.Acquire();
     }
     m_modQueuedModUpdates.clear();
+    queueModLock.Release();
 }
 
 void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)

@@ -461,6 +461,7 @@ public:
     void RemoveQueuedSocket(WorldSocket* Socket);
     uint32 GetQueuePos(WorldSocket* Socket);
     void UpdateQueuedSessions(uint32 diff);
+    void ProcessPendingCharacters(uint32 mapId);
 
     // Auth seeds
     BigNumber authSeed1, authSeed2;

@@ -124,6 +124,14 @@ public:
 #endif
     }
 
+    void DelayIfPaused()
+    {
+        if(ThreadState != THREADSTATE_PAUSED)
+            return;
+
+        while(ThreadState == THREADSTATE_PAUSED)
+            Delay(50);
+    }
 protected:
     CThreadState ThreadState;
     time_t start_time;

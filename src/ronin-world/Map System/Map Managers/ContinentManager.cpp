@@ -55,8 +55,7 @@ bool ContinentManager::run()
     // Preload all needed spawns etc
     m_continent->Preload();
     // Wait for our thread to be activated
-    while(GetThreadState() == THREADSTATE_PAUSED)
-        Delay(50);
+    DelayIfPaused();
 
     sWorldMgr.MapLoaded(m_mapId);
     FILE *file = NULL;
@@ -64,6 +63,9 @@ bool ContinentManager::run()
     if(fopen_s(&file, format("MAP_%03u_Perf.log", m_mapId).c_str(), "w") == 0)
         fclose(file);
 #endif
+
+    // Pull any characters in pending login state
+    sWorld.ProcessPendingCharacters(m_mapId);
 
     // Initialize the base continent timers
     uint32 mstime = getMSTime();

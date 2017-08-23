@@ -913,6 +913,7 @@ public:
     void ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap);
 
     // We can trigger an allocation using [] so we just check empty
+    Mutex queueModLock;
     void TriggerModUpdate(uint8 modUpdateType) { m_modQueuedModUpdates[modUpdateType].empty(); }
     Loki::AssocVector<uint8, std::vector<uint32> > m_modQueuedModUpdates;
 

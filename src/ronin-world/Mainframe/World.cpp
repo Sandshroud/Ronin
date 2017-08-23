@@ -133,10 +133,7 @@ bool World::run()
     uint32 counter = 0, mstime = getMSTime(), lastUpdate = mstime; // Get our ms time
     while(GetThreadState() != THREADSTATE_TERMINATE)
     {
-        // Provision for pausing this thread.
-        if(GetThreadState() == THREADSTATE_PAUSED)
-            while(GetThreadState() == THREADSTATE_PAUSED)
-                Delay(200);
+        DelayIfPaused();
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
 
@@ -1121,7 +1118,7 @@ void World::UpdateQueuedSessions(uint32 diff)
         for(std::set<std::pair<uint8, WorldSession*>>::iterator itr = sessions.begin(); itr != sessions.end(); itr++)
         {
             std::map<WorldSession*, std::pair<WoWGuid, uint32> >::iterator sessItr = m_worldPushQueue.find((*itr).second);
-            ASSERT("FUCK" && sessItr != m_worldPushQueue.end());
+            ASSERT(sessItr != m_worldPushQueue.end());
             PlayerInfo *info = objmgr.GetPlayerInfo(sessItr->second.first);
             WorldSession *sess = sessItr->first;
             m_worldPushQueue.erase(sessItr);
@@ -1145,6 +1142,47 @@ void World::UpdateQueuedSessions(uint32 diff)
         }
         m_worldPushLock.Release();
     }
+}
+
+void World::ProcessPendingCharacters(uint32 mapId)
+{
+    // Now we process each queued world push and do a delayed removal from map inside our wrapped mutex
+    std::set<std::pair<uint8, WorldSession*>> sessions;
+    m_worldPushLock.Acquire();
+    for(std::map<WorldSession*, std::pair<WoWGuid, uint32> >::iterator itr = m_worldPushQueue.begin(); itr != m_worldPushQueue.end(); itr++)
+    {
+        if(itr->second.second != mapId)
+            continue;
+        sessions.insert(std::make_pair(sWorldMgr.ValidateMapId(itr->second.second), itr->first));
+    }
+
+    // Process delayed removals and process calls
+    for(std::set<std::pair<uint8, WorldSession*>>::iterator itr = sessions.begin(); itr != sessions.end(); itr++)
+    {
+        std::map<WorldSession*, std::pair<WoWGuid, uint32> >::iterator sessItr = m_worldPushQueue.find((*itr).second);
+        ASSERT(sessItr != m_worldPushQueue.end());
+        PlayerInfo *info = objmgr.GetPlayerInfo(sessItr->second.first);
+        WorldSession *sess = sessItr->first;
+        m_worldPushQueue.erase(sessItr);
+        // If we lost our player info, cancel the login and disconnect
+        if(info == NULL)
+        {
+            sess->Disconnect();
+            continue;
+        }
+
+        // If we failed to enter world, kick back to login screen
+        if((*itr).first)
+        {
+            uint8 error = CHAR_LOGIN_NO_WORLD;
+            sess->OutPacket(SMSG_CHARACTER_LOGIN_FAILED, 1, &error);
+            continue;
+        }
+
+        // Push us to our login proc
+        sess->PlayerLoginProc(info);
+    }
+    m_worldPushLock.Release();
 }
 
 void World::SaveAllPlayers()

@@ -1018,10 +1018,11 @@ void WorldObject::PushToWorld(MapInstance* instance)
 
 void WorldObject::RemoveFromWorld()
 {
+    ASSERT(m_mapInstance);
+
     // clear loot
     ClearLoot();
 
-    ASSERT(m_mapInstance);
     MapInstance* m = m_mapInstance;
     m_mapInstance = NULL;
 
