@@ -537,6 +537,9 @@ void Creature::SetDeathState(DeathState s)
     {
         m_aiInterface.OnDeath();
 
+        // Stop any movement we currently have
+        m_movementInterface.OnDeath();
+
         // Generate our loot based on death
         GenerateLoot();
 

@@ -3,7 +3,7 @@
 
 float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
-UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
+UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
 m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
 srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f)
 {
@@ -190,7 +190,7 @@ void UnitPathSystem::SetFollowTarget(Unit *target, float distance)
 
 void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 {
-    if((_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
+    if(m_movementDisabled || (_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
         return;
 
     // Clean up any existing paths
@@ -314,9 +314,9 @@ void UnitPathSystem::SetOrientation(float orientation)
 
 void UnitPathSystem::StopMoving()
 {
+    // Cleanup path will set our destinations to infinite
     _CleanupPath();
-    // Set destX/Y to infinite, zero out destZ and Orientation
-    _destX = _destY = fInfinite; _destZ = _destO  = 0.f;
+    // Broadcast an empty path
     BroadcastMovementPacket();
 }
 
@@ -324,8 +324,6 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
 { 
     // Grab our destination point data
     MovementPoint *lastPoint = m_movementPoints.HasItems() ? m_movementPoints.at(m_movementPoints.size()-1).get() : NULL;
-    if(lastPoint == NULL)
-        return;
     // Grab our start point data
     LocationVector startPoint(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
     // If we have no path data but are broadcasting, check validity of last update point
@@ -338,7 +336,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
     // We need to append our start vector here, but need to use it later for compressed movement
     data.appendvector(startPoint, false);
     // If we are at our destination, or have no destination, broadcast a stop packet
-    if((lastUpdatePoint.pos.x == _destX && lastUpdatePoint.pos.y == _destY) || (_destX == fInfinite && _destY == fInfinite))
+    if(lastPoint == NULL || (lastUpdatePoint.pos.x == _destX && lastUpdatePoint.pos.y == _destY) || (_destX == fInfinite && _destY == fInfinite))
         data << uint32(0) << uint8(1);
     else
     {

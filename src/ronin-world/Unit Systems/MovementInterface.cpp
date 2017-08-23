@@ -1279,12 +1279,15 @@ void MovementInterface::OnFirstTimeSync()
 
 void MovementInterface::OnDeath()
 {
-
+    m_path.DisableAutoPath();
+    m_path.ToggleMovementLock(true);
+    m_path.StopMoving();
 }
 
 void MovementInterface::OnRespawn()
 {
-
+    m_path.EnableAutoPath();
+    m_path.ToggleMovementLock(true);
 }
 
 void MovementInterface::OnRepop()

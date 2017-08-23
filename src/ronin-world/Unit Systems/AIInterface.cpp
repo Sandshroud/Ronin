@@ -92,8 +92,6 @@ void AIInterface::OnAttackStop()
 void AIInterface::OnDeath()
 {
     m_targetGuid.Clean();
-    m_path->DisableAutoPath();
-    m_path->StopMoving();
 
     m_AIState = AI_STATE_DEAD;
     m_Creature->EventAttackStop();

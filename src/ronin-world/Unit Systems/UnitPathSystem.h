@@ -58,8 +58,9 @@ public: // Class functions
     void EnterEvade();
     void SetAutoPath(WaypointStorage *storage);
 
-    void EnableAutoPath() { m_autoPath = true; }
+    void EnableAutoPath() { m_autoPath = (_waypointPath != NULL); }
     void DisableAutoPath() { m_autoPath = false; }
+    void ToggleMovementLock(bool result) { m_movementDisabled = result; }
 
     bool hasDestination();
     bool closeToDestination(uint32 msTime);
@@ -77,6 +78,7 @@ public:
     void MoveToPoint(float x, float y, float z, float o = fInfinite);
     void UpdateOrientation(Unit *unitTarget);
     void SetOrientation(float orientation);
+
     void StopMoving();
 
     void BroadcastMovementPacket(uint8 packetSendFlags = 0);
@@ -87,7 +89,7 @@ public:
 
 private:
     Unit *m_Unit, *m_followTarget;
-    bool m_autoPath;
+    bool m_movementDisabled, m_autoPath;
 
     WaypointStorage *_waypointPath;
     WaypointStorage::iterator waypathIterator;
