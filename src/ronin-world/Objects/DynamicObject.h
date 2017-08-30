@@ -37,6 +37,7 @@ class SERVER_DECL DynamicObject : public WorldObject
 
 public:
     DynamicObject( uint32 high, uint32 low, uint32 fieldCount = DYNAMICOBJECT_END );
+
     ~DynamicObject( );
     virtual void Init();
     virtual void Destruct();

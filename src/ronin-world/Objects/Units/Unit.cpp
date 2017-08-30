@@ -82,6 +82,73 @@ Unit::Unit(uint64 guid, uint32 fieldCount) : WorldObject(guid, fieldCount), m_Au
     m_meleeAnimKitId = 0;
 }
 
+#if STACKED_MEMORY_ALLOCATION == 1
+Unit::Unit() : WorldObject(), m_AuraInterface(this), m_movementInterface(this), m_spellInterface(this), m_unitTeam(TEAM_NONE) { }
+
+void Unit::Construct(uint64 guid, uint32 fieldCount)
+{
+    WorldObject::Construct(guid, fieldCount);
+
+    SetTypeFlags(TYPEMASK_TYPE_UNIT);
+    m_objType = TYPEID_UNIT;
+
+    m_updateFlags |= UPDATEFLAG_LIVING;
+
+    m_attackInterrupt = 0;
+    memset(&m_attackTimer, 0, sizeof(uint16)*2);
+    memset(&m_attackDelay, 0, sizeof(uint16)*2);
+    m_dualWield = m_autoShot = false;
+
+    baseStats = NULL;
+
+    m_state = 0;
+    m_deathState = ALIVE;
+
+    m_silenced = 0;
+    _stunStateCounter = 0;
+
+    disarmed = false;
+    disarmedShield = false;
+
+    //DK:modifiers
+    for( uint32 x = 0; x < 4; x++ )
+        m_ObjectSlots[x] = 0;
+
+    m_P_regenTimer = 0;
+    m_H_regenTimer = 1000;
+    m_interruptRegen = 0;
+    m_powerRegenPCT = 0;
+
+    m_triggerSpell = 0;
+    m_triggerDamage = 0;
+    m_canMove = 0;
+    m_noInterrupt = 0;
+    m_modelhalfsize = 1.0f; //worst case unit size. (Should be overwritten)
+
+    m_invisFlag = INVIS_FLAG_NORMAL;
+
+    for(int i = 0; i < INVIS_FLAG_TOTAL; i++)
+        m_invisDetect[i] = 0;
+
+    m_combatStopTimer = 0;
+    m_attackUpdateTimer = 0;
+    m_emoteState = 0;
+    m_oldEmote = 0;
+
+    m_p_DelayTimer = 0;
+
+    m_onAuraRemoveSpells.clear();
+
+    m_DummyAuras.clear();
+    m_autoShotSpell = NULL;
+
+    m_vehicleKitId = 0;
+    m_aiAnimKitId = 0;
+    m_movementAnimKitId = 0;
+    m_meleeAnimKitId = 0;
+}
+#endif
+
 Unit::~Unit()
 {
 

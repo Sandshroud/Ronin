@@ -26,8 +26,8 @@ Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_values
     m_uint32Values = new uint32[m_valuesCount];
     memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
 
-    SetUInt64Value(OBJECT_FIELD_GUID, guid);
-    SetUInt32Value(OBJECT_FIELD_ENTRY, guid.getEntry());
+    SetUInt64Value(OBJECT_FIELD_GUID, m_objGuid);
+    SetUInt32Value(OBJECT_FIELD_ENTRY, m_objGuid.getEntry());
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
     SetTypeFlags(TYPEMASK_TYPE_OBJECT);
@@ -37,6 +37,31 @@ Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_values
     m_lootGenerated = false;
     m_looted = false;
 }
+
+#if STACKED_MEMORY_ALLOCATION == 1
+Object::Object() : m_eventHandler(this), m_valuesCount(0), m_updateFlags(0), m_notifyFlags(0), m_objGuid(0), m_updateMask(0), m_inWorld(false) { }
+
+void Object::Construct(WoWGuid guid, uint32 fieldCount)
+{
+    m_objGuid = guid;
+    m_valuesCount = fieldCount;
+    m_updateMask.SetCount(fieldCount);
+
+    m_uint32Values = new uint32[m_valuesCount];
+    memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
+
+    SetUInt64Value(OBJECT_FIELD_GUID, m_objGuid);
+    SetUInt32Value(OBJECT_FIELD_ENTRY, m_objGuid.getEntry());
+
+    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
+    SetTypeFlags(TYPEMASK_TYPE_OBJECT);
+    m_objType = TYPEID_OBJECT;
+
+    m_loot.gold = 0;
+    m_lootGenerated = false;
+    m_looted = false;
+}
+#endif
 
 Object::~Object()
 {
@@ -836,7 +861,7 @@ uint32 ObjectCellManager::_getCellId(float pos)
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0)
+WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0), m_mapInstance(NULL)
 {
     m_mapId = -1;
     m_wmoId = m_zoneId = m_areaId = 0;
@@ -845,7 +870,6 @@ WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCo
     m_lastMovementZone = 0;
     m_lastMovementArea = 0;
 
-    m_mapInstance = NULL;
     m_mapCell = 0;
 
     m_factionTemplate = NULL;
@@ -856,6 +880,32 @@ WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCo
 
     m_cellManager = guid.getHigh() ? new ObjectCellManager(this) : new PlayerCellManager(this);
 }
+
+#if STACKED_MEMORY_ALLOCATION == 1
+WorldObject::WorldObject() : Object(), m_position(0,0,0,0), m_mapInstance(NULL) { }
+
+void WorldObject::Construct(WoWGuid guid, uint32 fieldCount)
+{
+    Object::Construct(guid, fieldCount);
+
+    m_mapId = -1;
+    m_wmoId = m_zoneId = m_areaId = 0;
+    m_phaseMask = 0xFFFF;
+    m_areaFlags = 0;
+    m_lastMovementZone = 0;
+    m_lastMovementArea = 0;
+
+    m_mapCell = 0;
+
+    m_factionTemplate = NULL;
+
+    m_instanceId = 0;
+    m_inactiveFlags = 0;
+    m_objDeactivationTimer = 0;
+
+    m_cellManager = guid.getHigh() ? new ObjectCellManager(this) : new PlayerCellManager(this);
+}
+#endif
 
 WorldObject::~WorldObject( )
 {

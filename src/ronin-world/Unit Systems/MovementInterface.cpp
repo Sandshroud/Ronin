@@ -1287,7 +1287,7 @@ void MovementInterface::OnDeath()
 void MovementInterface::OnRespawn()
 {
     m_path.EnableAutoPath();
-    m_path.ToggleMovementLock(true);
+    m_path.ToggleMovementLock(false);
 }
 
 void MovementInterface::OnRepop()

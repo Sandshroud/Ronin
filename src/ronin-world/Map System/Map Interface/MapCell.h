@@ -109,4 +109,11 @@ private:
 
     // Used for instance based guid recalculation
     Loki::AssocVector<WoWGuid, WoWGuid> m_sqlIdToGuid;
+
+#if STACKED_MEMORY_ALLOCATION == 1
+    // Allocation stacks
+    Creature *_creatureStack;
+    GameObject *_gameobjectStack;
+    std::map<uint32, WoWGuid> m_ctrIndex, m_gobjIndex;
+#endif
 };

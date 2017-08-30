@@ -385,6 +385,11 @@ class SERVER_DECL Unit : public WorldObject
 public:
 
     Unit(uint64 guid, uint32 fieldCount = UNIT_END);
+#if STACKED_MEMORY_ALLOCATION == 1
+    Unit();
+    virtual void Construct(uint64 guid, uint32 fieldCount = UNIT_END);
+#endif
+
     virtual ~Unit ( );
     virtual void Init();
     virtual void Destruct();

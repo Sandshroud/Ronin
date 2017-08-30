@@ -163,6 +163,11 @@ class SERVER_DECL Object
 {
 public:
     Object(WoWGuid guid, uint32 fieldCount = OBJECT_END);
+#if STACKED_MEMORY_ALLOCATION == 1
+    Object();
+    virtual void Construct(WoWGuid guid, uint32 fieldCount = OBJECT_END);
+#endif
+
     virtual ~Object();
     virtual void Init();
     virtual void Destruct();
@@ -392,6 +397,11 @@ class SERVER_DECL WorldObject : public Object
 {
 public:
     WorldObject(WoWGuid guid, uint32 fieldCount = OBJECT_END);
+#if STACKED_MEMORY_ALLOCATION == 1
+    WorldObject();
+    virtual void Construct(WoWGuid guid, uint32 fieldCount = OBJECT_END);
+#endif
+
     virtual ~WorldObject( );
 
     virtual void Init();

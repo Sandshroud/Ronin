@@ -807,6 +807,9 @@ public:
     uint32 m_CreatureHighGuid;
     CreatureStorageMap m_CreatureStorage;
     Creature *CreateCreature(WoWGuid guid, uint32 entry = 0);
+#if STACKED_MEMORY_ALLOCATION == 1
+    void ConstructCreature(WoWGuid &guid, Creature *allocation);
+#endif
 
     RONIN_INLINE Creature* GetCreature(WoWGuid guid)
     {
@@ -824,6 +827,9 @@ public:
     uint32 m_GOHighGuid;
     GameObjectStorageMap m_gameObjectStorage;
     GameObject *CreateGameObject(WoWGuid guid, uint32 entry = 0);
+#if STACKED_MEMORY_ALLOCATION == 1
+    void ConstructGameObject(WoWGuid &guid, GameObject *allocation);
+#endif
 
     RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
     {

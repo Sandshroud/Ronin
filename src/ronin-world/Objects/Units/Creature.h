@@ -224,6 +224,11 @@ class SERVER_DECL Creature : public Unit
     friend class AIInterface;
 public:
     Creature(CreatureData *data, uint64 guid);
+#if STACKED_MEMORY_ALLOCATION == 1
+    Creature();
+    virtual void Construct(CreatureData *data, uint64 guid);
+#endif
+
     virtual ~Creature();
     virtual void Init();
     virtual void Destruct();

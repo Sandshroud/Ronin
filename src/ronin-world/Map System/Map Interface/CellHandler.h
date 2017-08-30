@@ -53,6 +53,7 @@ public:
     ~CellHandler();
 
     void UnloadCells();
+    void CleanupCells();
 
     Class *GetCell(uint32 x, uint32 y);
     Class *GetCellByCoords(float x, float y);
@@ -106,11 +107,17 @@ CellHandler<Class>::~CellHandler()
 template <class Class>
 void CellHandler<Class>::UnloadCells()
 {
+    for(auto it = _cells.begin(); it != _cells.end(); ++it)
+        it->second->UnloadCellData(true);
+}
+
+template <class Class>
+void CellHandler<Class>::CleanupCells()
+{
     while(_cells.size())
     {
         Class * _class = _cells.begin()->second;
         _cells.erase(_cells.begin());
-        _class->UnloadCellData(true);
         delete _class;
     }
     _cells.clear();

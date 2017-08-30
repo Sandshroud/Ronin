@@ -131,30 +131,12 @@ void MapInstance::Destruct()
         m_delQueue.push_back(ctr);
         ctr->RemoveFromWorld();
     }
-
-    _PerformPendingActions();
-    while(m_delQueue.size())
-    {
-        WorldObject *obj = *m_delQueue.begin();
-        m_delQueue.erase(m_delQueue.begin());
-        obj->Destruct();
-    }
-
     while(m_gameObjectStorage.size())
     {
         GameObject *gObj = m_gameObjectStorage.begin()->second;
         m_delQueue.push_back(gObj);
         gObj->RemoveFromWorld();
     }
-
-    _PerformPendingActions();
-    while(m_delQueue.size())
-    {
-        WorldObject *obj = *m_delQueue.begin();
-        m_delQueue.erase(m_delQueue.begin());
-        obj->Destruct();
-    }
-
     while(m_DynamicObjectStorage.size())
     {
         DynamicObject *dynObj = m_DynamicObjectStorage.begin()->second;
@@ -182,6 +164,8 @@ void MapInstance::Destruct()
         m_corpses.clear();
     }
 
+    _PerformPendingActions();
+
     //Clear our remaining containers
     m_PlayerStorage.clear();
     m_DynamicObjectStorage.clear();
@@ -194,6 +178,8 @@ void MapInstance::Destruct()
     pdbcMap = NULL;
 
     m_battleground = NULL;
+
+    CleanupCells();
 
     delete this;
 }
@@ -2139,6 +2125,19 @@ Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
     return cr;
 }
 
+#if STACKED_MEMORY_ALLOCATION == 1
+void MapInstance::ConstructCreature(WoWGuid &guid, Creature *allocation)
+{
+    CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(guid.getEntry());
+    m_objectCreationLock.Acquire();
+    uint16 highGuid = (ctrData->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT);
+    ASSERT( guid.getHigh() == highGuid );
+    allocation->Construct(ctrData, guid);
+    m_objectCreationLock.Release();
+    allocation->Init();
+}
+#endif
+
 Summon* MapInstance::CreateSummon(uint32 entry, int32 duration)
 {
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
@@ -2176,6 +2175,19 @@ GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
     go->Init();
     return go;
 }
+
+#if STACKED_MEMORY_ALLOCATION == 1
+void MapInstance::ConstructGameObject(WoWGuid &guid, GameObject *allocation)
+{
+    GameObjectInfo *goi = GameObjectNameStorage.LookupEntry( guid.getEntry() );
+    ASSERT( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT );
+
+    m_objectCreationLock.Acquire();
+    allocation->Construct(goi, guid);
+    m_objectCreationLock.Release();
+    allocation->Init();
+}
+#endif
 
 DynamicObject* MapInstance::AllocateDynamicObject(WoWGuid source)
 {
