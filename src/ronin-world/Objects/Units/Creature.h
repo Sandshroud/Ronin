@@ -453,6 +453,9 @@ public:
 
     ItemPrototype *GetShieldProto() { return m_shieldProto; }
 
+    // Scripted hostile NPC for inrange interaction
+    bool IsScriptedNPCHostile() { return false; }//m_script && m_script->CanInteractWithNearbyNPCs();}
+
 public: // values
     bool m_isGuard;
     bool b_has_shield;

@@ -3846,7 +3846,9 @@ bool Unit::IsFactionNonHostile()
 
 bool Unit::IsFactionNPCHostile()
 {
-    return true;
+    if(IsCreature() && castPtr<Creature>(this)->IsScriptedNPCHostile())
+        return true;
+    return false;
 }
 
 void Unit::SetFaction(uint32 faction, bool save)
