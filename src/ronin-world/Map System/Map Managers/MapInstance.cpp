@@ -335,7 +335,7 @@ void MapInstance::PushObject(WorldObject* obj)
     m_objectStorageLock.Release();
 
     // Handle activation of that object.
-    if(objCell->IsActive())
+    if(objCell->IsActive() && (!obj->IsBulkSpawn() || obj->IsDynamicObj()))
     {
         m_poolLock.Acquire();
         switch(obj->GetTypeId())

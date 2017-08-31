@@ -88,14 +88,21 @@ void ThreadManager::Shutdown()
     }
     _mutex.Release();
 
+    uint32 timer = 0;
     for(;;)
     {
         _mutex.Acquire();
         if(m_activeThreads.size())
         {
-            sLog.Debug("ThreadManager", "%u active threads remaining...", m_activeThreads.size() );
+            if(timer > 5000)
+            {
+                sLog.Debug("ThreadManager", "%u active threads remaining...", m_activeThreads.size() );
+                timer = 0;
+            }
+
             _mutex.Release();
-            Sleep(1000);
+            timer += 100;
+            Sleep(100);
             continue;
         }
 

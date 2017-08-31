@@ -806,25 +806,30 @@ bool AuraInterface::UpdateAuraModifier(uint32 spellId, WoWGuid casterGuid, uint8
 
 void AuraInterface::UpdateAuraModsWithModType(uint32 modType)
 {
-    if(!m_Unit->IsPlayer() || m_modifiersByModType.find(modType) == m_modifiersByModType.end() || m_modifiersByModType[modType].empty())
-        return;
-
-    for(auto itr = m_modifiersByModType[modType].begin(); itr != m_modifiersByModType[modType].end(); itr++)
-    {   // First remove the modifier group
-        UpdateSpellGroupModifiers(false, itr->second, true);
-        _RecalculateModAmountByType(itr->second);
-        UpdateSpellGroupModifiers(true, itr->second, true);
+    m_auraLock.HighAcquire();
+    if(m_Unit->IsPlayer() && m_modifiersByModType.find(modType) != m_modifiersByModType.end() && !m_modifiersByModType[modType].empty())
+    {
+        for(auto itr = m_modifiersByModType[modType].begin(); itr != m_modifiersByModType[modType].end(); itr++)
+        {   // First remove the modifier group
+            UpdateSpellGroupModifiers(false, itr->second, true);
+            _RecalculateModAmountByType(itr->second);
+            UpdateSpellGroupModifiers(true, itr->second, true);
+        }
     }
+    m_auraLock.HighRelease();
 }
 
 void AuraInterface::OnDismount()
 {
+    RWGuard guard(m_auraLock, false);
     if(m_modifiersByModType.find(SPELL_AURA_MOUNTED) == m_modifiersByModType.end() || m_modifiersByModType[SPELL_AURA_MOUNTED].empty())
         return;
 
     std::set<uint8> m_aurasToRemove;
     for(auto itr = m_modifiersByModType[SPELL_AURA_MOUNTED].begin(); itr != m_modifiersByModType[SPELL_AURA_MOUNTED].end(); itr++)
         m_aurasToRemove.insert((uint8)(itr->first&0xFF));
+    guard.Nullify();
+
     while(!m_aurasToRemove.empty())
     {
         uint8 auraSlot = *m_aurasToRemove.begin();
@@ -835,6 +840,7 @@ void AuraInterface::OnDismount()
 
 bool AuraInterface::HasMountAura()
 {
+    RWGuard guard(m_auraLock, false);
     if(m_modifiersByModType.find(SPELL_AURA_MOUNTED) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_MOUNTED].empty())
         return true;
     return false;
@@ -843,6 +849,7 @@ bool AuraInterface::HasMountAura()
 bool AuraInterface::GetMountedAura(uint32 &auraId)
 {
     auraId = 0;
+    RWGuard guard(m_auraLock, false);
     if(m_modifiersByModType.find(SPELL_AURA_MOUNTED) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_MOUNTED].empty())
         auraId = m_modifiersByModType[SPELL_AURA_MOUNTED].begin()->second->m_spellInfo->Id;
     return auraId != 0;
@@ -850,6 +857,7 @@ bool AuraInterface::GetMountedAura(uint32 &auraId)
 
 bool AuraInterface::HasFlightAura()
 {
+    RWGuard guard(m_auraLock, false);
     if(m_modifiersByModType.find(SPELL_AURA_FLY) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_FLY].empty())
         return true;
     return false;
@@ -857,12 +865,15 @@ bool AuraInterface::HasFlightAura()
 
 void AuraInterface::RemoveFlightAuras()
 {
+    RWGuard guard(m_auraLock, false);
     if(m_modifiersByModType.find(SPELL_AURA_FLY) == m_modifiersByModType.end() || m_modifiersByModType[SPELL_AURA_FLY].empty())
         return;
 
     std::set<uint8> m_aurasToRemove;
     for(auto itr = m_modifiersByModType[SPELL_AURA_FLY].begin(); itr != m_modifiersByModType[SPELL_AURA_FLY].end(); itr++)
         m_aurasToRemove.insert((uint8)(itr->first&0xFF));
+    guard.Nullify();
+
     while(!m_aurasToRemove.empty())
     {
         uint8 auraSlot = *m_aurasToRemove.begin();
@@ -899,6 +910,7 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
             RemoveAuraBySlot(slot);
     }
 
+    RWGuard guard(m_auraLock, false);
     if(aur->IsPassive())
     {
         for(uint8 x = MAX_AURAS; x < TOTAL_AURAS; x++)
@@ -939,7 +951,9 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
         }
 
     } else aur->BuildAuraUpdate();
+    guard.Nullify();
 
+    m_auraLock.HighAcquire();
     m_auras[aur->GetAuraSlot()] = aur;
     if(aur->GetAuraSlot() < MAX_POSITIVE_AURAS)
         m_maxPosAuraSlot = std::max<uint8>(m_maxPosAuraSlot, 1+aur->GetAuraSlot());
@@ -950,6 +964,8 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
 
     if(uint8 index = aur->GetSpellProto()->buffIndex)
         m_buffIndexAuraSlots[index] = aur->GetAuraSlot();
+    m_auraLock.HighRelease();
+
     aur->ApplyModifiers(true);
 
     // Reaction from enemy AI
@@ -973,16 +989,21 @@ void AuraInterface::RemoveAura(Aura* aur)
     if(aur == NULL)
         return;
 
+    m_auraLock.HighAcquire();
     for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
         if(aur == m_auras[x])
             m_auras[x] = NULL;
+    m_auraLock.HighRelease();
     aur->Remove(); // Call remove once.
 }
 
 void AuraInterface::RemoveAuraBySlot(uint8 Slot)
 {
+    m_auraLock.HighAcquire();
     Aura *targetAur = m_auras[Slot];
     m_auras[Slot] = NULL;
+    m_auraLock.HighRelease();
+
     if(targetAur != NULL)
         targetAur->Remove();
 }
@@ -1463,6 +1484,7 @@ Aura* AuraInterface::FindActiveAura(uint32 spellId, WoWGuid guid)
 
 Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid)
 {
+    RWGuard guard(m_auraLock, false);
     for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
@@ -1478,6 +1500,7 @@ Aura* AuraInterface::FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid)
 
 void AuraInterface::EventDeathAuraRemoval()
 {
+    m_auraLock.LowAcquire();
     for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
@@ -1485,9 +1508,12 @@ void AuraInterface::EventDeathAuraRemoval()
             if(aur->GetSpellProto()->isDeathPersistentAura())
                 continue;
 
+            m_auraLock.LowRelease();
             RemoveAuraBySlot(x);
+            m_auraLock.LowAcquire();
         }
     }
+    m_auraLock.LowRelease();
 }
 
 void AuraInterface::_RecalculateModAmountByType(Modifier *mod)
@@ -1504,7 +1530,7 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
 {
     m_Unit->OnAuraModChanged(mod->m_type);
 
-    Guard guard(m_modLock);
+    RWGuard guard(m_auraLock, true);
     uint16 mod_index = createModifierIndex(auraSlot, index);
     Loki::AssocVector<uint8, ModifierHolder*>::iterator itr;
     if(apply)
@@ -1554,7 +1580,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool si
         data = new WorldPacket(SMSG_SET_FLAT_SPELL_MODIFIER+index2, 20);
         *data << uint32(1) << count << uint8(index1);
     }
-    m_modLock.Acquire();
+    m_auraLock.HighAcquire();
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(uint32 bit = 0, intbit = 0; bit < SPELL_GROUPS; ++bit)
     {
@@ -1577,7 +1603,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool si
             count++;
         }
     }
-    m_modLock.Release();
+    m_auraLock.HighRelease();
 
     if(data)
     {
@@ -1595,12 +1621,12 @@ uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
 
 void AuraInterface::TraverseModMap(uint32 modType, AuraInterface::ModCallback *callback)
 {
-    m_modLock.Acquire();
+    m_auraLock.LowAcquire();
     AuraInterface::modifierMap *modMap = NULL;
     if(m_modifiersByModType.find(modType) != m_modifiersByModType.end() && !(modMap = &m_modifiersByModType[modType])->empty())
         for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); ++itr)
             (*callback)(itr->second);
-    m_modLock.Release();
+    m_auraLock.LowRelease();
 
     // Tell the callback we've finished processing the mod list
     (*callback).postTraverse(modType);
@@ -1608,7 +1634,7 @@ void AuraInterface::TraverseModMap(uint32 modType, AuraInterface::ModCallback *c
 
 void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
 {
-    Guard guard(m_modLock);
+    RWGuard guard(m_auraLock, false);
     assert(modifier < SPELL_MODIFIERS);
     uint16 index = createModifierIndex(modifier, 0);
     if(m_spellGroupModifiers.find(index) == m_spellGroupModifiers.end() || m_spellGroupModifiers[index].empty())
@@ -1626,7 +1652,7 @@ void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
 
 void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
 {
-    Guard guard(m_modLock);
+    RWGuard guard(m_auraLock, false);
     assert(modifier < SPELL_MODIFIERS);
     uint16 index = createModifierIndex(modifier, 0);
     if(m_spellGroupModifiers.find(index) == m_spellGroupModifiers.end() || m_spellGroupModifiers[index].empty())
@@ -1644,7 +1670,7 @@ void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
 
 void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
 {
-    Guard guard(m_modLock);
+    RWGuard guard(m_auraLock, false);
     assert(modifier < SPELL_MODIFIERS);
     uint16 index = createModifierIndex(modifier, 1);
     if(m_spellGroupModifiers.find(index) == m_spellGroupModifiers.end() || m_spellGroupModifiers[index].empty())
@@ -1662,7 +1688,7 @@ void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
 
 void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
 {
-    Guard guard(m_modLock);
+    RWGuard guard(m_auraLock, false);
     assert(modifier < SPELL_MODIFIERS);
     uint16 index = createModifierIndex(modifier, 1);
     if(m_spellGroupModifiers.find(index) == m_spellGroupModifiers.end() || m_spellGroupModifiers[index].empty())

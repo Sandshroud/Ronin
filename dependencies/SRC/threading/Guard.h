@@ -43,7 +43,7 @@ protected:
 class SERVER_DECL RWGuard
 {
 public:
-    RWGuard(RWMutex& mutex, bool high) : target(mutex), highLock(high)
+    RWGuard(RWMutex& mutex, bool high) : target(mutex), highLock(high), nullified(false)
     {
         if(highLock)
             target.HighAcquire();
@@ -52,6 +52,18 @@ public:
 
     ~RWGuard()
     {
+        if(nullified)
+            return;
+
+        nullified = true;
+        if(highLock)
+            target.HighRelease();
+        else target.LowRelease();
+    }
+
+    void Nullify()
+    {
+        nullified = true;
         if(highLock)
             target.HighRelease();
         else target.LowRelease();
@@ -61,6 +73,6 @@ public:
     RWGuard& operator=(Guard& src) = delete;
 
 protected:
-    bool highLock;
+    bool highLock, nullified;
     RWMutex& target;
 };

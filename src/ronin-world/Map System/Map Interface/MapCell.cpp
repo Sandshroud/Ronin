@@ -270,6 +270,8 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             else allocation->PushToWorld(_instance);
             loadCount++;
         }
+
+        _instance->mCreaturePool.AddPool(_creatureStack, stackSize);
     }
 
     if(uint32 stackSize = sp->GameObjectSpawns.size())//got GOs
@@ -310,6 +312,8 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             else allocation->PushToWorld(_instance);
             loadCount++;
         }
+
+        _instance->mGameObjectPool.AddPool(_gameobjectStack, stackSize);
     }    
 #else
     if(sp->CreatureSpawns.size())//got creatures
@@ -343,6 +347,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
                 if(_instance->IsCreaturePoolUpdating())
                     _instance->AddObject(c);
                 else c->PushToWorld(_instance);
+                m_spawnedCreatures.push_back(c);
                 loadCount++;
             }
         }
@@ -375,6 +380,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
                 if(_instance->IsGameObjectPoolUpdating())
                     _instance->AddObject(go);
                 else go->PushToWorld(_instance);
+                m_spawnedGameObjects.push_back(go);
                 loadCount++;
             }
         }
@@ -390,12 +396,6 @@ void MapCell::UnloadCellData(bool preDestruction)
 
     _loaded = false;
     RWGuard guard(_objLock, true);
-    m_activeNonPlayerSet.clear();
-    m_deactivatedObjects.clear();
-    m_gameObjectSet.clear();
-    m_creatureSet.clear();
-    m_sqlIdToGuid.clear();
-
 #if STACKED_MEMORY_ALLOCATION == 1
     for(auto it = m_ctrIndex.begin(); it != m_ctrIndex.end(); ++it)
         _instance->RemoveObject(&_creatureStack[it->first]);
@@ -411,39 +411,26 @@ void MapCell::UnloadCellData(bool preDestruction)
     m_ctrIndex.clear();
     m_gobjIndex.clear();
 #else
-    std::for_each(m_activeNonPlayerSet.begin(), m_activeNonPlayerSet.end(), [this, preDestruction](std::pair<WoWGuid, WorldObject *> pair)
+    for(auto it = m_spawnedCreatures.begin(); it != m_spawnedCreatures.end(); ++it)
     {
-        bool cleanupObj = true;
-        if( !preDestruction && _unloadpending )
-        {
-            if(pair.second->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
-                cleanupObj = false;
-
-            if(pair.second->GetTypeId() == TYPEID_CORPSE && pair.second->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
-                cleanupObj = false;
-        }
-
-        if(cleanupObj)
-            pair.second->Cleanup();
-    });
-
-    std::for_each(m_deactivatedObjects.begin(), m_deactivatedObjects.end(), [this, preDestruction](std::pair<WoWGuid, WorldObject *> pair)
+        _instance->RemoveObject(*it);
+        _instance->QueueCleanup(*it);
+    }
+    for(auto it = m_spawnedGameObjects.begin(); it != m_spawnedGameObjects.end(); ++it)
     {
-        bool cleanupObj = true;
-        if( !preDestruction && _unloadpending )
-        {
-            if(pair.second->GetHighGUID() == HIGHGUID_TYPE_TRANSPORTER)
-                cleanupObj = false;
+        _instance->RemoveObject(*it);
+        _instance->QueueCleanup(*it);
+    }
 
-            if(pair.second->GetTypeId() == TYPEID_CORPSE && pair.second->GetUInt32Value(CORPSE_FIELD_OWNER) != 0)
-                cleanupObj = false;
-        }
-
-        if(cleanupObj)
-            pair.second->Cleanup();
-    });
-
+    m_spawnedCreatures.clear();
+    m_spawnedGameObjects.clear();
 #endif
+
+    m_activeNonPlayerSet.clear();
+    m_deactivatedObjects.clear();
+    m_gameObjectSet.clear();
+    m_creatureSet.clear();
+    m_sqlIdToGuid.clear();
 
     // Start calldown for cell map unloading
     _mapData->CellUnloaded(_x, _y);

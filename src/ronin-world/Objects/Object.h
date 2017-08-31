@@ -580,6 +580,7 @@ public:
     float const GetLiqHeight() { return m_liquidHeight; }
 
     void MarkForCleanup() { m_isMarkedForCleanup = true; }
+    bool IsBulkSpawn() { return m_isManagedBulkSpawn; }
 
 protected:
     void _Create( uint32 mapid, float x, float y, float z, float ang);
@@ -628,6 +629,8 @@ protected:
     ObjectCellManager *m_cellManager;
     //! Marked for mapinstance cleanup
     bool m_isMarkedForCleanup;
+    //! Marked as mass allocated object
+    bool m_isManagedBulkSpawn;
 
 public:
     bool IsInLineOfSight(WorldObject* pObj);

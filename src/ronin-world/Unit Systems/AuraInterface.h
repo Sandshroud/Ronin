@@ -175,6 +175,7 @@ private:
     Aura *m_auras[TOTAL_AURAS];
     uint8 m_maxPosAuraSlot, m_maxNegAuraSlot, m_maxPassiveAuraSlot;
     std::map<uint8, uint8> m_buffIndexAuraSlots;
+    RWMutex m_auraLock;
 
     /*******************
     **** Modifiers
@@ -211,10 +212,10 @@ public:
     bool HasAurasWithModType(uint32 modType)
     {
         bool ret = false;
-        m_modLock.Acquire();
+        m_auraLock.LowAcquire();
         if(!m_modifiersByModType.empty() && m_modifiersByModType.find(modType) == m_modifiersByModType.end())
             ret = !m_modifiersByModType[modType].empty();
-        m_modLock.Release();
+        m_auraLock.LowRelease();
         return ret;
     }
 
@@ -242,8 +243,6 @@ private:
     Loki::AssocVector<uint16, Loki::AssocVector<uint8, int32>> m_spellGroupModifiers;
     // Storage is <<SpellId, effIndex>, Modifier>
     Loki::AssocVector<std::pair<uint32, uint8>, int32> m_calcModCache;
-    // Access lock for using mod maps
-    Mutex m_modLock;
 
     static uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool silent);

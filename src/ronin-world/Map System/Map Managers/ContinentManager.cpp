@@ -226,6 +226,9 @@ bool ContinentManager::run()
     }while(true);
     sLog.Notice("ContinentManager", "Cleaning up continent %u (%s)", m_mapId, m_mapData->GetName());
 
+    // Wait for all task lists to exit
+    m_continent->WaitForTaskPool();
+
     // Remove us from content map
     sWorldMgr.ContinentUnloaded(m_mapId);
 

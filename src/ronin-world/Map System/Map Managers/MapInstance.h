@@ -196,7 +196,7 @@ public:
             mPoolLastUpdateStack[i] = msTime;
     }
 
-    // Add our object to the stack, return value is a pool identifier
+    // Add our object to the stack
     void Add(T *obj, uint8 forcedPool = 0)
     {
         Guard guard(poolLocks);
@@ -228,6 +228,44 @@ public:
         }
         _poolTracking.insert(std::make_pair(obj, pool));
     }
+
+#if STACKED_MEMORY_ALLOCATION == 1
+    // Add a pool of stack allocated objects to the stack
+    void AddPool(T *objStack, uint32 poolSize)
+    {
+        Guard guard(poolLocks);
+        uint8 pool = 0xFF;
+        if(mPoolStack)
+        {
+            // Grab us from the front
+            pool = 0;
+            uint32 count = 0xFFFFFFFF;
+            for(auto itr = m_poolSizes.begin(); itr != m_poolSizes.end(); ++itr)
+            {
+                if(itr->second < count)
+                {
+                    pool = itr->first;
+                    count = itr->second;
+                    if(count == 0)
+                        break;
+                }
+            }
+        }
+
+        for(uint32 i = 0; i < poolSize; ++i)
+        {
+            T *obj = &objStack[i];
+
+            POOL_ADD(mPool, obj);
+            if(mPoolStack)
+            {
+                POOL_ADD(mPoolStack[pool], obj);
+                m_poolSizes[pool] = mPoolStack[pool].size();
+            }
+            _poolTracking.insert(std::make_pair(obj, pool));
+        }
+    }
+#endif
 
     // Remove our object from the stack, poolID is needed to remove from the correct stack quickly
     void QueueRemoval(T *obj)
@@ -713,6 +751,8 @@ public:
     uint8 GetPoolOverrideForZone(uint32 zoneId);
     bool IsCreaturePoolUpdating() { return mCreaturePool.isUpdating(); }
     bool IsGameObjectPoolUpdating() { return mGameObjectPool.isUpdating(); }
+
+    void WaitForTaskPool() { if(_updatePool) _updatePool->wait(); }
 
     bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
 

@@ -861,7 +861,7 @@ uint32 ObjectCellManager::_getCellId(float pos)
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0), m_mapInstance(NULL)
+WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0), m_mapInstance(NULL), m_isManagedBulkSpawn(false)
 {
     m_mapId = -1;
     m_wmoId = m_zoneId = m_areaId = 0;
@@ -882,7 +882,7 @@ WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCo
 }
 
 #if STACKED_MEMORY_ALLOCATION == 1
-WorldObject::WorldObject() : Object(), m_position(0,0,0,0), m_mapInstance(NULL) { }
+WorldObject::WorldObject() : Object(), m_position(0,0,0,0), m_mapInstance(NULL), m_isManagedBulkSpawn(true) { }
 
 void WorldObject::Construct(WoWGuid guid, uint32 fieldCount)
 {

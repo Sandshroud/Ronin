@@ -115,5 +115,9 @@ private:
     Creature *_creatureStack;
     GameObject *_gameobjectStack;
     std::map<uint32, WoWGuid> m_ctrIndex, m_gobjIndex;
+#else
+    // Spawned objects
+    std::vector<Creature*> m_spawnedCreatures;
+    std::vector<GameObject*> m_spawnedGameObjects;
 #endif
 };
