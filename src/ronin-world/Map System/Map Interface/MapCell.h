@@ -34,14 +34,20 @@ class MapCellObjectStorage;
 
 class ObjectProcessCallback { public: virtual void operator()(WorldObject *obj, WorldObject *curObj) = 0; };
 
+typedef Loki::AssocVector<WoWGuid, WorldObject*> CellObjectMap;
+
+struct PhaseObjectStack
+{
+    // Object type sets
+    CellObjectMap gameObjectSet, creatureSet;
+};
+
 class SERVER_DECL MapCell
 {
     friend class CellHandler<MapCell>;
 public:
     MapCell();
     ~MapCell();
-
-    typedef Loki::AssocVector<WoWGuid, WorldObject*> CellObjectMap;
 
     //Init
     void Init(uint32 x, uint32 y, uint32 mapid, MapInstance* instance);
@@ -59,7 +65,7 @@ public:
     RONIN_INLINE bool HasPlayers() { return !m_activePlayerSet.empty(); }
 
     // Iterating through different phases of sets
-    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask = 0);
+    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, const std::vector<uint16> *phaseSet, uint32 objectMask = 0);
 
     //State Related
     void SetActivity(bool state);
@@ -90,7 +96,6 @@ private:
     bool _loaded;
     std::atomic<bool> _active, _unloadpending;
 
-    uint32 objectCount;
     MapInstance* _instance;
     Map *_mapData;
 
@@ -102,13 +107,15 @@ private:
     RWMutex _objLock;
     // Non player set and player set
     CellObjectMap m_activeNonPlayerSet, m_activePlayerSet;
-    // Object type sets
-    CellObjectMap m_gameObjectSet, m_creatureSet;
     // Deactivated objects
     CellObjectMap m_deactivatedObjects;
+    // Phase mask maps
+    Loki::AssocVector<uint16, PhaseObjectStack> m_objectStacks;
 
     // Used for instance based guid recalculation
     Loki::AssocVector<WoWGuid, WoWGuid> m_sqlIdToGuid;
+
+    std::vector<uint16> m_objAddPhaseVect;
 
 #if STACKED_MEMORY_ALLOCATION == 1
     // Allocation stacks

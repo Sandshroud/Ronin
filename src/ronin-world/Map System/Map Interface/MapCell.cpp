@@ -57,13 +57,19 @@ void MapCell::AddObject(WorldObject* obj)
         m_deactivatedObjects[obj->GetGUID()] = obj;
     else if(obj->IsPlayer())
         m_activePlayerSet[obj->GetGUID()] = obj;
-    else
+    else if(obj->IsCreature() || obj->IsGameObject())
     {
         m_activeNonPlayerSet[obj->GetGUID()] = obj;
-        if(obj->IsCreature())
-            m_creatureSet[obj->GetGUID()] = obj;
-        else if(obj->IsGameObject())
-            m_gameObjectSet[obj->GetGUID()] = obj;
+        obj->BuildPhaseSet(&m_objAddPhaseVect);
+
+        for(auto phit = m_objAddPhaseVect.begin(); phit != m_objAddPhaseVect.end(); ++phit)
+        {
+            if(obj->IsCreature())
+                m_objectStacks[*phit].creatureSet[obj->GetGUID()] = obj;
+            else if(obj->IsGameObject())
+                m_objectStacks[*phit].gameObjectSet[obj->GetGUID()] = obj;
+        }
+        m_objAddPhaseVect.clear();
     }
 }
 
@@ -84,12 +90,15 @@ void MapCell::ProcessPendingActions()
         m_pendingRemovals.erase(m_pendingRemovals.begin());
         m_activePlayerSet.erase(guid);
         m_activeNonPlayerSet.erase(guid);
-        m_creatureSet.erase(guid);
-        m_gameObjectSet.erase(guid);
+        for(auto it = m_objectStacks.begin(); it != m_objectStacks.end(); ++it)
+        {
+            it->second.creatureSet.erase(guid);
+            it->second.gameObjectSet.erase(guid);
+        }
         m_deactivatedObjects.erase(guid);
     }
 
-    MapCell::CellObjectMap::iterator itr;
+    CellObjectMap::iterator itr;
     while(!m_pendingDeactivate.empty())
     {
         WoWGuid guid = *m_pendingDeactivate.begin();
@@ -100,8 +109,11 @@ void MapCell::ProcessPendingActions()
             m_activeNonPlayerSet.erase(itr);
             m_activePlayerSet.erase(guid);
             m_activeNonPlayerSet.erase(guid);
-            m_creatureSet.erase(guid);
-            m_gameObjectSet.erase(guid);
+            for(auto it = m_objectStacks.begin(); it != m_objectStacks.end(); ++it)
+            {
+                it->second.creatureSet.erase(guid);
+                it->second.gameObjectSet.erase(guid);
+            }
             m_deactivatedObjects[obj->GetGUID()] = obj;
         }
     }
@@ -132,7 +144,7 @@ void MapCell::DeactivateObject(WorldObject *obj)
 WorldObject *MapCell::FindObject(WoWGuid guid, bool searchDeactivated)
 {
     RWGuard guard(_objLock, false);
-    MapCell::CellObjectMap::iterator itr;
+    CellObjectMap::iterator itr;
     if((itr = m_activePlayerSet.find(guid)) != m_activePlayerSet.end() || (itr = m_activeNonPlayerSet.find(guid)) != m_activeNonPlayerSet.end())
         return itr->second;
     if(searchDeactivated && (itr = m_deactivatedObjects.find(guid)) != m_deactivatedObjects.end())
@@ -140,67 +152,69 @@ WorldObject *MapCell::FindObject(WoWGuid guid, bool searchDeactivated)
     return NULL;
 }
 
-void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, uint32 objectMask)
+void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, const std::vector<uint16> *phaseSet, uint32 objectMask)
 {
     RWGuard guard(_objLock, false);
 
     WorldObject *curObj;
-    if(objectMask == 0)
-    {
-        for(MapCell::CellObjectMap::iterator itr = m_activeNonPlayerSet.begin(); itr != m_activeNonPlayerSet.end(); itr++)
-        {
-            if((curObj = itr->second) == NULL || obj == curObj)
-                continue;
-            (*callback)(obj, curObj);
-        }
 
-        for(MapCell::CellObjectMap::iterator itr = m_activePlayerSet.begin(); itr != m_activePlayerSet.end(); itr++)
+    if(objectMask == 0 && phaseSet == NULL)
+    {
+        for(CellObjectMap::iterator itr = m_activeNonPlayerSet.begin(); itr != m_activeNonPlayerSet.end(); itr++)
         {
             if((curObj = itr->second) == NULL || obj == curObj)
                 continue;
             (*callback)(obj, curObj);
         }
     }
-    else
+    else if((objectMask == 0 || (objectMask & (TYPEMASK_TYPE_UNIT|TYPEMASK_TYPE_GAMEOBJECT))) && phaseSet && !phaseSet->empty())
     {
-        if(objectMask & TYPEMASK_TYPE_UNIT)
+        for(auto phit = phaseSet->begin(); phit != phaseSet->end(); ++phit)
         {
-            for(MapCell::CellObjectMap::iterator itr = m_creatureSet.begin(); itr != m_creatureSet.end(); itr++)
+            Loki::AssocVector<uint16, PhaseObjectStack>::iterator stackItr;
+            if((stackItr = m_objectStacks.find(*phit)) == m_objectStacks.end())
+                continue;
+
+            PhaseObjectStack *stack = &stackItr->second;
+            if(objectMask & TYPEMASK_TYPE_UNIT)
             {
-                if((curObj = itr->second) == NULL || obj == curObj)
-                    continue;
-                (*callback)(obj, curObj);
+                for(CellObjectMap::iterator itr = stack->creatureSet.begin(); itr != stack->creatureSet.end(); itr++)
+                {
+                    if((curObj = itr->second) == NULL || obj == curObj)
+                        continue;
+                    (*callback)(obj, curObj);
+                }
+            }
+
+            if(objectMask & TYPEMASK_TYPE_GAMEOBJECT)
+            {
+                for(CellObjectMap::iterator itr = stack->gameObjectSet.begin(); itr != stack->gameObjectSet.end(); itr++)
+                {
+                    if((curObj = itr->second) == NULL || obj == curObj)
+                        continue;
+                    (*callback)(obj, curObj);
+                }
             }
         }
+    }
 
-        if(objectMask & TYPEMASK_TYPE_PLAYER)
+    if(objectMask == 0 || (objectMask & TYPEMASK_TYPE_PLAYER))
+    {
+        for(CellObjectMap::iterator itr = m_activePlayerSet.begin(); itr != m_activePlayerSet.end(); itr++)
         {
-            for(MapCell::CellObjectMap::iterator itr = m_activePlayerSet.begin(); itr != m_activePlayerSet.end(); itr++)
-            {
-                if((curObj = itr->second) == NULL || obj == curObj)
-                    continue;
-                (*callback)(obj, curObj);
-            }
+            if((curObj = itr->second) == NULL || obj == curObj)
+                continue;
+            (*callback)(obj, curObj);
         }
+    }
 
-        if(objectMask & TYPEMASK_TYPE_GAMEOBJECT)
+    if(objectMask & TYPEMASK_TYPE_DEACTIVATED)
+    {
+        for(CellObjectMap::iterator itr = m_deactivatedObjects.begin(); itr != m_deactivatedObjects.end(); itr++)
         {
-            for(MapCell::CellObjectMap::iterator itr = m_gameObjectSet.begin(); itr != m_gameObjectSet.end(); itr++)
-            {
-                if((curObj = itr->second) == NULL || obj == curObj)
-                    continue;
-                (*callback)(obj, curObj);
-            }
-        }
-
-        if(objectMask & TYPEMASK_TYPE_DEACTIVATED)
-        {
-            for(MapCell::CellObjectMap::iterator itr = m_deactivatedObjects.begin(); itr != m_deactivatedObjects.end(); itr++)
-            {
-                if((curObj = itr->second) == NULL || obj == curObj)
-                    continue;
-                (*callback)(obj, curObj);
-            }
+            if((curObj = itr->second) == NULL || obj == curObj)
+                continue;
+            (*callback)(obj, curObj);
         }
     }
 }
@@ -428,9 +442,14 @@ void MapCell::UnloadCellData(bool preDestruction)
 
     m_activeNonPlayerSet.clear();
     m_deactivatedObjects.clear();
-    m_gameObjectSet.clear();
-    m_creatureSet.clear();
     m_sqlIdToGuid.clear();
+
+    for(auto it = m_objectStacks.begin(); it != m_objectStacks.end(); ++it)
+    {
+        it->second.creatureSet.clear();
+        it->second.gameObjectSet.clear();
+    }
+    m_objectStacks.clear();
 
     // Start calldown for cell map unloading
     _mapData->CellUnloaded(_x, _y);

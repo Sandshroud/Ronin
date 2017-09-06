@@ -1109,6 +1109,17 @@ void WorldObject::EventExploration(MapInstance *instance)
 
 }
 
+void WorldObject::BuildPhaseSet(std::vector<uint16> *phaseSet)
+{
+    uint8 max = RONIN_UTIL::getRBitOffset(m_phaseMask);
+    for(uint8 i = 0; i < max; ++i)
+    {
+        if((m_phaseMask & (1<<i))== 0)
+            continue;
+        phaseSet->push_back(i);
+    }
+}
+
 void WorldObject::_Create( uint32 mapid, float x, float y, float z, float ang )
 {
     m_mapId = mapid;

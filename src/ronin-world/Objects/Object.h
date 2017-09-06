@@ -569,6 +569,7 @@ public:
     void EventSpellHit(Spell* pSpell);
 
     uint16 GetPhaseMask() { return m_phaseMask; }
+    void BuildPhaseSet(std::vector<uint16> *phaseSet);
 
     // Area flags
     bool HasAreaFlag(uint16 areaFlag) { return (m_areaFlags & areaFlag); }

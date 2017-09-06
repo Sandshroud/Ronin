@@ -746,7 +746,7 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
         return false;
 
     _processCallback.SetCell(cellX, cellY);
-    objCell->ProcessObjectSets(obj, &_processCallback, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
+    objCell->ProcessObjectSets(obj, &_processCallback, NULL, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
     return true;
 }
 
@@ -771,7 +771,7 @@ void MapInstance::RemoveCellData(WorldObject *Obj, std::set<uint32> &set, bool f
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(Obj, &_removalCallback, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(Obj, &_removalCallback, NULL, Obj->IsPlayer() ? 0x00 : TYPEMASK_TYPE_PLAYER);
     }
 }
 
@@ -1100,6 +1100,10 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     if(unitTarget == NULL || unitTarget->isDead()) // Cut down on checks by skipping dead creatures
         return;
 
+    float distance = obj->GetDistanceSq(unitTarget);
+    if(_result && _resultDist <= distance)
+        return;
+
     // Visibility and interaction checking
     if(unitTarget->IsPlayer())
     {
@@ -1110,14 +1114,10 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     // Interaction limitation
     if(sFactionSystem.IsInteractionLocked(obj, curObj))
         return;
-
-    float distance = obj->GetDistanceSq(unitTarget);
     // Check our aggro range against our saved range
     float aggroRange = unitTarget->ModDetectedRange(castPtr<Unit>(obj), _range);
     aggroRange *= aggroRange; // Distance is squared so square our range
     if(distance >= aggroRange)
-        return;
-    if(_result && _resultDist <= distance)
         return;
     if(!sFactionSystem.isHostile(castPtr<Unit>(obj), unitTarget))
         return;
@@ -1135,14 +1135,15 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
     InrangeTargetCallbackStack::callbackStorage *storage = _inRangeTargetCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
-    // Lock the storage lock in case we are allocated to a few threads
+    std::vector<uint16> phaseSet;
+    ctr->BuildPhaseSet(&phaseSet);
     storage->callback.ResetData(range);
     ctr->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, ctr, typeMask, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, ctr, typeMask, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(ctr, &storage->callback, typeMask);
+            cell->ProcessObjectSets(ctr, &storage->callback, &phaseSet, typeMask);
     });
 
     Unit *Result = storage->callback.GetResult();
@@ -1166,13 +1167,15 @@ void MapInstance::SendMessageToCellPlayers(WorldObject* obj, WorldPacket * packe
     BroadcastMessageCallbackStack::callbackStorage *storage = _broadcastMessageCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
+    std::vector<uint16> phaseSet;
+    obj->BuildPhaseSet(&phaseSet);
     storage->callback.setPacketData(packet);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, &phaseSet, TYPEMASK_TYPE_PLAYER);
     });
 
     storage->cellvector.clear();
@@ -1201,13 +1204,15 @@ void MapInstance::MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, 
     BroadcastMessageInRangeCallbackStack::callbackStorage *storage = _broadcastMessageInRangeCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
+    std::vector<uint16> phaseSet;
+    obj->BuildPhaseSet(&phaseSet);
     storage->callback.ResetData(range, opcodeId, Len, data, false, 0);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, &phaseSet, TYPEMASK_TYPE_PLAYER);
     });
 
     storage->cellvector.clear();
@@ -1219,13 +1224,15 @@ void MapInstance::MessageToCells(WorldObject *obj, WorldPacket *data, float rang
     BroadcastMessageInRangeCallbackStack::callbackStorage *storage = _broadcastMessageInRangeCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
+    std::vector<uint16> phaseSet;
+    obj->BuildPhaseSet(&phaseSet);
     storage->callback.ResetData(range, data, myTeam, teamId);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, range);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, &phaseSet, TYPEMASK_TYPE_PLAYER);
     });
 
     storage->cellvector.clear();
@@ -1249,13 +1256,15 @@ void MapInstance::SendChatMessageToCellPlayers(WorldObject* obj, WorldPacket *pa
     BroadcastChatPacketCallbackStack::callbackStorage *storage = _broadcastChatPacketCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
+    std::vector<uint16> phaseSet;
+    obj->BuildPhaseSet(&phaseSet);
     storage->callback.setPacketData(packet, lang, langpos, guidPos);
     obj->GetCellManager()->CreateCellRange(&storage->cellvector, cell_radius);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, &phaseSet, TYPEMASK_TYPE_PLAYER);
     });
 
     storage->cellvector.clear();
@@ -1297,12 +1306,14 @@ void MapInstance::BroadcastObjectUpdate(WorldObject *obj)
     BroadcastObjectUpdateCallbackStack::callbackStorage *storage = _broadcastObjectUpdateCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
+    std::vector<uint16> phaseSet;
+    obj->BuildPhaseSet(&phaseSet);
     obj->GetCellManager()->FillCellRange(&storage->cellvector);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, obj, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(obj, &storage->callback, TYPEMASK_TYPE_PLAYER);
+            cell->ProcessObjectSets(obj, &storage->callback, &phaseSet, TYPEMASK_TYPE_PLAYER);
     });
 
     storage->cellvector.clear();
@@ -1338,13 +1349,15 @@ void MapInstance::HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *c
     DynamicObjectTargetMappingCallbackStack::callbackStorage *storage = _dynamicObjectTargetMappingCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
 
+    std::vector<uint16> phaseSet;
+    object->BuildPhaseSet(&phaseSet);
     storage->callback.SetData(callback, object, caster, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(object->GetPositionX(), object->GetPositionY(), maxRange, &storage->cellvector);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, object, typeMask, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, object, typeMask, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(object, &storage->callback, typeMask);
+            cell->ProcessObjectSets(object, &storage->callback, &phaseSet, typeMask);
     });
 
     storage->cellvector.clear();
@@ -1370,14 +1383,19 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     // Acquire our storage for this thread
     SpellTargetMappingCallbackStack::callbackStorage *storage = _spellTargetMappingCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
     ASSERT(storage != NULL);
+    Unit *caster = spell->GetCaster();
+    if(caster == NULL)
+        return;
 
+    std::vector<uint16> phaseSet;
+    caster->BuildPhaseSet(&phaseSet);
     storage->callback.SetData(callback, spell, i, targetType, x, y, z, minRange*minRange, maxRange*maxRange);
     ObjectCellManager::ConstructCellData(x, y, maxRange, &storage->cellvector);
-    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, spell, typeMask, storage](uint32 cellId)
+    std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, caster, spell, typeMask, storage, phaseSet](uint32 cellId)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(cellId);
         if(MapCell *cell = GetCell(cellPair.first, cellPair.second))
-            cell->ProcessObjectSets(spell->GetCaster(), &storage->callback, typeMask);
+            cell->ProcessObjectSets(caster, &storage->callback, &phaseSet, typeMask);
     });
 
     storage->cellvector.clear();

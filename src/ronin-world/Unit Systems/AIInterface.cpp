@@ -135,9 +135,9 @@ bool AIInterface::FindTarget()
     if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld() || m_Creature->hasStateFlag(UF_EVADING))
         return false;
     // If we're a non hostile faction, only search if we have a threatlist
-    if(m_Creature->IsFactionNonHostile() && true) // Assume true for now
+    if(m_Creature->IsFactionNonHostile() && !m_Creature->IsInCombat())
         return false;
-    if(!m_targetGuid.empty())
+    if(!m_targetGuid.empty() || _PullTargetFromThreatList())
         return true;
     uint32 targetTypeMask = (TYPEMASK_TYPE_PLAYER | (m_Creature->IsFactionNPCHostile() ? TYPEMASK_TYPE_UNIT : 0x0000));
 
@@ -213,4 +213,9 @@ void AIInterface::_HandleCombatAI()
 
     if(!m_Creature->ValidateAttackTarget(m_targetGuid))
         m_Creature->EventAttackStart(m_targetGuid);
+}
+
+bool AIInterface::_PullTargetFromThreatList()
+{
+    return false;
 }

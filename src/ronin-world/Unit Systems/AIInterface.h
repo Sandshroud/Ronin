@@ -70,6 +70,7 @@ protected:
     uint32 m_AIFlags;
 
     void _HandleCombatAI();
+    bool _PullTargetFromThreatList();
 
 private:
     Creature* m_Creature;
