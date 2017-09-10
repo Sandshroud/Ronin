@@ -382,14 +382,11 @@ enum UnitFieldUpdateType
 
 class SERVER_DECL Unit : public WorldObject
 {
-public:
-
-    Unit(uint64 guid, uint32 fieldCount = UNIT_END);
-#if STACKED_MEMORY_ALLOCATION == 1
+protected:
     Unit();
-    virtual void Construct(uint64 guid, uint32 fieldCount = UNIT_END);
-#endif
+    void Construct(WoWGuid guid, uint32 fieldCount = UNIT_END);
 
+public:
     virtual ~Unit ( );
     virtual void Init();
     virtual void Destruct();

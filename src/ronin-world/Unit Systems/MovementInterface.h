@@ -292,6 +292,10 @@ public:
     MovementInterface(Unit *_unit);
     ~MovementInterface();
 
+    // Attaches to owner guids
+    void AttachToOwner();
+
+    // Grabs path pointer from underlying movement update system
     UnitPathSystem *GetPath() { return &m_path; }
 
     static uint16 GetInternalMovementCode(uint16 opcode);

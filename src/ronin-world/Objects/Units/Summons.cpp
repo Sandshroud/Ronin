@@ -21,8 +21,12 @@
 
 #include "StdAfx.h"
 
-Summon::Summon(CreatureData* data, uint64 guid, int32 duration) : Creature(data, guid), m_expireTime(duration), m_deleted(false)
+Summon::Summon(CreatureData* data, uint64 guid, int32 duration) : Creature(), m_expireTime(duration), m_deleted(false)
 {
+    // Call object construct first
+    Creature::Construct(data, guid);
+    // Init
+
     m_Internal = NULL;
 }
 

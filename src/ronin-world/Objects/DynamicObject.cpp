@@ -21,8 +21,12 @@
 
 #include "StdAfx.h"
 
-DynamicObject::DynamicObject(uint32 high, uint32 low, uint32 fieldCount) : WorldObject(MAKE_NEW_GUID(low, 0, high), fieldCount)
+DynamicObject::DynamicObject(uint32 high, uint32 low, uint32 fieldCount) : WorldObject()
 {
+    // Call object construct first
+    WorldObject::Construct(MAKE_NEW_GUID(low, 0, high), fieldCount);
+    // Init
+
     SetTypeFlags(TYPEMASK_TYPE_DYNAMICOBJECT);
     m_objType = TYPEID_DYNAMICOBJECT;
 

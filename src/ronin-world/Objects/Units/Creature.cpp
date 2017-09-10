@@ -27,50 +27,9 @@
 
 #define M_PI 3.14159265358979323846f
 
-Creature::Creature(CreatureData *data, uint64 guid) : Unit(guid), _creatureData(data), m_aiInterface(this, m_movementInterface.GetPath())
-{
-    SetEntry(data->entry);
-
-    m_spawn = NULL;
-    m_quests = NULL;
-    m_trainerData = NULL;
-    auctionHouse = NULL;
-    m_shieldProto = NULL;
-    myFamily = NULL;
-
-    m_taxiNode[0] = m_taxiNode[1] = 0;
-    m_H_regenTimer = 0;
-    m_P_regenTimer = 0;
-    m_p_DelayTimer = 0;
-    m_enslaveCount = 0;
-    m_enslaveSpell = 0;
-
-    m_taggedPlayer.Clean();
-    m_taggedGroup.Clean();
-    m_lootMethod = -1;
-
-    m_aggroRangeMod = 0.f;
-
-    m_skinned = false; // 0x02
-    b_has_shield = false; // 0x04
-    m_noDeleteAfterDespawn = false; // 0x08
-    m_noRespawn = false; // 0x10
-    m_isGuard = false; // 0x20
-    m_canRegenerateHP = true; // 0x40
-    m_limbostate = false; // 0x80
-    m_corpseEvent = false; // 0x100
-    m_pickPocketed = false; // 0x200
-    haslinkupevent = false; // 0x400
-    has_waypoint_text = has_combat_text = false; // 0x800  // 0x1000
-    m_zoneVisibleSpawn = m_areaVisibleSpawn = false;
-
-    //m_script = NULL;
-}
-
-#if STACKED_MEMORY_ALLOCATION == 1
 Creature::Creature() : Unit(), _creatureData(NULL), m_aiInterface(this, m_movementInterface.GetPath()) { }
 
-void Creature::Construct(CreatureData *data, uint64 guid)
+void Creature::Construct(CreatureData *data, WoWGuid guid)
 {
     Unit::Construct(guid, UNIT_END);
 
@@ -112,7 +71,6 @@ void Creature::Construct(CreatureData *data, uint64 guid)
 
     //m_script = NULL;
 }
-#endif
 
 Creature::~Creature()
 {

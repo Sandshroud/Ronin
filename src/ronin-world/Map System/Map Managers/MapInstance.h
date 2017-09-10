@@ -229,7 +229,9 @@ public:
         _poolTracking.insert(std::make_pair(obj, pool));
     }
 
-#if STACKED_MEMORY_ALLOCATION == 1
+protected:
+    friend class MapCell;
+
     // Add a pool of stack allocated objects to the stack
     void AddPool(T *objStack, uint32 poolSize)
     {
@@ -265,7 +267,8 @@ public:
             _poolTracking.insert(std::make_pair(obj, pool));
         }
     }
-#endif
+
+public:
 
     // Remove our object from the stack, poolID is needed to remove from the correct stack quickly
     void QueueRemoval(T *obj)
@@ -847,10 +850,12 @@ public:
     uint32 m_CreatureHighGuid;
     CreatureStorageMap m_CreatureStorage;
     Creature *CreateCreature(WoWGuid guid, uint32 entry = 0);
-#if STACKED_MEMORY_ALLOCATION == 1
-    void ConstructCreature(WoWGuid &guid, Creature *allocation);
-#endif
 
+protected:
+    friend class MapCell;
+    void ConstructCreature(WoWGuid &guid, Creature *allocation);
+
+public:
     RONIN_INLINE Creature* GetCreature(WoWGuid guid)
     {
         ASSERT(guid.getHigh() == HIGHGUID_TYPE_UNIT || guid.getHigh() == HIGHGUID_TYPE_VEHICLE);
@@ -867,10 +872,12 @@ public:
     uint32 m_GOHighGuid;
     GameObjectStorageMap m_gameObjectStorage;
     GameObject *CreateGameObject(WoWGuid guid, uint32 entry = 0);
-#if STACKED_MEMORY_ALLOCATION == 1
-    void ConstructGameObject(WoWGuid &guid, GameObject *allocation);
-#endif
 
+protected:
+    friend class MapCell;
+    void ConstructGameObject(WoWGuid &guid, GameObject *allocation);
+
+public:
     RONIN_INLINE GameObject* GetGameObject(WoWGuid guid)
     {
         ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);

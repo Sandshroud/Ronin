@@ -382,9 +382,9 @@ void Transporter::TransportPassengers(uint32 mapid, uint32 oldmap, float x, floa
     sWorldMgr.PushToWorldQueue(this);
 }
 
-Transporter::Transporter(uint64 guid) : GameObject(NULL, guid)
+Transporter::Transporter(uint64 guid) : GameObject()
 {
-
+    GameObject::Construct(NULL, guid);
 }
 
 Transporter::~Transporter()

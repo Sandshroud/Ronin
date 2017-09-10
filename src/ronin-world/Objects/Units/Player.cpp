@@ -172,8 +172,12 @@ void PlayerCellManager::SetCurrentCell(MapInstance *instance, float newX, float 
     instance->RemoveCellData(_object, preProcessed, false);
 }
 
-Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Unit(pInfo->charGuid, fieldCount), m_session(session), m_playerInfo(pInfo), m_factionInterface(this), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(pInfo->charGuid))
+Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Unit(), m_session(session), m_playerInfo(pInfo), m_factionInterface(this), m_talentInterface(this), m_inventory(this), m_currency(this), m_mailBox(new Mailbox(pInfo->charGuid))
 {
+    // Call object construct first
+    Unit::Construct(pInfo->charGuid, fieldCount);
+    // Init
+
     SetTypeFlags(TYPEMASK_TYPE_PLAYER);
     m_objType = TYPEID_PLAYER;
 

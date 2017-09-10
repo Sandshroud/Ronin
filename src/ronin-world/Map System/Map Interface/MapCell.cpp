@@ -28,10 +28,8 @@
 MapCell::MapCell() : _pendingLock(), _objLock()
 {
     _forcedActive = false;
-#if STACKED_MEMORY_ALLOCATION == 1
     _creatureStack = NULL;
     _gameobjectStack = NULL;
-#endif
 }
 
 MapCell::~MapCell()
@@ -245,7 +243,6 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
 
     uint32 loadCount = 0, mapId = _instance->GetMapId();
     InstanceData *data = _instance->m_iData;
-#if STACKED_MEMORY_ALLOCATION == 1
     if(uint32 stackSize = sp->CreatureSpawns.size())//got creatures
     {
         uint32 index = 0;
@@ -328,78 +325,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         }
 
         _instance->mGameObjectPool.AddPool(_gameobjectStack, stackSize);
-    }    
-#else
-    if(sp->CreatureSpawns.size())//got creatures
-    {
-        for(CreatureSpawnArray::iterator i=sp->CreatureSpawns.begin();i!=sp->CreatureSpawns.end();++i)
-        {
-            uint8 creatureState = 0;
-            CreatureSpawn *spawn = *i;
-            if(data && data->GetObjectState(spawn->guid, creatureState) && creatureState > 0)
-                continue;
-
-            WoWGuid guid = spawn->guid;
-            if(_instance->IsInstance())
-            {
-                Loki::AssocVector<WoWGuid, WoWGuid>::iterator itr;
-                if((itr = m_sqlIdToGuid.find(guid)) != m_sqlIdToGuid.end())
-                    guid = itr->second;
-                else m_sqlIdToGuid.insert(std::make_pair(spawn->guid, (guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), spawn->guid.getEntry(), HIGHGUID_TYPE_UNIT))));
-            }
-
-            if(Creature *c = _instance->CreateCreature(guid))
-            {
-                c->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _instance->iInstanceMode, spawn);
-                c->SetInstanceID(_instance->GetInstanceID());
-                if(!c->CanAddToWorld())
-                {
-                    c->Destruct();
-                    continue;
-                }
-
-                if(_instance->IsCreaturePoolUpdating())
-                    _instance->AddObject(c);
-                else c->PushToWorld(_instance);
-                m_spawnedCreatures.push_back(c);
-                loadCount++;
-            }
-        }
     }
-
-    if(sp->GameObjectSpawns.size())//got GOs
-    {
-        for(GameObjectSpawnArray::iterator i = sp->GameObjectSpawns.begin(); i != sp->GameObjectSpawns.end(); i++)
-        {
-            uint8 gameObjState = 0x00;
-            GameObjectSpawn *spawn = *i;
-            if(data == NULL || !data->GetObjectState(spawn->guid, gameObjState))
-                gameObjState = spawn->state;
-
-            WoWGuid guid = spawn->guid;
-            if(_instance->IsInstance())
-            {
-                Loki::AssocVector<WoWGuid, WoWGuid>::iterator itr;
-                if((itr = m_sqlIdToGuid.find(guid)) != m_sqlIdToGuid.end())
-                    guid = itr->second;
-                else m_sqlIdToGuid.insert(std::make_pair(spawn->guid, (guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), spawn->guid.getEntry(), HIGHGUID_TYPE_GAMEOBJECT))));
-            }
-
-            if(GameObject *go = _instance->CreateGameObject(guid))
-            {
-                go->Load(mapId, spawn->x, spawn->y, spawn->z, 0.f, spawn->rX, spawn->rY, spawn->rZ, spawn->rAngle, spawn);
-                go->SetInstanceID(_instance->GetInstanceID());
-                go->SetState(gameObjState);
-
-                if(_instance->IsGameObjectPoolUpdating())
-                    _instance->AddObject(go);
-                else go->PushToWorld(_instance);
-                m_spawnedGameObjects.push_back(go);
-                loadCount++;
-            }
-        }
-    }
-#endif
     return loadCount;
 }
 
@@ -410,7 +336,7 @@ void MapCell::UnloadCellData(bool preDestruction)
 
     _loaded = false;
     RWGuard guard(_objLock, true);
-#if STACKED_MEMORY_ALLOCATION == 1
+
     for(auto it = m_ctrIndex.begin(); it != m_ctrIndex.end(); ++it)
         _instance->RemoveObject(&_creatureStack[it->first]);
     for(auto it = m_gobjIndex.begin(); it != m_gobjIndex.end(); ++it)
@@ -424,21 +350,6 @@ void MapCell::UnloadCellData(bool preDestruction)
     _gameobjectStack = NULL;
     m_ctrIndex.clear();
     m_gobjIndex.clear();
-#else
-    for(auto it = m_spawnedCreatures.begin(); it != m_spawnedCreatures.end(); ++it)
-    {
-        _instance->RemoveObject(*it);
-        _instance->QueueCleanup(*it);
-    }
-    for(auto it = m_spawnedGameObjects.begin(); it != m_spawnedGameObjects.end(); ++it)
-    {
-        _instance->RemoveObject(*it);
-        _instance->QueueCleanup(*it);
-    }
-
-    m_spawnedCreatures.clear();
-    m_spawnedGameObjects.clear();
-#endif
 
     m_activeNonPlayerSet.clear();
     m_deactivatedObjects.clear();

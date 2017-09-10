@@ -222,13 +222,16 @@ class AuctionHouse;
 class SERVER_DECL Creature : public Unit
 {
     friend class AIInterface;
-public:
-    Creature(CreatureData *data, uint64 guid);
-#if STACKED_MEMORY_ALLOCATION == 1
-    Creature();
-    virtual void Construct(CreatureData *data, uint64 guid);
-#endif
 
+protected:
+    friend class MapInstance;
+    friend class MapCell;
+
+    // DO NOT CALL DIRECTLY, USE MAP INSTANCE ALLOCATION SYSTEM
+    Creature();
+    void Construct(CreatureData *data, WoWGuid guid);
+
+public:
     virtual ~Creature();
     virtual void Init();
     virtual void Destruct();

@@ -23,7 +23,7 @@
 
 static float m_defaultSpeeds[MOVE_SPEED_MAX] = { 2.5f, 7.f, 4.5f, 4.722222f, 2.5f, 3.141593f, 7.f, 4.5f, 3.141593f };
 
-MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementState(0), m_underwaterState(0), m_breathingUpdateTimer(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit), m_timeSyncCounter(0), m_moveAckCounter(0)
+MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_clientGuid(), m_moverGuid(), m_movementState(0), m_underwaterState(0), m_breathingUpdateTimer(0), m_incrementMoveCounter(false), m_serverCounter(0), m_clientCounter(0), m_movementFlagMask(0), m_path(_unit), m_timeSyncCounter(0), m_moveAckCounter(0)
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
     {
@@ -38,7 +38,6 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
     memset(m_movementFlags, 0, sizeof(uint8)*6);
     memset(m_serverFlags, 0, sizeof(uint8)*6);
 
-    m_clientGuid = m_moverGuid = _unit->GetGUID();
     m_transportGuid.Clean();
     m_clientTransGuid.Clean();
 
@@ -72,6 +71,11 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_movementSta
 MovementInterface::~MovementInterface()
 {
     m_serverLocation = NULL;
+}
+
+void MovementInterface::AttachToOwner()
+{
+    m_clientGuid = m_moverGuid = m_Unit->GetGUID();
 }
 
 static PacketHandler movementPacketHandlers[MAX_MOVEMENT_CODE] = {

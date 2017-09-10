@@ -21,8 +21,12 @@
 
 #include "StdAfx.h"
 
-Item::Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount) : Object(MAKE_NEW_GUID(counter, proto->ItemId, HIGHGUID_TYPE_ITEM), fieldcount), m_owner(0), m_proto(proto), m_textId(0), locked(false), m_isDirty(false), m_deleted(false)
+Item::Item(ItemPrototype *proto, uint32 counter, uint32 fieldcount) : Object(), m_owner(0), m_proto(proto), m_textId(0), locked(false), m_isDirty(false), m_deleted(false)
 {
+    // Call object construct first
+    Object::Construct(MAKE_NEW_GUID(counter, proto->ItemId, HIGHGUID_TYPE_ITEM), fieldcount);
+    // Init
+
     SetTypeFlags(TYPEMASK_TYPE_ITEM);
     m_objType = TYPEID_ITEM;
 

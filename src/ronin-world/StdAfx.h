@@ -48,10 +48,6 @@
 
 #define M_PI 3.14159265358979323846f
 
-#ifndef STACKED_MEMORY_ALLOCATION
-#define STACKED_MEMORY_ALLOCATION 0
-#endif
-
 #include <list>
 #include <vector>
 #include <map>

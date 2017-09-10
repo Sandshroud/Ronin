@@ -21,24 +21,6 @@
 
 #include "StdAfx.h"
 
-Object::Object(WoWGuid guid, uint32 fieldCount) : m_eventHandler(this), m_valuesCount(fieldCount), m_updateFlags(0), m_notifyFlags(0), m_objGuid(guid), m_updateMask(m_valuesCount), m_inWorld(false)
-{
-    m_uint32Values = new uint32[m_valuesCount];
-    memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
-
-    SetUInt64Value(OBJECT_FIELD_GUID, m_objGuid);
-    SetUInt32Value(OBJECT_FIELD_ENTRY, m_objGuid.getEntry());
-
-    SetFloatValue(OBJECT_FIELD_SCALE_X, 1.f);
-    SetTypeFlags(TYPEMASK_TYPE_OBJECT);
-    m_objType = TYPEID_OBJECT;
-
-    m_loot.gold = 0;
-    m_lootGenerated = false;
-    m_looted = false;
-}
-
-#if STACKED_MEMORY_ALLOCATION == 1
 Object::Object() : m_eventHandler(this), m_valuesCount(0), m_updateFlags(0), m_notifyFlags(0), m_objGuid(0), m_updateMask(0), m_inWorld(false) { }
 
 void Object::Construct(WoWGuid guid, uint32 fieldCount)
@@ -61,7 +43,6 @@ void Object::Construct(WoWGuid guid, uint32 fieldCount)
     m_lootGenerated = false;
     m_looted = false;
 }
-#endif
 
 Object::~Object()
 {
@@ -861,27 +842,6 @@ uint32 ObjectCellManager::_getCellId(float pos)
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject(WoWGuid guid, uint32 fieldCount) : Object(guid, fieldCount), m_position(0,0,0,0), m_mapInstance(NULL), m_isManagedBulkSpawn(false)
-{
-    m_mapId = -1;
-    m_wmoId = m_zoneId = m_areaId = 0;
-    m_phaseMask = 0xFFFF;
-    m_areaFlags = 0;
-    m_lastMovementZone = 0;
-    m_lastMovementArea = 0;
-
-    m_mapCell = 0;
-
-    m_factionTemplate = NULL;
-
-    m_instanceId = 0;
-    m_inactiveFlags = 0;
-    m_objDeactivationTimer = 0;
-
-    m_cellManager = guid.getHigh() ? new ObjectCellManager(this) : new PlayerCellManager(this);
-}
-
-#if STACKED_MEMORY_ALLOCATION == 1
 WorldObject::WorldObject() : Object(), m_position(0,0,0,0), m_mapInstance(NULL), m_isManagedBulkSpawn(true) { }
 
 void WorldObject::Construct(WoWGuid guid, uint32 fieldCount)
@@ -905,7 +865,6 @@ void WorldObject::Construct(WoWGuid guid, uint32 fieldCount)
 
     m_cellManager = guid.getHigh() ? new ObjectCellManager(this) : new PlayerCellManager(this);
 }
-#endif
 
 WorldObject::~WorldObject( )
 {
@@ -1111,10 +1070,10 @@ void WorldObject::EventExploration(MapInstance *instance)
 
 void WorldObject::BuildPhaseSet(std::vector<uint16> *phaseSet)
 {
-    uint8 max = RONIN_UTIL::getRBitOffset(m_phaseMask);
-    for(uint8 i = 0; i < max; ++i)
+    uint8 max = RONIN_UTIL::getLastBit(m_phaseMask);
+    for(uint8 i = 1; i <= max; ++i)
     {
-        if((m_phaseMask & (1<<i))== 0)
+        if((m_phaseMask & (1<<(i-1)))== 0)
             continue;
         phaseSet->push_back(i);
     }

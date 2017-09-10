@@ -60,6 +60,7 @@ bool ContinentManager::run()
     sWorldMgr.MapLoaded(m_mapId);
     FILE *file = NULL;
 #if DEBUG_CONTINENT_PERF == 1
+    uint32 printCounter = 0;
     if(fopen_s(&file, format("MAP_%03u_Perf.log", m_mapId).c_str(), "w") == 0)
         fclose(file);
 #endif
@@ -206,8 +207,9 @@ bool ContinentManager::run()
 #if DEBUG_CONTINENT_PERF == 1
         uint32 performPendingUpdates = cClock::duration_cast<cClock::milliseconds>(cClock::system_clock::now() - currentTime).count();
 
-        if(fopen_s(&file, format("MAP_%03u_Perf.log", m_mapId).c_str(), "a") == 0)
+        if(printCounter < 1000 && fopen_s(&file, format("MAP_%03u_Perf.log", m_mapId).c_str(), "a") == 0)
         {
+            ++printCounter;
             fprintf(file, "[%04u] %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u\n", (performPendingRemovals + processInputQueue + performScriptUpdates
                 + performCombatUpdates + performDelayedSpellUpdates + performUnitPathUpdates + performPlayerUpdates + performDynamicObjectUpdates
                 + performCreatureUpdates + performObjectUpdates + performMovementUpdates + performSessionUpdates + performPlayerMovementUpdates + performLatePendingRemovals + performPendingUpdates),

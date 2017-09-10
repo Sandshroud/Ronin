@@ -538,13 +538,15 @@ class SERVER_DECL GameObject : public WorldObject
         }
     };
 
-public:
-    GameObject(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount = GAMEOBJECT_END);
-#if STACKED_MEMORY_ALLOCATION == 1
+protected:
+    friend class MapInstance;
+    friend class MapCell;
+
+    // DO NOT CALL DIRECTLY, USE MAP INSTANCE ALLOCATION SYSTEM
     GameObject();
     virtual void Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount = GAMEOBJECT_END);
-#endif
 
+public:
     ~GameObject( );
 
     virtual void Init();

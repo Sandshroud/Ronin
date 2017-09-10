@@ -2136,14 +2136,13 @@ Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
     else if(guid.empty())
         guid = MAKE_NEW_GUID(++m_CreatureHighGuid, entry, highGuid);
     ASSERT( guid.getHigh() == highGuid );
-    Creature *cr = new Creature(ctrData, guid);
     m_objectCreationLock.Release();
-
+    Creature *cr = new Creature();
+    cr->Construct(ctrData, guid);
     cr->Init();
     return cr;
 }
 
-#if STACKED_MEMORY_ALLOCATION == 1
 void MapInstance::ConstructCreature(WoWGuid &guid, Creature *allocation)
 {
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(guid.getEntry());
@@ -2154,7 +2153,6 @@ void MapInstance::ConstructCreature(WoWGuid &guid, Creature *allocation)
     m_objectCreationLock.Release();
     allocation->Init();
 }
-#endif
 
 Summon* MapInstance::CreateSummon(uint32 entry, int32 duration)
 {
@@ -2186,15 +2184,15 @@ GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
     }
     ASSERT( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT );
 
+    GameObject *go = new GameObject();
     m_objectCreationLock.Acquire();
-    GameObject *go = new GameObject(goi, MAKE_NEW_GUID(++m_GOHighGuid, entry, HIGHGUID_TYPE_GAMEOBJECT));
+    go->Construct(goi, MAKE_NEW_GUID(++m_GOHighGuid, entry, HIGHGUID_TYPE_GAMEOBJECT));
     m_objectCreationLock.Release();
 
     go->Init();
     return go;
 }
 
-#if STACKED_MEMORY_ALLOCATION == 1
 void MapInstance::ConstructGameObject(WoWGuid &guid, GameObject *allocation)
 {
     GameObjectInfo *goi = GameObjectNameStorage.LookupEntry( guid.getEntry() );
@@ -2205,7 +2203,6 @@ void MapInstance::ConstructGameObject(WoWGuid &guid, GameObject *allocation)
     m_objectCreationLock.Release();
     allocation->Init();
 }
-#endif
 
 DynamicObject* MapInstance::AllocateDynamicObject(WoWGuid source)
 {

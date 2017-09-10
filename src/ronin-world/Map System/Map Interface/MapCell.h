@@ -117,14 +117,8 @@ private:
 
     std::vector<uint16> m_objAddPhaseVect;
 
-#if STACKED_MEMORY_ALLOCATION == 1
     // Allocation stacks
     Creature *_creatureStack;
     GameObject *_gameobjectStack;
     std::map<uint32, WoWGuid> m_ctrIndex, m_gobjIndex;
-#else
-    // Spawned objects
-    std::vector<Creature*> m_spawnedCreatures;
-    std::vector<GameObject*> m_spawnedGameObjects;
-#endif
 };

@@ -21,36 +21,6 @@
 
 #include "StdAfx.h"
 
-GameObject::GameObject(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount) : WorldObject(guid, fieldCount)
-{
-    pInfo = info;
-
-    SetTypeFlags(TYPEMASK_TYPE_GAMEOBJECT);
-    m_objType = TYPEID_GAMEOBJECT;
-
-    m_updateFlags |= UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
-
-    counter = 0;
-    bannerslot = bannerauraslot = -1;
-    m_summonedGo = false;
-    invisible = false;
-    invisibilityFlag = INVIS_FLAG_NORMAL;
-    m_triggerSpell = NULL;
-    m_triggerRange = 0.f;
-    m_summoner = NULL;
-    charges = -1;
-    m_ritualmembers = NULL;
-    m_rotation.x = m_rotation.y = m_rotation.z = m_rotation.w = 0.f;
-    m_quests = NULL;
-    m_spawn = NULL;
-    m_deleted = false;
-    m_created = false;
-    m_zoneVisibleSpawn = false;
-    memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
-    m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
-}
-
-#if STACKED_MEMORY_ALLOCATION == 1
 GameObject::GameObject() : WorldObject() { }
 
 void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount)
@@ -83,7 +53,6 @@ void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
 }
-#endif
 
 GameObject::~GameObject()
 {

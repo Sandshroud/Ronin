@@ -339,13 +339,34 @@ namespace RONIN_UTIL
         return a < b - eps;
     }
 
+    template<typename T> RONIN_INLINE unsigned int getLastBit(T value)
+    {
+        unsigned int ret = sizeof(T)*8;
+        T mask = 0x00000080<<((sizeof(T)-1)*8);
+        while(ret && ((value & mask) == 0))
+        {
+            value<<=1;
+            ret--;
+        }
+        return ret;
+    }
+
     RONIN_INLINE unsigned int getRBitOffset(uint32 value)
     {
         unsigned int ret = 0;
+#if TRUE
+        ret = 32;
+        while((value & 0x80000000) == 0)
+        {
+            value<<=1;
+            ret--;
+        }
+#else
 #ifdef WIN32
         _BitScanReverse((LPDWORD)&ret, value);
 #else
         ret = __builtin_clz(value);
+#endif
 #endif
         return ret;
     }
