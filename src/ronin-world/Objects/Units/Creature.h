@@ -274,7 +274,6 @@ public:
 
     void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL, bool reload = false);
 
-    bool CanAddToWorld();
     void OnPushToWorld();
     virtual void DetatchFromSummoner() { Cleanup(); }
 

@@ -273,9 +273,8 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             // Finish loading our allocation
             allocation->Load(mapId, spawn->x, spawn->y, spawn->z, spawn->o, _instance->iInstanceMode, spawn);
             allocation->SetInstanceID(_instance->GetInstanceID());
-            if(!allocation->CanAddToWorld())
-                continue;
 
+            // Push to our map instance
             if(_instance->IsCreaturePoolUpdating())
                 _instance->AddObject(allocation);
             else allocation->PushToWorld(_instance);
@@ -318,6 +317,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             allocation->SetInstanceID(_instance->GetInstanceID());
             allocation->SetState(gameObjState);
 
+            // Push to our map instance
             if(_instance->IsGameObjectPoolUpdating())
                 _instance->AddObject(allocation);
             else allocation->PushToWorld(_instance);

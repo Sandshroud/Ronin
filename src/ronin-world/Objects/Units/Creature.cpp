@@ -571,18 +571,6 @@ void Creature::SetDeathState(DeathState s)
         m_mapInstance->SetUnitState(m_spawn->guid, s == JUST_DIED ? DEAD : s);
 }
 
-bool Creature::CanAddToWorld()
-{
-    if(_creatureData == NULL)
-        return false;
-
-    // force set faction
-    if(GetFaction() == NULL)
-        return false;
-
-    return true;
-}
-
 void Creature::OnPushToWorld()
 {
     Unit::OnPushToWorld();

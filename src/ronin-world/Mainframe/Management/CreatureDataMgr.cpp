@@ -55,6 +55,13 @@ void CreatureDataManager::LoadFromDB()
         ctrData->minLevel = feilds[field_count++].GetUInt32();
         ctrData->maxLevel = feilds[field_count++].GetUInt32();
         ctrData->faction = feilds[field_count++].GetUInt32();
+        if(dbcFactionTemplate.LookupEntry(ctrData->faction) == NULL)
+        {
+            sLog.Error("CreatureData", "Invalid faction entry %u in creature data %u", ctrData->faction, ctrData->entry);
+            delete ctrData;
+            continue;
+        }
+
         ctrData->powerType = feilds[field_count++].GetUInt8();
         ctrData->scale = feilds[field_count++].GetFloat();
         ctrData->lootType = feilds[field_count++].GetUInt32();

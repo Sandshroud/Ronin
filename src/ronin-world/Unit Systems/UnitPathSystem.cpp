@@ -67,16 +67,20 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
             m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
             _CleanupPath();
         }
-        else if(m_movementPoints.size() > 2)
+        else
         {
-            MovementPoint *point = m_movementPoints.at(0).get(), *target = m_movementPoints.at(1).get();
-            m_Unit->GetBoundBox()->UpdatePosition(msTime-(timeWalked-point->timeStamp), point->pos.x, point->pos.y, point->pos.z, target->timeStamp-point->timeStamp, target->pos.x, target->pos.y, target->pos.z);
-            lastUpdatePoint.orientationOverride = point->orientationOverride;
-            lastUpdatePoint.timeStamp = point->timeStamp;
-            lastUpdatePoint.pos.x = point->pos.x;
-            lastUpdatePoint.pos.y = point->pos.y;
-            lastUpdatePoint.pos.z = point->pos.z;
-            return false;
+            if(m_movementPoints.size() >= 2)
+            {
+                MovementPoint *point = m_movementPoints.at(0).get(), *target = m_movementPoints.at(1).get();
+                m_Unit->GetBoundBox()->UpdatePosition(msTime-(timeWalked-point->timeStamp), point->pos.x, point->pos.y, point->pos.z, target->timeStamp-point->timeStamp, target->pos.x, target->pos.y, target->pos.z);
+                lastUpdatePoint.orientationOverride = point->orientationOverride;
+                lastUpdatePoint.timeStamp = point->timeStamp;
+                lastUpdatePoint.pos.x = point->pos.x;
+                lastUpdatePoint.pos.y = point->pos.y;
+                lastUpdatePoint.pos.z = point->pos.z;
+                return false;
+            }
+            return true;
         }
     }
 

@@ -702,10 +702,16 @@ bool ObjectCellManager::hasCell(uint32 cellId)
 
 void ObjectCellManager::FillCellRange(std::vector<uint32> *fillVector)
 {
+    // Push our current cell into the vector
+    fillVector->push_back(_makeCell(_currX, _currY));
+
+    // Push based on range calculations
     for(uint16 x = _lowX; x <= _highX; x++)
     {
         for(uint16 y = _lowY; y <= _highY; y++)
         {
+            if(x == _currX && y == _currY)
+                continue;
             if(cutCorners && isCorner(x, y, _lowX, _highX, _lowY, _highY, VisibleCellRange))
                 continue;
 
@@ -722,13 +728,23 @@ void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, float r
         return;
     }
 
-    uint32 lowX = _getCellId(_object->GetPositionX()-range), highX = _getCellId(_object->GetPositionX()+range);
-    uint32 lowY = _getCellId(_object->GetPositionY()-range), highY = _getCellId(_object->GetPositionY()+range);
+    // Push our current cell into the vector
+    fillVector->push_back(_makeCell(_currX, _currY));
+
+    // Push based on range calculations
+    uint32 lowX = std::max<uint32>(_getCellId(_object->GetPositionX()-range), _lowX), highX = std::min<uint32>(_getCellId(_object->GetPositionX()+range), _highX);
+    uint32 lowY = std::max<uint32>(_getCellId(_object->GetPositionY()-range), _lowY), highY = std::min<uint32>(_getCellId(_object->GetPositionY()+range), _highY);
     if(highX < lowX) std::swap(lowX, highX);
     if(highY < lowY) std::swap(lowY, highY);
     for(uint16 x = lowX; x <= highX; x++)
+    {
         for(uint16 y = lowY; y <= highY; y++)
+        {
+            if(x == _currX && y == _currY)
+                continue;
             fillVector->push_back(_makeCell(x, y));
+        }
+    }
 }
 
 void ObjectCellManager::CreateCellRange(std::vector<uint32> *fillVector, uint32 range)

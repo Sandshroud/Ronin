@@ -509,9 +509,7 @@ bool WorldManager::PushToWorldQueue(WorldObject *obj)
 
             /*if(!mapInstance->IsRaid())
                 p->LinkToInstance(mapInstance);*/
-        } else if(Creature *c = obj->IsCreature() ? castPtr<Creature>(obj) : NULL)
-            if(!c->CanAddToWorld())
-                return false;
+        }
 
         mapInstance->AddObject(obj);
         return true;
