@@ -79,6 +79,7 @@ bool ContinentManager::run()
             break;
 
         mstime = getMSTime();
+        RONIN_UTIL::ThreadTimer::SetThreadTime(mstime);
         int32 diff = std::min<uint32>(500, mstime - lastUpdate);
         lastUpdate = mstime;
 

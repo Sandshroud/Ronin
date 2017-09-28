@@ -35,6 +35,28 @@ namespace RONIN_UTIL
 
     RONIN_INLINE uint32 GetThreadId() { return ronin_GetThreadId(); }
 
+    class ThreadTimer
+    {
+    public:
+        static RONIN_INLINE void SetThreadTime(uint32 msTime) { m_threadTimes[GetThreadId()] = msTime; }
+
+        static RONIN_INLINE uint32 getThreadTime()
+        {
+            uint32 threadId = GetThreadId(), ret = 0;
+            timeLock.Acquire();
+            std::map<uint32, uint32>::iterator itr;
+            if((itr = m_threadTimes.find(threadId)) == m_threadTimes.end())
+                m_threadTimes.insert(std::make_pair(threadId, ret = getMSTime()));
+            else ret = itr->second;
+            timeLock.Release();
+            return ret;
+        }
+
+    private:
+        static Mutex timeLock;
+        static std::map<uint32, uint32> m_threadTimes;
+    };
+
     ///////////////////////////////////////////////////////////////////////////////
     // String Functions ///////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////

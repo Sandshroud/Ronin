@@ -1346,6 +1346,7 @@ void WorldObject::SetFactionTemplate(uint32 templateId)
 
 int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, uint32 unitEvent, uint32 spellId, bool no_remove_auras)
 {
+    uint32 msTime = RONIN_UTIL::ThreadTimer::getThreadTime();
     if(!IsInWorld())
         return 0;
     if( !pVictim || !pVictim->isAlive() || !pVictim->IsInWorld())
@@ -1693,7 +1694,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     else
     {
         if(IsUnit() && pVictim->IsCreature())
-            castPtr<Creature>(pVictim)->GetAIInterface()->OnTakeDamage(castPtr<Unit>(this), damage);
+            castPtr<Creature>(pVictim)->GetAIInterface()->OnTakeDamage(msTime, castPtr<Unit>(this), damage);
 
         if(isTrainingDummy && damage >= health)
             pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1 );

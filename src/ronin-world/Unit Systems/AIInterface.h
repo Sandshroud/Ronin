@@ -58,9 +58,9 @@ public:
     void OnDeath();
     void OnRespawn();
     void OnPathChange();
-    void OnTakeDamage(Unit *attacker, uint32 damage);
+    void OnTakeDamage(uint32 msTime, Unit *attacker, uint32 damage);
 
-    bool FindTarget();
+    bool FindTarget(uint32 msTime);
 
     AI_State GetAIState() { return m_AIState; }
 
@@ -69,7 +69,7 @@ protected:
     uint32 m_AISeed;
     uint32 m_AIFlags;
 
-    void _HandleCombatAI();
+    void _HandleCombatAI(uint32 msTime);
     bool _PullTargetFromThreatList();
 
 private:

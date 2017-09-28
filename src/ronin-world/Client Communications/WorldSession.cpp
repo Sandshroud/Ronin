@@ -774,8 +774,8 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_BEGIN_TRADE].handler                           = &WorldSession::HandleBeginTrade;
     WorldPacketHandlers[CMSG_BUSY_TRADE].handler                            = &WorldSession::HandleBusyTrade;
     WorldPacketHandlers[CMSG_IGNORE_TRADE].handler                          = &WorldSession::HandleIgnoreTrade;
-    WorldPacketHandlers[CMSG_ACCEPT_TRADE].handler                          = &WorldSession::HandleAcceptTrade;
-    WorldPacketHandlers[CMSG_UNACCEPT_TRADE].handler                        = &WorldSession::HandleUnacceptTrade;
+    WorldPacketHandlers[CMSG_ACCEPT_TRADE].handler                          = &WorldSession::HandleTradeAcceptToggle;
+    WorldPacketHandlers[CMSG_UNACCEPT_TRADE].handler                        = &WorldSession::HandleTradeAcceptToggle;
     WorldPacketHandlers[CMSG_CANCEL_TRADE].handler                          = &WorldSession::HandleCancelTrade;
     WorldPacketHandlers[CMSG_CANCEL_TRADE].status                           = STATUS_IN_OR_LOGGINGOUT;
     WorldPacketHandlers[CMSG_SET_TRADE_ITEM].handler                        = &WorldSession::HandleSetTradeItem;

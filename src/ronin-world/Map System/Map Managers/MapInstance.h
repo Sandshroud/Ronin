@@ -59,6 +59,7 @@ public:
 
     virtual int call()
     {
+        RONIN_UTIL::ThreadTimer::SetThreadTime(_msTime);
         std::for_each(targetPool->begin(), targetPool->end(), [this](T *elem)
         {
             if(elem->IsActiveObject() && !elem->IsActivated())
@@ -350,12 +351,13 @@ class MapInstanceInRangeTargetCallback : public ObjectProcessCallback
 public:
     MapInstanceInRangeTargetCallback(MapInstance *instance) : _instance(instance) {}
     void operator()(WorldObject *obj, WorldObject *curObj);
-    void ResetData(float range) { _range = range; _result = NULL; _resultDist = 0.f; };
+    void ResetData(uint32 msTime, float range) { _msTime = msTime; _range = range; _result = NULL; _resultDist = 0.f; };
     Unit *GetResult() { return _result; }
 
 protected:
     MapInstance *_instance;
 
+    uint32 _msTime;
     float _range;
     Unit *_result;
     float _resultDist;
@@ -586,7 +588,7 @@ private:
 
 public:
     // Cell walking functions
-    Unit *FindInRangeTarget(Creature *ctr, float range, uint32 typeMask);
+    Unit *FindInRangeTarget(uint32 msTime, Creature *ctr, float range, uint32 typeMask);
 
     void MessageToCells(WorldObject *obj, uint16 opcodeId, uint16 Len, const void *data, float range);
     void MessageToCells(WorldObject *obj, WorldPacket *data, float range, bool myTeam, uint32 teamId);
@@ -931,6 +933,8 @@ private:
     } *m_instanceData;
 
 public:
+    struct TradeData;
+
     enum PlayerTradeStatus : uint8
     {
         TRADE_STATUS_OPEN_WINDOW = 0,
@@ -961,9 +965,21 @@ public:
         TRADE_STATUS_CLOSE_WINDOW = 31,
     };
 
-    uint8 StartTrade(WoWGuid owner, WoWGuid target);
+    uint8 StartTrade(WoWGuid owner, WoWGuid target, Player **targetPlr);
+
+    Player *BeginTrade(WoWGuid acceptor);
+
     void SetTradeStatus(WoWGuid trader, uint8 status);
-    void SetTradeAccepted(WoWGuid trader, bool set);
+    void SetTradeValue(Player *plr, uint8 step, uint64 value, WoWGuid option);
+
+    static void SendTradeStatus(Player *target, uint32 TradeStatus, WoWGuid owner, WoWGuid trader, bool linkedbNetAccounts, uint8 slotError = -1, bool hasInvError = false, uint32 invError = 0, uint32 limitCategoryId = 0);
+    void SendTradeData(Player *target, bool ourData, MapInstance::TradeData *tradeData);
+
+    // Default value for outstatus is silent
+    void CleanupTrade(WoWGuid eitherGuid, bool silent = false);
+
+    // Finalize the trade
+    void CompleteTrade(MapInstance::TradeData *tradeData);
 
 private:
     struct TradeData

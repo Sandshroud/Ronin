@@ -120,6 +120,9 @@ void MapInstance::Destruct()
     _broadcastMessageCBStack.cleanup();
     _broadcastMessageInRangeCBStack.cleanup();
     _broadcastChatPacketCBStack.cleanup();
+    _broadcastObjectUpdateCBStack.cleanup();
+    _dynamicObjectTargetMappingCBStack.cleanup();
+    _spellTargetMappingCBStack.cleanup();
 
     UnloadCells();
     _PerformPendingActions();
@@ -1104,11 +1107,15 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     if(_result && _resultDist <= distance)
         return;
 
+    uint32 latency = 0;
     // Visibility and interaction checking
     if(unitTarget->IsPlayer())
     {
         if(!castPtr<Player>(unitTarget)->IsVisible(obj))
             return;
+        // Pull latency for bound box calcs while we're here
+        if(WorldSession *session = castPtr<Player>(unitTarget)->GetSession())
+            latency = session->GetLatency();
     } else if(!_instance->canObjectsInteract(obj, curObj))
         return;
     // Interaction limitation
@@ -1119,6 +1126,9 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     aggroRange *= aggroRange; // Distance is squared so square our range
     if(distance >= aggroRange)
         return;
+    if(!obj->GetBoundBox()->IsInRange(_msTime, obj->GetPosition(), aggroRange, latency))
+        return;
+
     if(!sFactionSystem.isHostile(castPtr<Unit>(obj), unitTarget))
         return;
     // LOS is a big system hit so do it last
@@ -1129,7 +1139,7 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     _resultDist = distance;
 }
 
-Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask)
+Unit *MapInstance::FindInRangeTarget(uint32 msTime, Creature *ctr, float range, uint32 typeMask)
 {
     // Acquire our storage for this thread
     InrangeTargetCallbackStack::callbackStorage *storage = _inRangeTargetCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this);
@@ -1137,7 +1147,7 @@ Unit *MapInstance::FindInRangeTarget(Creature *ctr, float range, uint32 typeMask
 
     std::vector<uint16> phaseSet;
     ctr->BuildPhaseSet(&phaseSet);
-    storage->callback.ResetData(range);
+    storage->callback.ResetData(msTime, range);
     ctr->GetCellManager()->CreateCellRange(&storage->cellvector, range);
     std::for_each(storage->cellvector.begin(), storage->cellvector.end(), [this, ctr, typeMask, storage, phaseSet](uint32 cellId)
     {
@@ -1720,23 +1730,15 @@ void MapInstance::_PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff)
 void MapInstance::_PerformMovementUpdates(bool includePlayers)
 {
     m_updateMutex.Acquire();
-    if(includePlayers)
+    if(includePlayers && !_movedPlayers.empty())
     {
-        while(!_movedPlayers.empty())
-        {
-            WorldObject *obj = *_movedPlayers.begin();
-            _movedPlayers.erase(_movedPlayers.begin());
-            ChangeObjectLocation(obj);
-        }
+        for(auto itr = _movedPlayers.begin(); itr != _movedPlayers.end(); ++itr)
+            ChangeObjectLocation(*itr);
         _movedPlayers.clear();
     }
 
-    while(!_movedObjects.empty())
-    {
-        WorldObject *obj = *_movedObjects.begin();
-        _movedObjects.erase(_movedObjects.begin());
-        ChangeObjectLocation(obj);
-    }
+    for(auto itr = _movedObjects.begin(); itr != _movedObjects.end(); ++itr)
+        ChangeObjectLocation(*itr);
     _movedObjects.clear();
     m_updateMutex.Release();
 }
@@ -2328,7 +2330,7 @@ void MapInstance::SendPvPCaptureMessage(int32 iZoneMask, uint32 ZoneId, const ch
     }
 }
 
-uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid)
+uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid, Player **targetPlr)
 {
     if(m_tradeData.find(ownerGuid) != m_tradeData.end())
         return 0x00; // No error, just exit
@@ -2355,6 +2357,8 @@ uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid)
     else if(target->GetSession() == NULL || target->GetSession()->GetSocket() == NULL)
         return TRADE_STATUS_TARGET_LOGOUT;
 
+    *targetPlr = target;
+
     TradeData *tradeData = new TradeData();
     // Set our guids for the trade, we're the owner since we initiated
     tradeData->traders[0] = ownerGuid;
@@ -2372,21 +2376,231 @@ uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid)
     return TRADE_STATUS_BEGIN_TRADE;
 }
 
+Player *MapInstance::BeginTrade(WoWGuid acceptor)
+{
+    if(m_tradeData.find(acceptor) == m_tradeData.end())
+        return NULL;
+    TradeData *currentTrade = m_tradeData.at(acceptor);
+    if(currentTrade->getIndex(acceptor) == 0xFF)
+        return NULL;
+
+    Player *owner = GetPlayer(currentTrade->traders[0]), *target = GetPlayer(currentTrade->traders[1]);
+    if((owner == NULL || !owner->IsInWorld()) || (target == NULL || !target->IsInWorld()))
+    {
+        CleanupTrade(acceptor);
+        return NULL;
+    }
+
+    // Trader statuses
+    if(owner->isDead() || target->isDead() || owner->IsStunned() || target->IsStunned())
+    {
+        CleanupTrade(acceptor);
+        return NULL;
+    }
+
+    return owner->GetGUID() == acceptor ? target : owner;
+}
+
 void MapInstance::SetTradeStatus(WoWGuid trader, uint8 status)
 {
     std::map<WoWGuid, TradeData*>::iterator itr;
-    if((itr = m_tradeData.find(trader)) != m_tradeData.end())
+    if((itr = m_tradeData.find(trader)) == m_tradeData.end())
         return; // No error, just exit
 
     TradeData *tradeData = itr->second;
+    Player *owner = GetPlayer(tradeData->traders[0]), *target = GetPlayer(tradeData->traders[1]);
+    if((owner == NULL || !owner->IsInWorld()) || (target == NULL || !target->IsInWorld()) || status == TRADE_STATUS_TRADE_CANCELED)
+    {
+        CleanupTrade(trader);
+        return;
+    }
+
     uint8 index = tradeData->getIndex(trader);
     switch(status)
     {
+    case TRADE_STATUS_TRADE_ACCEPT:
+        bool res = false;
+        if(tradeData->accepted[index])
+            tradeData->accepted[index] = false;
+        else tradeData->accepted[index] = res = true;
+        if(index == 0)
+            SendTradeStatus(target, TRADE_STATUS_TRADE_ACCEPT, tradeData->traders[0], tradeData->traders[1], false);
+        else SendTradeStatus(owner, TRADE_STATUS_TRADE_ACCEPT, tradeData->traders[1], tradeData->traders[0], false);
 
+        if(res && tradeData->accepted[index ? 0 : 1])
+            CompleteTrade(tradeData);
+        break;
     }
 }
 
-void MapInstance::SetTradeAccepted(WoWGuid trader, bool set)
+void MapInstance::SetTradeValue(Player *plr, uint8 step, uint64 value, WoWGuid option)
 {
+    if(m_tradeData.find(plr->GetGUID()) == m_tradeData.end())
+        return;
+    uint8 ourIndex;
+    TradeData *currentTrade = m_tradeData.at(plr->GetGUID());
+    if((ourIndex = currentTrade->getIndex(plr->GetGUID())) == 0xFF)
+        return;
+    uint8 tIndex = ourIndex ? 0 : 1;
 
+    Player *target = GetPlayer(currentTrade->traders[tIndex]);
+    if(target == NULL || !target->IsInWorld())
+    {
+        CleanupTrade(plr->GetGUID());
+        return;
+    }
+
+    switch(step)
+    {
+        // Set gold
+    case 0:
+        currentTrade->gold[ourIndex] = value;
+        SendTradeData(target, false, currentTrade);
+        break;
+
+        // Set an item
+    case 1:
+        break;
+    }
+}
+
+void MapInstance::SendTradeStatus(Player *target, uint32 TradeStatus, WoWGuid owner, WoWGuid trader, bool linkedbNetAccounts, uint8 slotError, bool hasInvError, uint32 invError, uint32 limitCategoryId)
+{
+    WorldPacket data(SMSG_TRADE_STATUS, 13);
+    data.WriteBit(linkedbNetAccounts ? 1 : 0);
+    data.WriteBits(TradeStatus, 5);
+    switch (TradeStatus)
+    {
+    case MapInstance::TRADE_STATUS_BEGIN_TRADE:
+        data.WriteGuidBitString(8, trader, 2, 4, 6, 0, 1, 3, 7, 5);
+        data.WriteSeqByteString(8, trader, 4, 1, 2, 3, 0, 7, 6, 5);
+        break;
+    case MapInstance::TRADE_STATUS_OPEN_WINDOW: data << uint32(0); break;
+    case MapInstance::TRADE_STATUS_CLOSE_WINDOW:
+        data.WriteBit(hasInvError);
+        data << uint32(invError) << uint32(limitCategoryId);
+        break;
+    case MapInstance::TRADE_STATUS_WRONG_REALM:
+    case MapInstance::TRADE_STATUS_NOT_ON_TAPLIST:
+        data << uint8(slotError);
+        break;
+    case MapInstance::TRADE_STATUS_CURRENCY:
+    case MapInstance::TRADE_STATUS_CURRENCY_NOT_TRADABLE:
+        data << uint32(0); // Trading Currency Id
+        data << uint32(0); // Trading Currency Amount
+    default:
+        data.FlushBits();
+        break;
+    }
+
+    target->PushPacket(&data);
+}
+
+void MapInstance::SendTradeData(Player *plr, bool ourData, MapInstance::TradeData *tradeData)
+{
+    uint8 cIndex = ourData ? tradeData->getIndex(plr->GetGUID()) : tradeData->getIndex(plr->GetGUID()) ? 0 : 1;
+    Player *target = GetPlayer(tradeData->traders[cIndex]);
+
+    uint8 start = cIndex ? 7 : 0;
+    uint32 itemCount = 0;
+    for(uint8 i = 0; i < 7; ++i)
+        if(tradeData->items[start+i])
+            ++itemCount;
+
+    WorldPacket data(SMSG_TRADE_STATUS_EXTENDED, 400);
+    data << uint32(0) << uint32(0);
+    data << uint64(tradeData->gold[cIndex]);
+    data << uint32(tradeData->enchantId[cIndex]);
+    data << uint32(7);
+    data << uint32(0);
+    data << uint8(ourData ? 0 : 1);
+    data << uint32(7);
+    data.WriteBits(itemCount, 22);
+
+    ByteBuffer itemData;
+    for(uint8 i = 0; i < 7; ++i)
+    {
+        if(tradeData->items[start+i].empty())
+            continue;
+
+        Item *item = target->GetInventory()->GetItemByGUID(tradeData->items[start+i]);
+        if(item == NULL)
+            continue;
+
+        WoWGuid creatorGuid = item->GetCreatorGUID(), giftCreatorGuid = item->GetGiftCreatorGUID();
+        data.WriteGuidBitString(2, giftCreatorGuid, 7, 1);
+        data.WriteBit(!item->IsWrapped());
+        data.WriteBit(giftCreatorGuid[3]);
+        if(!item->IsWrapped())
+        {   // Append bit data
+            data.WriteGuidBitString(7, creatorGuid, 7, 1, 4, 6, 2, 3, 5);
+            data.WriteBit(item->GetProto()->LockId);
+            data.WriteBit(creatorGuid[0]);
+            // Append item data to byte buffer, since we're not wrapped
+            itemData.WriteByteSeq(creatorGuid[1]);
+            itemData << uint32(item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
+            itemData << uint32(item->GetEnchantmentId(SOCK_ENCHANTMENT_SLOT1));
+            itemData << uint32(item->GetEnchantmentId(SOCK_ENCHANTMENT_SLOT2));
+            itemData << uint32(item->GetEnchantmentId(SOCK_ENCHANTMENT_SLOT3));
+            itemData << uint32(item->GetDurabilityMax());
+            itemData.WriteSeqByteString(4, creatorGuid, 6, 2, 7, 4);
+            itemData << uint32(item->GetEnchantmentId(REFORGE_ENCHANTMENT_SLOT));
+            itemData << uint32(item->GetDurability());
+            itemData << uint32(item->GetItemRandomPropertyId());
+            itemData.WriteByteSeq(creatorGuid[3]);
+            itemData << uint32(0);
+            itemData.WriteByteSeq(creatorGuid[0]);
+            itemData << uint32(item->GetChargesLeft());
+            itemData << uint32(item->GetItemPropertySeed());
+            itemData.WriteByteSeq(creatorGuid[5]);
+        }
+
+        // Write some bits
+        data.WriteGuidBitString(5, giftCreatorGuid, 6, 4, 2, 0, 5);
+        // Append item data to byte buffer
+        itemData.WriteSeqByteString(4, giftCreatorGuid, 6, 1, 7, 4);
+        itemData << uint32(item->GetEntry());
+        itemData.WriteByteSeq(giftCreatorGuid[0]);
+        itemData << uint32(item->GetStackCount());
+        itemData.WriteByteSeq(giftCreatorGuid[5]);
+        itemData << uint8(i);
+        itemData.WriteByteSeq(giftCreatorGuid[2]);
+        itemData.WriteByteSeq(giftCreatorGuid[3]);
+    }
+    data.FlushBits();
+    data.append(itemData.contents(), itemData.size());
+    plr->PushPacket(&data);
+}
+
+void MapInstance::CleanupTrade(WoWGuid eitherGuid, bool silent)
+{
+    if(m_tradeData.find(eitherGuid) == m_tradeData.end())
+        return;
+    TradeData *tradeData = m_tradeData.at(eitherGuid);
+    if(silent == false)
+    {
+        if(Player *owner = GetPlayer(tradeData->traders[0]))
+            SendTradeStatus(owner, TRADE_STATUS_TRADE_CANCELED, 0, 0, false);
+        if(Player *target = GetPlayer(tradeData->traders[1]))
+            SendTradeStatus(target, TRADE_STATUS_TRADE_CANCELED, 0, 0, false);
+    }
+
+    m_tradeData.erase(tradeData->traders[0]);
+    m_tradeData.erase(tradeData->traders[1]);
+    delete tradeData;
+}
+
+void MapInstance::CompleteTrade(MapInstance::TradeData *tradeData)
+{
+    // Run validation and send errors
+
+    // We've passed validation, lets do the trading
+
+    // Push completion packet
+    if(Player *owner = GetPlayer(tradeData->traders[0]))
+        SendTradeStatus(owner, TRADE_STATUS_TRADE_COMPLETE, 0, 0, false);
+    if(Player *target = GetPlayer(tradeData->traders[1]))
+        SendTradeStatus(target, TRADE_STATUS_TRADE_COMPLETE, 0, 0, false);
+    // cleanup after ourselves
+    CleanupTrade(tradeData->traders[0], true);
 }

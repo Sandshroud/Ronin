@@ -23,3 +23,7 @@
 
 SERVER_DECL time_t UNIXTIME;
 SERVER_DECL tm g_localTime;
+
+std::map<uint32, uint32> RONIN_UTIL::ThreadTimer::m_threadTimes;
+Mutex RONIN_UTIL::ThreadTimer::timeLock;
+

@@ -532,8 +532,7 @@ protected:
     void HandleBeginTrade(WorldPacket & recv_data);
     void HandleBusyTrade(WorldPacket & recv_data);
     void HandleIgnoreTrade(WorldPacket & recv_data);
-    void HandleAcceptTrade(WorldPacket & recv_data);
-    void HandleUnacceptTrade(WorldPacket & recv_data);
+    void HandleTradeAcceptToggle(WorldPacket & recv_data);
     void HandleCancelTrade(WorldPacket & recv_data);
     void HandleSetTradeItem(WorldPacket & recv_data);
     void HandleClearTradeItem(WorldPacket & recv_data);

@@ -21,6 +21,8 @@
 
 #pragma once
 
+extern float fInfinite;
+
 class SERVER_DECL SmartBounding
 {
 protected:
@@ -31,9 +33,13 @@ public:
     ~SmartBounding() {}
 
     void UpdatePosition(uint32 startTime, float sX, float sY, float sZ, uint32 timeDistance, float eX, float eY, float eZ) {}
-    void Finalize(float x, float y, float z) {}
+    void Finalize(float x, float y, float z)
+    {
+
+    }
 
     void GetPosition(uint32 msTime, LocationVector *output) {}
+    bool IsInRange(uint32 msTime, LocationVector source, float range, uint32 tolerance) { return true; }
 
 private:
     uint32 lastUpdateMS, timeToTarget;

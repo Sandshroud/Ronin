@@ -21,90 +21,89 @@
 
 #include "StdAfx.h"
 
-void SendTradeStatus(Player *target, uint32 TradeStatus, WoWGuid owner, WoWGuid trader, bool linkedbNetAccounts, uint8 slotError = -1, bool hasInvError = false, uint32 invError = 0, uint32 limitCategoryId = 0)
-{
-    WorldPacket data(SMSG_TRADE_STATUS, 13);
-    data.WriteBit(linkedbNetAccounts ? 1 : 0);
-    data.WriteBits(TradeStatus, 5);
-    switch (TradeStatus)
-    {
-    case MapInstance::TRADE_STATUS_BEGIN_TRADE:
-        data.WriteGuidBitString(8, trader, 2, 4, 6, 0, 1, 3, 7, 5);
-        data.WriteSeqByteString(8, trader, 4, 1, 2, 3, 0, 7, 6, 5);
-        break;
-    case MapInstance::TRADE_STATUS_OPEN_WINDOW: data << uint32(0); break;
-    case MapInstance::TRADE_STATUS_CLOSE_WINDOW:
-        data.WriteBit(hasInvError);
-        data << uint32(invError) << uint32(limitCategoryId);
-        break;
-    case MapInstance::TRADE_STATUS_WRONG_REALM:
-    case MapInstance::TRADE_STATUS_NOT_ON_TAPLIST:
-        data << uint8(slotError);
-        break;
-    case MapInstance::TRADE_STATUS_CURRENCY:
-    case MapInstance::TRADE_STATUS_CURRENCY_NOT_TRADABLE:
-        data << uint32(0); // Trading Currency Id
-        data << uint32(0); // Trading Currency Amount
-    default:
-        data.FlushBits();
-        break;
-    }
-
-    target->PushPacket(&data);
-};
-
 void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
     WoWGuid guid;
+    Player *targetPlr = NULL;
     recv_data.ReadGuidBitString(8, guid, 0, 3, 5, 1, 4, 6, 7, 2);
     recv_data.ReadGuidByteString(8, guid, 7, 4, 3, 5, 1, 2, 6, 0);
-    if(uint8 result = _player->GetMapInstance()->StartTrade(_player->GetGUID(), guid))
-        SendTradeStatus(_player, result, WoWGuid(0), WoWGuid(0), false);
+    if(uint8 result = _player->GetMapInstance()->StartTrade(_player->GetGUID(), guid, &targetPlr))
+    {
+        switch(result)
+        {
+        case MapInstance::TRADE_STATUS_BEGIN_TRADE:
+            MapInstance::SendTradeStatus(targetPlr, result, WoWGuid(0), _player->GetGUID(), false);
+            break;
+        default:
+            MapInstance::SendTradeStatus(_player, result, WoWGuid(0), WoWGuid(0), false);
+            break;
+        }
+    }
 }
 
 void WorldSession::HandleBeginTrade(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
+    if(Player *targetPlr = _player->GetMapInstance()->BeginTrade(_player->GetGUID()))
+    {
+        MapInstance::SendTradeStatus(_player, MapInstance::TRADE_STATUS_OPEN_WINDOW, WoWGuid(0), targetPlr->GetGUID(), false);
+        MapInstance::SendTradeStatus(targetPlr, MapInstance::TRADE_STATUS_OPEN_WINDOW, WoWGuid(0), _player->GetGUID(), false);
+    }
 }
 
 void WorldSession::HandleBusyTrade(WorldPacket & recv_data)
 {
-    _player->GetMapInstance()->SetTradeStatus(_player->GetGUID(), MapInstance::TRADE_STATUS_BUSY_2);
+    CHECK_INWORLD_RETURN();
+
+    //_player->GetMapInstance()->SetTradeStatus(_player->GetGUID(), MapInstance::TRADE_STATUS_BUSY_2);
 }
 
 void WorldSession::HandleIgnoreTrade(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
+    //_player->GetMapInstance()->SetTradeStatus(_player->GetGUID(), MapInstance::TRADE_STATUS_IGNORE_YOU);
 }
 
 void WorldSession::HandleCancelTrade(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
+    _player->GetMapInstance()->SetTradeStatus(_player->GetGUID(), MapInstance::TRADE_STATUS_TRADE_CANCELED);
 }
 
-void WorldSession::HandleUnacceptTrade(WorldPacket & recv_data)
+void WorldSession::HandleTradeAcceptToggle(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
+    // We kind of just toggle
+    _player->GetMapInstance()->SetTradeStatus(_player->GetGUID(), MapInstance::TRADE_STATUS_TRADE_ACCEPT);
 }
 
 void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
+    uint32 index =0;
+    WoWGuid guid = 0;
+    _player->GetMapInstance()->SetTradeValue(_player, 1, index, guid);
 }
 
 void WorldSession::HandleSetTradeGold(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
+    uint64 value = recv_data.read<uint64>();
+    _player->GetMapInstance()->SetTradeValue(_player, 0, value, WoWGuid(0));
 }
 
 void WorldSession::HandleClearTradeItem(WorldPacket & recv_data)
 {
+    CHECK_INWORLD_RETURN();
 
-}
-
-void WorldSession::HandleAcceptTrade(WorldPacket & recv_data)
-{
-
+    uint32 index =0;
+    _player->GetMapInstance()->SetTradeValue(_player, 1, index, WoWGuid(0));
 }

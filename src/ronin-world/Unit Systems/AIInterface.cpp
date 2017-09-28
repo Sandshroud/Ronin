@@ -64,7 +64,7 @@ void AIInterface::Update(uint32 msTime, uint32 p_time)
                 return;
             }
 
-            if(FindTarget() == false)
+            if(FindTarget(msTime) == false)
             {
                 m_path->EnableAutoPath();
                 return;
@@ -74,12 +74,12 @@ void AIInterface::Update(uint32 msTime, uint32 p_time)
         {
             m_path->DisableAutoPath();
             m_AIState = AI_STATE_COMBAT;
-            _HandleCombatAI();
+            _HandleCombatAI(msTime);
         }break;
     case AI_STATE_SCRIPT:
         {
             if(!m_targetGuid.empty())
-                _HandleCombatAI();
+                _HandleCombatAI(msTime);
         }break;
     }
 }
@@ -108,7 +108,7 @@ void AIInterface::OnPathChange()
 
 }
 
-void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
+void AIInterface::OnTakeDamage(uint32 msTime, Unit *attacker, uint32 damage)
 {
     if(m_AIFlags & AI_FLAG_DISABLED)
         return;
@@ -126,11 +126,11 @@ void AIInterface::OnTakeDamage(Unit *attacker, uint32 damage)
     if(attacker && m_targetGuid.empty())
     {
         m_targetGuid = attacker->GetGUID();
-        _HandleCombatAI();
+        _HandleCombatAI(msTime);
     }
 }
 
-bool AIInterface::FindTarget()
+bool AIInterface::FindTarget(uint32 msTime)
 {
     if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld() || m_Creature->hasStateFlag(UF_EVADING))
         return false;
@@ -142,7 +142,7 @@ bool AIInterface::FindTarget()
     uint32 targetTypeMask = (TYPEMASK_TYPE_PLAYER | (m_Creature->IsFactionNPCHostile() ? TYPEMASK_TYPE_UNIT : 0x0000));
 
     float baseAggro = m_Creature->GetAggroRange();
-    if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(m_Creature, baseAggro, targetTypeMask))
+    if(Unit *target = m_Creature->GetMapInstance()->FindInRangeTarget(msTime, m_Creature, baseAggro, targetTypeMask))
     {
         m_targetGuid = target->GetGUID();
         m_Creature->SetInCombat(target);
@@ -151,7 +151,7 @@ bool AIInterface::FindTarget()
     return false;
 }
 
-void AIInterface::_HandleCombatAI()
+void AIInterface::_HandleCombatAI(uint32 msTime)
 {
     bool tooFarFromSpawn = false;
     Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
@@ -175,7 +175,7 @@ void AIInterface::_HandleCombatAI()
 
         bool returnToSpawn = true;
         if(tooFarFromSpawn == false && unitTarget == NULL)
-            if((returnToSpawn = !FindTarget()) == false && (unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid)) == NULL)
+            if((returnToSpawn = !FindTarget(msTime)) == false && (unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid)) == NULL)
                 returnToSpawn = true;
 
         if(returnToSpawn)
