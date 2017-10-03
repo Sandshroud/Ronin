@@ -76,6 +76,8 @@ public:
     bool LoadAuctionItemFromDB( uint64 guid );
     void DeleteFromDB();
 
+    void PrepPostTransfer();
+
     bool IsWrapped() { return false; }
 
     RONIN_INLINE ItemPrototype* GetProto() const { return m_proto; }

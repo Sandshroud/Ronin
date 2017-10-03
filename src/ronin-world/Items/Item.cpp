@@ -250,8 +250,15 @@ void Item::DeleteFromDB()
     CharacterDatabase.Execute("DELETE FROM item_enchantments WHERE itemguid = '%u'", m_objGuid.getLow());
 }
 
+void Item::PrepPostTransfer()
+{
+    m_deleted = false;
+    m_isDirty = true;
+}
+
 void Item::RemoveFromWorld()
 {
+    Object::SetInWorld(false);
     // if we have an owner->send destroy
     if( m_owner != NULL )
     {

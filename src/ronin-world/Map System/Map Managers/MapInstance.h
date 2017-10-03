@@ -968,12 +968,16 @@ public:
     uint8 StartTrade(WoWGuid owner, WoWGuid target, Player **targetPlr);
 
     Player *BeginTrade(WoWGuid acceptor);
+    Player *GetTradeTarget(WoWGuid trader);
 
     void SetTradeStatus(WoWGuid trader, uint8 status);
     void SetTradeValue(Player *plr, uint8 step, uint64 value, WoWGuid option);
 
     static void SendTradeStatus(Player *target, uint32 TradeStatus, WoWGuid owner, WoWGuid trader, bool linkedbNetAccounts, uint8 slotError = -1, bool hasInvError = false, uint32 invError = 0, uint32 limitCategoryId = 0);
     void SendTradeData(Player *target, bool ourData, MapInstance::TradeData *tradeData);
+
+    // Update check states for trades
+    void UpdateTrade(MapInstance::TradeData *tradeData);
 
     // Default value for outstatus is silent
     void CleanupTrade(WoWGuid eitherGuid, bool silent = false);
@@ -1001,5 +1005,6 @@ private:
         }
     };
 
+    std::set<TradeData*> m_activeTradeData, m_tradeDeleteQueue;
     std::map<WoWGuid, TradeData*> m_tradeData;
 };

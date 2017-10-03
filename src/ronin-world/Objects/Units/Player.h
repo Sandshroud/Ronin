@@ -675,8 +675,8 @@ public: /// Player field based functions
     RONIN_INLINE void SetGuildLevel(uint32 guildLevel) { SetUInt32Value(PLAYER_GUILDLEVEL, guildLevel); }
 
     // Currency gold
-    RONIN_INLINE void AddCoins( int32 coins ) { ModUnsigned32Value(PLAYER_FIELD_COINAGE , coins); }
-    RONIN_INLINE void TakeCoins( int32 coins ) { ModUnsigned32Value(PLAYER_FIELD_COINAGE, -coins); }
+    //RONIN_INLINE void AddCoins( int32 coins ) { ModUnsigned32Value(PLAYER_FIELD_COINAGE , coins); }
+    //RONIN_INLINE void TakeCoins( int32 coins ) { ModUnsigned32Value(PLAYER_FIELD_COINAGE, -coins); }
 
     // Title function
     RONIN_INLINE bool HasKnownTitleByIndex(uint32 bitIndex) { return HasFlag((PLAYER__FIELD_KNOWN_TITLES+(bitIndex / 32)), uint32(uint32(1) << (bitIndex % 32))); }

@@ -66,6 +66,7 @@ private:
     Player* m_pOwner;
     Item* m_pItems[MAX_INVENTORY_SLOT];
     Item* m_pBuyBack[MAX_BUYBACK_SLOT];
+    std::set<WoWGuid> m_lockedItems;
 
     AddItemResult m_AddItem(Item* item, int16 ContainerSlot, int16 slot);
 

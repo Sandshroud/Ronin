@@ -38,7 +38,12 @@ namespace RONIN_UTIL
     class ThreadTimer
     {
     public:
-        static RONIN_INLINE void SetThreadTime(uint32 msTime) { m_threadTimes[GetThreadId()] = msTime; }
+        static RONIN_INLINE void SetThreadTime(uint32 msTime)
+        {
+            timeLock.Acquire();
+            m_threadTimes[GetThreadId()] = msTime;
+            timeLock.Release();
+        }
 
         static RONIN_INLINE uint32 getThreadTime()
         {

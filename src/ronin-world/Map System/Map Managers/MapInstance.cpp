@@ -1667,6 +1667,14 @@ void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
 
 void MapInstance::_PerformPlayerUpdates(uint32 msTime, uint32 uiDiff)
 {
+    // Update player trades
+    for(auto itr = m_activeTradeData.begin(); itr != m_activeTradeData.end(); ++itr)
+        UpdateTrade(*itr);
+
+    for(auto itr = m_tradeDeleteQueue.begin(); itr != m_tradeDeleteQueue.end(); ++itr)
+        delete *itr;
+    m_tradeDeleteQueue.clear();
+
     // Now we process player updates, there is no pool as all players are constantly in our update set
     if(!m_PlayerStorage.empty())
     {
@@ -2352,7 +2360,7 @@ uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid, Player **ta
         return TRADE_STATUS_WRONG_FACTION;
     else if(target->hasIgnored(owner->GetGUID()))
         return TRADE_STATUS_IGNORE_YOU;
-    else if(owner->GetDistanceSq(target) > 100.0f)     // This needs to be checked
+    else if(owner->GetDistanceSq(target) > 225.f)     // This needs to be checked
         return TRADE_STATUS_TARGET_TO_FAR;
     else if(target->GetSession() == NULL || target->GetSession()->GetSocket() == NULL)
         return TRADE_STATUS_TARGET_LOGOUT;
@@ -2371,6 +2379,7 @@ uint8 MapInstance::StartTrade(WoWGuid ownerGuid, WoWGuid targetGuid, Player **ta
         tradeData->items[i] = tradeData->items[7+i] = 0;
     tradeData->enchantId[0] = tradeData->enchantId[1] = 0;
 
+    m_activeTradeData.insert(tradeData);
     m_tradeData.insert(std::make_pair(ownerGuid, tradeData));
     m_tradeData.insert(std::make_pair(targetGuid, tradeData));
     return TRADE_STATUS_BEGIN_TRADE;
@@ -2399,6 +2408,18 @@ Player *MapInstance::BeginTrade(WoWGuid acceptor)
     }
 
     return owner->GetGUID() == acceptor ? target : owner;
+}
+
+Player *MapInstance::GetTradeTarget(WoWGuid trader)
+{
+    if(m_tradeData.find(trader) == m_tradeData.end())
+        return NULL;
+    uint8 traderIndex;
+    TradeData *currentTrade = m_tradeData.at(trader);
+    if((traderIndex = currentTrade->getIndex(trader)) == 0xFF)
+        return NULL;
+
+    return GetPlayer(currentTrade->traders[traderIndex ? 0 : 1]);
 }
 
 void MapInstance::SetTradeStatus(WoWGuid trader, uint8 status)
@@ -2452,14 +2473,19 @@ void MapInstance::SetTradeValue(Player *plr, uint8 step, uint64 value, WoWGuid o
 
     switch(step)
     {
-        // Set gold
-    case 0:
+    case 0: // Set gold
         currentTrade->gold[ourIndex] = value;
         SendTradeData(target, false, currentTrade);
         break;
 
-        // Set an item
-    case 1:
+    case 1: // Set an item
+        currentTrade->items[value+(ourIndex*7)] = option;
+        SendTradeData(target, false, currentTrade);
+        break;
+
+    case 2: // Cast an enchantment
+        currentTrade->enchantId[ourIndex] = value;
+        SendTradeData(target, false, currentTrade);
         break;
     }
 }
@@ -2572,6 +2598,25 @@ void MapInstance::SendTradeData(Player *plr, bool ourData, MapInstance::TradeDat
     plr->PushPacket(&data);
 }
 
+void MapInstance::UpdateTrade(MapInstance::TradeData *tradeData)
+{
+    bool cleanupTrade = false;
+    Player *owner = GetPlayer(tradeData->traders[0]), *target = GetPlayer(tradeData->traders[1]);
+    if((owner == NULL || !owner->IsInWorld()) || (target == NULL || !target->IsInWorld()))
+        cleanupTrade = true;
+    else if(owner->isDead() || target->isDead())
+        cleanupTrade = true;
+    else if(owner->IsStunned() || target->IsStunned())
+        cleanupTrade = true;
+    else if(owner->GetDistanceSq(target) > 225.f)     // This needs to be checked
+        cleanupTrade = true;
+    else if(owner->GetSession() == NULL || target->GetSession() == NULL)
+        cleanupTrade = true;
+    if(cleanupTrade == false)
+        return;
+    CleanupTrade(tradeData->traders[0]);
+}
+
 void MapInstance::CleanupTrade(WoWGuid eitherGuid, bool silent)
 {
     if(m_tradeData.find(eitherGuid) == m_tradeData.end())
@@ -2587,20 +2632,117 @@ void MapInstance::CleanupTrade(WoWGuid eitherGuid, bool silent)
 
     m_tradeData.erase(tradeData->traders[0]);
     m_tradeData.erase(tradeData->traders[1]);
-    delete tradeData;
+    m_activeTradeData.erase(tradeData);
+    m_tradeDeleteQueue.insert(tradeData);
 }
 
 void MapInstance::CompleteTrade(MapInstance::TradeData *tradeData)
 {
+    Player *owner = GetPlayer(tradeData->traders[0]), *target = GetPlayer(tradeData->traders[1]);
     // Run validation and send errors
+    uint8 tradeError = TRADE_STATUS_TRADE_COMPLETE;
+    if(owner == NULL || !owner->IsInWorld() || owner->GetSession() == NULL || target == NULL || target->IsInWorld() || target->GetSession() == NULL)
+        tradeError = TRADE_STATUS_TRADE_CANCELED;
+    else if(owner->isDead() || target->isDead() || owner->IsStunned() || target->IsStunned())
+        tradeError = TRADE_STATUS_TRADE_CANCELED;
+    else if(owner->GetDistanceSq(target) > 225.f)
+        tradeError = TRADE_STATUS_TRADE_CANCELED;
 
-    // We've passed validation, lets do the trading
+    Player *traders[2] = {owner, target};
+    for(uint8 i = 0; i < 2; ++i)
+    {
+        if(uint64 tradeAmount = tradeData->gold[i])
+            if(traders[i]->GetUInt64Value(PLAYER_FIELD_COINAGE) < tradeAmount)
+                tradeError = TRADE_STATUS_TRADE_CANCELED;
 
-    // Push completion packet
-    if(Player *owner = GetPlayer(tradeData->traders[0]))
-        SendTradeStatus(owner, TRADE_STATUS_TRADE_COMPLETE, 0, 0, false);
-    if(Player *target = GetPlayer(tradeData->traders[1]))
-        SendTradeStatus(target, TRADE_STATUS_TRADE_COMPLETE, 0, 0, false);
+        for(uint8 j = 0; j < 6; ++j)
+        {
+            if(tradeData->items[(i*7)+j].empty())
+                continue;
+
+            Item *tradeItem = traders[i]->GetInventory()->GetItemByGUID(tradeData->items[(i*7)+j]);
+            if(tradeItem == NULL)// || !traders[i]->GetInventory()->CanTradeItem(traders[i], tradeItem))
+                tradeError = TRADE_STATUS_TRADE_CANCELED;
+        }
+
+        if(tradeData->enchantId[i] && !tradeData->items[(i*7)+6].empty())
+        {
+            Item *tradeItem = traders[i]->GetInventory()->GetItemByGUID(tradeData->items[(i*7)+6]);
+            if(tradeItem == NULL)// || !traders[i]->GetSpellInterface()->CanApplyEnchant(tradeItem, tradeData->enchantId[i]))
+                tradeError = TRADE_STATUS_TRADE_CANCELED;
+        }
+    }
+    // TODO: CHECK TARGET ITEM TRADE DESTINATIONS
+
+    // Validation complete, if we've passed our checks then we can start trading now
+    if(tradeError == TRADE_STATUS_TRADE_COMPLETE)
+    {
+        if(uint64 tradeAmount = tradeData->gold[0])
+        {
+            owner->SetUInt64Value(PLAYER_FIELD_COINAGE, owner->GetUInt64Value(PLAYER_FIELD_COINAGE)-tradeAmount);
+            target->SetUInt64Value(PLAYER_FIELD_COINAGE, target->GetUInt64Value(PLAYER_FIELD_COINAGE)+tradeAmount);
+        }
+
+        if(uint64 tradeAmount = tradeData->gold[1])
+        {
+            target->SetUInt64Value(PLAYER_FIELD_COINAGE, target->GetUInt64Value(PLAYER_FIELD_COINAGE)-tradeAmount);
+            owner->SetUInt64Value(PLAYER_FIELD_COINAGE, owner->GetUInt64Value(PLAYER_FIELD_COINAGE)+tradeAmount);
+        }
+
+        std::vector<Item*> itemsToTrade[2];
+        // We've passed validation, lets do the trading
+        for(uint8 i = 0; i < 6; ++i)
+        {
+            if(Item *item = owner->GetInventory()->GetItemByGUID(tradeData->items[i]))
+            {
+                owner->GetInventory()->SafeRemoveAndRetreiveItemByGuid(item->GetGUID(), true);
+                itemsToTrade[0].push_back(item);
+            }
+
+            if(Item *item = target->GetInventory()->GetItemByGUID(tradeData->items[7+i]))
+            {
+                target->GetInventory()->SafeRemoveAndRetreiveItemByGuid(item->GetGUID(), true);
+                itemsToTrade[1].push_back(item);
+            }
+        }
+
+        // Now that we've removed all items we can add the new ones in
+        for(auto itr = itemsToTrade[0].begin(); itr != itemsToTrade[0].end(); ++itr)
+        {
+            SlotResult result = target->GetInventory()->FindFreeInventorySlot((*itr)->GetProto(), NULL);
+            if(result.Result == true)
+            {
+                (*itr)->PrepPostTransfer();
+                target->GetInventory()->SafeAddItem((*itr), result.ContainerSlot, result.Slot);
+            }
+        }
+        for(auto itr = itemsToTrade[1].begin(); itr != itemsToTrade[1].end(); ++itr)
+        {
+            SlotResult result = owner->GetInventory()->FindFreeInventorySlot((*itr)->GetProto(), NULL);
+            if(result.Result == true)
+            {
+                (*itr)->PrepPostTransfer();
+                owner->GetInventory()->SafeAddItem((*itr), result.ContainerSlot, result.Slot);
+            }
+        }
+
+        // Now process enchantments
+        if(tradeData->enchantId[0])
+        {
+            // Todo
+        }
+
+        if(tradeData->enchantId[1])
+        {
+            // Todo
+        }
+    }
+
+    // Push result packet, either complete or error
+    if(owner && owner->GetSession())
+        SendTradeStatus(owner, tradeError, 0, 0, false);
+    if(target && target->GetSession())
+        SendTradeStatus(target, tradeError, 0, 0, false);
     // cleanup after ourselves
     CleanupTrade(tradeData->traders[0], true);
 }

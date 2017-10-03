@@ -87,9 +87,29 @@ void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    uint32 index =0;
-    WoWGuid guid = 0;
-    _player->GetMapInstance()->SetTradeValue(_player, 1, index, guid);
+    uint8 tradeSlot, containerSlot, itemSlot;
+    recv_data >> itemSlot >> tradeSlot >> containerSlot;
+    if(tradeSlot >= 7)
+    {
+        _player->GetMapInstance()->CleanupTrade(_player->GetGUID());
+        return;
+    }
+
+    Player *target = _player->GetMapInstance()->GetTradeTarget(_player->GetGUID());
+    if(target == NULL)
+    {
+        _player->GetMapInstance()->CleanupTrade(_player->GetGUID());
+        return;
+    }
+
+    Item *tradeItem = _player->GetInventory()->GetInventoryItem((int8)containerSlot, (int8)itemSlot);
+    if(tradeItem == NULL)// || (tradeSlot != 7 && !_player->GetInventory()->CanTradeItem(_player, tradeItem)))
+    {
+        _player->GetMapInstance()->CleanupTrade(_player->GetGUID());
+        return;
+    }
+
+    _player->GetMapInstance()->SetTradeValue(_player, 1, tradeSlot, tradeItem->GetGUID());
 }
 
 void WorldSession::HandleSetTradeGold(WorldPacket & recv_data)
@@ -104,6 +124,12 @@ void WorldSession::HandleClearTradeItem(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    uint32 index =0;
-    _player->GetMapInstance()->SetTradeValue(_player, 1, index, WoWGuid(0));
+    uint8 tradeSlot = recv_data.read<uint8>();
+    if(tradeSlot >= 7)
+    {
+        _player->GetMapInstance()->CleanupTrade(_player->GetGUID());
+        return;
+    }
+
+    _player->GetMapInstance()->SetTradeValue(_player, 1, tradeSlot, WoWGuid(0));
 }
