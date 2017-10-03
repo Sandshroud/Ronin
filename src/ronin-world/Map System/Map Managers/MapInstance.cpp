@@ -2641,13 +2641,15 @@ void MapInstance::CompleteTrade(MapInstance::TradeData *tradeData)
     Player *owner = GetPlayer(tradeData->traders[0]), *target = GetPlayer(tradeData->traders[1]);
     // Run validation and send errors
     uint8 tradeError = TRADE_STATUS_TRADE_COMPLETE;
-    if(owner == NULL || !owner->IsInWorld() || owner->GetSession() == NULL || target == NULL || target->IsInWorld() || target->GetSession() == NULL)
+    if(owner == NULL || !owner->IsInWorld() || owner->GetSession() == NULL || target == NULL || !target->IsInWorld() || target->GetSession() == NULL)
         tradeError = TRADE_STATUS_TRADE_CANCELED;
     else if(owner->isDead() || target->isDead() || owner->IsStunned() || target->IsStunned())
         tradeError = TRADE_STATUS_TRADE_CANCELED;
     else if(owner->GetDistanceSq(target) > 225.f)
         tradeError = TRADE_STATUS_TRADE_CANCELED;
 
+    Item *itemsToPush[2][6];
+    std::map<Item*, std::pair<int16, uint8>> previousSlots[2], assignedItemSlots[2];
     Player *traders[2] = {owner, target};
     for(uint8 i = 0; i < 2; ++i)
     {
@@ -2655,86 +2657,105 @@ void MapInstance::CompleteTrade(MapInstance::TradeData *tradeData)
             if(traders[i]->GetUInt64Value(PLAYER_FIELD_COINAGE) < tradeAmount)
                 tradeError = TRADE_STATUS_TRADE_CANCELED;
 
+        PlayerInventory *inventory = traders[i]->GetInventory();
         for(uint8 j = 0; j < 6; ++j)
         {
+            itemsToPush[i][j] = NULL;
             if(tradeData->items[(i*7)+j].empty())
                 continue;
 
-            Item *tradeItem = traders[i]->GetInventory()->GetItemByGUID(tradeData->items[(i*7)+j]);
-            if(tradeItem == NULL)// || !traders[i]->GetInventory()->CanTradeItem(traders[i], tradeItem))
+            Item *tradeItem = inventory->GetItemByGUID(tradeData->items[(i*7)+j]);
+            if(tradeItem == NULL || !traders[i]->GetInventory()->CanTradeItem(traders[i], tradeItem))
                 tradeError = TRADE_STATUS_TRADE_CANCELED;
+            else
+            {
+                uint8 invSlot; // Grab our bag and inventory slot from item before removal
+                uint16 bagSlot = inventory->GetBagSlotByGuid(tradeData->items[(i*7)+j], invSlot);
+                // Remove item from slot but do not mark for deletion, we can remove and destroy for player later
+                inventory->SafeRemoveAndRetreiveItemByGuidRemoveStats(tradeData->items[(i*7)+j], false);
+                // Save previous slot so that we can return it if we fail to find new slots for our new items
+                previousSlots[i].insert(std::make_pair(tradeItem, std::make_pair(bagSlot, invSlot)));
+                itemsToPush[i][j] = tradeItem;
+            }
         }
 
         if(tradeData->enchantId[i] && !tradeData->items[(i*7)+6].empty())
         {
-            Item *tradeItem = traders[i]->GetInventory()->GetItemByGUID(tradeData->items[(i*7)+6]);
+            Item *tradeItem = inventory->GetItemByGUID(tradeData->items[(i*7)+6]);
             if(tradeItem == NULL)// || !traders[i]->GetSpellInterface()->CanApplyEnchant(tradeItem, tradeData->enchantId[i]))
                 tradeError = TRADE_STATUS_TRADE_CANCELED;
         }
     }
-    // TODO: CHECK TARGET ITEM TRADE DESTINATIONS
 
-    // Validation complete, if we've passed our checks then we can start trading now
+    // Check to see if we can trade our items into our targets inventory
     if(tradeError == TRADE_STATUS_TRADE_COMPLETE)
     {
-        if(uint64 tradeAmount = tradeData->gold[0])
+        for(uint8 i = 0; i < 2; ++i)
         {
-            owner->SetUInt64Value(PLAYER_FIELD_COINAGE, owner->GetUInt64Value(PLAYER_FIELD_COINAGE)-tradeAmount);
-            target->SetUInt64Value(PLAYER_FIELD_COINAGE, target->GetUInt64Value(PLAYER_FIELD_COINAGE)+tradeAmount);
-        }
-
-        if(uint64 tradeAmount = tradeData->gold[1])
-        {
-            target->SetUInt64Value(PLAYER_FIELD_COINAGE, target->GetUInt64Value(PLAYER_FIELD_COINAGE)-tradeAmount);
-            owner->SetUInt64Value(PLAYER_FIELD_COINAGE, owner->GetUInt64Value(PLAYER_FIELD_COINAGE)+tradeAmount);
-        }
-
-        std::vector<Item*> itemsToTrade[2];
-        // We've passed validation, lets do the trading
-        for(uint8 i = 0; i < 6; ++i)
-        {
-            if(Item *item = owner->GetInventory()->GetItemByGUID(tradeData->items[i]))
+            uint8 tI = i ? 0 : 1;
+            std::set<std::pair<int16, int16>> usedSlots;
+            PlayerInventory *tInv = traders[tI]->GetInventory();
+            for(uint8 j = 0; j < 6; ++j)
             {
-                owner->GetInventory()->SafeRemoveAndRetreiveItemByGuid(item->GetGUID(), true);
-                itemsToTrade[0].push_back(item);
-            }
+                if(itemsToPush[i][j] == NULL)
+                    continue;
 
-            if(Item *item = target->GetInventory()->GetItemByGUID(tradeData->items[7+i]))
-            {
-                target->GetInventory()->SafeRemoveAndRetreiveItemByGuid(item->GetGUID(), true);
-                itemsToTrade[1].push_back(item);
+                // Find a free slot for our item, we've already removed our items as well so the slots count from that
+                SlotResult result = tInv->FindFreeInventorySlot(itemsToPush[i][j]->GetProto(), &usedSlots);
+                if(result.Result == false)
+                    tradeError = TRADE_STATUS_TRADE_CANCELED;
+                else
+                {   // Store our assigned slot and push the slot to the vector so it is skipped in next item transfer check
+                    assignedItemSlots[i].insert(std::make_pair(itemsToPush[i][j], std::make_pair(result.ContainerSlot, (uint8)result.Slot)));
+                    usedSlots.insert(std::make_pair(result.ContainerSlot, result.Slot));
+                }
+                // Null out the pointer
+                itemsToPush[i][j] = NULL;
             }
         }
+    }
 
-        // Now that we've removed all items we can add the new ones in
-        for(auto itr = itemsToTrade[0].begin(); itr != itemsToTrade[0].end(); ++itr)
+    // If we've failed here, return all items
+    if(tradeError != TRADE_STATUS_TRADE_COMPLETE)
+    {
+        for(uint8 i = 0; i < 2; ++i)
         {
-            SlotResult result = target->GetInventory()->FindFreeInventorySlot((*itr)->GetProto(), NULL);
-            if(result.Result == true)
+            // Add all items back to their previous slots
+            for(auto itr = previousSlots[i].begin(); itr != previousSlots[i].end(); ++itr)
             {
-                (*itr)->PrepPostTransfer();
-                target->GetInventory()->SafeAddItem((*itr), result.ContainerSlot, result.Slot);
+                ASSERT(traders[i]->GetInventory()->SafeAddItem(itr->first, itr->second.first, itr->second.second));
             }
         }
-        for(auto itr = itemsToTrade[1].begin(); itr != itemsToTrade[1].end(); ++itr)
+    }
+    else // Validation complete, if we've passed our checks then we can start trading now
+    {
+        for(uint8 i = 0; i < 2; ++i)
         {
-            SlotResult result = owner->GetInventory()->FindFreeInventorySlot((*itr)->GetProto(), NULL);
-            if(result.Result == true)
-            {
-                (*itr)->PrepPostTransfer();
-                owner->GetInventory()->SafeAddItem((*itr), result.ContainerSlot, result.Slot);
+            uint8 tI = i ? 0 : 1;
+            if(uint64 tradeAmount = tradeData->gold[i])
+            {   // Just remove gold from us and add to target
+                traders[i]->SetUInt64Value(PLAYER_FIELD_COINAGE, traders[i]->GetUInt64Value(PLAYER_FIELD_COINAGE)-tradeAmount);
+                traders[tI]->SetUInt64Value(PLAYER_FIELD_COINAGE, traders[tI]->GetUInt64Value(PLAYER_FIELD_COINAGE)+tradeAmount);
             }
-        }
 
-        // Now process enchantments
-        if(tradeData->enchantId[0])
-        {
-            // Todo
-        }
+            // Now that we've removed all items we can add the new ones in
+            for(auto itr = assignedItemSlots[i].begin(); itr != assignedItemSlots[i].end(); ++itr)
+            {
+                bool result;
+                // Unassign from previous owner
+                if(itr->first->IsInWorld())
+                    itr->first->RemoveFromWorld();
+                itr->first->DeleteFromDB();
+                // Prep for transfer then add to target slot
+                itr->first->PrepPostTransfer();
+                ASSERT(result = traders[tI]->GetInventory()->SafeAddItem(itr->first, itr->second.first, itr->second.second));
+            }
 
-        if(tradeData->enchantId[1])
-        {
-            // Todo
+            // Now process enchantments
+            if(tradeData->enchantId[i])
+            {
+                // Todo
+            }
         }
     }
 

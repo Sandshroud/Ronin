@@ -164,6 +164,7 @@ public:
         return NULL;
     }
 
+    static bool CanTradeItem(Player *owner, Item *item);
     void AddBuyBackItem(Item* it, uint32 price);
     void RemoveBuyBackItem(uint32 index);
     void EmptyBuyBack();

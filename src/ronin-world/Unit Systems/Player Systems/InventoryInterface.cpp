@@ -2093,6 +2093,14 @@ void PlayerInventory::EmptyBuyBack()
     }
 }
 
+bool PlayerInventory::CanTradeItem(Player *owner, Item *item)
+{
+    if(item->IsSoulbound() || item->IsAccountbound())
+        return false;
+
+    return true;
+}
+
 void PlayerInventory::AddBuyBackItem(Item* it,uint32 price)
 {
     int i;

@@ -103,7 +103,7 @@ void WorldSession::HandleSetTradeItem(WorldPacket & recv_data)
     }
 
     Item *tradeItem = _player->GetInventory()->GetInventoryItem((int8)containerSlot, (int8)itemSlot);
-    if(tradeItem == NULL)// || (tradeSlot != 7 && !_player->GetInventory()->CanTradeItem(_player, tradeItem)))
+    if(tradeItem == NULL || (tradeSlot != 7 && !_player->GetInventory()->CanTradeItem(_player, tradeItem)))
     {
         _player->GetMapInstance()->CleanupTrade(_player->GetGUID());
         return;
