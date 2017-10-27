@@ -1443,17 +1443,20 @@ void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amou
         SendCastResult(SPELL_FAILED_BAD_TARGETS);
         return; // invalid Target
     }
+
     if (!playerTarget->isAlive())
     {
         SendCastResult(SPELL_FAILED_TARGETS_DEAD);
         return; // Target not alive
     }
+
     if (playerTarget->hasStateFlag(UF_ATTACKING))
     {
         SendCastResult(SPELL_FAILED_TARGET_IN_COMBAT);
         return; // Target in combat with another unit
     }
-    if (playerTarget->DuelingWith != NULL)
+
+    if (playerTarget->IsInDuel())
     {
         SendCastResult(SPELL_FAILED_TARGET_DUELING);
         return; // Already Dueling
@@ -1465,7 +1468,21 @@ void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amou
         return;
     }
 
-    p_caster->RequestDuel(playerTarget);
+    //Get Flags position
+    float dist = sqrtf(p_caster->GetDistanceSq(playerTarget)) * 0.5f; //half way
+    float x = (p_caster->GetPositionX() + playerTarget->GetPositionX()*dist)/(1+dist) + cos(p_caster->GetOrientation()+(float(M_PI)/2))*2;
+    float y = (p_caster->GetPositionY() + playerTarget->GetPositionY()*dist)/(1+dist) + sin(p_caster->GetOrientation()+(float(M_PI)/2))*2;
+    float z = (p_caster->GetPositionZ() + playerTarget->GetPositionZ()*dist)/(1+dist);
+
+    //Create flag/arbiter
+    if(GameObject* pGameObj = p_caster->GetMapInstance()->CreateGameObject(0, 21680))
+    {
+        pGameObj->Load(p_caster->GetMapId(), x, y, z, p_caster->GetOrientation());
+        pGameObj->SetInstanceID(p_caster->GetInstanceID());
+        // Initialize the duel data, this will handle most fields
+        pGameObj->InitializeDuelData(p_caster, playerTarget);
+        pGameObj->PushToWorld(p_caster->GetMapInstance());
+    }
 }
 
 void SpellEffectClass::SpellEffectStuck(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

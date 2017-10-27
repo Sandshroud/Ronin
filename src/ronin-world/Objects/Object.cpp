@@ -1366,8 +1366,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     Player *pAttacker = IsPlayer() ? castPtr<Player>(this) : NULL;
 
     // We identified both the attacker and the victim as possible PvP combatants, if we are not dueling we will flag the attacker
-    if( pOwner != NULL && pAttacker != NULL && pOwner != pAttacker && pOwner != pAttacker->DuelingWith )
-        pAttacker->SetPvPFlag();
+    if( pOwner && pAttacker && pOwner != pAttacker && pOwner->IsInDuel() )
+        if(pOwner->GetDuelStorage() != pAttacker->GetDuelStorage())
+            pAttacker->SetPvPFlag();
 
     // PvP NPCs will flag the player when attacking them
     if( pVictim->IsCreature() && pVictim->IsPvPFlagged() && pAttacker != NULL )
@@ -1399,9 +1400,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     }
 
     ///Rage
-    if( pVictim->GetMaxPower(POWER_TYPE_RAGE) > 0
-        && pVictim != castPtr<Unit>(this)
-        && pVictim->IsPlayer())
+    if( pVictim->GetMaxPower(POWER_TYPE_RAGE) > 0 && pVictim != castPtr<Unit>(this) && pVictim->IsPlayer())
     {
         float level = (float)pVictim->getLevel();
         float c = 0.0091107836f * level * level + 3.225598133f * level + 4.2652911f;
@@ -1418,24 +1417,31 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     uint32 health = pVictim->GetUInt32Value(UNIT_FIELD_HEALTH );
 
     /*------------------------------------ DUEL HANDLERS --------------------------*/
-    if(pVictim->IsPlayer() && castPtr<Player>(pVictim)->DuelingWith != NULL) //Both Players
+    if(pVictim->IsPlayer() && castPtr<Player>(pVictim)->IsInDuel() && health <= damage) //Both Players
     {
-        if(health <= damage)
+        bool isDuelHit = false;
+        Player *pThis = NULL, *plrVictim = castPtr<Player>(pVictim);
+        if(IsPlayer() && (pThis = castPtr<Player>(this)))
         {
-            if(IsPlayer() && (castPtr<Player>(pVictim)->DuelingWith == castPtr<Player>(this)))
-            {
-                // End Duel
-                castPtr<Player>(this)->EndDuel(DUEL_WINNER_KNOCKOUT);
+            pThis->smsg_AttackStop(pVictim);
+            isDuelHit = plrVictim->IsDuelTarget(pThis);
+        }
 
-                // surrender emote
-                castPtr<Player>(pVictim)->Emote(EMOTE_ONESHOT_BEG);           // Animation
+        // End duel here
+        if(GameObject *arbiter = GetMapInstance()->GetGameObject(pVictim->GetUInt64Value(PLAYER_DUEL_ARBITER)))
+            arbiter->DuelEnd(this, plrVictim, DUEL_WINNER_KNOCKOUT);
 
-                // Remove Negative Auras from duelist.
-                castPtr<Player>(pVictim)->m_AuraInterface.RemoveAllNegAurasFromGUID(GetGUID());
+        // If this duel ended because a player beat the other, we don't die
+        if(isDuelHit)
+        {
+            // surrender emote
+            plrVictim->Emote(EMOTE_ONESHOT_BEG);           // Animation
 
-                damage = health-5;
-            } else if(castPtr<Player>(pVictim)->DuelingWith != NULL)
-                castPtr<Player>(pVictim)->DuelingWith->EndDuel(DUEL_WINNER_KNOCKOUT);
+            // Remove Negative Auras from duelist.
+            plrVictim->m_AuraInterface.RemoveAllNegAurasFromGUID(GetGUID());
+
+            // Change damage to leave 5 health
+            damage = health-5;
         }
     }
 

@@ -37,7 +37,7 @@ Spell::Spell(Unit* Caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid,
     chaindamage = 0;
     m_pushbackCount = 0;
 
-    duelSpell = (_unitCaster->IsPlayer() && castPtr<Player>(_unitCaster)->GetDuelState() == DUEL_STATE_STARTED);
+    duelSpell = (_unitCaster->IsPlayer() && castPtr<Player>(_unitCaster)->IsInDuel());
     Caster->GetPosition(m_castPositionX, m_castPositionY, m_castPositionZ);
     m_AreaAura = false;
 
@@ -271,14 +271,6 @@ void Spell::AddStartCooldown()
 
 void Spell::cast(bool check)
 {
-    if( duelSpell && ( _unitCaster->IsPlayer() && castPtr<Player>(_unitCaster)->GetDuelState() != DUEL_STATE_STARTED ) )
-    {
-        // Can't cast that!
-        SendInterrupted( SPELL_FAILED_TARGET_FRIENDLY );
-        finish();
-        return;
-    }
-
     sLog.Debug("Spell","Cast %u, Unit: %u", m_spellInfo->Id, _unitCaster->GetLowGUID());
 
     bool isNextMeleeAttack1 = m_spellInfo->isNextMeleeAttack1();

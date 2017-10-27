@@ -214,6 +214,16 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         return false;
     }
 
+    if(m_Unit->IsPlayer() && castPtr<Player>(m_Unit)->IsInDuel() && unitTarget && unitTarget->IsPlayer())
+    {
+        Player *pCaster = castPtr<Player>(m_Unit);
+        if(pCaster->IsDuelTarget(castPtr<Player>(unitTarget), false) && !pCaster->GetDuelStorage()->isActive())
+        {   // We're a duel target and the duel hasn't started yet
+            errorOut = SPELL_FAILED_TARGET_DUELING;
+            return false;
+        }
+    }
+
     if(m_Unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED))
     {
         errorOut = SPELL_FAILED_STUNNED;
@@ -444,7 +454,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
             return false;
         }
 
-        if(p_caster->GetDuelState() == DUEL_STATE_REQUESTED)
+        if(p_caster->IsInDuel() && unitTarget && unitTarget->IsPlayer() && p_caster->GetDuelStorage() == castPtr<Player>(unitTarget)->GetDuelStorage())
         {
             for(uint8 i = 0; i < 3; i++)
             {
@@ -669,6 +679,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
 
     if( unitTarget && m_Unit->IsPlayer() )
     {
+        Player *pUnit = castPtr<Player>(m_Unit);
         if ( m_Unit != unitTarget && !m_Unit->IsInLineOfSight(unitTarget) )
         {
             errorOut =SPELL_FAILED_LINE_OF_SIGHT;
@@ -686,7 +697,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         {
             // disallow spell casting in sanctuary zones
             // allow attacks in duels
-            if( castPtr<Player>(m_Unit)->DuelingWith != unitTarget && !sFactionSystem.isFriendly( m_Unit, unitTarget ) )
+            if(pUnit->IsInDuel() && pUnit->GetDuelStorage() != castPtr<Player>(unitTarget)->GetDuelStorage() && !sFactionSystem.isFriendly( m_Unit, unitTarget ) )
             {
                 AreaTableEntry* atCaster = dbcAreaTable.LookupEntry( m_Unit->GetAreaId() );
                 AreaTableEntry* atTarget = dbcAreaTable.LookupEntry( unitTarget->GetAreaId() );

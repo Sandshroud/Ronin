@@ -235,10 +235,7 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     OnlineTime                      = 0;
     m_invitersGuid                  = 0;
     m_invitersGuid                  = 0;
-    DuelingWith                     = NULL;
-    m_duelCountdownTimer            = 0;
-    m_duelStatus                    = 0;
-    m_duelState                     = DUEL_STATE_FINISHED;
+    m_duelStorage                   = NULL;
     m_lootGuid                      = 0;
     m_banned                        = 0;
     //Bind possition
@@ -440,10 +437,6 @@ void Player::Destruct()
     if( m_mailBox )
         delete m_mailBox;
 
-    if( DuelingWith != NULL )
-        DuelingWith->DuelingWith = NULL;
-    DuelingWith = NULL;
-
     ASSERT(!IsInWorld());
 
     // delete m_talenttree
@@ -622,9 +615,6 @@ void Player::EventExploration(MapInstance *instance)
             EventAttackStop();
             smsg_AttackStop(pUnit);
         }
-
-        if(DuelingWith != NULL)
-            DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
 
         // Set rested to true for sanctuaries
         restmap = true;
@@ -2866,7 +2856,9 @@ void Player::SendObjectUpdate(WoWGuid guid)
 
 void Player::RemoveFromWorld()
 {
-    EndDuel( 0 );
+    GameObject *Arbiter;
+    if(IsInWorld() && IsInDuel() && (Arbiter = GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER))))
+        Arbiter->DuelEnd(this, this, DUEL_WINNER_RETREAT);
 
     if( m_CurrentCharm )
         UnPossess();
@@ -3722,8 +3714,8 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
                     if(pObj->isSpirit())
                         return hasGMTag(); // only GM can see players that are spirits
 
-                    if(GetGroup() && pObj->GetGroup() == GetGroup() // can see invisible group members except when dueling them
-                            && DuelingWith != pObj)
+                    // can see invisible group members except when dueling them
+                    if(GetGroup() && pObj->GetGroup() == GetGroup() && !IsDuelTarget(pObj))
                         return true;
 
                     if(m_invisDetect[INVIS_FLAG_NORMAL] < 1) // can't see invisible without proper detection
@@ -5062,183 +5054,6 @@ void Player::SetGuildId(uint32 guildId)
     }
 }
 
-void Player::RequestDuel(Player* pTarget)
-{
-    // We Already Dueling or have already Requested a Duel
-    if( DuelingWith != NULL )
-        return;
-
-    if( m_duelState != DUEL_STATE_FINISHED )
-        return;
-
-    SetDuelState( DUEL_STATE_REQUESTED );
-
-    //Setup Duel
-    pTarget->DuelingWith = castPtr<Player>(this);
-    DuelingWith = pTarget;
-
-    //Get Flags position
-    float dist = sqrtf(GetDistanceSq(pTarget)) * 0.5f; //half way
-    float x = (GetPositionX() + pTarget->GetPositionX()*dist)/(1+dist) + cos(GetOrientation()+(float(M_PI)/2))*2;
-    float y = (GetPositionY() + pTarget->GetPositionY()*dist)/(1+dist) + sin(GetOrientation()+(float(M_PI)/2))*2;
-    float z = (GetPositionZ() + pTarget->GetPositionZ()*dist)/(1+dist);
-
-    //Create flag/arbiter
-    if(GameObject* pGameObj = GetMapInstance()->CreateGameObject(0, 21680))
-    {
-        pGameObj->Load(GetMapId(), x, y, z, GetOrientation());
-        pGameObj->SetInstanceID(GetInstanceID());
-
-        //Spawn the Flag
-        pGameObj->SetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY, GetGUID());
-        pGameObj->SetUInt32Value(GAMEOBJECT_FACTION, GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-        pGameObj->SetUInt32Value(GAMEOBJECT_LEVEL, GetUInt32Value(UNIT_FIELD_LEVEL));
-
-        //Assign the Flag
-        SetUInt64Value(PLAYER_DUEL_ARBITER,pGameObj->GetGUID());
-        pTarget->SetUInt64Value(PLAYER_DUEL_ARBITER,pGameObj->GetGUID());
-
-        WorldPacket data(SMSG_DUEL_REQUESTED, 16);
-        data << pGameObj->GetGUID();
-        data << GetGUID();
-        pTarget->PushPacket(&data);
-
-        pGameObj->PushToWorld(m_mapInstance);
-    }
-}
-
-void Player::DuelCountdown()
-{
-    if( DuelingWith == NULL )
-        return;
-
-    m_duelCountdownTimer -= 1000;
-
-    if( int32(m_duelCountdownTimer) < 0 )
-        m_duelCountdownTimer = 0;
-
-    if( m_duelCountdownTimer == 0 )
-    {
-        // Start Duel.
-        SetPower(POWER_TYPE_RAGE, 0 );
-        DuelingWith->SetPower(POWER_TYPE_RAGE, 0 );
-
-        //Give the players a Team
-        DuelingWith->SetUInt32Value( PLAYER_DUEL_TEAM, 1 ); // Duel Requester
-        SetUInt32Value( PLAYER_DUEL_TEAM, 2 );
-
-        SetDuelState( DUEL_STATE_STARTED );
-        DuelingWith->SetDuelState( DUEL_STATE_STARTED );
-    }
-}
-
-void Player::DuelBoundaryTest()
-{
-    //check if in bounds
-    if(!IsInWorld())
-        return;
-
-    GameObject* pGameObject = GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER));
-    if(!pGameObject)
-    {
-        EndDuel(DUEL_WINNER_RETREAT);
-        return;
-    }
-
-    float Dist = GetDistance2dSq(pGameObject);
-
-    if(Dist > 5625.0f)
-    {
-        // Out of bounds
-        if(m_duelStatus == DUEL_STATUS_OUTOFBOUNDS)
-        {
-            // we already know, decrease timer by 500
-            m_duelCountdownTimer -= 500;
-            if(m_duelCountdownTimer == 0)
-            {
-                // Times up :p
-                DuelingWith->EndDuel(DUEL_WINNER_RETREAT);
-            }
-        }
-        else
-        {
-            // we just went out of bounds
-            // set timer
-            m_duelCountdownTimer = 10000;
-
-            // let us know
-            PushData(SMSG_DUEL_OUTOFBOUNDS, 4, &m_duelCountdownTimer);
-            m_duelStatus = DUEL_STATUS_OUTOFBOUNDS;
-        }
-    }
-    else
-    {
-        // we're in range
-        if(m_duelStatus == DUEL_STATUS_OUTOFBOUNDS)
-        {
-            // just came back in range
-            PushData(SMSG_DUEL_INBOUNDS);
-            m_duelStatus = DUEL_STATUS_INBOUNDS;
-        }
-    }
-}
-
-void Player::EndDuel(uint8 WinCondition)
-{
-    if( m_duelState == DUEL_STATE_FINISHED )
-        return;
-
-    m_AuraInterface.UpdateDuelAuras();
-
-    m_duelState = DUEL_STATE_FINISHED;
-    if( DuelingWith == NULL )
-        return;
-
-    DuelingWith->m_AuraInterface.UpdateDuelAuras();
-    DuelingWith->m_duelState = DUEL_STATE_FINISHED;
-
-    //Announce Winner
-    WorldPacket data( SMSG_DUEL_WINNER, 500 );
-    data << uint8( WinCondition );
-    data << GetName() << DuelingWith->GetName();
-    SendMessageToSet( &data, true );
-
-    data.Initialize(SMSG_DUEL_COMPLETE, 1);
-    data << uint8( 1 );
-    PushPacket(&data);
-    DuelingWith->PushPacket(&data);
-
-    //Clear Duel Related Stuff
-    if( GameObject* arbiter = m_mapInstance ? GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)) : NULL )
-        arbiter->Cleanup();
-
-    SetUInt64Value( PLAYER_DUEL_ARBITER, 0 );
-    DuelingWith->SetUInt64Value( PLAYER_DUEL_ARBITER, 0 );
-
-    SetUInt32Value( PLAYER_DUEL_TEAM, 0 );
-    DuelingWith->SetUInt32Value( PLAYER_DUEL_TEAM, 0 );
-
-    EventAttackStop();
-    DuelingWith->EventAttackStop();
-
-    // removing auras that kills players after if low HP
-    m_AuraInterface.RemoveAllNegativeAuras(); // NOT NEEDED. External targets can always gank both duelers with DoTs. :D
-    DuelingWith->m_AuraInterface.RemoveAllNegativeAuras();
-
-    //Stop Players attacking so they don't kill the other player
-    PushData( SMSG_CANCEL_COMBAT );
-    DuelingWith->PushData( SMSG_CANCEL_COMBAT );
-
-    smsg_AttackStop( DuelingWith );
-    DuelingWith->smsg_AttackStop( castPtr<Player>(this) );
-
-    DuelingWith->m_duelCountdownTimer = 0;
-    m_duelCountdownTimer = 0;
-
-    DuelingWith->DuelingWith = NULL;
-    DuelingWith = NULL;
-}
-
 void Player::StopMirrorTimer(uint32 Type)
 {
     PushData(SMSG_STOP_MIRROR_TIMER, 4, &Type);
@@ -5276,9 +5091,9 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, float X, float Y, flo
 
 bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
 {
-    //abort duel if other map or new distance becomes bigger then 1600
-    if(DuelingWith && (MapID != GetMapId() || m_position.Distance2DSq(vec) >= 1600) )       // 40
-        EndDuel(DUEL_WINNER_RETREAT);
+    GameObject *Arbiter;//abort duel if other map or new distance is outside of wide duel radius
+    if(IsInWorld() && IsInDuel() && (Arbiter = GetMapInstance()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER))) && (GetMapId() != MapID || !Arbiter->IsInDuelRadius(vec)))
+        Arbiter->DuelEnd(this, this, DUEL_WINNER_RETREAT);
 
     //retrieve our bind point in case vector is 0,0,0
     if( vec.x == 0 && vec.y == 0 && vec.z == 0 )
@@ -5358,8 +5173,15 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
 
 void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
 {
-    if(IsInWorld()) // If we're in world, queue our removal
-         GetMapInstance()->QueueRemoval(this);
+    MapInstance *currInstance = GetMapInstance();
+    if(currInstance) // If we're in world, queue our removal
+    {
+         currInstance->QueueRemoval(this);
+
+         GameObject *arbiter;
+         if(IsInDuel() && (arbiter = currInstance->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER))) && (currInstance != mgr || !arbiter->IsInDuelRadius(vec)))
+             arbiter->DuelEnd(this, this, DUEL_WINNER_RETREAT);
+    }
 
     uint32 mapId = mgr->GetMapId(), instanceId = mgr->GetInstanceID();
     WorldPacket data(SMSG_TRANSFER_PENDING, 20);
@@ -5373,9 +5195,6 @@ void Player::SafeTeleport(MapInstance* mgr, LocationVector vec)
 
     if(uint8 ss = GetShapeShift()) // Extra Check
         SetShapeShift(ss);
-
-    if(DuelingWith != NULL)
-        EndDuel(DUEL_WINNER_RETREAT);
 }
 
 void Player::BuildFlagUpdateForNonGroupSet(uint32 index, uint32 flag)

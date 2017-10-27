@@ -313,25 +313,6 @@ class GossipMenu;
 #define RESTSTATE_TIRED50            4
 #define RESTSTATE_EXHAUSTED          5
 
-enum DUEL_STATUS
-{
-    DUEL_STATUS_OUTOFBOUNDS,
-    DUEL_STATUS_INBOUNDS
-};
-
-enum DUEL_STATE
-{
-    DUEL_STATE_REQUESTED,
-    DUEL_STATE_STARTED,
-    DUEL_STATE_FINISHED
-};
-
-enum DUEL_WINNER
-{
-    DUEL_WINNER_KNOCKOUT,
-    DUEL_WINNER_RETREAT,
-};
-
 #define PLAYER_ATTACK_TIMEOUT_INTERVAL  5000
 #define PLAYER_FORCED_RESURECT_INTERVAL 360000 // 1000*60*6= 6 minutes
 
@@ -642,6 +623,11 @@ public:
 
     bool hasIgnored(WoWGuid guid) { return m_ignores.find(guid) != m_ignores.end(); }
     bool hasMuted(WoWGuid guid) { return m_mutes.find(guid) != m_mutes.end(); }
+
+    bool IsInDuel() { return m_duelStorage != NULL; }
+    DuelStorage *GetDuelStorage() { return m_duelStorage; }
+
+    bool IsDuelTarget(Player *target, bool reqActive = true) { return IsInDuel() && (reqActive == false || m_duelStorage->isActive()) && m_duelStorage == target->GetDuelStorage(); }
 
 public: /// Interface Interaction Functions
     RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
@@ -1000,18 +986,6 @@ public:
     uint32 GetGuildInvitersGuid() { return m_invitersGuid; }
     void SetGuildInvitersGuid( uint32 guid ) { m_invitersGuid = guid; }
     void UnSetGuildInvitersGuid() { m_invitersGuid = 0; }
-
-    /************************************************************************/
-    /* Duel                                                                 */
-    /************************************************************************/
-    void                RequestDuel(Player* pTarget);
-    void                DuelBoundaryTest();
-    void                EndDuel(uint8 WinCondition);
-    void                DuelCountdown();
-    void                SetDuelStatus(uint8 status) { m_duelStatus = status; }
-    RONIN_INLINE uint8        GetDuelStatus() { return m_duelStatus; }
-    void                SetDuelState(uint8 state) { m_duelState = state; }
-    RONIN_INLINE uint8        GetDuelState() { return m_duelState; }
 
 public:
     /************************************************************************/
@@ -1481,8 +1455,6 @@ public:
     std::map<uint16, uint64> m_completedQuests;
     std::map<uint32, time_t> m_completedRepeatableQuests, m_completedDailyQuests, m_completedWeeklyQuests;
 
-    //Spells variables
-    Player* DuelingWith;
     // loot variables
     WoWGuid m_lootGuid;
     WoWGuid m_currentLoot;
@@ -1553,11 +1525,6 @@ public:
     std::string m_banreason;
     uint32      m_invitersGuid; // It is guild inviters guid, 0 when its not used
 
-    //Duel
-    uint32 m_duelCountdownTimer;
-    uint8 m_duelStatus;
-    uint8 m_duelState;
-
     uint32 m_armorProficiency, m_weaponProficiency;
     // STATUS
     uint8 m_status;
@@ -1584,6 +1551,8 @@ public:
     uint32 trigger_on_stun_chance;  //also using this for mage "Frostbite" talent
 
     uint8 m_bgTeam;
+
+    DuelStorage *m_duelStorage;
 
     std::map<uint32, uint32> m_forcedReactions;
 

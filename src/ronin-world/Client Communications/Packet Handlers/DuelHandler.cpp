@@ -25,63 +25,32 @@ void WorldSession::HandleDuelAccepted(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    if( _player->DuelingWith == NULL )
+    if( !_player->IsInDuel() )
+        return;
+    DuelStorage *storage = NULL;
+    if( !(storage = _player->GetDuelStorage())->duelState != DUEL_STATE_REQUESTED )
+        return;
+    // Only the person asked for a duel accepts so we should be using 0 but check anyway
+    Player *target = _player->GetMapInstance()->GetPlayer(storage->duelists[_player->GetGUID() == storage->duelists[0] ? 1 : 0]);
+    if(target == NULL)
         return;
 
-    if( _player->m_duelState != DUEL_STATE_FINISHED )
-        return;
-
-    if( _player->m_duelCountdownTimer > 0 )
-        return;
-
-    _player->m_duelStatus = DUEL_STATUS_INBOUNDS;
-    _player->DuelingWith->m_duelStatus = DUEL_STATUS_INBOUNDS;
-
-    _player->m_duelState = DUEL_STATE_STARTED;
-    _player->DuelingWith->m_duelState = DUEL_STATE_STARTED;
+    // Update duelstate
+    _player->GetDuelStorage()->duelState = DUEL_STATE_STARTED;
 
     WorldPacket data( SMSG_DUEL_COUNTDOWN, 4 );
     data << uint32( 3000 );
-
     SendPacket( &data );
-    _player->DuelingWith->PushPacket( &data );
-
-    _player->m_duelCountdownTimer = 3000;
+    target->PushPacket( &data );
 }
 
 void WorldSession::HandleDuelCancelled(WorldPacket & recv_data)
 {
-    if( _player->DuelingWith ==  NULL )
+    if(!_player->IsInDuel())
+        return;
+    DuelStorage *storage = NULL;
+    if( !(storage = _player->GetDuelStorage())->quitter.empty() )
         return;
 
-    if( _player->m_duelState == DUEL_STATE_STARTED )
-    {
-        _player->DuelingWith->EndDuel( DUEL_WINNER_KNOCKOUT );
-        return;
-    }
-
-    WorldPacket data( SMSG_DUEL_COMPLETE, 1 );
-    data << uint8( 1 );
-
-    SendPacket( &data );
-    _player->DuelingWith->PushPacket( &data );
-
-    if( GameObject* arbiter = _player->GetMapInstance() ? _player->GetMapInstance()->GetGameObject( _player->GetUInt64Value( PLAYER_DUEL_ARBITER ) ) : NULL )
-        arbiter->Cleanup();
-
-    _player->DuelingWith->SetUInt64Value( PLAYER_DUEL_ARBITER, 0 );
-    _player->SetUInt64Value( PLAYER_DUEL_ARBITER, 0 );
-
-    _player->DuelingWith->SetUInt32Value( PLAYER_DUEL_TEAM, 0 );
-    _player->SetUInt32Value( PLAYER_DUEL_TEAM, 0);
-
-    _player->DuelingWith->m_duelState = DUEL_STATE_FINISHED;
-    _player->m_duelState = DUEL_STATE_FINISHED;
-
-    _player->DuelingWith->m_duelCountdownTimer = 0;
-    _player->m_duelCountdownTimer = 0;
-
-    _player->DuelingWith->DuelingWith = NULL;
-    _player->DuelingWith = NULL;
-
+    storage->quitter = _player->GetGUID();
 }

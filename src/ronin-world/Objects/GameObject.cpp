@@ -35,6 +35,7 @@ void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount
     m_updateFlags |= UPDATEFLAG_STATIONARY_POS|UPDATEFLAG_ROTATION;
 
     counter = 0;
+    _duelUpdateDiff = 0;
     bannerslot = bannerauraslot = -1;
     m_summonedGo = false;
     invisible = false;
@@ -52,6 +53,7 @@ void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount
     m_zoneVisibleSpawn = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
+    m_duelState = NULL;
 }
 
 GameObject::~GameObject()
@@ -70,6 +72,8 @@ void GameObject::Destruct()
 {
     if(m_ritualmembers)
         delete[] m_ritualmembers;
+    if(m_duelState)
+        delete m_duelState;
 
     if(uint32 guid = GetUInt32Value(GAMEOBJECT_FIELD_CREATED_BY))
     {
@@ -96,54 +100,12 @@ void GameObject::Destruct()
 void GameObject::Update(uint32 msTime, uint32 p_time)
 {
     WorldObject::Update(msTime, p_time);
-}
 
-void GameObject::_searchNearbyUnits()
-{
-    if(GetState() != 1 || m_inTriggerRangeObjects.empty())
-        return;
-    if(m_summonedGo && !(m_summoner && m_summoner->isAlive()))
+    switch(GetType())
     {
-        Deactivate(0);
-        return;
-    }
-    return;
-
-    SpellCastTargets tgt;
-    tgt.m_targetMask |= (m_triggerSpell->isSpellAreaOfEffect() ? 0x40 : 0x02);
-    tgt.m_src = tgt.m_dest = GetPosition();
-
-    for(std::set<WoWGuid>::iterator itr = m_inTriggerRangeObjects.begin(); itr != m_inTriggerRangeObjects.end(); itr++)
-    {
-        if(Unit *pUnit = GetInRangeObject<Unit>(*itr))
-        {
-            if(pUnit == m_summoner)
-                continue;
-            if(m_summonedGo && !sFactionSystem.isAttackable(m_summoner, pUnit))
-                continue;
-            if(m_triggerSpell->HasEffect(SPELL_EFFECT_APPLY_AURA) && pUnit->HasAura(m_triggerSpell->Id))
-                continue;
-
-            tgt.m_unitTarget = *itr;
-            /*if(Spell* sp = new Spell(this, m_triggerSpell))
-                sp->prepare(&tgt, true);*/
-
-            if(GetType() == GAMEOBJECT_TYPE_TRAP)
-            {
-                if(GetInfo()->data.trap.type == 1)
-                    Deactivate(GetInfo()->GetSequenceTimer());
-                return; // Trigger once
-            }
-
-            if(m_summonedGo)
-            {
-                Deactivate(0);
-                return;
-            }
-
-            if(m_triggerSpell->isSpellAreaOfEffect())
-                return;
-        }
+    case GAMEOBJECT_TYPE_DUEL_ARBITER:
+        _updateDuelState(msTime, p_time);
+        break;
     }
 }
 
@@ -203,6 +165,145 @@ void GameObject::_recalculateChairSeats()
         m_chairData[0].x = GetPositionX();
         m_chairData[0].y = GetPositionY();
         m_chairData[0].z = GetPositionZ();
+    }
+}
+
+void GameObject::_searchNearbyUnits()
+{
+    if(GetState() != 1 || m_inTriggerRangeObjects.empty())
+        return;
+    if(m_summonedGo && !(m_summoner && m_summoner->isAlive()))
+    {
+        Deactivate(0);
+        return;
+    }
+    return;
+
+    SpellCastTargets tgt;
+    tgt.m_targetMask |= (m_triggerSpell->isSpellAreaOfEffect() ? 0x40 : 0x02);
+    tgt.m_src = tgt.m_dest = GetPosition();
+
+    for(std::set<WoWGuid>::iterator itr = m_inTriggerRangeObjects.begin(); itr != m_inTriggerRangeObjects.end(); itr++)
+    {
+        if(Unit *pUnit = GetInRangeObject<Unit>(*itr))
+        {
+            if(pUnit == m_summoner)
+                continue;
+            if(m_summonedGo && !sFactionSystem.isAttackable(m_summoner, pUnit))
+                continue;
+            if(m_triggerSpell->HasEffect(SPELL_EFFECT_APPLY_AURA) && pUnit->HasAura(m_triggerSpell->Id))
+                continue;
+
+            tgt.m_unitTarget = *itr;
+            /*if(Spell* sp = new Spell(this, m_triggerSpell))
+                sp->prepare(&tgt, true);*/
+
+            if(GetType() == GAMEOBJECT_TYPE_TRAP)
+            {
+                if(GetInfo()->data.trap.type == 1)
+                    Deactivate(GetInfo()->GetSequenceTimer());
+                return; // Trigger once
+            }
+
+            if(m_summonedGo)
+            {
+                Deactivate(0);
+                return;
+            }
+
+            if(m_triggerSpell->isSpellAreaOfEffect())
+                return;
+        }
+    }
+}
+
+void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
+{
+    if(m_duelState == NULL)
+        return;
+
+    _duelUpdateDiff += p_diff;
+    if(_duelUpdateDiff < 1000)
+        return;
+
+    switch(m_duelState->duelState)
+    {
+    case DUEL_STATE_REQUESTED:
+        {
+            m_duelState->duelCounter[1] += _duelUpdateDiff;
+            if(m_duelState->duelCounter[1] > 60000)
+            {
+                m_duelState->duelState = DUEL_STATE_FINISHED;
+                m_duelState->duelCounter[1] = 0;
+            }
+        }break;
+    case DUEL_STATE_STARTED:
+        if(m_duelState->duelCounter[0] <= _duelUpdateDiff)
+        {
+            m_duelState->duelState = DUEL_STATE_OCCURING;
+            m_duelState->duelCounter[0] = m_duelState->duelCounter[1] = 0;
+
+            // Set players teams now that duel has started
+            if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[0]))
+                plr->SetUInt32Value(PLAYER_DUEL_TEAM, 1);
+            if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[1]))
+                plr->SetUInt32Value(PLAYER_DUEL_TEAM, 2);
+        } else m_duelState->duelCounter[0] -= _duelUpdateDiff;
+        break;
+    case DUEL_STATE_OCCURING:
+        {
+            Player *winner = NULL;
+            uint8 errorOut = DUEL_WINNER_DECIDING;
+            Player *player1 = m_mapInstance->GetPlayer(m_duelState->duelists[0]), *player2 = m_mapInstance->GetPlayer(m_duelState->duelists[1]);
+            if(player1 == NULL || !player1->IsInWorld() || player2 == NULL || !player2->IsInWorld())
+                errorOut = DUEL_WINNER_RETREAT;
+            Player *duelists[2] = { player1, player2 };
+
+            if(!m_duelState->quitter.empty())
+            {
+                m_duelState->duelState = DUEL_STATE_FINISHED;
+                winner = (m_duelState->quitter == m_duelState->duelists[0] ? player2 : player1);
+            }
+            else
+            {
+                if(errorOut == DUEL_WINNER_DECIDING)
+                {
+                    for(uint8 i = 0; i < 2; ++i)
+                    {
+                        float distance = duelists[i]->GetDistanceSq(this);
+                        if(distance >= 1600.f)
+                        {
+                            if(m_duelState->duelCounter[i] == 0)
+                            {
+                                duelists[i]->PushData(SMSG_DUEL_OUTOFBOUNDS);
+                                m_duelState->duelCounter[i] = 10000;
+                            }
+                            else if(m_duelState->duelCounter[i] <= _duelUpdateDiff || distance >= 1900.f)
+                            {
+                                m_duelState->duelCounter[i] = 1;
+                                errorOut = DUEL_WINNER_RETREAT;
+                                winner = duelists[i == 0 ? 1 : 0];
+                                break; // End our loop here since duel is over
+                            } else m_duelState->duelCounter[i] -= _duelUpdateDiff;
+                        }
+                        else
+                        {
+                            if(m_duelState->duelCounter[i] > 0)
+                                duelists[i]->PushData(SMSG_DUEL_INBOUNDS);
+                            m_duelState->duelCounter[i] = 0;
+                        }
+                    }
+                }
+
+                if(errorOut != DUEL_WINNER_DECIDING)
+                {
+                    m_duelState->duelState = DUEL_STATE_FINISHED;
+                }
+            }
+        }break;
+    case DUEL_STATE_FINISHED:
+        Cleanup();
+        break;
     }
 }
 
@@ -453,6 +554,46 @@ void GameObject::DeleteFromDB()
 void GameObject::EventCloseDoor()
 {
     SetState(0);
+}
+
+void GameObject::InitializeDuelData(Player *player1, Player *player2)
+{
+    if(m_duelState)
+        return;
+
+    m_duelState = new DuelStorage();
+    m_duelState->duelCounter[0] = 3000;
+    m_duelState->duelCounter[1] = 0;
+    m_duelState->duelState = 0;
+    m_duelState->duelists[0] = player1->GetGUID();
+    m_duelState->duelists[1] = player2->GetGUID();
+
+    SetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY, player1->GetGUID());
+    SetUInt32Value(GAMEOBJECT_FACTION, player1->GetFactionID());
+    SetUInt32Value(GAMEOBJECT_LEVEL, player1->getLevel());
+
+    player1->SetUInt64Value(PLAYER_DUEL_ARBITER, GetGUID());
+    player2->SetUInt64Value(PLAYER_DUEL_ARBITER, GetGUID());
+
+    WorldPacket data(SMSG_DUEL_REQUESTED, 16);
+    data << GetGUID();
+    data << player1->GetGUID();
+    player2->PushPacket(&data);
+}
+
+void GameObject::DuelEnd(WorldObject *killer, Player *victim, uint8 status)
+{
+    if(m_duelState == NULL)
+        return;
+
+    m_duelState->duelState = DUEL_STATE_FINISHED;
+}
+
+bool GameObject::IsInDuelRadius(LocationVector vec)
+{
+    if(GetDistanceSq(vec.x, vec.y, vec.z) >= 1900.f)
+        return false;
+    return true;
 }
 
 void GameObject::UseFishingNode(Player* player)

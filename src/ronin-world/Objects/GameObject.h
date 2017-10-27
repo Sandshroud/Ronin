@@ -99,6 +99,33 @@ enum GoUInt32Types
     GO_UINT32_MAX
 };
 
+enum DuelStateSteps
+{
+    DUEL_STATE_REQUESTED,
+    DUEL_STATE_STARTED,
+    DUEL_STATE_OCCURING,
+    DUEL_STATE_FINISHED
+};
+
+enum DuelWinnerTypes
+{
+    DUEL_WINNER_KNOCKOUT,
+    DUEL_WINNER_RETREAT,
+    DUEL_WINNER_DECIDING,
+};
+
+struct DuelStorage
+{
+    WoWGuid duelists[2];
+    uint32 duelCounter[2];
+    uint8 duelState;
+
+    // If someone quits
+    WoWGuid quitter;
+
+    bool isActive() { return duelState == DUEL_STATE_OCCURING; }
+};
+
 #pragma pack(PRAGMA_PACK)
 
 struct GameObjectData
@@ -580,6 +607,11 @@ public:
     void DeleteFromDB();
     void EventCloseDoor();
 
+    //Duel stuff
+    void InitializeDuelData(Player *player1, Player *player2);
+    void DuelEnd(WorldObject *killer, Player *victim, uint8 status);
+    bool IsInDuelRadius(LocationVector loc);
+
     //Fishing stuff
     void UseFishingNode(Player* player);
     void EndFishing(Player* player,bool abort);
@@ -702,4 +734,8 @@ protected:
     std::set<WoWGuid> m_inTriggerRangeObjects;
 
     void _searchNearbyUnits();
+
+    uint32 _duelUpdateDiff;
+    void _updateDuelState(uint32 msTime, uint32 p_diff);
+    DuelStorage *m_duelState;
 };

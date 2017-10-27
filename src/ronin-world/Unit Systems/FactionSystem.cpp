@@ -164,13 +164,13 @@ FactionInteractionStatus FactionSystem::GetTeamBasedStatus(Unit *unitA, Unit *un
     else if(player_objA && unitB->IsSummon())
     {
         WorldObject* summoner = castPtr<Summon>(unitB)->GetSummonOwner();
-        if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == player_objA)
+        if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->IsDuelTarget(player_objA))
             return FI_STATUS_HOSTILE;
     }
     else if(player_objB && unitA->IsSummon())
     {
         WorldObject* summoner = castPtr<Summon>(unitA)->GetSummonOwner();
-        if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->DuelingWith == player_objB)
+        if (summoner && summoner->IsPlayer() && castPtr<Player>(summoner)->IsDuelTarget(player_objB))
             return FI_STATUS_HOSTILE;
     } // Player attacking non player with team ID
     else if(player_objA && unitB->GetTeam() < TEAM_MONSTER)
@@ -197,7 +197,7 @@ FactionInteractionStatus FactionSystem::GetTeamBasedStatus(Unit *unitA, Unit *un
 
 FactionInteractionStatus FactionSystem::GetPlayerAttackStatus(Player *plrA, Player *plrB)
 {
-    if(plrA->DuelingWith == plrB && plrA->GetDuelState() == DUEL_STATE_STARTED)
+    if(plrA->IsDuelTarget(plrB))
         return FI_STATUS_HOSTILE;
     if(plrB->IsFFAPvPFlagged() && plrA->IsFFAPvPFlagged())
         return FI_STATUS_HOSTILE;
@@ -289,11 +289,8 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
 
     if( player_objA && player_objB )
     {
-        if(player_objA->IsPvPFlagged() && !player_objB->IsPvPFlagged() && player_objA->DuelingWith != player_objB)
-            return FI_STATUS_FRIENDLY;
-        if(!player_objA->IsPvPFlagged() && !player_objB->IsPvPFlagged() && player_objA->DuelingWith != player_objB)
-            return FI_STATUS_FRIENDLY;
-        if(player_objA->IsFFAPvPFlagged() && player_objB->IsFFAPvPFlagged())
+        // FFA PvP is top priority check
+        if(player_objA->IsFFAPvPFlagged() || player_objB->IsFFAPvPFlagged())
         {
             if( player_objA->GetGroup() && player_objA->GetGroup() == player_objB->GetGroup() )
                 return FI_STATUS_FRIENDLY;
@@ -304,6 +301,11 @@ FactionInteractionStatus FactionSystem::GetAttackableStatus(WorldObject* objA, W
             return FI_STATUS_HOSTILE;       // can hurt each other in FFA pvp
         }
 
+        // Now for pvp flags and duel status
+        if(player_objA->IsDuelTarget(player_objB))
+            return FI_STATUS_HOSTILE;
+        if(!player_objA->IsPvPFlagged() && !player_objB->IsPvPFlagged())
+            return FI_STATUS_FRIENDLY;
         // same faction can't kill each other.
         if(player_objA->GetFaction() == player_objB->GetFaction())
             return FI_STATUS_FRIENDLY;

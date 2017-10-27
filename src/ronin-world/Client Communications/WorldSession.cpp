@@ -291,8 +291,8 @@ void WorldSession::LogoutPlayer()
         _player = NULL;
 
         //Duel Cancel on Leave
-        if( plr->DuelingWith != NULL )
-            plr->EndDuel( DUEL_WINNER_RETREAT );
+        if( plr->IsInDuel() )
+            plr->GetDuelStorage()->quitter = plr->GetGUID();
 
         if( plr->m_currentLoot && plr->IsInWorld() )
         {

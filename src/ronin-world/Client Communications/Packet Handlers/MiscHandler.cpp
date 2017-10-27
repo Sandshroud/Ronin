@@ -533,7 +533,7 @@ void WorldSession::HandleLogoutRequestOpcode( WorldPacket & recv_data )
             return;
         }
 
-        if(pPlayer->DuelingWith != NULL || pPlayer->IsInCombat())
+        if(pPlayer->IsInDuel() || pPlayer->IsInCombat())
         {
             //can't quit still dueling or attacking
             data << uint8(0x1); //Logout accepted
