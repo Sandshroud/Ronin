@@ -626,6 +626,7 @@ public:
 
     bool IsInDuel() { return m_duelStorage != NULL; }
     DuelStorage *GetDuelStorage() { return m_duelStorage; }
+    void SetDuel(DuelStorage * storage) { m_duelStorage = storage; }
 
     bool IsDuelTarget(Player *target, bool reqActive = true) { return IsInDuel() && (reqActive == false || m_duelStorage->isActive()) && m_duelStorage == target->GetDuelStorage(); }
 

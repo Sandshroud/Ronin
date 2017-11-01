@@ -851,7 +851,7 @@ public:
     /////////////////////////////////////////////
     uint32 m_CreatureHighGuid;
     CreatureStorageMap m_CreatureStorage;
-    Creature *CreateCreature(WoWGuid guid, uint32 entry = 0);
+    Creature *CreateCreature(uint32 entry);
 
 protected:
     friend class MapCell;
@@ -873,7 +873,7 @@ public:
 /////////////////////////////////////////////
     uint32 m_GOHighGuid;
     GameObjectStorageMap m_gameObjectStorage;
-    GameObject *CreateGameObject(WoWGuid guid, uint32 entry = 0);
+    GameObject *CreateGameObject(uint32 entry);
 
 protected:
     friend class MapCell;

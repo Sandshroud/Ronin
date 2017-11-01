@@ -1427,11 +1427,11 @@ void SpellEffectClass::SpellEffectAddComboPoints(uint32 i, WorldObject *target, 
 void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Duel
 {
     Player *p_caster = _unitCaster->IsPlayer() ? castPtr<Player>(_unitCaster) : NULL, *playerTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
-    if( p_caster == NULL  || !p_caster->isAlive() || playerTarget == p_caster )
+    if( p_caster == NULL  || !p_caster->IsInWorld() || !p_caster->isAlive() || playerTarget == p_caster )
         return;
 
     uint32 areaId = p_caster->GetAreaId();
-    AreaTableEntry * at = dbcAreaTable.LookupEntry(areaId);
+    MapInstance *instance = p_caster->GetMapInstance();
     if(p_caster->HasAreaFlag(OBJECT_AREA_FLAG_INSANCTUARY))
     {
         SendCastResult(SPELL_FAILED_NO_DUELING);
@@ -1475,13 +1475,14 @@ void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amou
     float z = (p_caster->GetPositionZ() + playerTarget->GetPositionZ()*dist)/(1+dist);
 
     //Create flag/arbiter
-    if(GameObject* pGameObj = p_caster->GetMapInstance()->CreateGameObject(0, 21680))
+    if(GameObject* pGameObj = instance->CreateGameObject(21680))
     {
         pGameObj->Load(p_caster->GetMapId(), x, y, z, p_caster->GetOrientation());
         pGameObj->SetInstanceID(p_caster->GetInstanceID());
         // Initialize the duel data, this will handle most fields
         pGameObj->InitializeDuelData(p_caster, playerTarget);
-        pGameObj->PushToWorld(p_caster->GetMapInstance());
+        // Push object into addition queue
+        instance->AddObject(pGameObj);
     }
 }
 

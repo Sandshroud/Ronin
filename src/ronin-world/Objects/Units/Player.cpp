@@ -3114,6 +3114,7 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
     if (PreventRes)
         return;
 
+    bool previouslyDead = isDead();
     if( m_resurrectHealth ) SetUInt32Value(UNIT_FIELD_HEALTH, std::min( m_resurrectHealth, GetUInt32Value(UNIT_FIELD_MAXHEALTH) ) );
     else SetUInt32Value(UNIT_FIELD_HEALTH, GetUInt32Value(UNIT_FIELD_MAXHEALTH));
     if( m_resurrectMana ) SetPower(POWER_TYPE_MANA, std::min( m_resurrectMana, GetMaxPower(POWER_TYPE_MANA) ) );
@@ -3129,7 +3130,7 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
     UpdateVisibility();
     m_movementInterface.OnRessurect();
 
-    if(pResurrector == this)
+    if(pResurrector == this || previouslyDead)
         return;
 
     if(IsInWorld() && pResurrector != NULL && pResurrector->IsInWorld())

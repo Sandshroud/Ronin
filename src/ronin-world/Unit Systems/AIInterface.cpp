@@ -211,7 +211,7 @@ void AIInterface::_HandleCombatAI(uint32 msTime)
     } else if(!m_Creature->isTargetInFront(unitTarget))
         m_path->UpdateOrientation(unitTarget);
 
-    if(!m_Creature->ValidateAttackTarget(m_targetGuid))
+    if(!m_Creature->checkAttackTarget(m_targetGuid))
         m_Creature->EventAttackStart(m_targetGuid);
 }
 

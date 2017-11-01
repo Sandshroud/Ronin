@@ -276,7 +276,7 @@ bool ChatHandler::HandleKillCommand(const char *args, WorldSession *m_session)
 
     sWorld.LogGM(m_session, "used kill command on %s %s", unit->IsPlayer() ? "Player" : "Creature", unit->GetName());
 
-    if(unit->IsPlayer())
+    if(unit->IsPlayer() && !m_session->GetPlayer()->IsDuelTarget(castPtr<Player>(unit), false))
     {
         // If we're killing a player, send a message indicating a gm killed them.
         BlueSystemMessageToPlr(castPtr<Player>(unit), "%s killed you with a GM command.", m_session->GetPlayer()->GetName());

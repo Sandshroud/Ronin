@@ -109,6 +109,17 @@ void GameObject::Update(uint32 msTime, uint32 p_time)
     }
 }
 
+void GameObject::InactiveUpdate(uint32 msTime, uint32 p_time)
+{
+    WorldObject::InactiveUpdate(msTime, p_time);
+    switch(GetType())
+    {
+    case GAMEOBJECT_TYPE_DUEL_ARBITER:
+        _updateDuelState(msTime, p_time);
+        break;
+    }
+}
+
 void GameObject::OnFieldUpdated(uint16 index)
 {
     if(GetType() == GAMEOBJECT_TYPE_CHAIR && index == OBJECT_FIELD_SCALE_X)
@@ -225,12 +236,14 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
     _duelUpdateDiff += p_diff;
     if(_duelUpdateDiff < 1000)
         return;
+    uint32 duelDiff = _duelUpdateDiff;
+    _duelUpdateDiff = 0;
 
     switch(m_duelState->duelState)
     {
     case DUEL_STATE_REQUESTED:
         {
-            m_duelState->duelCounter[1] += _duelUpdateDiff;
+            m_duelState->duelCounter[1] += duelDiff;
             if(m_duelState->duelCounter[1] > 60000)
             {
                 m_duelState->duelState = DUEL_STATE_FINISHED;
@@ -238,7 +251,9 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
             }
         }break;
     case DUEL_STATE_STARTED:
-        if(m_duelState->duelCounter[0] <= _duelUpdateDiff)
+        if (m_duelState->duelCounter[0] == 0)
+            m_duelState->duelCounter[0] = 3000;
+        else if(m_duelState->duelCounter[0] <= duelDiff)
         {
             m_duelState->duelState = DUEL_STATE_OCCURING;
             m_duelState->duelCounter[0] = m_duelState->duelCounter[1] = 0;
@@ -248,11 +263,11 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
                 plr->SetUInt32Value(PLAYER_DUEL_TEAM, 1);
             if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[1]))
                 plr->SetUInt32Value(PLAYER_DUEL_TEAM, 2);
-        } else m_duelState->duelCounter[0] -= _duelUpdateDiff;
+        } else m_duelState->duelCounter[0] -= duelDiff;
         break;
     case DUEL_STATE_OCCURING:
         {
-            Player *winner = NULL;
+            WoWGuid winGuid;
             uint8 errorOut = DUEL_WINNER_DECIDING;
             Player *player1 = m_mapInstance->GetPlayer(m_duelState->duelists[0]), *player2 = m_mapInstance->GetPlayer(m_duelState->duelists[1]);
             if(player1 == NULL || !player1->IsInWorld() || player2 == NULL || !player2->IsInWorld())
@@ -260,10 +275,7 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
             Player *duelists[2] = { player1, player2 };
 
             if(!m_duelState->quitter.empty())
-            {
-                m_duelState->duelState = DUEL_STATE_FINISHED;
-                winner = (m_duelState->quitter == m_duelState->duelists[0] ? player2 : player1);
-            }
+                winGuid = m_duelState->duelists[(m_duelState->quitter == m_duelState->duelists[0] ? 1 : 0)];
             else
             {
                 if(errorOut == DUEL_WINNER_DECIDING)
@@ -278,13 +290,13 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
                                 duelists[i]->PushData(SMSG_DUEL_OUTOFBOUNDS);
                                 m_duelState->duelCounter[i] = 10000;
                             }
-                            else if(m_duelState->duelCounter[i] <= _duelUpdateDiff || distance >= 1900.f)
+                            else if(m_duelState->duelCounter[i] <= duelDiff || distance >= 1900.f)
                             {
                                 m_duelState->duelCounter[i] = 1;
                                 errorOut = DUEL_WINNER_RETREAT;
-                                winner = duelists[i == 0 ? 1 : 0];
+                                winGuid = m_duelState->duelists[i == 0 ? 1 : 0];
                                 break; // End our loop here since duel is over
-                            } else m_duelState->duelCounter[i] -= _duelUpdateDiff;
+                            } else m_duelState->duelCounter[i] -= duelDiff;
                         }
                         else
                         {
@@ -294,16 +306,62 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
                         }
                     }
                 }
+            }
 
-                if(errorOut != DUEL_WINNER_DECIDING)
+            if(!winGuid.empty())
+            {
+                m_duelState->duelCounter[0] = m_duelState->duelCounter[1] = 0;
+                m_duelState->duelState = DUEL_STATE_FINISHED;
+                uint8 winnerIndex = (winGuid == m_duelState->duelists[0] ? 0 : 1), loserIndex = (winnerIndex == 0 ? 1 : 0);
+
+                //Announce Winner
+                WorldPacket duelWinner( SMSG_DUEL_WINNER, 500 );
+                duelWinner << uint8( DUEL_WINNER_RETREAT );
+                duelWinner << m_duelState->duelistNames[winnerIndex].c_str();
+                duelWinner << m_duelState->duelistNames[loserIndex].c_str();
+                SendMessageToSet( &duelWinner, true );
+
+                static uint8 complete = 1; // Duel complete
+                for(uint8 i = 0; i < 2; ++i)
                 {
-                    m_duelState->duelState = DUEL_STATE_FINISHED;
+                    uint8 tI = i == 0 ? 1 : 0;
+                    if(Player *plr = duelists[i])
+                    {
+                        plr->SetUInt32Value(PLAYER_DUEL_TEAM, 0);
+                        plr->SetUInt32Value(PLAYER_DUEL_ARBITER, 0);
+                        plr->PushData(SMSG_DUEL_COMPLETE, 1, &complete);
+
+                        // Stop victim attack
+                        if(plr->checkAttackTarget(m_duelState->duelists[tI]))
+                            plr->EventAttackStop();
+                    }
                 }
             }
         }break;
     case DUEL_STATE_FINISHED:
-        Cleanup();
-        break;
+        {
+            if(m_duelState->duelCounter[0] == 0)
+            {
+                m_duelState->duelCounter[0] = 3000;
+                // Cleanup duel information for players and arbiter
+                if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[0]))
+                    plr->SetDuel(NULL);
+                if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[1]))
+                    plr->SetDuel(NULL);
+                // Send destroy animation packet to inrange
+                WorldPacket data(SMSG_DESTROY_OBJECT, 9);
+                data << GetGUID() << uint8(1);
+                SendMessageToSet(&data, false);
+                // Use deactivate to queue destruction
+                Deactivate(1000);
+            }
+            else if(m_duelState->duelCounter[0] <= duelDiff)
+            {
+                delete m_duelState;
+                m_duelState = NULL;
+                Cleanup();
+            } else m_duelState->duelCounter[0] -= duelDiff;
+        }break;
     }
 }
 
@@ -561,20 +619,30 @@ void GameObject::InitializeDuelData(Player *player1, Player *player2)
     if(m_duelState)
         return;
 
+    // Construct our new duel state pointer
     m_duelState = new DuelStorage();
     m_duelState->duelCounter[0] = 3000;
     m_duelState->duelCounter[1] = 0;
     m_duelState->duelState = 0;
     m_duelState->duelists[0] = player1->GetGUID();
     m_duelState->duelists[1] = player2->GetGUID();
+    m_duelState->duelistNames[0] = player1->GetName();
+    m_duelState->duelistNames[1] = player2->GetName();
 
+    // Link duel state to our players
+    player1->SetDuel(m_duelState);
+    player2->SetDuel(m_duelState);
+
+    // Set player arbiter
+    player1->SetUInt64Value(PLAYER_DUEL_ARBITER, GetGUID());
+    player2->SetUInt64Value(PLAYER_DUEL_ARBITER, GetGUID());
+
+    // Set gameobject data
     SetUInt64Value(GAMEOBJECT_FIELD_CREATED_BY, player1->GetGUID());
     SetUInt32Value(GAMEOBJECT_FACTION, player1->GetFactionID());
     SetUInt32Value(GAMEOBJECT_LEVEL, player1->getLevel());
 
-    player1->SetUInt64Value(PLAYER_DUEL_ARBITER, GetGUID());
-    player2->SetUInt64Value(PLAYER_DUEL_ARBITER, GetGUID());
-
+    // Initialize duel by sending request packet
     WorldPacket data(SMSG_DUEL_REQUESTED, 16);
     data << GetGUID();
     data << player1->GetGUID();
@@ -587,6 +655,38 @@ void GameObject::DuelEnd(WorldObject *killer, Player *victim, uint8 status)
         return;
 
     m_duelState->duelState = DUEL_STATE_FINISHED;
+    // Grab our index to utilize stored duelists names
+    uint8 winnerIndex = ((victim->GetGUID() == m_duelState->duelists[0]) ? 1 : 0), loserIndex = (winnerIndex == 0 ? 1 : 0);
+
+    // Clear out victim data
+    victim->SetUInt32Value(PLAYER_DUEL_TEAM, 0);
+    victim->SetUInt64Value(PLAYER_DUEL_ARBITER, 0);
+
+    static uint8 complete = 1; // Duel complete
+    victim->PushData(SMSG_DUEL_COMPLETE, 1, &complete);
+
+    //Announce Winner
+    WorldPacket duelWinner( SMSG_DUEL_WINNER, 500 );
+    duelWinner << uint8( status );
+    duelWinner << m_duelState->duelistNames[winnerIndex].c_str();
+    duelWinner << m_duelState->duelistNames[loserIndex].c_str();
+    SendMessageToSet( &duelWinner, true );
+
+    if(Player *winner = m_mapInstance->GetPlayer(m_duelState->duelists[winnerIndex]))
+    {
+        // Stop winner attack
+        if(winner->checkAttackTarget(victim->GetGUID()))
+            winner->EventAttackStop();
+
+        // Clear winner team data
+        winner->SetUInt32Value(PLAYER_DUEL_TEAM, 0);
+        winner->SetUInt64Value(PLAYER_DUEL_ARBITER, 0);
+        // Duel complete
+        winner->PushData(SMSG_DUEL_COMPLETE, 1, &complete);
+        // Stop victim attack
+        if(victim->checkAttackTarget(winner->GetGUID()))
+            victim->EventAttackStop();
+    }
 }
 
 bool GameObject::IsInDuelRadius(LocationVector vec)
@@ -729,7 +829,7 @@ void GameObject::_LoadQuests()
 //guardians are temporary spawn that will inherit master faction and will folow them. Apart from that they have their own mind
 Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float angle, Unit* u_caster, uint8 Slot)
 {
-    Creature* p = GetMapInstance()->CreateCreature(WoWGuid(), guardian_entry);
+    Creature* p = GetMapInstance()->CreateCreature(guardian_entry);
     if(p == NULL)
     {
         sLog.outDebug("Warning : Missing summon creature template %u !",guardian_entry);
@@ -1171,7 +1271,7 @@ void GameObject::Use(Player *p)
                 return;
 
             /* Create the summoning portal */
-            GameObject* pGo = p->GetMapInstance()->CreateGameObject(0, 179944);
+            GameObject* pGo = p->GetMapInstance()->CreateGameObject(179944);
             if( pGo == NULL )
                 return;
             pGo->Load(p->GetMapId(), p->GetPositionX(), p->GetPositionY(), p->GetPositionZ(), p->GetOrientation());

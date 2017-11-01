@@ -858,7 +858,7 @@ uint32 ObjectCellManager::_getCellId(float pos)
 //===============================================
 // WorldObject class functions
 //===============================================
-WorldObject::WorldObject() : Object(), m_position(0,0,0,0), m_mapInstance(NULL), m_isManagedBulkSpawn(true) { }
+WorldObject::WorldObject() : Object(), m_position(0,0,0,0), m_mapInstance(NULL), m_isMarkedForCleanup(false), m_isManagedBulkSpawn(true) { }
 
 void WorldObject::Construct(WoWGuid guid, uint32 fieldCount)
 {

@@ -117,6 +117,8 @@ enum DuelWinnerTypes
 struct DuelStorage
 {
     WoWGuid duelists[2];
+    std::string duelistNames[2];
+
     uint32 duelCounter[2];
     uint8 duelState;
 
@@ -580,6 +582,8 @@ public:
     virtual void Destruct();
 
     virtual void Update(uint32 msTime, uint32 p_time);
+    virtual void InactiveUpdate(uint32 msTime, uint32 p_time);
+
     virtual void OnFieldUpdated(uint16 index);
 
     virtual bool IsGameObject() { return true; }

@@ -28,7 +28,7 @@ void WorldSession::HandleDuelAccepted(WorldPacket & recv_data)
     if( !_player->IsInDuel() )
         return;
     DuelStorage *storage = NULL;
-    if( !(storage = _player->GetDuelStorage())->duelState != DUEL_STATE_REQUESTED )
+    if( (storage = _player->GetDuelStorage())->duelState != DUEL_STATE_REQUESTED )
         return;
     // Only the person asked for a duel accepts so we should be using 0 but check anyway
     Player *target = _player->GetMapInstance()->GetPlayer(storage->duelists[_player->GetGUID() == storage->duelists[0] ? 1 : 0]);

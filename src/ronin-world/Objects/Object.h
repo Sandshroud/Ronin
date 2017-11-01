@@ -583,6 +583,7 @@ public:
 
     void MarkForCleanup() { m_isMarkedForCleanup = true; }
     bool IsBulkSpawn() { return m_isManagedBulkSpawn; }
+    void MarkNonBulk() { m_isManagedBulkSpawn = false; }
 
 protected:
     void _Create( uint32 mapid, float x, float y, float z, float ang);

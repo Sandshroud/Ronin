@@ -379,7 +379,8 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
                     errorOut =SPELL_FAILED_BAD_TARGETS;
                     return false;
                 }
-            } else if(sFactionSystem.CanEitherUnitAttack(p_caster, unitTarget, false))
+            } // Temporarily disabled
+            else if(false && sFactionSystem.CanEitherUnitAttack(p_caster, unitTarget, false))
             {
                 errorOut =SPELL_FAILED_BAD_TARGETS;
                 return false;
@@ -452,20 +453,6 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         {
             errorOut =SPELL_FAILED_EQUIPPED_ITEM_CLASS;
             return false;
-        }
-
-        if(p_caster->IsInDuel() && unitTarget && unitTarget->IsPlayer() && p_caster->GetDuelStorage() == castPtr<Player>(unitTarget)->GetDuelStorage())
-        {
-            for(uint8 i = 0; i < 3; i++)
-            {
-                if( sp->Effect[i] && sp->Effect[i] != SPELL_EFFECT_APPLY_AURA
-                    && sp->Effect[i] != SPELL_EFFECT_APPLY_PET_AURA
-                    && sp->Effect[i] != SPELL_EFFECT_APPLY_AREA_AURA)
-                {
-                    errorOut =SPELL_FAILED_TARGET_DUELING;
-                    return false;
-                }
-            }
         }
 
         // check for duel areas

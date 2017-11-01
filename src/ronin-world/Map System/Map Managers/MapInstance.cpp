@@ -1638,7 +1638,7 @@ void MapInstance::_PerformCombatUpdates(uint32 msTime, uint32 uiDiff)
         Unit *unit1 = GetUnit(itr->first.first), *unit2 = GetUnit(itr->first.second);
         if(unit1 == NULL || unit2 == NULL)
             toDelete = true;
-        else if(!(unit1->ValidateAttackTarget(itr->first.second) || unit2->ValidateAttackTarget(itr->first.first)))
+        else if(!(unit1->checkAttackTarget(itr->first.second) || unit2->checkAttackTarget(itr->first.first)))
             toDelete = true;
         else if(itr->second == 0)
             toDelete = true;
@@ -2128,10 +2128,8 @@ void MapInstance::HookOnAreaTrigger(Player* plr, uint32 id)
     }
 }
 
-Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
+Creature* MapInstance::CreateCreature(uint32 entry)
 {
-    if(!guid.empty())
-        entry = guid.getEntry();
     CreatureData *ctrData = sCreatureDataMgr.GetCreatureData(entry);
     if(ctrData == NULL || !ctrData->HasValidModelData())
     {
@@ -2139,17 +2137,12 @@ Creature* MapInstance::CreateCreature(WoWGuid guid, uint32 entry)
         return NULL;
     }
 
-    m_objectCreationLock.Acquire();
-    uint16 highGuid = (ctrData->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT);
-    if(guid.empty() && IsInstance())
-        guid = MAKE_NEW_GUID(sInstanceMgr.AllocateCreatureGuid(), entry, highGuid);
-    else if(guid.empty())
-        guid = MAKE_NEW_GUID(++m_CreatureHighGuid, entry, highGuid);
-    ASSERT( guid.getHigh() == highGuid );
-    m_objectCreationLock.Release();
     Creature *cr = new Creature();
-    cr->Construct(ctrData, guid);
+    m_objectCreationLock.Acquire();
+    cr->Construct(ctrData, MAKE_NEW_GUID((IsInstance() ? sInstanceMgr.AllocateCreatureGuid() : ++m_CreatureHighGuid), entry, (ctrData->vehicleEntry > 0 ? HIGHGUID_TYPE_VEHICLE : HIGHGUID_TYPE_UNIT)));
+    m_objectCreationLock.Release();
     cr->Init();
+    cr->MarkNonBulk();
     return cr;
 }
 
@@ -2178,21 +2171,18 @@ Summon* MapInstance::CreateSummon(uint32 entry, int32 duration)
     m_objectCreationLock.Release();
 
     sum->Init();
-    ASSERT( sum->GetHighGUID() == HIGHGUID_TYPE_UNIT );
+    sum->MarkNonBulk();
     return sum;
 }
 
-GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
+GameObject* MapInstance::CreateGameObject(uint32 entry)
 {
-    if(!guid.empty())
-        entry = guid.getEntry();
     GameObjectInfo *goi = GameObjectNameStorage.LookupEntry( entry );
     if( goi == NULL )
     {
         sLog.Warning("MapInstance", "Skipping CreateGameObject for entry %u due to incomplete database.", entry);
         return NULL;
     }
-    ASSERT( guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT );
 
     GameObject *go = new GameObject();
     m_objectCreationLock.Acquire();
@@ -2200,6 +2190,7 @@ GameObject* MapInstance::CreateGameObject(WoWGuid guid, uint32 entry)
     m_objectCreationLock.Release();
 
     go->Init();
+    go->MarkNonBulk();
     return go;
 }
 
@@ -2221,7 +2212,7 @@ DynamicObject* MapInstance::AllocateDynamicObject(WoWGuid source)
     m_objectCreationLock.Release();
 
     dyn->Init();
-    ASSERT( dyn->GetHighGUID() == HIGHGUID_TYPE_DYNAMICOBJECT );
+    dyn->MarkNonBulk();
     return dyn;
 }
 
