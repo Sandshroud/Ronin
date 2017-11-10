@@ -555,7 +555,7 @@ class PowerUpdateCallback : public AuraInterface::ModCallback
 public:
     virtual void operator()(Modifier *mod)
     {
-        if(_basePowers.find(mod->m_miscValue[0]) == _basePowers.end())
+        if(mod->m_miscValue[0] >= POWER_TYPE_RUNIC || _basePowers.find(mod->m_miscValue[0]) == _basePowers.end())
             return;
 
         switch(mod->m_type)
@@ -574,9 +574,6 @@ public:
         bool hasMana = false;
         for(std::vector<uint8>::iterator itr = classPower->begin(); itr != classPower->end(); itr++)
         {
-            if((*itr) > POWER_TYPE_RUNIC)
-                continue;
-
             uint32 basePower = basePowers[*itr];
             // Set mana base value
             if((*itr) == POWER_TYPE_MANA)
@@ -1971,8 +1968,8 @@ uint32 Unit::GetSpellDidHitResult( Unit* pVictim, BaseSpell* pSpell, float *resi
     if(resistOut) *resistOut = 0.f;
     if(reflectout) *reflectout = SPELL_DID_HIT_MISS;
 
-    // Melee spells ignore hit checks because of previously called melee hit checks
-    if(!m_spellEntry->IsSpellMeleeSpell())
+    // Weapon spells ignore hit checks because of previously called melee hit checks
+    if(!m_spellEntry->IsSpellWeaponSpell())
     {
         // Calculate our spell miss chance
         float hitChance = 100.f, baseMiss[3] = { 4.0f, 5.0f, 6.0f };
@@ -2437,8 +2434,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                     if(damage_reduction > 0)
                         dmg.full_damage = float2int32(damage_reduction * float(dmg.full_damage));
                     hit_status |= HITSTATUS_GLANCING;
-                }
-                break;
+                }break;
 //--------------------------------block-----------------------------------------------------
             case 4:
                 {
@@ -2469,8 +2465,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
                             pVictim->SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK);  //SB@L: Enables spells requiring dodge
                     }
-                }
-                break;
+                }break;
 //--------------------------------critical hit----------------------------------------------
             case 5:
                 {
@@ -2656,6 +2651,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         val *= 10;
 
         pVictim->ModPower(POWER_TYPE_RAGE, (int32)val );
+        SendPowerUpdate();
     }
 
     m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_START_ATTACK);
@@ -3685,11 +3681,7 @@ uint32 Unit::GetMaxPower(EUnitFields field)
 void Unit::ModPower(EUnitFields field, int32 value)
 {
     EUnitFields maxfield = EUnitFields(field+(UNIT_FIELD_MAXPOWERS-UNIT_FIELD_POWERS));
-    int32 val = GetUInt32Value(field)+value;
-    if(val < 0.0f) val = 0.0f;
-    if(val > GetUInt32Value(maxfield))
-        val = GetUInt32Value(maxfield);
-    SetUInt32Value(field, val);
+    SetUInt32Value(field, std::min<int32>(std::max<int32>(0, ((int32)GetUInt32Value(field)) + value), GetUInt32Value(maxfield)));
 }
 
 void Unit::SetPower(EUnitFields field, uint32 value)

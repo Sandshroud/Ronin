@@ -1191,7 +1191,9 @@ struct SpellEntry
 
     // Combo
     bool IsSpellChannelSpell() { return (isChanneledSpell() || isChanneledSpell2() || ChannelInterruptFlags); }
-    bool IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
+    // DEPRICATED: Only used in startup for defining spell type
+    bool _IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
+    // Use to check if spell is melee/ranged spell
     bool IsSpellWeaponSpell() { return spellType <= 3; }
 
     bool isSpellAuraApplicator(uint32 effIndex) { return EffectApplyAuraName[effIndex] != 0; }

@@ -883,7 +883,7 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
     }
 
     sp->spellType = NON_WEAPON;
-    if(sp->IsSpellMeleeSpell() || (sp->Spell_Dmg_Type == SPELL_DMG_TYPE_MELEE))
+    if(sp->_IsSpellMeleeSpell() || (sp->Spell_Dmg_Type == SPELL_DMG_TYPE_MELEE))
         sp->spellType = sp->reqOffHandWeapon() ? OFFHAND : MELEE;
     else if(sp->reqAmmoForSpell() || sp->reqWandForSpell() || (sp->Spell_Dmg_Type == SPELL_DMG_TYPE_RANGED))
         sp->spellType = RANGED;
