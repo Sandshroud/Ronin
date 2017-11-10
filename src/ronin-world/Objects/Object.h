@@ -263,6 +263,7 @@ public:
     virtual bool IsSummon() { return false; }
     virtual bool IsVehicle() { return false; }
     virtual bool IsTransport() { return false; }
+    virtual bool IsSummonerPlayer() { return false; }
 
     template<typename T> RONIN_INLINE bool IsType() { return false; }
     template<> RONIN_INLINE bool IsType<Unit>() { return IsUnit(); }

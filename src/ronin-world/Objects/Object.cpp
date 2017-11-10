@@ -301,7 +301,7 @@ uint32 Object::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target)
 {
     uint8 updatetype = UPDATETYPE_CREATE_OBJECT;
     // Players or player linked units
-    if(IsPlayer() || IsCorpse() || IsDynamicObj() || IsTotem() || IsSummon())
+    if(IsPlayer() || IsCorpse() || ((IsDynamicObj() || IsTotem() || IsSummon()) && IsSummonerPlayer()))
         updatetype = UPDATETYPE_CREATE_PLAYEROBJ;
 
     uint16 updateFlags = m_updateFlags;

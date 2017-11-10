@@ -234,7 +234,7 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
         return;
 
     _duelUpdateDiff += p_diff;
-    if(_duelUpdateDiff < 1000)
+    if(_duelUpdateDiff < 1000 && IsActivated())
         return;
     uint32 duelDiff = _duelUpdateDiff;
     _duelUpdateDiff = 0;
@@ -244,11 +244,8 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
     case DUEL_STATE_REQUESTED:
         {
             m_duelState->duelCounter[1] += duelDiff;
-            if(m_duelState->duelCounter[1] > 60000)
-            {
+            if(!m_duelState->quitter.empty() || m_duelState->duelCounter[1] > 60000)
                 m_duelState->duelState = DUEL_STATE_FINISHED;
-                m_duelState->duelCounter[1] = 0;
-            }
         }break;
     case DUEL_STATE_STARTED:
         if (m_duelState->duelCounter[0] == 0)
@@ -315,11 +312,11 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
                 uint8 winnerIndex = (winGuid == m_duelState->duelists[0] ? 0 : 1), loserIndex = (winnerIndex == 0 ? 1 : 0);
 
                 //Announce Winner
-                WorldPacket duelWinner( SMSG_DUEL_WINNER, 500 );
-                duelWinner << uint8( DUEL_WINNER_RETREAT );
-                duelWinner << m_duelState->duelistNames[winnerIndex].c_str();
-                duelWinner << m_duelState->duelistNames[loserIndex].c_str();
-                SendMessageToSet( &duelWinner, true );
+                WorldPacket data( SMSG_DUEL_WINNER, 500 );
+                data << uint8( DUEL_WINNER_RETREAT );
+                data << m_duelState->duelistNames[winnerIndex].c_str();
+                data << m_duelState->duelistNames[loserIndex].c_str();
+                SendMessageToSet(&data, true);
 
                 static uint8 complete = 1; // Duel complete
                 for(uint8 i = 0; i < 2; ++i)
@@ -342,18 +339,20 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
         {
             if(m_duelState->duelCounter[0] == 0)
             {
-                m_duelState->duelCounter[0] = 3000;
+                // Set our cleanup counter
+                m_duelState->duelCounter[0] = 2000;
                 // Cleanup duel information for players and arbiter
-                if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[0]))
+                Player *plr;
+                if((plr = m_mapInstance->GetPlayer(m_duelState->duelists[0])) && plr->GetDuelStorage() == m_duelState)
                     plr->SetDuel(NULL);
-                if(Player *plr = m_mapInstance->GetPlayer(m_duelState->duelists[1]))
+                if((plr = m_mapInstance->GetPlayer(m_duelState->duelists[1])) && plr->GetDuelStorage() == m_duelState)
                     plr->SetDuel(NULL);
-                // Send destroy animation packet to inrange
-                WorldPacket data(SMSG_DESTROY_OBJECT, 9);
-                data << GetGUID() << uint8(1);
-                SendMessageToSet(&data, false);
+                // Send despawn animation packet to inrange
+                WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
+                data << GetGUID();
+                SendMessageToSet(&data, true);
                 // Use deactivate to queue destruction
-                Deactivate(1000);
+                Deactivate(10000);
             }
             else if(m_duelState->duelCounter[0] <= duelDiff)
             {
