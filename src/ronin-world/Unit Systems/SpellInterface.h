@@ -53,4 +53,19 @@ private:
     Spell* m_currentSpell, *m_nextMeleeSpell;
 
     SpellEntry *m_lastSpell;
+
+protected: // Proc related functions
+    friend class SpellProcManager;
+
+    void AddProcData(SpellProcData *procData);
+    void RemoveProcData(SpellProcData *procData);
+
+    bool CanTriggerProc(SpellProcData *procData, time_t triggerTime, uint32 msTime);
+    void TriggerProc(SpellProcData *procData, Unit *target);
+
+    std::set<SpellProcData*>::iterator beginProcData() { return m_spellProcData.begin(); }
+    std::set<SpellProcData*>::iterator endProcData() { return m_spellProcData.end(); }
+
+private:
+    std::set<SpellProcData*> m_spellProcData;
 };

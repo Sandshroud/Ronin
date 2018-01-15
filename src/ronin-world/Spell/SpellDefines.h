@@ -64,6 +64,23 @@ enum AURA_STATE_FLAGS
     AURASTATE_FLAG_HEALTHABOVE75        = 0x00400000,
 };
 
+struct Modifier
+{
+    // SpellEffect index
+    uint32 i;
+    // Modifier values
+    uint32 m_type;          // What does it modify? (str,int,hp)
+    int32 m_amount;         // By how much does it mod? always should be m_baseAmount * stackSize + bonusAmount
+    int32 m_baseAmount;     // amount per one stack
+    uint32 m_miscValue[2];  // Misc Value
+    uint32 m_bonusAmount;   // Calculated bonus amount at application
+    /// For storing custom values in the mod
+    int32 fixed_amount;
+    float fixed_float_amount;
+    // Base spell data
+    SpellEntry *m_spellInfo;
+};
+
 enum MOD_TYPES
 {
     SPELL_AURA_NONE = 0,

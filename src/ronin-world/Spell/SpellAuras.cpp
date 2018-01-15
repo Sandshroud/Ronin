@@ -877,6 +877,9 @@ void Aura::SpellAuraPeriodicDamage(bool apply)
 
 void Aura::SpellAuraDummy(bool apply)
 {
+    if(sSpellProcMgr.HandleAuraProcTriggerDummy(m_target, m_spellProto, mod, apply))
+        return;
+
     switch(m_spellProto->NameHash)
     {
     case SPELL_HASH_DEATH_AND_DECAY:
@@ -1123,12 +1126,12 @@ void Aura::SpellAuraModDispelImmunity(bool apply)
 
 void Aura::SpellAuraProcTriggerSpell(bool apply)
 {
-    // Todo:PROC
+    sSpellProcMgr.HandleAuraProcTriggerSpell(m_target, m_spellProto, mod, apply);
 }
 
 void Aura::SpellAuraProcTriggerDamage(bool apply)
 {
-    // Todo:PROC
+    sSpellProcMgr.HandleAuraProcTriggerDamage(m_target, m_spellProto, mod, apply);
 }
 
 void Aura::SpellAuraTrackCreatures(bool apply)

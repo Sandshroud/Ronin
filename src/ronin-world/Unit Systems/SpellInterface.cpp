@@ -997,3 +997,25 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
 
     return true;
 }
+
+void SpellInterface::AddProcData(SpellProcData *procData)
+{
+    m_spellProcData.insert(procData);
+}
+
+void SpellInterface::RemoveProcData(SpellProcData *procData)
+{
+    m_spellProcData.erase(procData);
+}
+
+bool SpellInterface::CanTriggerProc(SpellProcData *procData, time_t triggerTime, uint32 msTime)
+{
+    return true;
+}
+
+void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
+{
+    if(m_spellProcData.find(procData) == m_spellProcData.end())
+        return;
+
+}

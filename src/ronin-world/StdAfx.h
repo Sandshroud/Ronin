@@ -132,6 +132,7 @@ extern size_t __line__;
 #include "SpellNameHashes.h"
 #include "SpellDefines.h"
 #include "SpellManager.h"
+#include "SpellProcManager.h"
 #include "EventHandler.h"
 #include "LootMgr.h"
 #include "SmartBoundBox.h"

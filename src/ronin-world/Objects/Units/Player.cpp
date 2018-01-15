@@ -2374,6 +2374,9 @@ void Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
 
     if(allowGuildXP) // Increase guild XP if we can
         guildmgr.GuildGainXP(this, xp);
+
+    // Proc manager for gaining XP
+    sSpellProcMgr.QuickProcessProcs(this, 0);
 }
 
 void Player::smsg_InitialSpells()

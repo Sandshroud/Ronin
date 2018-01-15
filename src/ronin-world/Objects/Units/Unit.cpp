@@ -2238,6 +2238,9 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
     uint32 vstate           = 1;
 
+    uint32 procFlags        = PROC_ON_STRIKE;
+    uint32 victimFlags      = PROC_ON_STRIKE_VICTIM;
+
     float hitmodifier       = 0;
     uint32 SubClassSkill    = SKILL_UNARMED;
 
@@ -2549,7 +2552,19 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         hit_status |= HITSTATUS_ABSORBED;
     }*/
 
-//--------------------------split damage-----------------------------------------------
+//---------------------------Proc handling--------------------------------------------------
+    if( !disable_proc )
+    {
+        // Pass our proc flags to our manager
+        if(uint32 resisted_dmg = sSpellProcMgr.ProcessProcFlags(this, pVictim, procFlags, victimFlags, ability, realdamage, abs, weapon_damage_type))
+        {
+            dmg.resisted_damage += resisted_dmg;
+            dmg.full_damage -= resisted_dmg;
+            realdamage -= resisted_dmg;
+        }
+    }
+
+//----------------------------split damage--------------------------------------------------
 
 //--------------------------spells triggering-----------------------------------------------
 
