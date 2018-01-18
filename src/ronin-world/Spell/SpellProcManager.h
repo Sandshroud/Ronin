@@ -78,6 +78,9 @@ public:
     // Register a proc data function
     void RegisterProcData(SpellEntry *sp, SpellProcData *procData);
 
+    // Checks proc data
+    bool ProcDataMatches(SpellEntry *sp, uint8 inputType, uint8 inputModifier, uint16 expectedModifier);
+
     // Returns proc data for spell entry pointer
     SpellProcData *GetSpellProcData(SpellEntry *sp);
 

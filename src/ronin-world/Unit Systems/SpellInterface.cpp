@@ -1029,7 +1029,7 @@ void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
         case SPELL_AURA_PROC_TRIGGER_SPELL_2:
             {
                 if(SpellEntry *triggeredSpell = dbcSpell.LookupEntry(proto->EffectTriggerSpell[j]))
-                    TriggerSpell(triggeredSpell, triggeredSpell->isSpellSelfCastOnly() ? m_Unit : target);
+                    TriggerSpell(triggeredSpell, ((target == NULL || triggeredSpell->isSpellSelfCastOnly()) ? m_Unit : target));
             }break;
         }
     }

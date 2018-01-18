@@ -84,6 +84,20 @@ void SpellProcManager::RegisterProcData(SpellEntry *sp, SpellProcData *procData)
     m_spellProcData.insert(std::make_pair(sp->Id, procData));
 }
 
+bool SpellProcManager::ProcDataMatches(SpellEntry *sp, uint8 inputType, uint8 inputModifier, uint16 expectedModifier)
+{
+    switch(inputType)
+    {
+    case PROC_ON_KILL:
+        {   // Proc on kills have modifiers for requiring XP
+            if(expectedModifier & PROC_ON_KILL_GRANTS_XP && (inputType & PROC_ON_KILL_GRANTS_XP) == 0)
+                return false;
+        }break;
+    }
+
+    return true;
+}
+
 SpellProcData *SpellProcManager::GetSpellProcData(SpellEntry *sp)
 {
     std::map<uint32, SpellProcData*>::iterator itr;
@@ -146,7 +160,8 @@ public:
     bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods)
     {
         if(expectedTypes[procIdentifier].find(procType) != expectedTypes[procIdentifier].end())
-            return true;
+            if(sSpellProcMgr.ProcDataMatches(GetSpellProto(), procType, procMods, expectedTypes[procIdentifier][procType]))
+                return true;
 
         return false;
     }
@@ -155,7 +170,7 @@ public:
     bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs)
     {
         for(auto itr = expectedTypes[procIdentifier].begin(); itr != expectedTypes[procIdentifier].end(); ++itr)
-            if(procPairs.find(itr->first) != procPairs.end())
+            if(procPairs.find(itr->first) != procPairs.end() && sSpellProcMgr.ProcDataMatches(GetSpellProto(), itr->first, procPairs[itr->first], itr->second))
                 return true;
         return false;
     }
@@ -168,7 +183,7 @@ public:
     void Initialize()
     {
         if(GetSpellProto()->procFlags & PROC_FLAG_KILL)
-            expectedTypes[PROCD_CASTER].insert(std::make_pair(PROC_ON_KILL, PROC_ON_KILL_MODIFIER_NONE));
+            expectedTypes[PROCD_CASTER].insert(std::make_pair(PROC_ON_KILL, PROC_ON_KILL_GRANTS_XP));
 
     }
 
@@ -202,6 +217,8 @@ void InitializeBaseSpellProcData(SpellProcManager *manager)
                 }
             }
 
+            if(procData == NULL)
+                continue;
             procData->Initialize();
         }
     }
