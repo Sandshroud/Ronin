@@ -17,27 +17,28 @@ SpellProcManager::~SpellProcManager()
 }
 
 void InitializeBaseSpellProcData(SpellProcManager *manager);
-void SpellProcManager::Initialize()
+
+void SpellProcManager::InitProcData()
 {
     InitializeBaseSpellProcData(this);
 
 }
 
-void SpellProcManager::QuickProcessProcs(Unit *caster, uint32 procFlag)
+void SpellProcManager::QuickProcessProcs(Unit *caster, uint8 procType, uint16 procMods)
 {
     for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, caster, NULL, procFlag) && caster->GetSpellInterface()->CanTriggerProc(*itr, 0, 0))
+        if((*itr)->canProc(PROCD_CASTER, caster, NULL, procType, procMods) && caster->GetSpellInterface()->CanTriggerProc(*itr, 0, 0))
             caster->GetSpellInterface()->TriggerProc(*itr, NULL);
 }
 
-uint32 SpellProcManager::ProcessProcFlags(Unit *caster, Unit *target, uint32 procFlags, uint32 victimFlags, SpellEntry *fromAbility, int32 &realDamage, uint32 &absoluteDamage, uint8 weaponDamageType)
+uint32 SpellProcManager::ProcessProcFlags(Unit *caster, Unit *target, std::map<uint8, uint16> procPairs, std::map<uint8, uint16> vProcPairs, SpellEntry *fromAbility, int32 &realDamage, uint32 &absoluteDamage, uint8 weaponDamageType)
 {
     std::vector<SpellProcData*> casterProcs, victimProcs;
     for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, caster, fromAbility, procFlags) && caster->GetSpellInterface()->CanTriggerProc(*itr, 0, 0))
+        if((*itr)->canProc(PROCD_CASTER, caster, fromAbility, procPairs) && caster->GetSpellInterface()->CanTriggerProc(*itr, 0, 0))
             casterProcs.push_back(*itr);
     for(std::set<SpellProcData*>::iterator itr = target->GetSpellInterface()->beginProcData(); itr != target->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, target, fromAbility, procFlags) && target->GetSpellInterface()->CanTriggerProc(*itr, 0, 0))
+        if((*itr)->canProc(PROCD_CASTER, target, fromAbility, vProcPairs) && target->GetSpellInterface()->CanTriggerProc(*itr, 0, 0))
             victimProcs.push_back(*itr);
 
     for(std::vector<SpellProcData*>::iterator itr = casterProcs.begin(); itr != casterProcs.end(); ++itr)
@@ -56,6 +57,7 @@ bool SpellProcManager::HandleAuraProcTriggerDummy(Unit *target, SpellEntry *spel
     if((data = GetSpellProcData(spellProto)) == NULL)
         return false;
 
+    target->GetSpellInterface()->AddProcData(data);
     return data->endsDummycheck();
 }
 
@@ -64,7 +66,7 @@ void SpellProcManager::HandleAuraProcTriggerSpell(Unit *target, SpellEntry *spel
     SpellProcData *data = NULL;
     if((data = GetSpellProcData(spellProto)) == NULL)
         return;
-
+    target->GetSpellInterface()->AddProcData(data);
 }
 
 void SpellProcManager::HandleAuraProcTriggerDamage(Unit *target, SpellEntry *spellProto, Modifier *auraMod, bool apply)
@@ -72,7 +74,7 @@ void SpellProcManager::HandleAuraProcTriggerDamage(Unit *target, SpellEntry *spe
     SpellProcData *data = NULL;
     if((data = GetSpellProcData(spellProto)) == NULL)
         return;
-
+    target->GetSpellInterface()->AddProcData(data);
 }
 
 void SpellProcManager::RegisterProcData(SpellEntry *sp, SpellProcData *procData)
@@ -137,13 +139,24 @@ enum DBCProcFlags
 class DefaultSpellProcData : public SpellProcData
 {
 public:
-    DefaultSpellProcData(SpellEntry *sp) : SpellProcData(sp) { expectedFlags[0] = expectedFlags[1] = 0; }
+    DefaultSpellProcData(SpellEntry *sp) : SpellProcData(sp) {}
     ~DefaultSpellProcData() {};
 
     // Can proc processing
-    bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, uint32 procInputFlags)
+    bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods)
     {
+        if(expectedTypes[procIdentifier].find(procType) != expectedTypes[procIdentifier].end())
+            return true;
 
+        return false;
+    }
+
+    // Can proc processing
+    bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs)
+    {
+        for(auto itr = expectedTypes[procIdentifier].begin(); itr != expectedTypes[procIdentifier].end(); ++itr)
+            if(procPairs.find(itr->first) != procPairs.end())
+                return true;
         return false;
     }
 
@@ -154,11 +167,13 @@ public:
 
     void Initialize()
     {
+        if(GetSpellProto()->procFlags & PROC_FLAG_KILL)
+            expectedTypes[PROCD_CASTER].insert(std::make_pair(PROC_ON_KILL, PROC_ON_KILL_MODIFIER_NONE));
 
     }
 
 private:
-    uint32 expectedFlags[PROCD_COUNT];
+    std::map<uint8, uint16> expectedTypes[PROCD_COUNT];
 };
 
 void InitializeBaseSpellProcData(SpellProcManager *manager)

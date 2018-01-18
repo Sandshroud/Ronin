@@ -1018,4 +1018,19 @@ void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
     if(m_spellProcData.find(procData) == m_spellProcData.end())
         return;
 
+    SpellEntry *proto = procData->GetSpellProto();
+    for(uint8 j = 0; j < 3; ++j)
+    {
+        switch(proto->EffectApplyAuraName[j])
+        {
+        case SPELL_AURA_PROC_TRIGGER_SPELL:
+        case SPELL_AURA_PROC_TRIGGER_DAMAGE:
+        case SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE:
+        case SPELL_AURA_PROC_TRIGGER_SPELL_2:
+            {
+                if(SpellEntry *triggeredSpell = dbcSpell.LookupEntry(proto->EffectTriggerSpell[j]))
+                    TriggerSpell(triggeredSpell, triggeredSpell->isSpellSelfCastOnly() ? m_Unit : target);
+            }break;
+        }
+    }
 }

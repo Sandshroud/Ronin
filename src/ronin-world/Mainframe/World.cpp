@@ -269,6 +269,9 @@ void World::Destruct()
     sLog.Notice("SpellManager", "~SpellManager()");
     delete SpellManager::getSingletonPtr();
 
+    sLog.Notice("SpellProcManager", "~SpellProcManager()");
+    delete SpellProcManager::getSingletonPtr();
+
     sLog.Notice("TicketMgr", "~TicketMgr()");
     delete TicketMgr::getSingletonPtr();
 
@@ -518,6 +521,7 @@ bool World::SetInitialWorldSettings()
 
     new AchievementMgr();
     new SpellManager();
+    new SpellProcManager();
     new ObjectMgr();
     new QuestMgr();
     new GossipManager();
@@ -566,6 +570,7 @@ bool World::SetInitialWorldSettings()
     tl.wait();
 
     MAKE_TASK(SpellManager, LoadSpellFixes);
+    MAKE_TASK(SpellProcManager, InitProcData);
     MAKE_TASK(GuildMgr, LoadAllGuilds);
     MAKE_TASK(GuildMgr, LoadGuildCharters);
     MAKE_TASK(AchievementMgr, ParseAchievements);

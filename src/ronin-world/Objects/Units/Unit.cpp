@@ -1812,18 +1812,18 @@ void Unit::setLevel(uint32 level)
                 baseStats = NULL;
 }
 
-void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
+bool Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
 {
     if(!PlayerInGroup)
-        return;
+        return false;
     if(!pVictim)
-        return;
+        return false;
     if(!PlayerInGroup->InGroup())
-        return;
+        return false;
+
     Group *pGroup = PlayerInGroup->GetGroup();
-    uint32 xp = 0;
-    if(!pGroup)
-        return;
+    if(pGroup == NULL)
+        return false;
 
     bool givesGuildXP = pVictim->IsCreature() ? pGroup->QualifiesForGuildXP(castPtr<Creature>(pVictim)) : NULL;
 
@@ -1857,20 +1857,23 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         }
     }
     pGroup->Unlock();
-    if(active_player_count<1) //killer is always close to the victim. This should never execute
+
+    uint32 xp = 0;
+    bool res = false;
+    if(PlayerInGroup == 0)
     {
-        if(PlayerInGroup == 0)
-        {
-            PlayerInfo * pleaderinfo = pGroup->GetLeader();
-            if(!pleaderinfo->m_loggedInPlayer)
-                return;
+        PlayerInfo * pleaderinfo = pGroup->GetLeader();
+        if(!pleaderinfo->m_loggedInPlayer)
+            return false;
 
-            PlayerInGroup = pleaderinfo->m_loggedInPlayer;
-        }
-
-        xp = CalculateXpToGive(pVictim, PlayerInGroup, pVictim->GetMapInstance()->GetZoneModifier(pVictim->GetZoneId()));
-        PlayerInGroup->GiveXP(xp, pVictim->GetGUID(), true, givesGuildXP);
+        PlayerInGroup = pleaderinfo->m_loggedInPlayer;
     }
+
+    if(PlayerInGroup && (xp = CalculateXpToGive(pVictim, PlayerInGroup, pVictim->GetMapInstance()->GetZoneModifier(pVictim->GetZoneId()))))
+        res = true;
+
+    if(active_player_count<1) //killer is always close to the victim. This should never execute
+        PlayerInGroup->GiveXP(xp, pVictim->GetGUID(), true, givesGuildXP);
     else
     {
         if( pGroup->GetGroupType() == GROUP_TYPE_PARTY)
@@ -1890,7 +1893,7 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         {
             PlayerInfo * pleaderinfo = pGroup->GetLeader();
             if(!pleaderinfo->m_loggedInPlayer)
-                return;
+                return false;
 
             pHighLvlPlayer = pleaderinfo->m_loggedInPlayer;
         }
@@ -1900,6 +1903,8 @@ void Unit::GiveGroupXP(Unit* pVictim, Player* PlayerInGroup)
         for(int i=0;i<active_player_count;++i)
             active_player_list[i]->GiveXP( float2int32(((xp*active_player_list[i]->getLevel()) / total_level)*xp_mod), pVictim->GetGUID(), true, givesGuildXP );
     }
+
+    return res;
 }
 
 bool Unit::IsInInstance()
@@ -2238,8 +2243,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
     uint32 vstate           = 1;
 
-    uint32 procFlags        = PROC_ON_STRIKE;
-    uint32 victimFlags      = PROC_ON_STRIKE_VICTIM;
+    std::map<uint8, uint16> procPairs;
+    std::map<uint8, uint16> vProcPairs;
 
     float hitmodifier       = 0;
     uint32 SubClassSkill    = SKILL_UNARMED;
@@ -2556,7 +2561,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     if( !disable_proc )
     {
         // Pass our proc flags to our manager
-        if(uint32 resisted_dmg = sSpellProcMgr.ProcessProcFlags(this, pVictim, procFlags, victimFlags, ability, realdamage, abs, weapon_damage_type))
+        if(uint32 resisted_dmg = sSpellProcMgr.ProcessProcFlags(this, pVictim, procPairs, vProcPairs, ability, realdamage, abs, weapon_damage_type))
         {
             dmg.resisted_damage += resisted_dmg;
             dmg.full_damage -= resisted_dmg;

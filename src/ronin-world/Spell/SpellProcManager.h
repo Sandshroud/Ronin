@@ -19,28 +19,40 @@ public:
 
     SpellEntry *GetSpellProto() { return spellProto; }
 
-    virtual bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, uint32 procInputFlags) = 0;
+    virtual bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods) = 0;
+    virtual bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs) = 0;
     virtual bool endsDummycheck() { return false; }
 
 private:
     SpellEntry *spellProto;
 };
 
-enum SpellProcFlags
+enum SpellProcType : uint8
 {
-    PROC_NULL                               = 0x00000000,
-    PROC_ON_DEATH                           = 0x00000001,
-    PROC_ON_KILL                            = 0x00000002,
+    PROC_ON_DEATH                           = 1,
+    PROC_ON_KILL                            = 2,
     // Use weapon type to determine melee/offhand or ranged
-    PROC_ON_STRIKE                          = 0x00000004,
-    PROC_ON_STRIKE_VICTIM                   = 0x00000008,
-    // Strike modifiers
-    PROC_ON_STRIKE_NON_DIRECT_HIT           = 0x00000010,
-    PROC_ON_STRIKE_CRITICAL_HIT             = 0x00000020,
+    PROC_ON_STRIKE                          = 3,
+    PROC_ON_STRIKE_VICTIM                   = 4,
     // Spell hit
-    PROC_ON_SPELL_LAND                      = 0x00000040,
-    PROC_ON_SPELL_LAND_VICTIM               = 0x00000080,
+    PROC_ON_SPELL_LAND                      = 5,
+    PROC_ON_SPELL_LAND_VICTIM               = 6,
+    PROC_ON_SPELL_REFLECT                   = 7,
+};
 
+enum SpellProcMods : uint16
+{
+    // On kill modifiers
+    PROC_ON_KILL_MODIFIER_NONE              = 0x0000,
+    PROC_ON_KILL_PLAYER                     = 0x0001,
+    PROC_ON_KILL_CREATURE                   = 0x0002,
+    PROC_ON_KILL_GRANTS_XP                  = 0x0004,
+    // Strike modifiers
+    PROC_ON_STRIKE_NON_DIRECT_HIT           = 0x0001,
+    PROC_ON_STRIKE_CRITICAL_HIT             = 0x0002,
+    // Spell hit
+    PROC_ON_SPELL_LAND_RESIST               = 0x0001,
+    PROC_ON_SPELL_LAND_RESIST_PARTIAL       = 0x0002,
 };
 
 class SpellProcManager : public Singleton<SpellProcManager>
@@ -49,11 +61,12 @@ public:
     SpellProcManager();
     ~SpellProcManager();
 
-    void Initialize();
+    // Initialize has to happen after spell data has been pooled!
+    void InitProcData();
 
     // 
-    void QuickProcessProcs(Unit *caster, uint32 procFlags);
-    uint32 ProcessProcFlags(Unit *caster, Unit *target, uint32 procFlags, uint32 victimFlags, SpellEntry *fromAbility, int32 &realDamage, uint32 &absoluteDamage, uint8 weaponDamageType);
+    void QuickProcessProcs(Unit *caster, uint8 procType, uint16 procMods);
+    uint32 ProcessProcFlags(Unit *caster, Unit *target, std::map<uint8, uint16> procPairs, std::map<uint8, uint16> vProcPairs, SpellEntry *fromAbility, int32 &realDamage, uint32 &absoluteDamage, uint8 weaponDamageType);
 
     // Proc trigger checks
     bool HandleAuraProcTriggerDummy(Unit *target, SpellEntry *spellProto, Modifier *auraMod, bool apply);

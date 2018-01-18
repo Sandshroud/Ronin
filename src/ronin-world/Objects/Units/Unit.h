@@ -610,7 +610,7 @@ public:
     void EventStunOrImmobilize();
 
     // Group XP!
-    void GiveGroupXP(Unit* pVictim, Player* PlayerInGroup);
+    bool GiveGroupXP(Unit* pVictim, Player* PlayerInGroup);
 
     /// Combat / Death Status
     RONIN_INLINE bool isAlive() { return m_deathState == ALIVE; };

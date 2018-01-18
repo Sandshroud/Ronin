@@ -1468,6 +1468,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             return 0;
         }
 
+        uint16 killProcModifiers = PROC_ON_KILL_MODIFIER_NONE;
+
         /* victim died! */
         Unit* pKiller = pVictim->m_killer.empty() ? NULL : GetInRangeObject<Unit>(pVictim->m_killer);
         if( pVictim->IsPlayer() )
@@ -1483,6 +1485,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                 }
             }
 
+            // Update our proc modifiers
+            killProcModifiers |= PROC_ON_KILL_PLAYER;
+
             castPtr<Player>( pVictim )->KillPlayer();
 
             /* Remove all Auras */
@@ -1494,6 +1499,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         }
         else
         {
+            // Update our proc modifiers
+            killProcModifiers |= PROC_ON_KILL_CREATURE;
+
             pVictim->SetDeathState( JUST_DIED );
             /* Remove all Auras */
             pVictim->m_AuraInterface.EventDeathAuraRemoval();
@@ -1505,7 +1513,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
 
         pVictim->SummonExpireAll(false);
 
-        if( pVictim->IsPlayer() && (!IsPlayer() || pVictim == castPtr<Unit>(this) ) )
+        if( pVictim->IsPlayer() && (!IsPlayer() || pVictim == this ) )
             castPtr<Player>( pVictim )->DeathDurabilityLoss(0.10);
 
         /* Zone Under Attack * /
@@ -1574,19 +1582,8 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             castPtr<Unit>(this)->addStateFlag( UF_TARGET_DIED );
         }
 
-        if( pVictim->IsPlayer() )
-        {
-            if( castPtr<Player>( pVictim)->HasDummyAura(SPELL_HASH_SPIRIT_OF_REDEMPTION) ) //check for spirit of Redemption
-            {
-                if (SpellEntry* sorInfo = dbcSpell.LookupEntry(27827))
-                {
-                    pVictim->SetUInt32Value(UNIT_FIELD_HEALTH, 1);
-                    SpellCastTargets targets(pVictim->GetGUID());
-                    if(Spell* sor = new Spell( pVictim, sorInfo ))
-                        sor->prepare(&targets, true);
-                }
-            }
-        }
+        // Proc on death spells
+        sSpellProcMgr.QuickProcessProcs(pVictim, PROC_ON_DEATH, 0x0000);
 
         /* -------------------------------- HONOR + BATTLEGROUND CHECKS ------------------------ */
         if( plr != NULL)
@@ -1666,11 +1663,14 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     if(can_give_xp)
                     {
                         // Is this player part of a group
-                        if( plr->InGroup() )
-                        {
-                            //Calc Group XP
-                            plr->GiveGroupXP( pVictim, plr );
-                            //TODO: pet xp if player in group
+                        if( plr->InGroup() && plr->GiveGroupXP( pVictim, plr ) )
+                        {   // Give group XP returns true if the player we're sending can receive XP from the kill, not that they do
+                            // Update our proc modifiers
+                            killProcModifiers |= PROC_ON_KILL_GRANTS_XP;
+
+                            // Give pet XP: TODO
+                            /*if(Pet *playerPet = plr->GetActivePet())
+                                playerPet->GiveXP(CalculateXpToGive( pVictim, playerPet, m_mapInstance->GetZoneModifier(m_zoneId) ));*/
                         }
                         else if( uint32 xp = CalculateXpToGive( pVictim, plr, m_mapInstance->GetZoneModifier(m_zoneId) ) )
                         {
@@ -1678,6 +1678,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                                 xp += (xp*(plr->MobXPGainRate/100));
 
                             plr->GiveXP( xp, victimGuid, true, false);
+
+                            // Update our proc modifiers
+                            killProcModifiers |= PROC_ON_KILL_GRANTS_XP;
                         }
                     }
 
@@ -1694,6 +1697,9 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
         {
 
         } else sLog.outDebug("DealDamage for unknown obj.");
+
+        // Proc on kill spells
+        if(IsUnit()) sSpellProcMgr.QuickProcessProcs(castPtr<Unit>(this), PROC_ON_KILL, killProcModifiers);
 
         return health;
 	}   /* ---------- NOT DEAD YET --------- */
