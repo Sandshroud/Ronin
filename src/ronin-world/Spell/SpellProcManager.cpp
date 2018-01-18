@@ -90,7 +90,7 @@ bool SpellProcManager::ProcDataMatches(SpellEntry *sp, uint8 inputType, uint8 in
     {
     case PROC_ON_KILL:
         {   // Proc on kills have modifiers for requiring XP
-            if(expectedModifier & PROC_ON_KILL_GRANTS_XP && (inputType & PROC_ON_KILL_GRANTS_XP) == 0)
+            if(expectedModifier & PROC_ON_KILL_GRANTS_XP && (inputModifier & PROC_ON_KILL_GRANTS_XP) == 0)
                 return false;
         }break;
     }
