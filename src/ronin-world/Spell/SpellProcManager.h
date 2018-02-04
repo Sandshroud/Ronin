@@ -38,6 +38,10 @@ enum SpellProcType : uint8
     PROC_ON_SPELL_LAND                      = 5,
     PROC_ON_SPELL_LAND_VICTIM               = 6,
     PROC_ON_SPELL_REFLECT                   = 7,
+    // 
+    // Periodic Tick
+    PROC_ON_PERIODIC_TICK                   = 10,
+    PROC_ON_PERIODIC_TICK_VICTIM            = 11,
 };
 
 enum SpellProcMods : uint16
