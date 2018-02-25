@@ -740,6 +740,7 @@ protected:
 
     void UpdateCombatRating(uint8 combatRating, float value);
     float GetRatioForCombatRating(uint8 combatRating);
+    int32 ApplyRatingDiminishingReturn(uint8 combatRating, int32 value);
     int32 CalculatePlayerCombatRating(uint8 combatRating);
 
 public: /// Interface functions

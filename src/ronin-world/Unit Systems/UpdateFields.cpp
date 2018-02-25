@@ -230,7 +230,7 @@ uint16 UnitUpdateFieldFlags[UNIT_LENGTH] =
     UF_FLAG_OWNER,                                          // UNIT_FIELD_PETNEXTLEVELEXP
     UF_FLAG_DYNAMIC,                                        // UNIT_DYNAMIC_FLAGS
     UF_FLAG_PUBLIC,                                         // UNIT_MOD_CAST_SPEED
-    UF_FLAG_PUBLIC,                                         // UNIT_MOD_CAST_HASTE
+    UF_FLAG_PUBLIC|UF_FLAG_DYNAMIC,                         // UNIT_MOD_CAST_HASTE
     UF_FLAG_PUBLIC,                                         // UNIT_CREATED_BY_SPELL
     UF_FLAG_DYNAMIC,                                        // UNIT_NPC_FLAGS
     UF_FLAG_PUBLIC,                                         // UNIT_NPC_EMOTESTATE
@@ -1539,8 +1539,8 @@ uint16 PlayerUpdateFieldFlags[PLAYER_LENGTH] =
     UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_UI_HIT_MODIFIER
     UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_UI_SPELL_HIT_MODIFIER
     UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_HOME_REALM_TIME_OFFSET
-    UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_MOD_HASTE
-    UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_MOD_RANGED_HASTE
+    UF_FLAG_PRIVATE|UF_FLAG_DYNAMIC,                        // PLAYER_FIELD_MOD_HASTE
+    UF_FLAG_PRIVATE|UF_FLAG_DYNAMIC,                        // PLAYER_FIELD_MOD_RANGED_HASTE
     UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_MOD_PET_HASTE
     UF_FLAG_PRIVATE,                                        // PLAYER_FIELD_MOD_HASTE_REGEN
 };

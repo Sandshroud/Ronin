@@ -936,14 +936,14 @@ void Player::UpdateCombatRating(uint8 combatRating, float value)
             SetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE+i, value);
         break;
     case 17:
-        SetFloatValue(PLAYER_FIELD_MOD_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        SetFloatValue(PLAYER_FIELD_MOD_HASTE, value);
         m_AuraInterface.UpdateAuraModsWithModType(SPELL_AURA_MOD_CD_FROM_HASTE);
         break;
     case 18:
-        SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, value);
         break;
     case 19:
-        SetFloatValue(UNIT_MOD_CAST_HASTE, RONIN_UTIL::PercentFloatVar(value)/100.f);
+        SetFloatValue(UNIT_MOD_CAST_HASTE, value);
         break;
     case 23:
         SetUInt32Value(PLAYER_EXPERTISE, floor(value));
@@ -963,6 +963,28 @@ float Player::GetRatioForCombatRating(uint8 cr)
     if(combatRating && scalingCombatRating && combatRating->val > 0.f)
         return scalingCombatRating->val / combatRating->val;
     return 1.f;
+}
+
+int32 Player::ApplyRatingDiminishingReturn(uint8 cr, int32 value)
+{
+    int32 returnVal = value;
+    float ratio = GetRatioForCombatRating(cr);
+    float ratioCap[] = { 25.f, 2.f, 40.f, 4.f, 60.f, 8.f, 80.f, 16.f };
+    for(int8 i = 0; i < (sizeof(ratioCap)/sizeof(int)); i+=2)
+    {
+        float pctVal = ratio * ((float)returnVal);
+        if(pctVal > ratioCap[i])
+        {
+            // Find the distance between our pct and the ratio cap
+            float pctDiff = pctVal-ratioCap[i];
+            // Diff val is the distance between us and the value representing our ratio cap
+            int32 diffVal = returnVal-(ratioCap[i+1]/ratio);
+            // The amount to remove is the scale against our removal value
+            returnVal -= float2int32(ceil(((float)diffVal)/ratioCap[i+1]));
+        }
+    }
+
+    return returnVal;
 }
 
 void Player::UpdatePlayerRatings()
@@ -996,11 +1018,13 @@ void Player::UpdatePlayerRatings()
             val = 0; // Mastery requires the aura before the rating can come into effect, so nullify it here
         if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
             val = 0; // Parry requires that we have the ability to parry, weirdly enough
+        // Apply rating diminishing returns for points above specific percentage steps
+        val = ApplyRatingDiminishingReturn(cr, val);
 
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
         // Multiply the overall rating with the set ratio
-        UpdateCombatRating(cr, float(val)*GetRatioForCombatRating(cr));
+        UpdateCombatRating(cr, ((float)val) * GetRatioForCombatRating(cr));
     }
 }
 

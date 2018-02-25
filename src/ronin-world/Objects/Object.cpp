@@ -443,6 +443,25 @@ uint32 Object::_GetSwappedValueForUpdate(uint32 index, uint16 fieldFlag, Player 
         else if(curObj->isDead() && curObj->GetLoot()->HasLoot(target)) 
             val |= U_DYN_FLAG_LOOTABLE;
     }
+    else if(IsUnit())
+    {
+        switch(index)
+        {
+        case PLAYER_FIELD_MOD_HASTE:
+        case PLAYER_FIELD_MOD_RANGED_HASTE:
+        case UNIT_MOD_CAST_HASTE:
+            {
+                union {
+                    uint32 intVal;
+                    float floatVal;
+                };
+
+                floatVal = (100.f-m_floatValues[index])/100.f;
+                val = intVal;
+            }break;
+        
+        }
+    }
     else if(IsGameObject() && index == GAMEOBJECT_DYNAMIC)
     {
 
