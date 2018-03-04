@@ -316,8 +316,19 @@ public:
         if(procFlags & PROC_FLAG_KILL)
         {
             uint8 procMod = PROC_ON_KILL_MODIFIER_NONE;
-            if(strstr( desc, "grants experience"))
+            if(strlen(desc))
+            {
                 procMod |= PROC_ON_KILL_GRANTS_XP;
+                // Prevent creature based procs from occuring when killing players
+                if(strstr(desc, "killing creatures") || strstr(desc, "killing a creature") || (strstr(desc, "experience") && !strstr(desc, "honor")))
+                    procMod |= PROC_ON_KILL_CREATURE;
+                // Not used, but implemented
+                if(strstr(desc, "killing players") || strstr(desc, "killing a player") || (strstr(desc, "honor") && !strstr(desc, "experience")))
+                    procMod |= PROC_ON_KILL_PLAYER;
+                // Remove XP requirement if we're not requiring experience or honor
+                if(!(strstr(desc, "experience") || strstr(desc, "honor")))
+                    procMod &= ~PROC_ON_KILL_GRANTS_XP;
+            }
 
             expectedTypes[PROCD_CASTER].insert(std::make_pair(PROC_ON_KILL, procMod));
         }

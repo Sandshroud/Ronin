@@ -541,7 +541,8 @@ void Aura::BuildAuraUpdate()
 void Aura::BuildAuraUpdatePacket(WorldPacket *data)
 {
     *data << uint8(m_auraSlot);
-    if(m_deleted || m_stackSizeorProcCharges == 0)
+    uint16 stackCount = abs(m_stackSizeorProcCharges);
+    if(m_deleted || stackCount == 0)
     {
         *data << uint32(0);
         return;
@@ -550,7 +551,7 @@ void Aura::BuildAuraUpdatePacket(WorldPacket *data)
     uint16 flags = GetAuraFlags();
     *data << uint32(GetSpellProto()->Id) << uint16(flags);
     *data << uint8(GetAuraLevel());
-    *data << uint8(m_stackSizeorProcCharges & 0xFF);
+    *data << uint8(stackCount > 0xFF ? 0xFF : (stackCount & 0xFF));
 
     if(!(flags & AFLAG_NOT_GUID))
         *data << GetCasterGUID().asPacked();
