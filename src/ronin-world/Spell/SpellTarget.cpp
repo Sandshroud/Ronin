@@ -355,7 +355,7 @@ void SpellTargetClass::HandleTargetNoObject(uint32 i, float r)
     float srcY = _unitCaster->GetPositionY(), newy = srcY;
     float srcZ = _unitCaster->GetPositionZ(), newz = srcZ;
 
-    float dist = 0;
+    float dist = 0.f;
     if((dist = r) > 0.f)
     {
         newx += cosf(_unitCaster->GetOrientation()) * dist;

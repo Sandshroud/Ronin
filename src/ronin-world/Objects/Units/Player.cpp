@@ -2166,10 +2166,33 @@ void Player::CreateInDatabase()
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
 
     for(std::set<uint32>::iterator sp = m_createInfo->spell_list.begin(); sp != m_createInfo->spell_list.end(); sp++)
-        m_spells.insert(*sp);
+    {
+        if(SpellEntry *spell = dbcSpell.LookupEntry(*sp))
+        {
+            m_spells.insert(*sp);
+
+            uint8 effIndex = 0; // Check for skill effect in new spell
+            if(spell->HasEffect(SPELL_EFFECT_SKILL, 0xFF, &effIndex) || spell->HasEffect(SPELL_EFFECT_DUAL_WIELD, 0xFF, &effIndex) || spell->HasEffect(SPELL_EFFECT_WEAPON, 0xFF, &effIndex))
+            {   // If we have the effect and our index then we can just add it here
+                uint32 skillLine = spell->SpellSkillLine ? spell->SpellSkillLine : spell->EffectMiscValue[effIndex];
+                if(skillLine == 0)
+                    continue;
+
+                uint16 skillVal = std::max<uint16>(1, spell->CalculateSpellPoints(effIndex, getLevel(), 0) * 75);
+                // Update the skill line with the new max based on our skillline we look up
+                if (SkillLineEntry *skill = dbcSkillLine.LookupEntry(skillLine))
+                {
+                    if(HasSkillLine(skill->id))
+                        UpdateSkillLine(skill->id, spell->RankNumber, skillVal); // No force due to higher ranking possibly processing first
+                    else AddSkillLine(skill->id, spell->RankNumber, skillVal, skillVal, 0, 0);
+                }
+            }
+        }
+    }
 
     m_factionInterface.CreateFactionData();
 
+    // Update skill counts to max newly added spells
     _UpdateMaxSkillCounts();
 
     // Add actionbars
