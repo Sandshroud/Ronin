@@ -211,6 +211,8 @@ protected:
 
     uint32 m_channelTriggerTime, m_channelRunTime;
 
+    uint8 m_spellComboPoints;
+
     float m_missilePitch, m_missileSpeed;
     uint32 m_missileTravelTime;
     bool m_isDelayedAOEMissile;

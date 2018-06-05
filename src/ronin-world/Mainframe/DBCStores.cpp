@@ -415,6 +415,10 @@ int32 SpellEntry::CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboP
     if (!gtScalingEntry && HasAttribute(0, 0x00080000) && spellLevelSpellLevel && Effect[effIndex] != SPELL_EFFECT_WEAPON_PERCENT_DAMAGE && Effect[effIndex] != SPELL_EFFECT_KNOCK_BACK
         && (Effect[effIndex] != SPELL_EFFECT_APPLY_AURA || EffectApplyAuraName[effIndex] != SPELL_AURA_MOD_DECREASE_SPEED))
         basePoints = int32(basePoints * 0.25f * exp(level * (70 - spellLevelSpellLevel) / 1000.0f));
+
+    // Hackfix, todo: Real fix
+    if (basePoints == 0 && Effect[effIndex] == SPELL_EFFECT_ADD_COMBO_POINTS)
+        basePoints = 1;
     return basePoints;
 }
 

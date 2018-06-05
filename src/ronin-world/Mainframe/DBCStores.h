@@ -984,7 +984,7 @@ struct SpellEntry
     bool isUnique, always_apply;
 
     // Calculations
-    int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints);
+    int32 CalculateSpellPoints(uint8 effIndex, int32 level, int32 comboPoints = 0);
 
     int32 CalculateSpellDuration(int32 level, int32 comboPoints)
     {

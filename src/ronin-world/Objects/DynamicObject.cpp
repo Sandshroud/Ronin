@@ -108,7 +108,7 @@ void FillDynamicObjectTargetMapCallback::operator()(DynamicObject *obj, Unit *ca
         aur = new Aura(target, spell, auraFlags, obj->casterLevel, 1, UNIXTIME, obj->casterGuid);
         for(uint32 i = 0; i < 3; i++)
             if(spell->EffectApplyAuraName[i])
-                aur->AddMod(i, spell->EffectApplyAuraName[i], spell->CalculateSpellPoints(i, obj->casterLevel, 0));
+                aur->AddMod(i, spell->EffectApplyAuraName[i], spell->CalculateSpellPoints(i, obj->casterLevel));
 
         aur->SetNegative();
         aur->UpdatePreApplication();

@@ -291,6 +291,7 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_changingMaps                  = true;
     m_mageInvisibility              = false;
 
+    m_comboPointData                = NULL;
     watchedchannel                  = NULL;
     PreventRes                      = false;
     m_drunkTimer                    = 0;
@@ -376,16 +377,34 @@ bool Player::Initialize()
 
     // set power type
     SetPowerType(myClass->powerType);
-    if(getClass() == DEATHKNIGHT && m_runeData == NULL)
+    switch(getClass())
     {
-        m_runeData = new Player::RuneData();
-        m_runeData->runemask = 0x3F;
-        m_runeData->cooldownTimer = 10000;
-        for(uint8 i = 0; i < 6; i++)
+    case DEATHKNIGHT:
         {
-            m_runeData->runes[i] = baseRunes[i];
-            m_runeData->runeCD[i] = 0;
-        }
+            if(m_runeData == NULL)
+            {
+                m_runeData = new Player::RuneData();
+                m_runeData->runemask = 0x3F;
+                m_runeData->cooldownTimer = 10000;
+                for(uint8 i = 0; i < 6; i++)
+                {
+                    m_runeData->runes[i] = baseRunes[i];
+                    m_runeData->runeCD[i] = 0;
+                }
+            }
+        }break;
+    case ROGUE:
+    case DRUID:
+        {
+            if(m_comboPointData == NULL)
+            {
+                m_comboPointData = new Player::ComboPointData();
+                m_comboPointData->CP_Counter = 0;
+                m_comboPointData->CP_Spell = NULL;
+                m_comboPointData->CP_CastNumer = 0;
+                m_comboPointData->CP_Target.Clean();
+            }
+        }break;
     }
 
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
@@ -758,6 +777,60 @@ uint8 Player::UseRunes(uint32 *runes, bool theoretical)
     if(theoretical == false)
         m_runeData->runemask = runeMask;
     return runeMask;
+}
+
+void Player::AddComboPoints(WoWGuid target, uint8 count)
+{
+    if(m_comboPointData == NULL)
+        return;
+    if(m_comboPointData->CP_Target != target)
+    {
+        m_comboPointData->CP_Target = target;
+        m_comboPointData->CP_Counter = count;
+    } else m_comboPointData->CP_Counter += count;
+
+    _UpdateComboPoints();
+}
+
+void Player::LockComboPointsToSpell(SpellEntry *sp, uint8 castNumber, uint8 *comboPointsOut)
+{
+    if(m_comboPointData == NULL)
+        return;
+
+    if(m_comboPointData->CP_Spell && m_comboPointData->CP_CastNumer != castNumber)
+        return;
+
+    *comboPointsOut = m_comboPointData->CP_Counter;
+    m_comboPointData->CP_CastNumer = castNumber;
+    m_comboPointData->CP_Spell = sp;
+}
+
+void Player::ClearComboPoints(bool silent, SpellEntry *sp, uint8 castNumber)
+{
+    if(m_comboPointData == NULL)
+        return;
+
+    if(sp != NULL && m_comboPointData->CP_Spell != sp && m_comboPointData->CP_CastNumer != castNumber)
+        return;
+
+    m_comboPointData->CP_CastNumer = 0;
+    m_comboPointData->CP_Spell = NULL;
+    m_comboPointData->CP_Target.Clean();
+    m_comboPointData->CP_Counter = 0;
+
+    if(silent == false || sp != NULL)
+        _UpdateComboPoints();
+}
+
+void Player::_UpdateComboPoints()
+{
+    if(m_comboPointData == NULL)
+        return;
+
+    WorldPacket data(SMSG_UPDATE_COMBO_POINTS, m_comboPointData->CP_Target.len()+1);
+    data << m_comboPointData->CP_Target.asPacked();
+    data << uint8(m_comboPointData->CP_Counter);
+    PushPacket(&data, false);
 }
 
 void Player::ProcessImmediateItemUpdate(Item *item)
@@ -2178,7 +2251,7 @@ void Player::CreateInDatabase()
                 if(skillLine == 0)
                     continue;
 
-                uint16 skillVal = std::max<uint16>(1, spell->CalculateSpellPoints(effIndex, getLevel(), 0) * 75);
+                uint16 skillVal = std::max<uint16>(1, spell->CalculateSpellPoints(effIndex, getLevel()) * 75);
                 // Update the skill line with the new max based on our skillline we look up
                 if (SkillLineEntry *skill = dbcSkillLine.LookupEntry(skillLine))
                 {

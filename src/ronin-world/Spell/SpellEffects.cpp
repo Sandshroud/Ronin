@@ -49,7 +49,7 @@ void SpellEffectClass::Destruct()
 
 int32 SpellEffectClass::CalculateEffect(uint32 i, WorldObject* target)
 {
-    int32 value = m_spellInfo->CalculateSpellPoints(i, _unitCaster->getLevel(), 0);
+    int32 value = m_spellInfo->CalculateSpellPoints(i, _unitCaster->getLevel(), m_spellComboPoints);
 
     float fValue = value;
     float spell_mods[2] = { 0.f, 100.f };
@@ -1421,7 +1421,11 @@ void SpellEffectClass::SpellEffectSanctuary(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectAddComboPoints(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Add Combo Points
 {
+    Player *p_caster = _unitCaster->IsPlayer() ? castPtr<Player>(_unitCaster) : NULL;
+    if( p_caster == NULL  || !p_caster->IsInWorld() || !p_caster->isAlive() )
+        return;
 
+    p_caster->AddComboPoints(target->GetGUID(), amount);
 }
 
 void SpellEffectClass::SpellEffectDuel(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Duel

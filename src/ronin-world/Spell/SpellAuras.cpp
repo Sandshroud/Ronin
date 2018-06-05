@@ -2201,10 +2201,10 @@ void Aura::RecalculateModBaseAmounts()
 {
     Unit *unitCaster = GetUnitCaster();
     Player *playerCaster = unitCaster ? unitCaster->IsPlayer() ? castPtr<Player>(unitCaster) : NULL : NULL;
-    uint32 casterLevel = unitCaster ? unitCaster->getLevel() : 0, casterComboPoints = 0;
+    uint32 casterLevel = unitCaster ? unitCaster->getLevel() : 0;
     for(uint32 i = 0; i < m_modcount; i++)
     {
-        int32 value = m_spellProto->CalculateSpellPoints(m_modList[i].i, casterLevel, casterComboPoints);
+        int32 value = m_spellProto->CalculateSpellPoints(m_modList[i].i, casterLevel);
         if( unitCaster != NULL )
         {
             int32 spell_flat_modifers = 0, spell_pct_modifers = 0;

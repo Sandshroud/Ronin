@@ -119,6 +119,8 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
     // Default trigger rate is 1 second
     m_channelTriggerTime = 1000;
     m_channelRunTime = 0;
+    // Spell holds combo points during preparation, but for now we set to null
+    m_spellComboPoints = 0;
 }
 
 BaseSpell::~BaseSpell()
@@ -294,9 +296,9 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
         uint8 effIndex = 0;
         uint32 amount = 0, type = 0;
         if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL, effIndex))
-            amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), 0);
+            amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), m_spellComboPoints);
         else if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL_PCT, effIndex))
-            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), 0);
+            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), m_spellComboPoints);
         //else if(m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)) {}// TODO
 
         *data << uint32(amount) << uint8(type);

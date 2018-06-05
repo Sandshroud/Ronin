@@ -157,6 +157,10 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 
     SendSpellStart();
 
+    // Lock combo points from our caster if not a trigger spell, cast() will release it later
+    if(m_triggeredSpell == false && _unitCaster->IsPlayer() && m_spellInfo->isComboPointReqSpell())
+        castPtr<Player>(_unitCaster)->LockComboPointsToSpell(m_spellInfo, m_castNumber, &m_spellComboPoints);
+
     // Non triggered spell cast checks
     if(m_triggeredSpell == false && !m_spellInfo->isCastableWhileMounted())
         _unitCaster->Dismount();
@@ -643,6 +647,8 @@ void Spell::finish()
     {
         if(castPtr<Player>(_unitCaster)->hasCooldownCheat() && m_spellInfo)
             castPtr<Player>(_unitCaster)->ClearCooldownForSpell(m_spellInfo->Id);
+
+        castPtr<Player>(_unitCaster)->ClearComboPoints(false, m_spellInfo, m_castNumber);
 
         if( m_ForceConsumption || ( m_canCastResult == SPELL_CANCAST_OK ) )
             RemoveItems();

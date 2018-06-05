@@ -630,6 +630,12 @@ public:
 
     bool IsDuelTarget(Player *target, bool reqActive = true) { return IsInDuel() && (reqActive == false || m_duelStorage->isActive()) && m_duelStorage == target->GetDuelStorage(); }
 
+    void AddComboPoints(WoWGuid target, uint8 count);
+    void LockComboPointsToSpell(SpellEntry *sp, uint8 castNumber, uint8 *comboPointsOut);
+    void ClearComboPoints(bool silent, SpellEntry *sp = NULL, uint8 castNumber = 0);
+
+    void _UpdateComboPoints();
+
 public: /// Interface Interaction Functions
     RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
     RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
@@ -1358,6 +1364,16 @@ private:
     // Player cooldown storage
     PlayerCooldownMap m_cooldownMap[NUM_COOLDOWN_TYPES];
     time_t m_globalCooldown; // Global cooldown
+
+    // Combo point variables
+    struct ComboPointData
+    {
+        WoWGuid CP_Target;
+        uint8 CP_Counter;
+
+        SpellEntry *CP_Spell;
+        uint8 CP_CastNumer;
+    } *m_comboPointData;
 
     // Stores player items
     PlayerInventory m_inventory;
