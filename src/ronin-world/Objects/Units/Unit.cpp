@@ -287,6 +287,12 @@ void Unit::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS:
         pendingIndex.push_back(255);
         break;
+        // Shapeshift auras
+    case SPELL_AURA_MOD_SHAPESHIFT:
+        // Push all update states
+        for(uint8 i = UF_UTYPE_STATS; i <= UF_UTYPE_MOVEMENT; i++)
+            pendingIndex.push_back(i);
+        break;
     }
     if(pendingIndex.empty())
         return;
