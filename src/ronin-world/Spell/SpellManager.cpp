@@ -399,8 +399,10 @@ void SpellManager::PoolSpellData()
         //SpellShapeshiftEntry
         if(SpellShapeshiftEntry* shapeShift = dbcSpellShapeshift.LookupEntry(spellInfo->SpellShapeshiftId))
         {
-            spellInfo->RequiredShapeShift = shapeShift->Stances;
-            spellInfo->ShapeshiftExclude = shapeShift->StancesNot;
+            spellInfo->RequiredShapeShift = shapeShift->Stances[0];
+            spellInfo->RequiredShapeShift |= (((uint64)shapeShift->Stances[1])<<32);
+            spellInfo->ShapeshiftExclude = shapeShift->StancesNot[0];
+            spellInfo->ShapeshiftExclude |= (((uint64)shapeShift->StancesNot[1])<<32);
         }
 
         //SpellTargetRestrictionsEntry
@@ -769,7 +771,6 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     // SpellTotemsEntry
     sp->Totem[0] = 0;
     sp->Totem[1] = 0;
-    sp->RequiredShapeShift = 0;
     // SpellRangeEntry
     sp->minRange[0] = 0.0f;
     sp->minRange[1] = 0.0f;

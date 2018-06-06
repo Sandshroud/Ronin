@@ -289,7 +289,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellScalingEntry, dbcSpellScaling);
 static const char *spellscalingFormat = "uiiuiffffffffffu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellShapeshiftEntry, dbcSpellShapeshift);
-static const char *spellshapeshiftFormat = "uuxuxx";
+static const char *spellshapeshiftFormat = "uuuuux";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SpellShapeshiftFormEntry, dbcSpellShapeshiftForm);
 static const char *spellshapeshiftformFormat = "uxxuixuuuxxuuuuuuuuxx";
