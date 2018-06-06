@@ -364,9 +364,14 @@ static inline int double2int32(const double value)
 /// Fastest Method of double2int64
 static inline long long int double2int64(const double value)
 {
-  union { long long int asInt; double asDouble; } n;
-  n.asDouble = value + 6755399441055744.0;
-  return n.asInt;
+#ifdef HIGH_ACCURACY_DOUBLE2INT
+    long long int retVal = (long long int)floorl(value);
+    if((value - retVal) > 0.5)
+        retVal += 1;
+    return retVal;
+#else
+    return (long long int)(value);
+#endif
 }
 
 // modulos a radian orientation to the range of 0..2PI
