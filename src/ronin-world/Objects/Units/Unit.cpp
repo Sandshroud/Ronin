@@ -1431,19 +1431,61 @@ int32 Unit::GetHealingDoneMod(bool forceCalc, int32 *negativeOut)
     return healingDoneCallback.getRetVal();
 }
 
+class DamageDonePctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if((mod->m_miscValue[0] & (1<<expectedSchool)) == 0)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 school) { expectedSchool = school; retVal = 1.f; }
+
+    float getRetVal() { return retVal; }
+
+    uint8 expectedSchool;
+    float retVal;
+};
+
 float Unit::GetDamageDonePctMod(uint8 school, bool forceCalc)
 {
     // If we're a player, this is already precalculated
     if(IsPlayer() && forceCalc == false)
         return GetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+school);
 
-    float result = 1.f;
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE))
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<school))
-                result += itr->second->m_amount;
-    return result;
+    DamageDonePctModCallback damageDonePctCallback;
+    damageDonePctCallback.Init(school);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE, &damageDonePctCallback);
+    return damageDonePctCallback.getRetVal();
 }
+
+class HealingDonePctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_HEALING_DONE_PERCENT:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init() { retVal = 1.f; }
+
+    float getRetVal() { return retVal; }
+
+    float retVal;
+};
 
 float Unit::GetHealingDonePctMod(bool forceCalc)
 {
@@ -1451,11 +1493,10 @@ float Unit::GetHealingDonePctMod(bool forceCalc)
     if(IsPlayer() && forceCalc == false)
         return GetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT);
 
-    float result = 1.f;
-    if(AuraInterface::modifierMap *healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE_PERCENT))
-        for(AuraInterface::modifierMap::iterator itr = healingMod->begin(); itr != healingMod->end(); itr++)
-            result += itr->second->m_amount;
-    return result;
+    HealingDonePctModCallback healingDonePctCallback;
+    healingDonePctCallback.Init();
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_HEALING_DONE_PERCENT, &healingDonePctCallback);
+    return healingDonePctCallback.getRetVal();
 }
 
 uint32 Unit::GetMechanicDispels(uint8 mechanic)
