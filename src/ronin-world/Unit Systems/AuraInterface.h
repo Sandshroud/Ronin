@@ -213,7 +213,7 @@ public:
     {
         bool ret = false;
         m_auraLock.LowAcquire();
-        if(!m_modifiersByModType.empty() && m_modifiersByModType.find(modType) == m_modifiersByModType.end())
+        if(!m_modifiersByModType.empty() && m_modifiersByModType.find(modType) != m_modifiersByModType.end())
             ret = !m_modifiersByModType[modType].empty();
         m_auraLock.LowRelease();
         return ret;
