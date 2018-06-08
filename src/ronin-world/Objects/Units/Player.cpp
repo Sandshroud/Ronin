@@ -1118,7 +1118,7 @@ void Player::UpdatePlayerDamageDoneMods()
     for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
     {
         SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, itemBonus+GetDamageDoneMod(school, true, &negative)));
-        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, negative);
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school, negative);
     }
 
     SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, itemBonus+GetHealingDoneMod(true, &negative)));
