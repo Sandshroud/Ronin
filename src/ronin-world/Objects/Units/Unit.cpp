@@ -1499,16 +1499,40 @@ float Unit::GetHealingDonePctMod(bool forceCalc)
     return healingDonePctCallback.getRetVal();
 }
 
+class MechanicCountingModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != m_expectedMechanic)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MECHANIC_IMMUNITY:
+            *output += 1;
+            break;
+        }
+    }
+
+    void Init(size_t *storage, uint8 expectedMechanic) { output = storage; m_expectedMechanic = expectedMechanic; }
+
+    uint8 m_expectedMechanic;
+    size_t *output;
+};
+
 uint32 Unit::GetMechanicDispels(uint8 mechanic)
 {
-    AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_ADD_CREATURE_IMMUNITY);
-    uint32 count = modMap ? modMap->size() : 0;
+    size_t count = 0;
+    m_AuraInterface.HasAurasWithModType(SPELL_AURA_ADD_CREATURE_IMMUNITY, count);
     if( mechanic == 16 || mechanic == 19 || mechanic == 25 || mechanic == 31 )
         count = 0;
-    if(modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_IMMUNITY))
+
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MECHANIC_IMMUNITY))
     {
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] == mechanic) count++;
+        MechanicCountingModCallback mechanicCountingCallback;
+        mechanicCountingCallback.Init(&count, mechanic);
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MECHANIC_IMMUNITY, &mechanicCountingCallback);
     }
 
     if(mechanic == MECHANIC_POLYMORPHED && GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID))
@@ -1516,79 +1540,173 @@ uint32 Unit::GetMechanicDispels(uint8 mechanic)
     return count;
 }
 
+class MechanicResistPctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != m_expectedMechanic)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_MECHANIC_RESISTANCE :
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 expectedMechanic) { retVal = 0.f; m_expectedMechanic = expectedMechanic; }
+    float getRetVal() { return retVal; }
+
+    uint8 m_expectedMechanic;
+    float retVal;
+};
+
 float Unit::GetMechanicResistPCT(uint8 mechanic)
 {
-    float resist = 0.0f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_RESISTANCE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] == mechanic)
-                resist += itr->second->m_amount;
-    return resist;
+    MechanicResistPctModCallback mechanicResistPctCallback;
+    mechanicResistPctCallback.Init(mechanic);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MECHANIC_RESISTANCE, &mechanicResistPctCallback);
+    return mechanicResistPctCallback.getRetVal();
 }
+
+class DamageTackenByMechanicPpctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != m_expectedMechanic)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT:
+            addedVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 expectedMechanic) { addedVal = 0.f; m_expectedMechanic = expectedMechanic; }
+    float getRetVal() { return (addedVal/100.f); }
+
+    uint8 m_expectedMechanic;
+    float addedVal;
+};
 
 float Unit::GetDamageTakenByMechPCTMod(uint8 mechanic)
 {
-    float resist = 0.0f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] == mechanic)
-                resist += float(itr->second->m_amount)/100.f;
-    return resist;
+    DamageTackenByMechanicPpctModCallback damageTakenByMechanicPctCallback;
+    damageTakenByMechanicPctCallback.Init(mechanic);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MECHANIC_DAMAGE_TAKEN_PERCENT, &damageTakenByMechanicPctCallback);
+    return damageTakenByMechanicPctCallback.getRetVal();
 }
+
+class MechanicDurationPctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != m_expectedMechanic)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MECHANIC_DURATION_MOD:
+            retVal *= (((float)mod->m_amount)/100.f);
+            break;
+        case SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK:
+            {
+                float val = (((float)mod->m_amount)/100.f);
+                if(retVal < val)
+                    retVal = val;
+            }break;
+        case SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK:
+            {
+                float val = (((float)mod->m_amount)/100.f);
+                if(retVal < val)
+                    retVal = val;
+            }break;
+        }
+    }
+
+    void Init(uint8 expectedMechanic) { retVal = 1.f; m_expectedMechanic = expectedMechanic; }
+    float getRetVal() { return retVal; }
+
+    uint8 m_expectedMechanic;
+    float retVal;
+};
 
 float Unit::GetMechanicDurationPctMod(uint8 mechanic)
 {
-    float resist = 1.f;
-    AuraInterface::modifierMap *modMap = NULL;
-    if(modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] == mechanic) resist *= float(itr->second->m_amount)/100.f;
-
-    if(modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK))
-    {
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-        {
-            if(itr->second->m_miscValue[0] == mechanic)
-            {
-                float val = float(itr->second->m_amount)/100.f;
-                if(resist < val)
-                    resist = val;
-            }
-        }
-    }
-
-    if(modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK))
-    {
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-        {
-            if(itr->second->m_miscValue[0] == mechanic)
-            {
-                float val = float(itr->second->m_amount)/100.f;
-                if(resist < val)
-                    resist = val;
-            }
-        }
-    }
-    return resist;
+    MechanicDurationPctModCallback mechanicDurationPctCallback;
+    mechanicDurationPctCallback.Init(mechanic);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MECHANIC_DURATION_MOD, &mechanicDurationPctCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MECHANIC_DURATION_MOD_NOT_STACK, &mechanicDurationPctCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_AURA_DURATION_BY_DISPEL_NOT_STACK, &mechanicDurationPctCallback);
+    return mechanicDurationPctCallback.getRetVal();
 }
+
+class DispelCountingModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != m_expectedDispel)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_DISPEL_IMMUNITY:
+            *output += 1;
+            break;
+        }
+    }
+
+    void Init(size_t *storage, uint8 expectedDispel) { output = storage; m_expectedDispel = expectedDispel; }
+
+    uint8 m_expectedDispel;
+    size_t *output;
+};
 
 uint32 Unit::GetDispelImmunity(uint8 dispel)
 {
-    uint32 count = 0;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_DISPEL_IMMUNITY))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] == dispel) count++;
+    size_t count = 0;
+    DispelCountingModCallback dispelCountingCallback;
+    dispelCountingCallback.Init(&count, dispel);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_DISPEL_IMMUNITY, &dispelCountingCallback);
     return count;
 }
 
+class DispelResistPctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(mod->m_miscValue[0] != m_expectedDispel)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DEBUFF_RESISTANCE:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 expectedDispel) { retVal = 0.f; m_expectedDispel = expectedDispel; }
+    float getRetVal() { return retVal; }
+
+    uint8 m_expectedDispel;
+    float retVal;
+};
+
 float Unit::GetDispelResistancesPCT(uint8 dispel)
 {
-    float resist = 0.0f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DEBUFF_RESISTANCE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] == dispel)
-                resist += itr->second->m_amount;
-    return resist;
+    DispelResistPctModCallback dispelResistPctCallback;
+    dispelResistPctCallback.Init(dispel);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DEBUFF_RESISTANCE, &dispelResistPctCallback);
+    return dispelResistPctCallback.getRetVal();
 }
 
 int32 Unit::GetCreatureRangedAttackPowerMod(uint32 creatureType)
