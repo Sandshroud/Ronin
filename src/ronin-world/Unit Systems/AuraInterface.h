@@ -219,6 +219,17 @@ public:
         return ret;
     }
 
+    bool HasAurasWithModType(uint32 modType, size_t &outSize)
+    {
+        bool ret = false;
+        m_auraLock.LowAcquire();
+        if(!m_modifiersByModType.empty() && m_modifiersByModType.find(modType) != m_modifiersByModType.end())
+            if(ret = !m_modifiersByModType[modType].empty())
+                outSize = m_modifiersByModType[modType].size();
+        m_auraLock.LowRelease();
+        return ret;
+    }
+
     /// !DEPRECATED NOT THREAD SAFE
     modifierMap *GetModMapByModType(uint32 modType) { return NULL; }
 
