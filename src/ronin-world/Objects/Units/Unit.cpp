@@ -1266,74 +1266,94 @@ class DamageDoneModCallback : public AuraInterface::ModCallback
 public:
     virtual void operator()(Modifier *mod)
     {
+        if(targetSchool != SCHOOL_ALL && (mod->m_miscValue[0] & (1<<targetSchool)) == 0)
+            return;
+
         switch(mod->m_type)
         {
         case SPELL_AURA_MOD_DAMAGE_DONE:
+            retVal += mod->m_amount;
             break;
         case SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
+            statMods[mod->m_miscValue[1]] += mod->m_amount;
             break;
         case SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER:
+            attackPowerMods += mod->m_amount;
             break;
         }
     }
 
-    void Init(Unit *unit, uint8 school)
+    void Init(int32 baseVal, uint8 school)
     {
-        for(uint8 s = 0; s < MAX_STAT; ++s)
-            statCache[s] = unit->GetStat(s);
+        retVal = baseVal;
+        targetSchool = school;
+        for(uint8 i = 0; i < 5; ++i)
+            statMods[i] = 0;
+        attackPowerMods = 0;
     }
 
-    uint32 statCache[MAX_STAT];
+    void AppendStatPercentMods(Unit *unit)
+    {
+        for(uint8 i = 0; i < 5; i++)
+            if(statMods[i] != 0)
+                retVal += float2int32(((float)unit->GetStat(i))*(((float)statMods[i])/100.f));
+    }
 
+    void AppendAttackPowerMods(int32 attackPower)
+    {
+        retVal += float2int32(((float)attackPower) * (((float)attackPowerMods)/100.f));
+    }
+
+    int32 getRetVal() { return retVal; }
+
+    int32 retVal;
+    uint8 targetSchool;
+    int32 statMods[5], attackPowerMods;
 };
 
 int32 Unit::GetDamageDoneMod(uint8 school, bool forceCalc, int32 *negativeOut)
 {
-    int32 res = 0;
+    int32 base = 0;
     if(IsPlayer() && forceCalc == false)
     {
-        res += GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school);
-        res -= GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school);
-        return res;
+        base += GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school);
+        base -= GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school);
+        return base;
     }
     else if(IsSummon())
     {
         WorldObject *summoner = castPtr<Summon>(this)->GetSummonOwner();
         /// To avoid processing loops, do not count pets of pets or summons of summons
         if(!summoner->IsSummon() && GetsDamageBonusFromOwner(school))
-            res += castPtr<Unit>(summoner)->GetDamageDoneMod(school);
+            base += castPtr<Unit>(summoner)->GetDamageDoneMod(school);
     }
 
-    DamageDoneModCallback DamageDoneCallback;
-    DamageDoneCallback.Init(this, school);
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_DONE))
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<school))
-                res += itr->second->m_amount;
+    DamageDoneModCallback damageDoneCallback;
+    damageDoneCallback.Init(base, school);
 
+    // Traverse the basic damage done mod map
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_DONE, &damageDoneCallback);
+
+    // Traverse school specific mod maps
     if(school != SCHOOL_NORMAL)
     {
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT))
-        {
-            float statMods[5] = {0,0,0,0,0};
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1<<school))
-                    statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
-            for(uint8 i = 0; i < 5; i++)
-                if(statMods[i])
-                    res += statMods[i]*GetStat(i);
+        // Check if we have stat percentage based damage increasing mods
+        if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT))
+        {   // Traverse the aura map to build stat based modifier values
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT, &damageDoneCallback);
+            // Build our result based on stat modifiers
+            damageDoneCallback.AppendStatPercentMods(this);
         }
 
-        if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER))
-        {
-            float attackPowerMod = 0.0f;
-            for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1<<school))
-                    attackPowerMod += float(itr->second->m_amount)/100.f;
-            res += float2int32(float(CalculateAttackPower())*attackPowerMod);
+        // Check if we have auras that scale our spell damage based on attack power
+        if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER))
+        {   // Traverse our spell damage based on attack power mods
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER, &damageDoneCallback);
+            // Take our resulting mods and append their value to our return value
+            damageDoneCallback.AppendAttackPowerMods(CalculateAttackPower());
         }
     }
-    return res;
+    return damageDoneCallback.getRetVal();
 }
 
 class HealingDoneModCallback : public AuraInterface::ModCallback
@@ -1344,23 +1364,40 @@ public:
         switch(mod->m_type)
         {
         case SPELL_AURA_MOD_HEALING_DONE:
+            retVal += mod->m_amount;
             break;
         case SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT:
+            statMods[mod->m_miscValue[1]] += mod->m_amount;
             break;
         case SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER:
+            attackPowerMods += mod->m_amount;
             break;
         }
     }
 
-    void Init(Unit *unit, uint8 school)
+    void Init()
     {
-        for(uint8 s = 0; s < MAX_STAT; ++s)
-            statCache[s] = unit->GetStat(s);
+        retVal = 0;
+        for(uint8 i = 0; i < 5; ++i)
+            statMods[i] = 0;
+        attackPowerMods = 0;
     }
 
-    uint32 statCache[MAX_STAT];
+    void AppendStatPercentMods(Unit *unit)
+    {
+        for(uint8 i = 0; i < 5; i++)
+            if(statMods[i] != 0)
+                retVal += float2int32(((float)unit->GetStat(i))*(((float)statMods[i])/100.f));
+    }
 
-    uint32 statModPos;
+    void AppendAttackPowerMods(int32 attackPower)
+    {
+        retVal += float2int32(((float)attackPower) * (((float)attackPowerMods)/100.f));
+    }
+
+    int32 getRetVal() { return retVal; }
+
+    int32 retVal, statMods[5], attackPowerMods;
 };
 
 int32 Unit::GetHealingDoneMod(bool forceCalc, int32 *negativeOut)
@@ -1369,29 +1406,29 @@ int32 Unit::GetHealingDoneMod(bool forceCalc, int32 *negativeOut)
     if(IsPlayer() && forceCalc == false)
         return GetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS);
 
-    int32 result = 0;
-    if(AuraInterface::modifierMap *healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALING_DONE))
-        for(AuraInterface::modifierMap::iterator itr = healingMod->begin(); itr != healingMod->end(); itr++)
-            result += itr->second->m_amount;
+    HealingDoneModCallback healingDoneCallback;
+    // Initialize here, no need for a base value on healing
+    healingDoneCallback.Init();
 
-    if(AuraInterface::modifierMap *healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT))
-    {
-        float statMods[5] = {0,0,0,0,0};
-        for(AuraInterface::modifierMap::iterator itr = healingMod->begin(); itr != healingMod->end(); itr++)
-            statMods[itr->second->m_miscValue[1]] += float(itr->second->m_amount)/100.f;
-        for(uint8 i = 0; i < 5; i++)
-            if(statMods[i])
-                result += statMods[i]*GetStat(i);
+    // Traverse the basic healing done mod map
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_HEALING_DONE, &healingDoneCallback);
+
+    // Check if we have stat percentage based healing increasing mods
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT))
+    {   // Traverse the aura map to build stat based modifier values
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_HEALING_OF_STAT_PERCENT, &healingDoneCallback);
+        // Build our result based on stat modifiers
+        healingDoneCallback.AppendStatPercentMods(this);
     }
 
-    if(AuraInterface::modifierMap *healingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER))
-    {
-        float attackPowerMod = 0.0f;
-        for(AuraInterface::modifierMap::iterator itr = healingMod->begin(); itr != healingMod->end(); itr++)
-            attackPowerMod += float(itr->second->m_amount)/100.f;
-        result += float2int32(float(CalculateAttackPower())*attackPowerMod);
+    // Check if we have auras that scale our spell healing based on attack power
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER))
+    {   // Traverse our spell healing based on attack power mods
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_HEALING_OF_ATTACK_POWER, &healingDoneCallback);
+        // Take our resulting mods and append their value to our return value
+        healingDoneCallback.AppendAttackPowerMods(CalculateAttackPower());
     }
-    return result;
+    return healingDoneCallback.getRetVal();
 }
 
 float Unit::GetDamageDonePctMod(uint8 school, bool forceCalc)
