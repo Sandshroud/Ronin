@@ -191,14 +191,36 @@ void Creature::RemoveFromWorld()
     Unit::RemoveFromWorld();
 }
 
+class ModDetectRangeCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DETECT_RANGE:
+            *aggroRange += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(float *rangeMod) { aggroRange = rangeMod; }
+
+    float *aggroRange;
+};
+
 void Creature::UpdateFieldValues()
 {
     if(m_modQueuedModUpdates.find(100) != m_modQueuedModUpdates.end())
     {
         m_aggroRangeMod = 0.f;
-        if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECT_RANGE))
-            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-                m_aggroRangeMod += itr->second->m_amount;
+        if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_DETECT_RANGE))
+        {
+            ModDetectRangeCallback callback;
+            callback.Init(&m_aggroRangeMod);
+            // Call traverse function now that callback is initiated
+            m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DETECT_RANGE, &callback);
+        }
     }
     Unit::UpdateFieldValues();
 }
