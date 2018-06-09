@@ -1709,103 +1709,265 @@ float Unit::GetDispelResistancesPCT(uint8 dispel)
     return dispelResistPctCallback.getRetVal();
 }
 
+class CreatureRangedAttackPowerModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if((mod->m_miscValue[0] & (1<<m_creatureType-1)) == 0)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 creatureType) { retVal = 0; m_creatureType = creatureType; }
+    int32 getRetVal() { return retVal; }
+
+    uint8 m_creatureType;
+    int32 retVal;
+};
+
 int32 Unit::GetCreatureRangedAttackPowerMod(uint32 creatureType)
 {
     if(creatureType == 0)
         return 0;
 
-    int32 mod = 0;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<creatureType-1))
-                mod += itr->second->m_amount;
-    return mod;
+    CreatureRangedAttackPowerModCallback rangedAttackPowerCallback;
+    rangedAttackPowerCallback.Init(creatureType);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_CREATURE_RANGED_ATTACK_POWER, &rangedAttackPowerCallback);
+    return rangedAttackPowerCallback.getRetVal();
 }
+
+class CreatureAttackPowerModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if((mod->m_miscValue[0] & (1<<m_creatureType-1)) == 0)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_CREATURE_ATTACK_POWER:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 creatureType) { retVal = 0; m_creatureType = creatureType; }
+    int32 getRetVal() { return retVal; }
+
+    uint8 m_creatureType;
+    int32 retVal;
+};
 
 int32 Unit::GetCreatureAttackPowerMod(uint32 creatureType)
 {
     if(creatureType == 0)
         return 0;
 
-    int32 mod = 0;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_CREATURE_ATTACK_POWER))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if(itr->second->m_miscValue[0] & (1<<creatureType-1))
-                mod += itr->second->m_amount;
-    return mod;
+    CreatureAttackPowerModCallback attackPowerCallback;
+    attackPowerCallback.Init(creatureType);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_CREATURE_ATTACK_POWER, &attackPowerCallback);
+    return attackPowerCallback.getRetVal();
 }
+
+class RangedAttackDamageTakenModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN:
+            retVal += mod->m_amount;
+            break;
+        case SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT:
+            retVal *= mod->m_amount;
+            break;
+        }
+    }
+
+    void Init() { retVal = 0; }
+    int32 getRetVal() { return retVal; }
+
+    int32 retVal;
+};
 
 int32 Unit::GetRangedDamageTakenMod()
 {
-    int32 mod = 0;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            mod += itr->second->m_amount;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            mod *= itr->second->m_amount;
-    return mod;
+    RangedAttackDamageTakenModCallback rangedAttackDamageTakenCallback;
+    rangedAttackDamageTakenCallback.Init();
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN, &rangedAttackDamageTakenCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RANGED_DAMAGE_TAKEN_PCT, &rangedAttackDamageTakenCallback);
+    return rangedAttackDamageTakenCallback.getRetVal();
 }
+
+class CritMeleeDamageTakenModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if (mod->m_miscValue[0] & (1<<m_expectedSchool))
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 school) { retVal = 0; m_expectedSchool = school; }
+    float getRetVal() { return retVal; }
+
+    uint8 m_expectedSchool;
+    float retVal;
+};
 
 float Unit::GetCritMeleeDamageTakenModPct(uint32 school)
 {
-    float mod = 0.f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if (itr->second->m_miscValue[0] & (1<<school))
-                mod += itr->second->m_amount;
-    return mod;
+    CritMeleeDamageTakenModCallback critMeleeDamageTakenCallback;
+    critMeleeDamageTakenCallback.Init(school);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_ATTACKER_MELEE_CRIT_DAMAGE, &critMeleeDamageTakenCallback);
+    return critMeleeDamageTakenCallback.getRetVal();
 }
+
+class RangedCritMeleeDamageTakenModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if (mod->m_miscValue[0] & (1<<m_expectedSchool))
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 school) { retVal = 0; m_expectedSchool = school; }
+    float getRetVal() { return retVal; }
+
+    uint8 m_expectedSchool;
+    float retVal;
+};
 
 float Unit::GetCritRangedDamageTakenModPct(uint32 school)
 {
-    float mod = 0.f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if (itr->second->m_miscValue[0] & (1<<school))
-                mod += itr->second->m_amount;
-    return mod;
+    RangedCritMeleeDamageTakenModCallback rangedCritMeleeDamageTakenCallback;
+    rangedCritMeleeDamageTakenCallback.Init(school);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_ATTACKER_RANGED_CRIT_DAMAGE, &rangedCritMeleeDamageTakenCallback);
+    return rangedCritMeleeDamageTakenCallback.getRetVal();
 }
+
+class DamageTakenModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DAMAGE_TAKEN:
+            {
+                if (mod->m_miscValue[0] & (1<<m_expectedSchool))
+                    return;
+
+                retVal += mod->m_amount;
+            }break;
+        case SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 school) { retVal = 0; m_expectedSchool = school; }
+    int32 getRetVal() { return retVal; }
+
+    uint8 m_expectedSchool;
+    int32 retVal;
+};
 
 int32 Unit::GetDamageTakenMod(uint32 school)
 {
-    int32 mod = 0;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_TAKEN))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if (itr->second->m_miscValue[0] & (1<<school))
-                mod += itr->second->m_amount;
+    DamageTakenModCallback damageTakenCallback;
+    damageTakenCallback.Init(school);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_TAKEN, &damageTakenCallback);
     if(school == 0)
-    {
-        if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN))
-            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-                mod += itr->second->m_amount;
-    }
-    return mod;
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN, &damageTakenCallback);
+    return damageTakenCallback.getRetVal();
 }
+
+class DamageTakenPctModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN:
+            {
+                if (mod->m_miscValue[0] & (1<<m_expectedSchool))
+                    return;
+
+                retVal += float(mod->m_amount)/100.f;
+            }break;
+        case SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint8 school) { retVal = 1.f; m_expectedSchool = school; }
+    float getRetVal() { return retVal; }
+
+    uint8 m_expectedSchool;
+    float retVal;
+};
 
 float Unit::GetDamageTakenModPct(uint32 school)
 {
-    float mod = 1.f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            if (itr->second->m_miscValue[0] & (1<<school))
-                mod += float(itr->second->m_amount)/100.f;
+    DamageTakenModCallback damageTakenCallback;
+    damageTakenCallback.Init(school);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, &damageTakenCallback);
     if(school == 0)
-    {
-        if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT))
-            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-                mod += itr->second->m_amount;
-    }
-    return mod;
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT, &damageTakenCallback);
+    return damageTakenCallback.getRetVal();
 }
+
+class AreaOfEffectDamageModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE:
+            retVal += float(mod->m_amount)/100.f;
+            break;
+        }
+    }
+
+    void Init() { retVal = 1.f; }
+    float getRetVal() { return retVal; }
+    float retVal;
+};
 
 float Unit::GetAreaOfEffectDamageMod()
 {
-    float mod = 1.f;
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            mod *= float(itr->second->m_amount)/100.f;
-    return mod;
+    AreaOfEffectDamageModCallback areaOfEffectDamageCallback;
+    areaOfEffectDamageCallback.Init();
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE, &areaOfEffectDamageCallback);
+    return areaOfEffectDamageCallback.getRetVal();
 }
 
 bool Unit::canWalk()
@@ -1980,6 +2142,24 @@ void Unit::QueueExtraAttacks(uint32 spellId, uint32 amount)
         m_extraAttacks.push_back(spellId);
 }
 
+class DetectRangeModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_DETECTED_RANGE:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(float val) { retVal = val; }
+    float getRetVal() { return retVal; }
+    float retVal;
+};
+
 float Unit::ModDetectedRange(Unit *detector, float base)
 {
     // "The maximum Aggro Radius has a cap of 25 levels under. Example: A level 35 char has the same Aggro Radius of a level 5 char on a level 60 mob."
@@ -1990,11 +2170,11 @@ float Unit::ModDetectedRange(Unit *detector, float base)
         base += float(std::min<int32>(25, dlvl-lvl))*1.115f;
     else base -= float(std::min<int32>(25, lvl-dlvl))*0.985f;
     // Check detected modifiers auras that exist on us
-    if(AuraInterface::modifierMap *modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_DETECTED_RANGE))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            base += itr->second->m_amount;
+    DetectRangeModCallback detectRangeCallback;
+    detectRangeCallback.Init(base);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DETECTED_RANGE, &detectRangeCallback);
     // "Minimum Aggro Radius for a mob seems to be combat range (5 yards)"
-    return std::max<float>(5.f, base);
+    return std::max<float>(5.f, detectRangeCallback.getRetVal());
 }
 
 void Unit::SetDiminishTimer(uint32 index)
@@ -3203,52 +3383,64 @@ void Unit::RemoveAllAreaAuras()
     }
 }
 */
+
+class AbsorbShieldCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        if(abs == dmg)
+            return;
+        if(mod->fixed_amount == 0)
+            return;
+        if((mod->m_miscValue[0] & (1<<m_expectedSchool)) == 0)
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_SCHOOL_ABSORB:
+            {
+                int32 absDiff = dmg-abs;
+                if( absDiff >= mod->fixed_amount)//remove this absorb
+                    abs += mod->fixed_amount;
+                else
+                {
+                    abs = dmg;
+                    mod->fixed_amount -= absDiff;
+                    reflect_pct += mod->fixed_float_amount;
+                }
+            }break;
+        }
+    }
+
+    void Init(int32 damage, uint8 school) { dmg = damage; abs = 0; reflect_pct = 0.f; m_expectedSchool = school; }
+
+    int32 getAbs() { return abs; }
+    float getReflectPct() { return reflect_pct; }
+
+    int32 dmg, abs;
+    float reflect_pct;
+    uint8 m_expectedSchool;
+};
+
 uint32 Unit::AbsorbDamage( WorldObject* Attacker, uint32 School, int32 dmg, SpellEntry * pSpell )
 {
     if( dmg == 0 || Attacker == NULL  || School > 6 )
         return 0;
 
-    int32 abs = 0;
-    float reflect_pct = 0.f;
+    AbsorbShieldCallback absorbShieldCallback;
+    absorbShieldCallback.Init(dmg, School);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_SCHOOL_ABSORB, &absorbShieldCallback);
 
-    std::set<Aura*> m_removeAuras;
-    if(AuraInterface::modifierMap *absorbMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_SCHOOL_ABSORB))
+    if( absorbShieldCallback.getAbs() > 0 )
     {
-        for(AuraInterface::modifierMap::iterator itr = absorbMap->begin(); itr != absorbMap->end(); itr++)
+        if(absorbShieldCallback.getReflectPct() > 0.f && Attacker && Attacker->IsUnit() )
         {
-            if(itr->second->m_miscValue[0] & (1<<School))
-            {
-                if(itr->second->fixed_amount == 0)
-                    continue;
-
-                int32 absDiff = dmg-abs;
-                if( absDiff >= itr->second->fixed_amount)//remove this absorb
-                {
-                    abs += itr->second->fixed_amount;
-                    if(abs == dmg)
-                        break;
-                }
-                else
-                {
-                    abs = dmg;
-                    itr->second->fixed_amount -= absDiff;
-                    reflect_pct += itr->second->fixed_float_amount;
-                    break;
-                }
-            }
-        }
-    }
-
-    if( abs > 0 )
-    {
-        if(reflect_pct > 0.f && Attacker && Attacker->IsUnit() )
-        {
-            int32 amt = float2int32(abs * reflect_pct);
+            int32 amt = float2int32(absorbShieldCallback.getAbs() * absorbShieldCallback.getReflectPct());
             DealDamage( castPtr<Unit>( Attacker ), amt, 0, 0, 0 );
         }
     }
 
-    return abs;
+    return absorbShieldCallback.getAbs();
 }
 
 void Unit::SetStandState(uint8 standstate)
