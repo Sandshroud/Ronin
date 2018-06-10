@@ -258,16 +258,33 @@ void WorldSession::HandleCancelAutoRepeatSpellOpcode(WorldPacket& recv_data)
 
 }
 
+class SpellCategoryCooldownModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN:
+            (*categoryMap)[mod->m_miscValue[0]] += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(std::map<uint32, int32> *mapToFill) { categoryMap = mapToFill; }
+
+    std::map<uint32, int32> *categoryMap;
+};
+
 void WorldSession::HandleRequestSpellCategoryCooldownOpcode(WorldPacket &recv_data)
 {
     CHECK_INWORLD_RETURN();
 
     std::map<uint32, int32> categoryModifiers;
     _player->FillMapWithSpellCategories(&categoryModifiers);
-    AuraInterface::modifierMap *map = NULL;
-    if(map = _player->m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN))
-        for(auto itr = map->begin(); itr != map->end(); ++itr)
-            categoryModifiers[itr->second->m_miscValue[0]] += itr->second->m_amount;
+    SpellCategoryCooldownModCallback spellCategoryCooldownCallback;
+    spellCategoryCooldownCallback.Init(&categoryModifiers);
+    _player->m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN, &spellCategoryCooldownCallback);
 
     WorldPacket data(SMSG_SPELL_CATEGORY_COOLDOWN, 20);
     data.WriteBits(categoryModifiers.size(), 23);
