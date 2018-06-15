@@ -1234,31 +1234,9 @@ void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
     }
 }
 
-class HoverValueUpdateCallback : public AuraInterface::ModCallback
-{
-public:
-    virtual void operator()(Modifier *mod)
-    {
-        switch(mod->m_type)
-        {
-        case SPELL_AURA_HOVER: { height += mod->m_amount; }break;
-        }
-    }
-
-    void Init() { height = 0.002f; }
-
-    float GetHeight() { return height/2.f; }
-
-    float height;
-};
-
 void Unit::UpdateHoverValues()
 {
-    HoverValueUpdateCallback hoverValueCallback;
-    hoverValueCallback.Init();
-    m_AuraInterface.TraverseModMap(SPELL_AURA_HOVER, &hoverValueCallback);
-
-    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, hoverValueCallback.GetHeight());
+    SetFloatValue(UNIT_FIELD_HOVERHEIGHT, (0.002f + ((float)m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_HOVER)))/2.f);
 }
 
 class DamageDoneModCallback : public AuraInterface::ModCallback
@@ -1467,36 +1445,13 @@ float Unit::GetDamageDonePctMod(uint8 school, bool forceCalc)
     return damageDonePctCallback.getRetVal();
 }
 
-class HealingDonePctModCallback : public AuraInterface::ModCallback
-{
-public:
-    virtual void operator()(Modifier *mod)
-    {
-        switch(mod->m_type)
-        {
-        case SPELL_AURA_MOD_HEALING_DONE_PERCENT:
-            retVal += mod->m_amount;
-            break;
-        }
-    }
-
-    void Init() { retVal = 1.f; }
-
-    float getRetVal() { return retVal; }
-
-    float retVal;
-};
-
 float Unit::GetHealingDonePctMod(bool forceCalc)
 {
     // If we're a player, this is already precalculated
     if(IsPlayer() && forceCalc == false)
         return GetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT);
 
-    HealingDonePctModCallback healingDonePctCallback;
-    healingDonePctCallback.Init();
-    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_HEALING_DONE_PERCENT, &healingDonePctCallback);
-    return healingDonePctCallback.getRetVal();
+    return 1.f+((float)m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_HEALING_DONE_PERCENT));
 }
 
 class MechanicCountingModCallback : public AuraInterface::ModCallback
@@ -1944,30 +1899,9 @@ float Unit::GetDamageTakenModPct(uint32 school)
     return damageTakenCallback.getRetVal();
 }
 
-class AreaOfEffectDamageModCallback : public AuraInterface::ModCallback
-{
-public:
-    virtual void operator()(Modifier *mod)
-    {
-        switch(mod->m_type)
-        {
-        case SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE:
-            retVal += float(mod->m_amount)/100.f;
-            break;
-        }
-    }
-
-    void Init() { retVal = 1.f; }
-    float getRetVal() { return retVal; }
-    float retVal;
-};
-
 float Unit::GetAreaOfEffectDamageMod()
 {
-    AreaOfEffectDamageModCallback areaOfEffectDamageCallback;
-    areaOfEffectDamageCallback.Init();
-    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE, &areaOfEffectDamageCallback);
-    return areaOfEffectDamageCallback.getRetVal();
+    return 1.f + (((float)m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_AOE_DAMAGE_AVOIDANCE))/100.f);
 }
 
 bool Unit::canWalk()
@@ -2142,24 +2076,6 @@ void Unit::QueueExtraAttacks(uint32 spellId, uint32 amount)
         m_extraAttacks.push_back(spellId);
 }
 
-class DetectRangeModCallback : public AuraInterface::ModCallback
-{
-public:
-    virtual void operator()(Modifier *mod)
-    {
-        switch(mod->m_type)
-        {
-        case SPELL_AURA_MOD_DETECTED_RANGE:
-            retVal += mod->m_amount;
-            break;
-        }
-    }
-
-    void Init(float val) { retVal = val; }
-    float getRetVal() { return retVal; }
-    float retVal;
-};
-
 float Unit::ModDetectedRange(Unit *detector, float base)
 {
     // "The maximum Aggro Radius has a cap of 25 levels under. Example: A level 35 char has the same Aggro Radius of a level 5 char on a level 60 mob."
@@ -2170,11 +2086,9 @@ float Unit::ModDetectedRange(Unit *detector, float base)
         base += float(std::min<int32>(25, dlvl-lvl))*1.115f;
     else base -= float(std::min<int32>(25, lvl-dlvl))*0.985f;
     // Check detected modifiers auras that exist on us
-    DetectRangeModCallback detectRangeCallback;
-    detectRangeCallback.Init(base);
-    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DETECTED_RANGE, &detectRangeCallback);
+    base += m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_DETECTED_RANGE);
     // "Minimum Aggro Radius for a mob seems to be combat range (5 yards)"
-    return std::max<float>(5.f, detectRangeCallback.getRetVal());
+    return std::max<float>(5.f, base);
 }
 
 void Unit::SetDiminishTimer(uint32 index)

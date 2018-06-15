@@ -1703,3 +1703,15 @@ void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
         if(flag & group[groupOffset]) (*v) += ((*v)*float(itr->second))/100.f;
     }
 }
+
+int32 AuraInterface::getModMapAccumulatedValue(uint32 modType)
+{
+    int32 retVal = 0;
+    m_auraLock.LowAcquire();
+    AuraInterface::modifierMap *modMap = NULL;
+    if(m_modifiersByModType.find(modType) != m_modifiersByModType.end() && !(modMap = &m_modifiersByModType[modType])->empty())
+        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); ++itr)
+            retVal += itr->second->m_amount;
+    m_auraLock.LowRelease();
+    return retVal;
+}

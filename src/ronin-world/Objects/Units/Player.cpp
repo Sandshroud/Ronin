@@ -915,6 +915,32 @@ static uint32 ratingsToModBonus[26] =
     ITEM_STAT_MASTERY_RATING
 };
 
+class SpellRatingModCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        // Weapon ratings are 0x01, so skip them here
+        if((mod->m_miscValue[0] & 0x1) == 0)
+            return;
+        if((mod->m_spellInfo->EquippedItemSubClassMask & (1<<_expectedSubClass)) == 0)
+            return;
+
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_RATING:
+            retVal += mod->m_amount;
+            break;
+        }
+    }
+
+    void Init(uint32 subClass) { retVal = 0; _expectedSubClass = subClass; }
+    int32 getRetVal() { return retVal; }
+
+    int32 retVal;
+    uint32 _expectedSubClass;
+};
+
 int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
 {
     ASSERT(combatRating < 26);
@@ -960,24 +986,16 @@ int32 Player::CalculatePlayerCombatRating(uint8 combatRating)
         {
             if(Item *item = GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND+(combatRating-20)))
             {
-                if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING))
-                {
-                    for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
-                    {
-                        // Weapon ratings are 0x01, so skip them here
-                        if((itr->second->m_miscValue[0] & 0x1) == 0)
-                            continue;
-                        if(itr->second->m_spellInfo->EquippedItemSubClassMask & (1<<item->GetProto()->SubClass))
-                            val += itr->second->m_amount;
-                    }
-                }
+                SpellRatingModCallback spellRatingCallback;
+                spellRatingCallback.Init(item->GetProto()->SubClass);
+
+                m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RATING, &spellRatingCallback);
+                val += spellRatingCallback.getRetVal();
             }
         }break;
     case 24:
         {
-            if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MASTERY))
-                for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
-                    val += itr->second->m_amount;
+            val += m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MASTERY);
         }break;
     }
 
@@ -1060,39 +1078,67 @@ int32 Player::ApplyRatingDiminishingReturn(uint8 cr, int32 value)
     return returnVal;
 }
 
-void Player::UpdatePlayerRatings()
+class PlayerRatingModCallback : public AuraInterface::ModCallback
 {
-    for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
+public:
+    virtual void operator()(Modifier *mod)
     {
-        int32 val = CalculatePlayerCombatRating(cr);
-        if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
-            val = 0; // Parry requires that we have the ability to parry, weirdly enough
-        if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING))
+        if((mod->m_miscValue[0] & (1<<_expectedCombatRating)) == 0)
+            return;
+        switch(mod->m_type)
         {
-            for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
+        case SPELL_AURA_MOD_RATING:
             {
                 // Weapon ratings are 0x01, so skip them here
-                if(itr->second->m_miscValue[0] & 0x1)
-                    continue;
-                if(itr->second->m_miscValue[0] & (1<<cr))
-                    val += itr->second->m_amount;
-            }
+                if(mod->m_miscValue[0] & 0x1)
+                    return;
+                retVal += mod->m_amount;
+            }break;
+        case SPELL_AURA_MOD_RATING_FROM_STAT:
+            {
+                retVal += float2int32(float(statCache[mod->m_miscValue[1]])*float(mod->m_amount/100.f));
+            }break;
         }
+    }
 
+    void cacheStats(Player *plr)
+    {
+        for(uint8 i = 0; i < 5; ++i)
+            statCache[i] = plr->GetStat(i);
+    }
+
+    void Init(uint32 cr, int32 baseVal) { _expectedCombatRating = cr; retVal = baseVal; }
+    void resetVal() { retVal = 0; }
+    int32 getRetVal() { return retVal; }
+
+    uint32 _expectedCombatRating, statCache[5];
+    int32 retVal;
+};
+
+void Player::UpdatePlayerRatings()
+{
+    PlayerRatingModCallback playerRatingCallback;
+    playerRatingCallback.cacheStats(this);
+
+    for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
+    {
+        // Init with our base combat rating
+        playerRatingCallback.Init(cr, CalculatePlayerCombatRating(cr));
+        // Traverse mod maps that modify our rating after base bonuses
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RATING, &playerRatingCallback);
+        // Traverse mod maps that change rating from stat
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_RATING_FROM_STAT, &playerRatingCallback);
+        // Parry requires that we have the ability to parry, weirdly enough
         if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
-            val = 0; // Parry requires that we have the ability to parry, weirdly enough
-
-        if(AuraInterface::modifierMap *ratingMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_RATING_FROM_STAT))
-            for(AuraInterface::modifierMap::iterator itr = ratingMod->begin(); itr != ratingMod->end(); itr++)
-                if(itr->second->m_miscValue[0] & (1<<cr))
-                    val += (float(GetStat(itr->second->m_miscValue[1]))*float(itr->second->m_amount/100.f));
-
+            playerRatingCallback.resetVal();
+        // Mastery requires the aura before the rating can come into effect, so nullify it here
         if(index == PLAYER_RATING_MODIFIER_MASTERY && !m_AuraInterface.HasAurasWithModType(SPELL_AURA_MASTERY))
-            val = 0; // Mastery requires the aura before the rating can come into effect, so nullify it here
+            playerRatingCallback.resetVal();
+        // Parry requires that we have the ability to parry, weirdly enough
         if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
-            val = 0; // Parry requires that we have the ability to parry, weirdly enough
+            playerRatingCallback.resetVal();
         // Apply rating diminishing returns for points above specific percentage steps
-        val = ApplyRatingDiminishingReturn(cr, val);
+        int32 val = ApplyRatingDiminishingReturn(cr, playerRatingCallback.getRetVal());
 
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
@@ -1103,16 +1149,9 @@ void Player::UpdatePlayerRatings()
 
 void Player::UpdatePlayerDamageDoneMods()
 {
-    uint32 itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER);
-
-    uint32 spellPowerOverride = itemBonus;
-    if(AuraInterface::modifierMap *damageMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))
-    {
-        float attackPowerMod = 0.0f;
-        for(AuraInterface::modifierMap::iterator itr = damageMod->begin(); itr != damageMod->end(); itr++)
-            attackPowerMod += float(itr->second->m_amount)/100.f;
-        spellPowerOverride = float2int32(float(CalculateAttackPower())*attackPowerMod);
-    }
+    uint32 itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER), spellPowerOverride = itemBonus;
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))
+        spellPowerOverride = float2int32((((float)CalculateAttackPower())*m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))/100.f);
 
     int32 negative = 0;
     for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
@@ -3628,11 +3667,7 @@ float Player::GetBaseBlock()
             return 0.f;
     } else return 0.f;
 
-    float val = 5.f;
-    if(AuraInterface::modifierMap *increaseBlockMod = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_BLOCK_PERCENT))
-        for(AuraInterface::modifierMap::iterator itr = increaseBlockMod->begin(); itr != increaseBlockMod->end(); itr++)
-            val += itr->second->m_amount;
-    return val;
+    return 5.f + m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_BLOCK_PERCENT);
 }
 
 float Player::CalculateCritFromAgilForClassAndLevel(uint32 _class, uint32 _level)
@@ -4701,7 +4736,6 @@ void Player::RegenerateHealth( bool inCombat )
     uint32 mh = GetUInt32Value(UNIT_FIELD_MAXHEALTH);
     if(cur >= mh)
         return;
-    AuraInterface::modifierMap *modMap = NULL;
 
     float amt = 0.f;
     if(m_AuraInterface.HasAuraWithMechanic(MECHANIC_POLYMORPHED))
@@ -4712,20 +4746,12 @@ void Player::RegenerateHealth( bool inCombat )
         amt = (level >= 15 ? 0.015f : 0.2f) * (float)mh;
         if(level < 15) amt /= level;
 
-        float modifier = inCombat ? 0.f : 100.f;
-        if(modMap = m_AuraInterface.GetModMapByModType(inCombat ? SPELL_AURA_MOD_REGEN_DURING_COMBAT : SPELL_AURA_MOD_REGEN))
-            for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-                modifier += itr->second->m_amount;
-        amt *= modifier/100.f;
-
+        amt *= ((inCombat ? 0.f : 100.f) + (m_AuraInterface.getModMapAccumulatedValue(inCombat ? SPELL_AURA_MOD_REGEN_DURING_COMBAT : SPELL_AURA_MOD_REGEN)))/100.f;
         if(IsSitting())
             amt *= 1.33f;
     }
 
-    if(modMap = m_AuraInterface.GetModMapByModType(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT))
-        for(AuraInterface::modifierMap::iterator itr = modMap->begin(); itr != modMap->end(); itr++)
-            amt += itr->second->m_amount;
-
+    amt += m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT);
     amt += GetBonusesFromItems(ITEM_STAT_HEALTH_REGEN);
 
     if(amt > 0)

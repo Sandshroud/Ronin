@@ -230,9 +230,6 @@ public:
         return ret;
     }
 
-    /// !DEPRECATED NOT THREAD SAFE
-    modifierMap *GetModMapByModType(uint32 modType) { return NULL; }
-
     // Used for traversing mod map, operator()(Modifier *mod) for operation
     class ModCallback { public: virtual void operator()(Modifier *mod) = 0; virtual void postTraverse(uint32 modType) {}; };
 
@@ -244,6 +241,9 @@ public:
     void SM_FFValue( uint32 modifier, float* v, uint32* group );
     void SM_PIValue( uint32 modifier, int32* v, uint32* group );
     void SM_PFValue( uint32 modifier, float* v, uint32* group );
+
+    // Easy functions
+    int32 getModMapAccumulatedValue(uint32 modType);
 
 private:
     // Ordered by aura slot
