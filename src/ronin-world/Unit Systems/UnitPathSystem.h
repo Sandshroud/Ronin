@@ -100,6 +100,7 @@ private:
     uint32 m_pathCounter, m_pathStartTime, m_pathLength;
 
     MovementPoint srcPoint, lastUpdatePoint;
+    float _currDestX, _currDestY, _currDestZ;
     float _destX, _destY, _destZ, _destO;
 
     FastQueue<std::shared_ptr<MovementPoint>, Mutex> m_movementPoints;

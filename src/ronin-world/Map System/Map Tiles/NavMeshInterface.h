@@ -41,7 +41,7 @@ public: // Navmesh settings
     float GetWalkingHeight(uint32 mapid, float positionx, float positiony, float positionz, float positionz2);
     bool BuildPath(uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, Position& out);
     Position BuildPath(uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, bool best = false);
-    PositionMapContainer* BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, bool straight = true);
+    PositionMapContainer* BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float &endx, float &endy, float &endz, bool straight = true);
 
 private:
     uint32 GetPosX(float x)

@@ -5,7 +5,7 @@ float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
 UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
 m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
-srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f)
+srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), _currDestX(fInfinite), _currDestY(fInfinite), _currDestZ(fInfinite)
 {
 
 }
@@ -64,8 +64,16 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 
         if(timeWalked >= m_pathLength || !m_movementPoints.HasItems())
         {
-            m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
-            _CleanupPath();
+            if(_currDestX != _destX || _currDestY != _destY)
+            {
+                MoveToPoint(_destX, _destY, _destZ, _destO);
+                return false;
+            }
+            else
+            {
+                m_Unit->GetMovementInterface()->MoveClientPosition(_destX,_destY,_destZ,_destO);
+                _CleanupPath();
+            }
         }
         else
         {
@@ -194,7 +202,7 @@ void UnitPathSystem::SetFollowTarget(Unit *target, float distance)
 
 void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 {
-    if(m_movementDisabled || (_destX == x && _destY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
+    if(m_movementDisabled || (_currDestX == x && _currDestY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
         return;
 
     // Clean up any existing paths
@@ -208,30 +216,34 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     lastUpdatePoint.timeStamp = 0;
     m_Unit->GetPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
 
-    _destX = x, _destY = y, _destZ = z, _destO = o;
+    _currDestX = _destX = x, _currDestY = _destY = y, _currDestZ = _destZ = z, _destO = o;
 
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y))
-        sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, x, y, z, true);
+        sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, _currDestX, _currDestY, _currDestZ, true);
     else
     {
         MapInstance *instance = m_Unit->GetMapInstance();
         float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
-
         m_pathLength = (dist/speed)*1000.f;
+
+        int32 stepTiming = 500;
+        if((m_pathLength/((float)stepTiming)) > 255)
+            stepTiming = std::max<int32>(500, float2int32(ceil(m_pathLength/25500.f)*100.f));
+
         if(m_pathLength > 800)
         {
             bool ignoreTerrainHeight = m_Unit->canFly();
             float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
             float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ), posToAdd = 0.f;
             if(ignoreTerrainHeight)
-                posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/500.f));
-            else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/500.f));
+                posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/((float)stepTiming)));
+            else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/((float)stepTiming)));
 
             float lastCalcPoint = srcPoint.pos.z;// Path calculation
-            uint32 timeToMove = 500;
-            while((m_pathLength-timeToMove) > 500)
+            uint32 timeToMove = stepTiming;
+            while((m_pathLength-timeToMove) > stepTiming)
             {
-                timeToMove += 500;
+                timeToMove += stepTiming;
                 lastCalcPoint += posToAdd;
 
                 float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
@@ -266,7 +278,7 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
     data << uint8(0);
     data.appendvector(LocationVector(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z), false);
     // If we are at our destination, or have no destination, broadcast a stop packet
-    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite))
+    if((m_Unit->GetPositionX() == _currDestX && m_Unit->GetPositionY() == _currDestY) || (_currDestX == fInfinite && _currDestY == fInfinite))
         data << uint32(0) << uint8(5) << float( _destO );
     else
     {
@@ -340,7 +352,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
     // We need to append our start vector here, but need to use it later for compressed movement
     data.appendvector(startPoint, false);
     // If we are at our destination, or have no destination, broadcast a stop packet
-    if(lastPoint == NULL || (lastUpdatePoint.pos.x == _destX && lastUpdatePoint.pos.y == _destY) || (_destX == fInfinite && _destY == fInfinite))
+    if(lastPoint == NULL || (lastUpdatePoint.pos.x == _currDestX && lastUpdatePoint.pos.y == _currDestY) || (_currDestX == fInfinite && _currDestY == fInfinite))
         data << uint32(0) << uint8(1);
     else
     {
@@ -398,7 +410,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
 
 void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
 {
-    if((m_Unit->GetPositionX() == _destX && m_Unit->GetPositionY() == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
+    if((m_Unit->GetPositionX() == _currDestX && m_Unit->GetPositionY() == _currDestY) || (_currDestX == fInfinite && _currDestY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
         return;
     MovementPoint *lastPoint = m_movementPoints.HasItems() ? m_movementPoints.at(m_movementPoints.size()-1).get() : NULL;
     if(lastPoint == NULL)
@@ -470,7 +482,7 @@ void UnitPathSystem::AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vect
     if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
         startPoint = *m_Unit->GetPositionV();
     // Check if our starting point is also our destination or if we're just too far gone
-    if((startPoint.x == _destX && startPoint.y == _destY) || (_destX == fInfinite && _destY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
+    if((startPoint.x == _currDestX && startPoint.y == _currDestY) || (_currDestX == fInfinite && _currDestY == fInfinite) || (lastUpdatePoint.timeStamp >= m_pathLength))
         finalized = true;
     else if(closeToDestination(msTime))
         finalized = true;
@@ -496,7 +508,7 @@ void UnitPathSystem::AppendMoveBits(ByteBuffer *buffer, uint32 msTime, std::vect
 
 void UnitPathSystem::AppendMoveBytes(ByteBuffer *buffer, uint32 msTime, std::vector<MovementPoint*> *pointStorage)
 {
-    LocationVector dest(_destZ, _destX, _destY);
+    LocationVector dest(_currDestZ, _currDestX, _currDestY);
     if(!pointStorage->empty())
     {
         if(false); // Parabolic pathing effect

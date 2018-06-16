@@ -103,7 +103,7 @@ Position CNavMeshInterface::BuildPath(uint32 mapid, float startx, float starty, 
     return Position(endx, endy, endz);
 }
 
-PositionMapContainer* CNavMeshInterface::BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float endx, float endy, float endz, bool straight)
+PositionMapContainer* CNavMeshInterface::BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float &endx, float &endy, float &endz, bool straight)
 {
     if(MMapManagerExt* mmap = GetOrCreateMMapManager(mapid))
         return mmap->BuildFullPath(m_Unit->canFly(), startx, starty, startz, endx, endy, endz, straight);
