@@ -173,7 +173,9 @@ public:
 
     RONIN_INLINE void SetSocket(WorldSocket *sock)
     {
+        socketLock.Acquire();
         _socket = sock;
+        socketLock.Release();
     }
     RONIN_INLINE void SetPlayer(Player* plr) { _player = plr; }
 
@@ -729,6 +731,7 @@ private:
     friend class Player;
     Player* _player;
     WorldSocket *_socket;
+    Mutex socketLock;
 
     uint32 _accountId;
     uint32 _accountFlags;

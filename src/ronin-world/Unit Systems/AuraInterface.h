@@ -141,7 +141,7 @@ public:
     void RemoveAllAurasExpiringWithPet();
     void RemoveAllAreaAuras(WoWGuid skipguid);
     bool RemoveAllAurasFromGUID(WoWGuid guid); //remove if they come from the same caster.
-    void RemoveAllAurasOfType(uint32 auratype);//ex:to remove morph spells
+    void RemoveAllAurasOfType(uint32 auratype, SpellEntry *toSkip = NULL);//ex:to remove morph spells
     bool RemoveAllPosAurasFromGUID(WoWGuid guid); //remove if they come from the same caster.
     bool RemoveAllNegAurasFromGUID(WoWGuid guid); //remove if they come from the same caster.
     void RemoveAllAurasByInterruptFlag(uint32 flag);

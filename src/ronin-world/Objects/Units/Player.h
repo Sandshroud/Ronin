@@ -930,9 +930,6 @@ public:
     bool HasSpellWithEffect(uint8 spellEff) { return !m_spellsByEffect[spellEff].empty(); }
     void FillMapWithSpellCategories(std::map<uint32, int32> *map);
 
-    void AddShapeShiftSpell(uint32 id);
-    void RemoveShapeShiftSpell(uint32 id);
-
     /************************************************************************/
     /* Reputation                                                           */
     /************************************************************************/
@@ -1335,7 +1332,7 @@ private:
     FactionInterface m_factionInterface;
 
     // Player spell storage
-    SpellSet m_spells, m_shapeShiftSpells;
+    SpellSet m_spells;
     Loki::AssocVector<uint8, SpellSet> m_spellsByEffect;
     Loki::AssocVector<uint16, SpellSet> m_spellsBySkill;
     std::set<uint32> m_spellCategories;
@@ -1482,7 +1479,6 @@ public:
 
     // GameObject commands
     WoWGuid m_selectedGo;
-    uint32 m_ShapeShifted;
 
     bool bHasBindDialogOpen;
     uint32 TrackingSpell;

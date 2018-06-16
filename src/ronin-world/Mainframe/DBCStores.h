@@ -979,6 +979,7 @@ struct SpellEntry
     uint32 GeneratedThreat;
     uint32 SpellSkillLine;
     uint32 CustomAttributes[2];
+    uint32 TargetNameHash;
     bool isUnique, always_apply;
 
     // Calculations
@@ -1178,6 +1179,7 @@ struct SpellEntry
     bool isSpellCastOnPetOwnerOnSummon() { return HasCustomAttribute(0, 0x10); }
     bool isSpellCastOnPetOnSummon() { return HasCustomAttribute(0, 0x20); }
     bool isSpellSelfCastOnly() { return HasCustomAttribute(0, 0x40); }
+    bool isSpellbookInvisible() { return HasCustomAttribute(0, 0x80); }
 
     bool isSpellDamagingEffect() { return HasCustomAttribute(1, 0x01); }
     bool isSpellHealingEffect() { return HasCustomAttribute(1, 0x02); }

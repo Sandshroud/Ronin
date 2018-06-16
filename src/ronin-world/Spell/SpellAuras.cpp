@@ -1088,12 +1088,10 @@ void Aura::SpellAuraModShapeshift(bool apply)
 
     Player *p = castPtr<Player>(m_target);
     p->SetShapeShift( apply ? mod->m_miscValue[0] : 0 );
-    if( apply == false )
+    /*switch(mod->m_miscValue[0])
     {
-        p->m_ShapeShifted = 0;
-        if(m_target->HasAura(52610))
-            m_target->RemoveAura(52610);
-    }
+
+    }*/
 }
 
 void Aura::SpellAuraModEffectImmunity(bool apply)
@@ -1624,9 +1622,8 @@ void Aura::SpellAuraMounted(bool apply)
 
         pPlayer->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
 
-        if( pPlayer->GetShapeShift() && pPlayer->m_ShapeShifted != m_spellProto->Id && 
-            !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
-            pPlayer->RemoveAura( pPlayer->m_ShapeShifted );
+        if( pPlayer->GetShapeShift() && !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
+            pPlayer->m_AuraInterface.RemoveAllAurasOfType(SPELL_AURA_MOD_SHAPESHIFT, m_spellProto);
 
         // If we already have a fixed amount, then this is a reapplication of the modifier
         if(mod->fixed_amount)

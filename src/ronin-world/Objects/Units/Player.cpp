@@ -226,7 +226,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     bReincarnation                  = false;
     TrackingSpell                   = 0;
     m_status                        = 0;
-    m_ShapeShifted                  = 0;
     m_curSelection                  = 0;
     m_lootGuid                      = 0;
     m_resurrectHealth               = 0;
@@ -2541,8 +2540,14 @@ void Player::smsg_InitialSpells()
     WorldPacket data(SMSG_INITIAL_SPELLS, 5 + (spellCount * 4) + ((m_cooldownMap[0].size() + m_cooldownMap[1].size()) * 4) );
     data << uint8(0) << uint16(spellCount); // spell count
 
+    SpellEntry *sp;
     for (SpellSet::iterator sitr = m_spells.begin(); sitr != m_spells.end(); ++sitr)
-        data << uint32(*sitr) << uint16(0x0000);
+    {
+        if((sp = dbcSpell.LookupEntry(*sitr)) && (!sp->isSpellbookInvisible() || isGM()))
+            data << uint32(*sitr) << uint16(0x0000);
+        else spellCount -= 1;
+    }
+    data.put<uint16>(1, spellCount);
 
     time_t curr = UNIXTIME;
     size_t pos = data.wpos();
@@ -3152,12 +3157,7 @@ void Player::ApplyItemMods(Item* item, uint8 slot, bool apply)
         {
             if(SpellEntry *spells = dbcSpell.LookupEntry(item->GetProto()->Spells[k].Id))
             {
-                if( spells->RequiredShapeShift )
-                {
-                    if(apply)
-                        AddShapeShiftSpell( spells->Id );
-                    else RemoveShapeShiftSpell( spells->Id );
-                } else if(apply == false)
+                if(apply == false)
                     RemoveAura( item->GetProto()->Spells[k].Id );
                 else if(Spell *spell = new Spell(this, spells))
                 {
@@ -5311,7 +5311,7 @@ bool Player::SafeTeleport(uint32 MapID, uint32 InstanceID, LocationVector vec)
 
     //no flying outside new continents
     if((GetShapeShift() == FORM_FLIGHT || GetShapeShift() == FORM_SWIFT) && MapID != 530 && MapID != 571 )
-        RemoveShapeShiftSpell(m_ShapeShifted);
+        m_AuraInterface.RemoveAllAurasOfType(SPELL_AURA_MOD_SHAPESHIFT);
 
     //all set...relocate
     _Relocate(MapID, vec, force_new_world, InstanceID);
@@ -5757,40 +5757,16 @@ void Player::SetShapeShift(uint8 ss)
         model = GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
 
-    // Trigger a mod type update
-    TriggerModUpdate(UF_UTYPE_STATS);
-
     //remove auras that we should not have
     m_AuraInterface.UpdateShapeShiftAuras(old_ss, ss);
 
     // Set our forced power type(default is mana)
     SpellShapeshiftFormEntry *form = dbcSpellShapeshiftForm.LookupEntry(ss);
     SetPowerType(form ? form->forcedPowerType : myClass->powerType);
-    // Trigger an attack time update based on form attack speed
-    TriggerModUpdate(UF_UTYPE_ATTACKTIME);
 
-    // apply any talents/spells we have that apply only in this form.
-    std::set<uint32>::iterator itr;
-    for( itr = m_spells.begin(); itr != m_spells.end(); itr++ )
-    {
-        SpellEntry *sp = dbcSpell.LookupEntry( *itr );
-        if( sp == NULL)
-            continue;
-        if( sp->isSpellAppliedOnShapeshift() || sp->isPassiveSpell() )     // passive/talent
-            if( sp->RequiredShapeShift && ((uint32)1 << (ss-1)) & sp->RequiredShapeShift )
-                GetSpellInterface()->TriggerSpell(sp, this);
-    }
-
-    // now dummy-handler stupid hacky fixed shapeshift spells (leader of the pack, etc)
-    for( itr = m_shapeShiftSpells.begin(); itr != m_shapeShiftSpells.end(); itr++)
-    {
-        SpellEntry *sp = dbcSpell.LookupEntry( *itr );
-        if( sp == NULL)
-            continue;
-
-        if( sp->RequiredShapeShift && ((uint32)1 << (ss-1)) & sp->RequiredShapeShift )
-            GetSpellInterface()->TriggerSpell(sp, this);
-    }
+    // Trigger a set of mod type updates(Aura update also does this)
+    for(uint8 i = UF_UTYPE_STATS; i <= UF_UTYPE_MOVEMENT; i++)
+        TriggerModUpdate(i);
 }
 
 uint32 Player::GetMainMeleeDamage(uint32 AP_owerride)
@@ -6301,21 +6277,6 @@ void Player::FillMapWithSpellCategories(std::map<uint32, int32> *map)
 {
     for(auto itr = m_spellCategories.begin(); itr != m_spellCategories.end(); itr++)
         (*map)[*itr] = 0;
-}
-
-void Player::AddShapeShiftSpell(uint32 id)
-{
-    SpellEntry * sp = dbcSpell.LookupEntry( id );
-    m_shapeShiftSpells.insert( id );
-
-    if( sp->RequiredShapeShift && ((uint32)1 << (GetShapeShift()-1)) & sp->RequiredShapeShift )
-        GetSpellInterface()->TriggerSpell(sp, this);
-}
-
-void Player::RemoveShapeShiftSpell(uint32 id)
-{
-    m_shapeShiftSpells.erase( id );
-    RemoveAura( id );
 }
 
 // COOLDOWNS

@@ -1218,11 +1218,11 @@ bool AuraInterface::RemoveAllAurasFromGUID(WoWGuid guid)
 }
 
 //ex:to remove morph spells
-void AuraInterface::RemoveAllAurasOfType(uint32 auratype)
+void AuraInterface::RemoveAllAurasOfType(uint32 auratype, SpellEntry *toSkip)
 {
     Aura *aur = NULL;
     for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
-        if((aur = m_auras[x]) && aur->GetSpellProto()->AppliesAura(auratype))
+        if((aur = m_auras[x]) && aur->GetSpellProto()->AppliesAura(auratype) && (toSkip == NULL || aur->GetSpellProto() != toSkip))
             RemoveAuraBySlot(x);
 }
 

@@ -84,9 +84,11 @@ WorldSession::~WorldSession()
         }
     }
 
+    socketLock.Acquire();
     if(_socket)
         _socket->SetSession(0);
     _socket = NULL;
+    socketLock.Release();
 
     if(m_loggingInPlayer)
         m_loggingInPlayer->ClearSession();
@@ -1017,6 +1019,7 @@ void WorldSession::SendPacket(WorldPacket* packet)
     if(!_socket->IsConnected())
         return;
 
+    socketLock.Acquire();
     if(_zlibStream && packet->size() >= 0x400)
     {
         ByteBuffer buff;
@@ -1024,11 +1027,13 @@ void WorldSession::SendPacket(WorldPacket* packet)
         if(sWorld.CompressPacketData(_zlibStream, packet->contents(), packet->size(), &buff))
         {
             _socket->OutPacket(packet->GetOpcode(), buff.size(), buff.contents(), true);
+            socketLock.Release();
             return;
         }
     }
 
     _socket->SendPacket(packet);
+    socketLock.Release();
 }
 
 void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
@@ -1038,6 +1043,7 @@ void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
     if(!_socket->IsConnected())
         return;
 
+    socketLock.Acquire();
     if(_zlibStream && len >= 0x400)
     {
         ByteBuffer buff;
@@ -1045,11 +1051,13 @@ void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
         if(sWorld.CompressPacketData(_zlibStream, data, len, &buff))
         {
             _socket->OutPacket(opcode, buff.size(), buff.contents(), true);
+            socketLock.Release();
             return;
         }
     }
 
     _socket->OutPacket(opcode, (data == NULL ? 0 : len), data, false);
+    socketLock.Release();
 }
 
 void WorldSession::HandleRealmSplit(WorldPacket & recv_data)

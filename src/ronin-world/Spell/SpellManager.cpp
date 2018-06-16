@@ -236,8 +236,6 @@ void SpellManager::PoolSpellData()
         SpellEntry* spellInfo = dbcSpell.LookupRow(i);
         if(spellInfo == NULL)
             continue;
-        if(spellInfo->HasEffect(SPELL_EFFECT_CREATE_ITEM) && spellInfo->SpellReagentsId == 0)
-            printf("");
 
         //SpellAuraOptionsEntry
         if(SpellAuraOptionsEntry* AuraOptions = dbcSpellAuraOptions.LookupEntry(spellInfo->SpellAuraOptionsId))
@@ -790,6 +788,7 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     sp->NameHash = crc32((const unsigned char*)sp->Name, (unsigned int)strlen(sp->Name)); //need these set before we start processing spells
     sp->RankNumber = sp->GeneratedThreat = sp->SpellSkillLine = 0;
     sp->CustomAttributes[0] = sp->CustomAttributes[1] = 0;
+    sp->TargetNameHash = 0;
     sp->isUnique = sp->always_apply = false;
 
     // parse rank text
@@ -817,6 +816,27 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
 {
     if( sp->EquippedItemClass == 2 && sp->EquippedItemSubClassMask & (0x10|0x100|0x40000) ) // 4 + 8 + 262144 ( becomes item classes 2, 3 and 18 which correspond to bow, gun and crossbow respectively)
         sp->CustomAttributes[1] |= 0x10;
+
+    if(strlen(sp->Name))
+    {
+        // Shape shift forms have associative passives that are applied on shapeshift
+        std::string lowercaseName = RONIN_UTIL::TOLOWER_RETURN(sp->Name);
+        if(RONIN_UTIL::FindXinYString("form (passive)", lowercaseName))
+        {
+            // Add flag for shapeshift requirement
+            sp->CustomAttributes[0] |= 0x08;
+            // Set our target namehash field
+            std::string normalName = sp->Name;
+            normalName = normalName.substr(0, normalName.size()-strlen(" (Passive)"));
+            sp->TargetNameHash = crc32((const unsigned char*)normalName.c_str(), normalName.length());
+        }
+
+        // Certain spells shouldn't be shown in our spellbook so we hide them here
+        if(RONIN_UTIL::FindXinYString("(old)", lowercaseName)
+            || RONIN_UTIL::FindXinYString("(test)", lowercaseName)
+            || RONIN_UTIL::FindXinYString("(passive)", lowercaseName))
+            sp->CustomAttributes[0] |= 0x80;
+    }
 
     switch(sp->NameHash)
     {

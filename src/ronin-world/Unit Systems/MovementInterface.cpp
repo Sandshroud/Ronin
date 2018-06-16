@@ -683,15 +683,18 @@ public:
     virtual void operator()(Modifier *mod)
     {
         // Make sure we can utilize the modifier
-        if( mod->m_spellInfo->RequiredShapeShift && !( ((uint32)1 << (m_unitShapeShift-1)) & mod->m_spellInfo->RequiredShapeShift ) )
+        if( mod->m_spellInfo->RequiredShapeShift && !( ((uint32)1 << (_mover->GetShapeShift()-1)) & mod->m_spellInfo->RequiredShapeShift ) )
             return;
+        if(mod->m_spellInfo->isSpellAppliedOnShapeshift() && !_mover->HasAurasOfNameHashWithCaster(mod->m_spellInfo->TargetNameHash, _mover))
+            return;
+
         if( mod->m_spellInfo->AreaGroupId > 0 )
         {
             bool areaFound = false;
             AreaGroupEntry *GroupEntry = dbcAreaGroup.LookupEntry( mod->m_spellInfo->AreaGroupId );
             for( uint8 i = 0; i < 7; i++ )
             {
-                if( GroupEntry->AreaId[i] != 0 && GroupEntry->AreaId[i] == m_unitAreaId )
+                if( GroupEntry->AreaId[i] != 0 && GroupEntry->AreaId[i] == _mover->GetAreaId() )
                 {
                     areaFound = true;
                     break;
@@ -746,14 +749,13 @@ public:
     }
 
     // Set our unit values
-    void InitUnit(Unit *mover) { m_unitShapeShift = mover->GetShapeShift(); m_unitAreaId = mover->GetAreaId(); }
+    void InitUnit(Unit *mover) { _mover = mover; }
 
     // Set our modifier pointer before traversing
     void InitMod(float *input) { modifier = input; }
 
 protected:
-    uint8 m_unitShapeShift;
-    uint32 m_unitAreaId;
+    Unit *_mover;
     float *modifier;
 };
 
