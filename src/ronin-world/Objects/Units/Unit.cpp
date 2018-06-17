@@ -714,6 +714,10 @@ class AttackTimeUpdateCallback : public AuraInterface::ModCallback
 public:
     virtual void operator()(Modifier *mod)
     {
+        // Make sure we can utilize the modifier
+        if(!sSpellMgr.IsAuraApplicable(_unit, mod->m_spellInfo))
+            return;
+
         switch(mod->m_type)
         {
         case SPELL_AURA_MOD_ATTACKSPEED:
@@ -732,12 +736,14 @@ public:
 
     void Init(Unit *unit)
     {
+        _unit = unit;
         for(uint8 i = 0; i < 3; ++i)
             attackSpeedMod[i] = 1.f;
     }
 
     float getAttackSpeedMod(uint8 index) { return attackSpeedMod[index]; }
 
+    Unit *_unit;
     float attackSpeedMod[3];
 };
 
@@ -782,6 +788,10 @@ class AttackDamageUpdateCallback : public AuraInterface::ModCallback
 public:
     virtual void operator()(Modifier *mod)
     {
+        // Make sure we can utilize the modifier
+        if(!sSpellMgr.IsAuraApplicable(_unit, mod->m_spellInfo))
+            return;
+
         switch(mod->m_type)
         {
         case SPELL_AURA_MOD_DAMAGE_DONE:
@@ -811,6 +821,7 @@ public:
 
     void Init(Unit *unit)
     {
+        _unit = unit;
         Item *item = NULL;
         for(uint32 i = 0; i < 3; ++i)
         {
@@ -825,6 +836,7 @@ public:
     int32 getFlatMod(uint8 index) { return flatMod[index]; }
     float getPctMod(uint8 index) { return pctMod[index]; }
 
+    Unit *_unit;
     int32 flatMod[3];
     float pctMod[3];
     int32 equippedWpnMask[3];

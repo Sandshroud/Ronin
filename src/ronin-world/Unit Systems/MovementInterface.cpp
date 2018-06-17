@@ -683,28 +683,8 @@ public:
     virtual void operator()(Modifier *mod)
     {
         // Make sure we can utilize the modifier
-        if( mod->m_spellInfo->RequiredShapeShift && !( ((uint32)1 << (_mover->GetShapeShift()-1)) & mod->m_spellInfo->RequiredShapeShift ) )
+        if(!sSpellMgr.IsAuraApplicable(_mover, mod->m_spellInfo))
             return;
-        if(mod->m_spellInfo->isSpellAppliedOnShapeshift() && !_mover->HasAurasOfNameHashWithCaster(mod->m_spellInfo->TargetNameHash, _mover))
-            return;
-
-        if( mod->m_spellInfo->AreaGroupId > 0 )
-        {
-            bool areaFound = false;
-            AreaGroupEntry *GroupEntry = dbcAreaGroup.LookupEntry( mod->m_spellInfo->AreaGroupId );
-            for( uint8 i = 0; i < 7; i++ )
-            {
-                if( GroupEntry->AreaId[i] != 0 && GroupEntry->AreaId[i] == _mover->GetAreaId() )
-                {
-                    areaFound = true;
-                    break;
-                }
-            }
-
-            // Aura doesn't work in this area
-            if(areaFound == false)
-                return;
-        }
 
         // WE can use the mod, apply it to our values
         switch(mod->m_type)

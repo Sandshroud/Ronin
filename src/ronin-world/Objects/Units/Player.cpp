@@ -1121,6 +1121,7 @@ void Player::UpdatePlayerRatings()
 
     for(uint32 cr = 0, index = PLAYER_RATING_MODIFIER_WEAPON_SKILL; index < PLAYER_RATING_MODIFIER_MAX; cr++, index++)
     {
+        uint32 oldVal = GetUInt32Value(index);
         // Init with our base combat rating
         playerRatingCallback.Init(cr, CalculatePlayerCombatRating(cr));
         // Traverse mod maps that modify our rating after base bonuses
@@ -1138,7 +1139,9 @@ void Player::UpdatePlayerRatings()
             playerRatingCallback.resetVal();
         // Apply rating diminishing returns for points above specific percentage steps
         int32 val = ApplyRatingDiminishingReturn(cr, playerRatingCallback.getRetVal());
-
+        // Need to trigger an attack time update when melee or ranged haste changes
+        if((index == PLAYER_RATING_MODIFIER_MELEE_HASTE || index == PLAYER_RATING_MODIFIER_RANGED_HASTE) && oldVal != val)
+            TriggerModUpdate(UF_UTYPE_ATTACKTIME);
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
         // Multiply the overall rating with the set ratio
@@ -5393,11 +5396,7 @@ void Player::SoftLoadPlayer()
     {
         SpellEntry *info = dbcSpell.LookupEntry(*itr);
         if(info && info->isPassiveSpell() && !info->isSpellExpiringWithPet())
-        {
-            if( info->RequiredShapeShift && !( ((uint32)1 << (GetShapeShift()-1)) & info->RequiredShapeShift ) )
-                continue;
             GetSpellInterface()->TriggerSpell(info, this);
-        }
     }
 
     // Initialize our talent info

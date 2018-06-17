@@ -560,6 +560,33 @@ bool SpellManager::GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *
     return false;
 }
 
+bool SpellManager::IsAuraApplicable(Unit *unit, SpellEntry *spell)
+{
+    if(spell->RequiredShapeShift && !( ((uint32)1 << (unit->GetShapeShift()-1)) & spell->RequiredShapeShift ))
+        return false;
+    if(spell->isSpellAppliedOnShapeshift() && !unit->HasAurasOfNameHashWithCaster(spell->TargetNameHash, unit))
+        return false;
+    if( spell->AreaGroupId > 0 )
+    {
+        bool areaFound = false;
+        AreaGroupEntry *GroupEntry = dbcAreaGroup.LookupEntry( spell->AreaGroupId );
+        for( uint8 i = 0; i < 7; i++ )
+        {
+            if( GroupEntry->AreaId[i] != 0 && GroupEntry->AreaId[i] == unit->GetAreaId() )
+            {
+                areaFound = true;
+                break;
+            }
+        }
+
+        // Aura doesn't work in this area
+        if(areaFound == false)
+            return false;
+    }
+
+    return true;
+}
+
 std::map<uint8, uint32> Spell::m_implicitTargetFlags;
 
 void SpellManager::SetupSpellTargets()

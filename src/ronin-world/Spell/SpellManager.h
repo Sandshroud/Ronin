@@ -47,6 +47,9 @@ public:
     bool CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr);
     bool GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
 
+    // Area and shapeshift checks
+    bool IsAuraApplicable(Unit *unit, SpellEntry *spell);
+
     // Skill line processing functions
     std::vector<uint32> *GetSkillLineEntries(uint32 skillLine)
     {
