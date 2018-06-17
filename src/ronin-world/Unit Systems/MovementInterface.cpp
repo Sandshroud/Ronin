@@ -799,7 +799,9 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
     }
 
     // Modify our base speed by our modifier
-    baseSpeed *= (100.f+speedMod)/100.f * (100.f+std::max<float>(speedStack, speedNonStack))/100.f;
+    baseSpeed *= (100.f+speedMod)/100.f;
+    // Increase our base speed by our default speed multiplied by our stack or non stack modifiers
+    baseSpeed += (m_defaultSpeeds[speedType] * std::max<float>(speedStack, speedNonStack))/100.f;
 
     if(normalizerModMap != SPELL_AURA_TOTAL)
     {   // Normalization aura creates a speed cap based on highest modifier(though it might be lowest, not sure)
