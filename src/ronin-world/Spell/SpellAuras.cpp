@@ -27,7 +27,6 @@ void Aura::InitializeAuraHandlerClass()
 {
     m_auraHandlerMap[SPELL_AURA_BIND_SIGHT] = &Aura::SpellAuraBindSight; // 1
     m_auraHandlerMap[SPELL_AURA_MOD_POSSESS] = &Aura::SpellAuraModPossess; // 2
-    m_auraHandlerMap[SPELL_AURA_PERIODIC_DAMAGE] = &Aura::SpellAuraPeriodicDamage; // 3
     m_auraHandlerMap[SPELL_AURA_DUMMY] = &Aura::SpellAuraDummy; // 4
     m_auraHandlerMap[SPELL_AURA_MOD_CONFUSE] = &Aura::SpellAuraModConfuse; // 5
     m_auraHandlerMap[SPELL_AURA_MOD_CHARM] = &Aura::SpellAuraModCharm; // 6
@@ -46,7 +45,6 @@ void Aura::InitializeAuraHandlerClass()
     m_auraHandlerMap[SPELL_AURA_MOD_INVISIBILITY_DETECT] = &Aura::SpellAuraModInvisibilityDetection; // 19
     m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_HEALTH_REGEN_PCT] = &Aura::SpellAuraModTotalHealthRegenPct; // 20
     m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_MANA_REGEN_PCT] = &Aura::SpellAuraModTotalManaRegenPct; // 21
-    m_auraHandlerMap[SPELL_AURA_MOD_RESISTANCE] = &Aura::SpellAuraModResistChance; // 22
     m_auraHandlerMap[SPELL_AURA_PERIODIC_TRIGGER_SPELL] = &Aura::SpellAuraPeriodicTriggerSpell; // 23
     m_auraHandlerMap[SPELL_AURA_PERIODIC_ENERGIZE] = &Aura::SpellAuraPeriodicEnergize; // 24
     m_auraHandlerMap[SPELL_AURA_MOD_PACIFY] = &Aura::SpellAuraModPacify; // 25
@@ -72,7 +70,6 @@ void Aura::InitializeAuraHandlerClass()
     m_auraHandlerMap[SPELL_AURA_TRACK_RESOURCES] = &Aura::SpellAuraTrackResources; // 45
     m_auraHandlerMap[SPELL_AURA_MOD_PARRY_PERCENT] = &Aura::SpellAuraModParryPerc; // 47
     m_auraHandlerMap[SPELL_AURA_MOD_DODGE_PERCENT] = &Aura::SpellAuraModDodgePerc; // 49
-    m_auraHandlerMap[SPELL_AURA_MOD_CRITICAL_HEALING_AMOUNT] = NULL; // 50
     m_auraHandlerMap[SPELL_AURA_MOD_BLOCK_PERCENT] = &Aura::SpellAuraModBlockPerc; // 51
     m_auraHandlerMap[SPELL_AURA_MOD_WEAPON_CRIT_PERCENT] = &Aura::SpellAuraModCritPerc; // 52
     m_auraHandlerMap[SPELL_AURA_PERIODIC_LEECH] = &Aura::SpellAuraPeriodicLeech; // 53
@@ -91,7 +88,6 @@ void Aura::InitializeAuraHandlerClass()
     m_auraHandlerMap[SPELL_AURA_MOD_DISARM] = &Aura::SpellAuraModDisarm; // 67
     m_auraHandlerMap[SPELL_AURA_MOD_STALKED] = &Aura::SpellAuraModStalked; // 68
     m_auraHandlerMap[SPELL_AURA_SCHOOL_ABSORB] = &Aura::SpellAuraSchoolAbsorb; // 69
-    m_auraHandlerMap[SPELL_AURA_EXTRA_ATTACKS] = NULL; // 70
     m_auraHandlerMap[SPELL_AURA_MOD_SPELL_CRIT_CHANCE_SCHOOL] = &Aura::SpellAuraModSpellCritChanceSchool; // 71
     m_auraHandlerMap[SPELL_AURA_MOD_POWER_COST] = &Aura::SpellAuraModPowerCost; // 72
     m_auraHandlerMap[SPELL_AURA_MOD_POWER_COST_SCHOOL] = &Aura::SpellAuraModPowerCostSchool; // 73
@@ -104,13 +100,11 @@ void Aura::InitializeAuraHandlerClass()
     m_auraHandlerMap[SPELL_AURA_MOD_PERCENT_STAT] = &Aura::SpellAuraModPercStat; // 80
     m_auraHandlerMap[SPELL_AURA_SPLIT_DAMAGE_PCT] = &Aura::SpellAuraSplitDamage; // 81
     m_auraHandlerMap[SPELL_AURA_WATER_BREATHING] = &Aura::SpellAuraWaterBreathing; // 82
-    m_auraHandlerMap[SPELL_AURA_MOD_BASE_RESISTANCE] = &Aura::SpellAuraModResistChance; // 83
     m_auraHandlerMap[SPELL_AURA_MOD_REGEN] = &Aura::SpellAuraModRegen; // 84
     m_auraHandlerMap[SPELL_AURA_MOD_POWER_REGEN] = &Aura::SpellAuraModPowerRegen; // 85
     m_auraHandlerMap[SPELL_AURA_CHANNEL_DEATH_ITEM] = &Aura::SpellAuraChannelDeathItem; // 86
     m_auraHandlerMap[SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN] = &Aura::SpellAuraModDamagePercTaken; // 87
     m_auraHandlerMap[SPELL_AURA_MOD_HEALTH_REGEN_PERCENT] = &Aura::SpellAuraModRegenPercent; // 88
-    m_auraHandlerMap[SPELL_AURA_PERIODIC_DAMAGE_PERCENT] = &Aura::SpellAuraPeriodicDamagePercent; // 89
     m_auraHandlerMap[SPELL_AURA_MOD_DETECT_RANGE] = &Aura::SpellAuraModDetectRange; // 91
     m_auraHandlerMap[SPELL_AURA_PREVENTS_FLEEING] = &Aura::SpellAuraPreventsFleeing; // 92
     m_auraHandlerMap[SPELL_AURA_MOD_UNATTACKABLE] = &Aura::SpellAuraModUnattackable; // 93
@@ -121,7 +115,6 @@ void Aura::InitializeAuraHandlerClass()
     m_auraHandlerMap[SPELL_AURA_MOD_SKILL_TALENT] = &Aura::SpellAuraSkillTalent; // 98
     m_auraHandlerMap[SPELL_AURA_MOD_ATTACK_POWER] = &Aura::SpellAuraModAttackPower; // 99
     m_auraHandlerMap[SPELL_AURA_AURAS_VISIBLE] = &Aura::SpellAuraVisible; // 100
-    m_auraHandlerMap[SPELL_AURA_MOD_RESISTANCE_PCT] = &Aura::SpellAuraModResistChance; // 101
     m_auraHandlerMap[SPELL_AURA_MOD_CREATURE_ATTACK_POWER] = &Aura::SpellAuraModCreatureAttackPower; // 102
     m_auraHandlerMap[SPELL_AURA_MOD_TOTAL_THREAT] = &Aura::SpellAuraModTotalThreat; // 103
     m_auraHandlerMap[SPELL_AURA_WATER_WALK] = &Aura::SpellAuraWaterWalk; // 104
@@ -161,8 +154,6 @@ void Aura::InitializeAuraHandlerClass()
     m_auraHandlerMap[SPELL_AURA_FORCE_REACTION] = &Aura::SpellAuraForceReaction; // 139
     m_auraHandlerMap[SPELL_AURA_MOD_RANGED_HASTE] = &Aura::SpellAuraModRangedHaste; // 140
     m_auraHandlerMap[SPELL_AURA_MOD_RANGED_AMMO_HASTE] = &Aura::SpellAuraModRangedAmmoHaste; // 141
-    m_auraHandlerMap[SPELL_AURA_MOD_BASE_RESISTANCE_PCT] = &Aura::SpellAuraModResistChance; // 142
-    m_auraHandlerMap[SPELL_AURA_MOD_RESISTANCE_EXCLUSIVE] = &Aura::SpellAuraModResistChance; // 143
     m_auraHandlerMap[SPELL_AURA_SAFE_FALL] = &Aura::SpellAuraSafeFall; // 144
     m_auraHandlerMap[SPELL_AURA_MOD_PET_TALENT_POINTS] = &Aura::SpellAuraModPetTalentPoints; // 145
     m_auraHandlerMap[SPELL_AURA_ALLOW_TAME_PET_TYPE] = &Aura::SpellAuraAllowTamePetType; // 146
@@ -846,16 +837,6 @@ void Aura::EventRelocateRandomTarget()
 
 //------------------------- Aura Effects -----------------------------
 
-void Aura::SpellAuraNULL(bool apply)
-{
-    sLog.Debug( "Aura","Unknown Aura id %d in spell %u", uint32(mod->m_type), GetSpellId());
-}
-
-void Aura::SpellAuraUtilized(bool apply)
-{
-    // We do nothing here
-}
-
 void Aura::SpellAuraBindSight(bool apply)
 {
     Unit * m_caster = GetUnitCaster();
@@ -867,11 +848,6 @@ void Aura::SpellAuraBindSight(bool apply)
 }
 
 void Aura::SpellAuraModPossess(bool apply)
-{
-
-}
-
-void Aura::SpellAuraPeriodicDamage(bool apply)
 {
 
 }
@@ -1687,16 +1663,6 @@ void Aura::SpellAuraModDamagePercTaken(bool apply)
 }
 
 void Aura::SpellAuraModRegenPercent(bool apply)
-{
-
-}
-
-void Aura::SpellAuraPeriodicDamagePercent(bool apply)
-{
-
-}
-
-void Aura::SpellAuraModResistChance(bool apply)
 {
 
 }

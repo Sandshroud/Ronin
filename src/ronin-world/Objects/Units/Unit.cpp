@@ -1903,12 +1903,12 @@ public:
 
 float Unit::GetDamageTakenModPct(uint32 school)
 {
-    DamageTakenModCallback damageTakenCallback;
-    damageTakenCallback.Init(school);
-    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, &damageTakenCallback);
+    DamageTakenPctModCallback damageTakenPctCallback;
+    damageTakenPctCallback.Init(school);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DAMAGE_PERCENT_TAKEN, &damageTakenPctCallback);
     if(school == 0)
-        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT, &damageTakenCallback);
-    return damageTakenCallback.getRetVal();
+        m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MELEE_DAMAGE_TAKEN_PCT, &damageTakenPctCallback);
+    return damageTakenPctCallback.getRetVal();
 }
 
 float Unit::GetAreaOfEffectDamageMod()
@@ -2924,13 +2924,45 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     if(realdamage)
     {
         DealDamage(pVictim, realdamage, 0, targetEvent, 0);
-        pVictim->GetSpellInterface()->PushbackCast(0);
+        pVictim->GetSpellInterface()->PushbackCast(SCHOOL_NORMAL);
     }
-    else
-    {
-        // have to set attack target here otherwise it wont be set
-        // because dealdamage is not called.
-        //setAttackTarget(pVictim);
+    else if(hit_status & HITSTATUS_HITANIMATION && isAlive() && pVictim != this)
+    {   // An animation played so we have to set combat state and trigger a few things
+        if( pVictim->GetStandState() )//not standing-> standup
+            pVictim->SetStandState( STANDSTATE_STAND );//probably mobs also must standup
+
+        // Player we are attacking, or the owner of totem/pet/etc
+        Player *pOwner = pVictim->IsPlayer() ? castPtr<Player>(pVictim) : NULL;
+
+        // This is the player or the player controlling the totem/pet/summon
+        Player *pAttacker = IsPlayer() ? castPtr<Player>(this) : NULL;
+
+        // We identified both the attacker and the victim as possible PvP combatants, if we are not dueling we will flag the attacker
+        if( pOwner && pAttacker && pOwner != pAttacker && pOwner->IsInDuel() )
+            if(pOwner->GetDuelStorage() != pAttacker->GetDuelStorage())
+                pAttacker->SetPvPFlag();
+
+        if(pAttacker != NULL)
+        {
+            if(pVictim->IsPlayer())
+                pAttacker->SetGuardHostileFlag();
+
+            if( pVictim->IsCreature() )
+            {
+                // PvP NPCs will flag the player when attacking them
+                if(pVictim->IsPvPFlagged())
+                    pAttacker->SetPvPFlag();
+                // If we've wiffed but still have an animation, it counts as a tag
+                castPtr<Creature>(pVictim)->Tag(pAttacker);
+            }
+        }
+
+        pVictim->SetInCombat(this);
+
+        if(pVictim->IsCreature())
+            castPtr<Creature>(pVictim)->GetAIInterface()->OnTakeDamage(RONIN_UTIL::ThreadTimer::getThreadTime(), this, 0);
+        else if(pVictim->GetTargetGUID() == 0)
+            pVictim->SetTargetGUID(GetGUID());
     }
 //==========================================================================================
 //==============================Post Damage Dealing Processing==============================

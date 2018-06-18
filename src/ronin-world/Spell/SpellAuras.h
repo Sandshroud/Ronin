@@ -230,11 +230,8 @@ public:
     void SpellAuraIgnore(bool apply) {};
 
     // Aura Handlers
-    void SpellAuraNULL(bool apply);
-    void SpellAuraUtilized(bool apply);
     void SpellAuraBindSight(bool apply);
     void SpellAuraModPossess(bool apply);
-    void SpellAuraPeriodicDamage(bool apply);
     void SpellAuraDummy(bool apply);
     void SpellAuraModConfuse(bool apply);
     void SpellAuraModCharm(bool apply);
@@ -253,7 +250,6 @@ public:
     void SpellAuraModInvisibilityDetection(bool apply);
     void SpellAuraModTotalHealthRegenPct(bool apply);
     void SpellAuraModTotalManaRegenPct(bool apply);
-    void SpellAuraModResistChance(bool apply);
     void SpellAuraPeriodicTriggerSpell(bool apply);
     void SpellAuraPeriodicEnergize(bool apply);
     void SpellAuraModPacify(bool apply);
@@ -313,7 +309,6 @@ public:
     void SpellAuraChannelDeathItem(bool apply);
     void SpellAuraModDamagePercTaken(bool apply);
     void SpellAuraModRegenPercent(bool apply);
-    void SpellAuraPeriodicDamagePercent(bool apply);
     void SpellAuraModDetectRange(bool apply);
     void SpellAuraPreventsFleeing(bool apply);
     void SpellAuraModUnattackable(bool apply);
