@@ -84,11 +84,9 @@ WorldSession::~WorldSession()
         }
     }
 
-    socketLock.Acquire();
     if(_socket)
         _socket->SetSession(0);
     _socket = NULL;
-    socketLock.Release();
 
     if(m_loggingInPlayer)
         m_loggingInPlayer->ClearSession();
@@ -1014,50 +1012,50 @@ void WorldSession::SendChatPacket(WorldPacket * data, int32 lang, uint32 langpos
 
 void WorldSession::SendPacket(WorldPacket* packet)
 {
-    if(bServerShutdown || _socket == NULL)
-        return;
-    if(!_socket->IsConnected())
+    // We need to check socket state before we start compressing or pushing data
+    if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
         return;
 
-    socketLock.Acquire();
     if(_zlibStream && packet->size() >= 0x400)
     {
         ByteBuffer buff;
         buff << uint32(packet->size());
-        if(sWorld.CompressPacketData(_zlibStream, packet->contents(), packet->size(), &buff))
+        bool compressResult = sWorld.CompressPacketData(_zlibStream, &zlibLock, packet->contents(), packet->size(), &buff);
+        // Because compression is not always immediate, we need to check socket status after returning
+        if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
+            return;
+        if(compressResult)
         {
             _socket->OutPacket(packet->GetOpcode(), buff.size(), buff.contents(), true);
-            socketLock.Release();
             return;
         }
     }
 
     _socket->SendPacket(packet);
-    socketLock.Release();
 }
 
 void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
 {
-    if(_socket == NULL)
-        return;
-    if(!_socket->IsConnected())
+    // We need to check socket state before we start compressing or pushing data
+    if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
         return;
 
-    socketLock.Acquire();
     if(_zlibStream && len >= 0x400)
     {
         ByteBuffer buff;
         buff << uint32(len);
-        if(sWorld.CompressPacketData(_zlibStream, data, len, &buff))
+        bool compressResult = sWorld.CompressPacketData(_zlibStream, &zlibLock, data, len, &buff);
+        // Because compression is not always immediate, we need to check socket status after returning
+        if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
+            return;
+        if(compressResult)
         {
             _socket->OutPacket(opcode, buff.size(), buff.contents(), true);
-            socketLock.Release();
             return;
         }
     }
 
     _socket->OutPacket(opcode, (data == NULL ? 0 : len), data, false);
-    socketLock.Release();
 }
 
 void WorldSession::HandleRealmSplit(WorldPacket & recv_data)

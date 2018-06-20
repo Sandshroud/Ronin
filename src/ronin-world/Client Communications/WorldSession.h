@@ -171,12 +171,8 @@ public:
 
     bool CanUseCommand(char cmdstr);
 
-    RONIN_INLINE void SetSocket(WorldSocket *sock)
-    {
-        socketLock.Acquire();
-        _socket = sock;
-        socketLock.Release();
-    }
+    RONIN_INLINE void SetSocket(WorldSocket *sock) { _socket = sock; }
+
     RONIN_INLINE void SetPlayer(Player* plr) { _player = plr; }
 
     RONIN_INLINE void SetAccountData(uint32 index, const char* data, uint32 sz, uint32 time = UNIXTIME)
@@ -731,7 +727,6 @@ private:
     friend class Player;
     Player* _player;
     WorldSocket *_socket;
-    Mutex socketLock;
 
     uint32 _accountId;
     uint32 _accountFlags;
@@ -740,7 +735,9 @@ private:
 
     WoWGuid m_MoverWoWGuid;
 
+    Mutex zlibLock;
     z_stream *_zlibStream;
+
     FastQueue<WorldPacket*, Mutex> _recvQueue;
     std::string permissions;
     int permissioncount;

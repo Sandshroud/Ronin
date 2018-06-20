@@ -402,7 +402,7 @@ public:
 
     Mutex m_compressionLock;
     std::deque<ByteBuffer*> m_compressionBuffers;
-    bool CompressPacketData(z_stream *stream, const void *data, uint32 len, ByteBuffer *output);
+    bool CompressPacketData(z_stream *stream, Mutex *streamLock, const void *data, uint32 len, ByteBuffer *output);
 
     RONIN_INLINE size_t GetSessionCount() const { return m_sessions.size(); }
     RONIN_INLINE size_t GetQueueCount() { return mQueuedSessions.size(); }

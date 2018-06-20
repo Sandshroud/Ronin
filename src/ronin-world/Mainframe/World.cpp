@@ -184,21 +184,27 @@ void World::CharEnumDisplayData(QueryResultVector& results, uint32 AccountId)
         s->CharEnumDisplayData(results);
 }
 
-bool World::CompressPacketData(z_stream *stream, const void *data, uint32 len, ByteBuffer *output)
+bool World::CompressPacketData(z_stream *stream, Mutex *streamLock, const void *data, uint32 len, ByteBuffer *output)
 {
-    uint32 destSize = compressBound(len);
-    ByteBuffer *buff;
+    ByteBuffer *buff = NULL;
+    // Spend as little time in the lock as possible
     m_compressionLock.Acquire();
     if(m_compressionBuffers.size())
     {
         buff = m_compressionBuffers.front();
         m_compressionBuffers.pop_front();
-        if(buff->size() < destSize)
-            buff->resize(destSize);
-    } else if(buff = new ByteBuffer())
-        buff->resize(destSize);
+    }
     m_compressionLock.Release();
 
+    // Unable to acquire or create a buffer
+    if(buff == NULL && (buff = new ByteBuffer()) == NULL)
+        return false;
+
+    uint32 destSize = compressBound(len);
+    if(buff->size() < destSize)
+        buff->resize(destSize);
+
+    streamLock->Acquire();
     // set up stream pointers
     stream->avail_in  = (uInt)len;
     stream->avail_out = (uInt)destSize;
@@ -215,6 +221,8 @@ bool World::CompressPacketData(z_stream *stream, const void *data, uint32 len, B
             output->append(buff->contents(), destSize);
         } else sLog.outDebug("deflate failed: did not end stream");
     } else sLog.outDebug("deflate failed.");
+    streamLock->Release();
+
     // Compression failed, readd the buffer
     m_compressionLock.Acquire();
     m_compressionBuffers.push_back(buff);
