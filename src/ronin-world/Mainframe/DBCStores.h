@@ -1136,7 +1136,7 @@ struct SpellEntry
     bool isProcLimitedToDummyEffect() { return HasAttribute(4, 0x02); }
     bool isSpellAuraNotStealable() { return HasAttribute(4, 0x40); }
     bool isSpellForceProcTriggered() { return HasAttribute(4, 0x80); }
-    bool isSpellDamageNotAuraBreaking() { return HasAttribute(4, 04000); }
+    bool isSpellDamageNotAuraBreaking() { return HasAttribute(4, 0x4000); }
     bool isSpellNotAvailableInArena() { return HasAttribute(4, 0x10000); }
     bool isSpellAvailableInArena() { return HasAttribute(4, 0x20000); }
     bool isDelayedSpellChainProcing() { return HasAttribute(4, 0x40000); }

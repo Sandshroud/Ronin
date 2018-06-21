@@ -348,37 +348,6 @@ void AuraInterface::SpellStealAuras(Unit* caster, int32 MaxSteals)
     }
 }
 
-void AuraInterface::UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS)
-{
-    for( uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
-    {
-        if( Aura *aur = m_auras[x] )
-        {
-            SpellEntry *sp = aur->GetSpellProto();
-            uint32 reqss = sp->RequiredShapeShift;
-            if( reqss != 0 && aur->IsPositive() )
-            {
-                if( oldSS > 0 && oldSS != 28)
-                {
-                    if( ( ((uint32)1 << (oldSS-1)) & reqss ) && // we were in the form that required it
-                        !( ((uint32)1 << (newSS-1) & reqss) ) )         // new form doesnt have the right form
-                    {
-                        RemoveAuraBySlot(x);
-                        continue;
-                    }
-                }
-            }
-
-            if( m_Unit->getClass() == DRUID && ( sp->AppliesAura(SPELL_AURA_MOD_ROOT)
-                || sp->AppliesAura(SPELL_AURA_MOD_DECREASE_SPEED) || sp->AppliesAura(SPELL_AURA_MOD_CONFUSE) ) )
-            {
-                RemoveAuraBySlot(x);
-                continue;
-            }
-        }
-    }
-}
-
 void AuraInterface::AttemptDispel(Unit* caster, int32 Mechanic, bool hostile)
 {
     SpellEntry *p = NULL;

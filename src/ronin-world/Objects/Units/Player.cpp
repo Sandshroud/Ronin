@@ -5756,9 +5756,6 @@ void Player::SetShapeShift(uint8 ss)
         model = GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID);
     SetUInt32Value(UNIT_FIELD_DISPLAYID, model);
 
-    //remove auras that we should not have
-    m_AuraInterface.UpdateShapeShiftAuras(old_ss, ss);
-
     // Set our forced power type(default is mana)
     SpellShapeshiftFormEntry *form = dbcSpellShapeshiftForm.LookupEntry(ss);
     SetPowerType(form ? form->forcedPowerType : myClass->powerType);

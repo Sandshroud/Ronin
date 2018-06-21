@@ -72,7 +72,6 @@ public:
     void BuildOutOfRangeAuraUpdate(WorldPacket *data);
     bool BuildAuraUpdateAllPacket(WorldPacket* data);
     void SpellStealAuras(Unit* caster, int32 MaxSteals);
-    void UpdateShapeShiftAuras(uint32 oldSS, uint32 newSS);
     void AttemptDispel(Unit* caster, int32 Mechanic, bool hostile);
     void MassDispel(Unit* caster, uint32 index, SpellEntry* Dispelling, uint32 MaxDispel, uint8 start, uint8 end);
 
