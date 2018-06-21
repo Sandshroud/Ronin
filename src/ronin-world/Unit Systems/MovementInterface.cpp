@@ -700,12 +700,14 @@ public:
         case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:
         case SPELL_AURA_MOD_INCREASE_SWIM_SPEED:
         case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
-        case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
         case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
             if(mod->m_amount > *modifier)
                 *modifier = mod->m_amount;
             break;
             // Stack maps
+        case SPELL_AURA_MOD_SPEED_ALWAYS:
+        case SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS:
+        case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
             *modifier += mod->m_amount;
             break;
             // Non stack maps
@@ -743,7 +745,7 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
 {
     SpeedValueCallback callback;
     bool mounted = m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0;
-    float baseSpeed = m_defaultSpeeds[speedType], speedMod = 0.f, speedStack = 0.f, speedNonStack = 0.f;
+    float baseSpeed = m_defaultSpeeds[speedType], speedMod = 0.f, speedStack = 0.f;
     uint32 normalizerModMap = SPELL_AURA_TOTAL, speedBonusMap = SPELL_AURA_TOTAL, speedStackMap = SPELL_AURA_TOTAL, speedNonStackMap = SPELL_AURA_TOTAL;
 
     switch(speedType)
@@ -753,10 +755,17 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
             normalizerModMap = SPELL_AURA_USE_NORMAL_MOVEMENT_SPEED;
             if(m_Unit->GetVehicleKitId())
                 speedBonusMap = SPELL_AURA_MOD_VEHICLE_SPEED_ALWAYS;
+            else if(mounted)
+            {
+                speedBonusMap = SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED;
+                speedStackMap = SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS;
+                speedNonStackMap = SPELL_AURA_MOD_MOUNTED_SPEED_NOT_STACK;
+            }
             else
             {
-                speedBonusMap = (SPELL_AURA_MOD_INCREASE_SPEED + (mounted ? 1 : 0));
-                speedNonStackMap = (SPELL_AURA_MOD_SPEED_NOT_STACK + (mounted ? 1 : 0));
+                speedBonusMap = SPELL_AURA_MOD_INCREASE_SPEED;
+                speedStackMap = SPELL_AURA_MOD_SPEED_ALWAYS;
+                speedNonStackMap = SPELL_AURA_MOD_SPEED_NOT_STACK;
             }
         }break;
     case MOVE_SPEED_SWIM:
@@ -771,7 +780,7 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
                 speedBonusMap = SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED;
             else if(mounted)
             {
-                speedBonusMap = SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS;
+                speedStackMap = SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS;
                 speedNonStackMap = SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK;
             } else speedBonusMap = SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED;
         }break;
@@ -780,30 +789,33 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
     // Initialize unit for our callback
     callback.InitUnit(m_Unit);
     // Start processing map traversing
-    if(speedBonusMap != SPELL_AURA_TOTAL)
+    if(speedBonusMap != SPELL_AURA_TOTAL && m_Unit->m_AuraInterface.HasAurasWithModType(speedBonusMap))
     {   // Non base speed modifier
         callback.InitMod(&speedMod);
         m_Unit->m_AuraInterface.TraverseModMap(speedBonusMap, &callback);
     }
 
-    if(speedStackMap != SPELL_AURA_TOTAL)
+    if(speedStackMap != SPELL_AURA_TOTAL && m_Unit->m_AuraInterface.HasAurasWithModType(speedStackMap))
     {   // Stacking speed modifiers
         callback.InitMod(&speedStack);
         m_Unit->m_AuraInterface.TraverseModMap(speedStackMap, &callback);
     }
 
-    if(speedNonStackMap != SPELL_AURA_TOTAL)
+    if(speedNonStackMap != SPELL_AURA_TOTAL && m_Unit->m_AuraInterface.HasAurasWithModType(speedNonStackMap))
     {   // Non stacking speed modifiers
+        float speedNonStack = 0.f;
         callback.InitMod(&speedNonStack);
         m_Unit->m_AuraInterface.TraverseModMap(speedNonStackMap, &callback);
+        if(speedNonStack > speedStack)
+            speedStack = speedNonStack;
     }
 
     // Modify our base speed by our modifier
     baseSpeed *= (100.f+speedMod)/100.f;
     // Increase our base speed by our default speed multiplied by our stack or non stack modifiers
-    baseSpeed += (m_defaultSpeeds[speedType] * std::max<float>(speedStack, speedNonStack))/100.f;
+    baseSpeed += (m_defaultSpeeds[speedType] * speedStack)/100.f;
 
-    if(normalizerModMap != SPELL_AURA_TOTAL)
+    if(normalizerModMap != SPELL_AURA_TOTAL && m_Unit->m_AuraInterface.HasAurasWithModType(normalizerModMap))
     {   // Normalization aura creates a speed cap based on highest modifier(though it might be lowest, not sure)
         callback.InitMod(&speedMod);
         m_Unit->m_AuraInterface.TraverseModMap(normalizerModMap, &callback);
