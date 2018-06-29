@@ -229,6 +229,9 @@ public:
         return ret;
     }
 
+    // More overhead than normal mod type search
+    bool HasApplicableAurasWithModType(uint32 modType);
+
     // Used for traversing mod map, operator()(Modifier *mod) for operation
     class ModCallback { public: virtual void operator()(Modifier *mod) = 0; virtual void postTraverse(uint32 modType) {}; };
 

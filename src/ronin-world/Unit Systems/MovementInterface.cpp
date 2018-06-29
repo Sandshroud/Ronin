@@ -700,6 +700,7 @@ public:
         case SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED:
         case SPELL_AURA_MOD_INCREASE_SWIM_SPEED:
         case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
+        case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
         case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
             if(mod->m_amount > *modifier)
                 *modifier = mod->m_amount;
@@ -780,6 +781,7 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
                 speedBonusMap = SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED;
             else if(mounted)
             {
+                speedBonusMap = SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED;
                 speedStackMap = SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS;
                 speedNonStackMap = SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK;
             } else speedBonusMap = SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED;
@@ -1150,7 +1152,7 @@ bool MovementInterface::CanProcessTimeSyncCounter(uint32 counter)
 
 void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
 {
-    bool updateFlight = false, canFly = false;
+    bool updateFlight = false;
     std::set<MovementSpeedTypes> speedsToUpdate;
     AuraInterface *aurInterface = &m_Unit->m_AuraInterface;
     for(std::vector<uint32>::iterator itr = modMap.begin(); itr != modMap.end(); itr++)
@@ -1159,8 +1161,6 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
         {   // Can fly enabling aura
         case SPELL_AURA_FLY:
             updateFlight = true;
-            if(aurInterface->HasAurasWithModType(SPELL_AURA_FLY))
-                canFly = true;
             break;
         case SPELL_AURA_FEATHER_FALL:
             setFeatherFall(aurInterface->HasAurasWithModType(SPELL_AURA_FEATHER_FALL));
@@ -1176,8 +1176,9 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
             setRooted(aurInterface->HasAurasWithModType(SPELL_AURA_MOD_ROOT));
             break;
             // Speed modifiers
-        case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
         case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
+            updateFlight = true;
+        case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
         case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
         case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
         case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
@@ -1213,7 +1214,7 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
 
     // Update pending flight
     if(updateFlight)
-        setCanFly(canFly);
+        setCanFly(aurInterface->HasApplicableAurasWithModType(SPELL_AURA_FLY) || aurInterface->HasApplicableAurasWithModType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED));
     // Update pending speeds
     for(std::set<MovementSpeedTypes>::iterator itr = speedsToUpdate.begin(); itr != speedsToUpdate.end(); itr++)
         RecalculateMoveSpeed(*itr);

@@ -1588,6 +1588,25 @@ uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
     return value%32;
 }
 
+bool AuraInterface::HasApplicableAurasWithModType(uint32 modType)
+{
+    bool ret = false;
+    m_auraLock.LowAcquire();
+    if(!m_modifiersByModType.empty() && m_modifiersByModType.find(modType) != m_modifiersByModType.end())
+    {
+        for(AuraInterface::modifierMap::iterator itr = m_modifiersByModType[modType].begin(); itr != m_modifiersByModType[modType].end(); ++itr)
+        {
+            if(sSpellMgr.IsAuraApplicable(m_Unit, itr->second->m_spellInfo))
+            {
+                ret = true;
+                break;
+            }
+        }
+    }
+    m_auraLock.LowRelease();
+    return ret;
+}
+
 void AuraInterface::TraverseModMap(uint32 modType, AuraInterface::ModCallback *callback)
 {
     m_auraLock.LowAcquire();
