@@ -1378,7 +1378,7 @@ void MovementInterface::OnRepop()
 
 }
 
-void MovementInterface::OnRessurect()
+void MovementInterface::OnResurrect()
 {
 
 }

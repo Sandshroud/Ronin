@@ -333,7 +333,7 @@ public:
     void OnDeath();
     void OnRespawn();
     void OnRepop();
-    void OnRessurect();
+    void OnResurrect();
     void OnRevive();
     void OnDismount();
     void OnTaxiEnd();

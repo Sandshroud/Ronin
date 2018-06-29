@@ -566,6 +566,9 @@ bool SpellManager::IsAuraApplicable(Unit *unit, SpellEntry *spell)
         return false;
     if(spell->isSpellAppliedOnShapeshift() && !unit->HasAurasOfNameHashWithCaster(spell->TargetNameHash, unit))
         return false;
+    if(spell->isSpellNotActiveInBattleArena() && unit->IsInWorld() && unit->GetMapInstance()->IsBattleArena())
+        return false;
+
     if( spell->AreaGroupId > 0 )
     {
         bool areaFound = false;

@@ -3290,7 +3290,7 @@ void Player::ResurrectPlayer(Unit* pResurrector /* = NULL */)
     RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE);
     SetDeathState(ALIVE);
     UpdateVisibility();
-    m_movementInterface.OnRessurect();
+    m_movementInterface.OnResurrect();
 
     if(pResurrector == this || previouslyDead)
         return;

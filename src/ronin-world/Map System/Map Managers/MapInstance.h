@@ -667,6 +667,7 @@ public:
 
     bool CanLootPlayers(Player *plr) { return false; }
     RONIN_INLINE virtual bool IsInstance() { return pdbcMap && (pdbcMap->IsDungeon() || pdbcMap->IsRaid()); }
+    RONIN_INLINE virtual bool IsBattleArena() { return pdbcMap && (pdbcMap->IsBattleGround() || pdbcMap->IsBattleArena()); }
     RONIN_INLINE uint32 GetInstanceID() { return m_instanceID; }
     RONIN_INLINE MapEntry *GetdbcMap() { return pdbcMap; }
     bool CanUseCollision(WorldObject* obj);

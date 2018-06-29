@@ -407,10 +407,10 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
             }
         }
 
-        if(sp->isSpellNotAvailableInArena() || sp->reqInBattleground())
+        if(sp->isSpellNotActiveInBattleArena() || sp->reqInBattleground())
         {
             MapInstance *instance = p_caster->GetMapInstance();
-            if(instance->GetdbcMap()->IsBattleArena() && sp->isSpellNotAvailableInArena())
+            if(instance->IsBattleArena() && sp->isSpellNotActiveInBattleArena())
             {
                 errorOut =SPELL_FAILED_NOT_IN_ARENA;
                 return false;
