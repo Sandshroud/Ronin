@@ -98,26 +98,28 @@ enum ChatMsg
 
 enum Languages
 {
-    LANG_ADDON                                  = -1,
-    LANG_UNIVERSAL                              = 0x00,
-    LANG_ORCISH                                 = 0x01,
-    LANG_DARNASSIAN                             = 0x02,
-    LANG_TAURAHE                                = 0x03,
-    LANG_DWARVISH                               = 0x06,
-    LANG_COMMON                                 = 0x07,
-    LANG_DEMONIC                                = 0x08,
-    LANG_TITAN                                  = 0x09,
-    LANG_THALASSIAN                             = 0x0A,
-    LANG_DRACONIC                               = 0x0B,
-    LANG_KALIMAG                                = 0x0C,
-    LANG_GNOMISH                                = 0x0D,
-    LANG_TROLL                                  = 0x0E,
-    LANG_GUTTERSPEAK                            = 0x21,
-    LANG_DRAENEI                                = 0x23,
-    LANG_ZOMBIE                                 = 0x24,
-    LANG_GNOMISHBINARY                          = 0x25,
-    LANG_GOBLINBINARY                           = 0x26,
-    NUM_LANGUAGES                               = 0x27
+    LANG_ADDON          = -1,
+    LANG_UNIVERSAL      = 0x00,
+    LANG_ORCISH         = 0x01,
+    LANG_DARNASSIAN     = 0x02,
+    LANG_TAURAHE        = 0x03,
+    LANG_DWARVISH       = 0x06,
+    LANG_COMMON         = 0x07,
+    LANG_DEMONIC        = 0x08,
+    LANG_TITAN          = 0x09,
+    LANG_THALASSIAN     = 0x0A,
+    LANG_DRACONIC       = 0x0B,
+    LANG_KALIMAG        = 0x0C,
+    LANG_GNOMISH        = 0x0D,
+    LANG_TROLL          = 0x0E,
+    LANG_GUTTERSPEAK    = 0x21,
+    LANG_DRAENEI        = 0x23,
+    LANG_ZOMBIE         = 0x24,
+    LANG_GNOMISHBINARY  = 0x25,
+    LANG_GOBLINBINARY   = 0x26,
+    LANG_WORGEN         = 0x27,
+    LANG_GOBLIN         = 0x28,
+    NUM_LANGUAGES       = 0x29
 };
 
 /*#define MSG_COLOR_YELLOW      "|r"

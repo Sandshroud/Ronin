@@ -129,6 +129,7 @@ void SpellManager::LoadSpellFixes()
         ApplySingleSpellFixes(sp);
         ApplyCoeffSpellFixes(sp);
         SetProcFlags(sp);
+        ProcessSpellInformation(sp);
     }
 
     sLog.Notice("SpellManager", "Processing %u dummy spells...", m_dummySpells.size());
@@ -138,6 +139,7 @@ void SpellManager::LoadSpellFixes()
         ApplySingleSpellFixes(sp);
         ApplyCoeffSpellFixes(sp);
         SetProcFlags(sp);
+        ProcessSpellInformation(sp);
     }
 
     sLog.Notice("SpellManager", "Processing %u shapeshift forms...", dbcSpellShapeshiftForm.GetNumRows());
@@ -844,6 +846,21 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
 
 void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
 {
+
+}
+
+void SpellManager::ApplyCoeffSpellFixes(SpellEntry *sp)
+{
+
+}
+
+void SpellManager::SetProcFlags(SpellEntry *sp)
+{
+
+}
+
+void SpellManager::ProcessSpellInformation(SpellEntry *sp)
+{
     if( sp->EquippedItemClass == 2 && sp->EquippedItemSubClassMask & (0x10|0x100|0x40000) ) // 4 + 8 + 262144 ( becomes item classes 2, 3 and 18 which correspond to bow, gun and crossbow respectively)
         sp->CustomAttributes[1] |= 0x10;
 
@@ -864,9 +881,15 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
         // Certain spells shouldn't be shown in our spellbook so we hide them here
         if(RONIN_UTIL::FindXinYString("(old)", lowercaseName)
             || RONIN_UTIL::FindXinYString("(test)", lowercaseName)
-            || RONIN_UTIL::FindXinYString("(passive)", lowercaseName))
+            || RONIN_UTIL::FindXinYString("(passive)", lowercaseName)
+            || RONIN_UTIL::FindXinYString("(dnd)", lowercaseName))
             sp->CustomAttributes[0] |= 0x80;
     }
+
+    uint8 effIndex = 0x00;
+    if(sp->HasEffect(SPELL_EFFECT_LANGUAGE, 0xFF, &effIndex))
+        if(uint16 skillLine = sp->SpellSkillLine ? sp->SpellSkillLine : sp->EffectMiscValue[effIndex])
+            m_SpellIdForLanguage[skillLine] = sp->Id;
 
     switch(sp->NameHash)
     {
@@ -952,16 +975,6 @@ void SpellManager::ApplySingleSpellFixes(SpellEntry *sp)
     sp->c_is_flags |= SPELL_FLAG_IS_HEALING;
     if( IsFlyingSpell(sp) )
     sp->c_is_flags |= SPELL_FLAG_IS_FLYING;*/
-}
-
-void SpellManager::ApplyCoeffSpellFixes(SpellEntry *sp)
-{
-
-}
-
-void SpellManager::SetProcFlags(SpellEntry *sp)
-{
-
 }
 
 // Generates SpellNameHashes.h

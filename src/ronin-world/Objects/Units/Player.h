@@ -1165,7 +1165,7 @@ public:
 
     void PushOutOfRange(uint16 mapId, WoWGuid guid);
     void PushUpdateBlock(uint16 mapId, ByteBuffer *data, uint32 updatecount);
-    void PopPendingUpdates(uint16 mapId);
+    void PopPendingUpdates(uint16 mapId, bool fromWorld);
 
     void SendProficiency(bool armorProficiency);
     uint32 GetArmorProficiency() { return m_armorProficiency; }

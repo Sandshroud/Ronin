@@ -2212,49 +2212,6 @@ void Player::_SaveTimeStampData(QueryBuffer * buf)
 
 }
 
-uint32 GetSpellForLanguageID(uint32 LanguageID)
-{
-    switch(LanguageID)
-    {
-    case LANG_COMMON: return 668;
-    case LANG_ORCISH: return 669;
-    case LANG_TAURAHE: return 670;
-    case LANG_DARNASSIAN: return 671;
-    case LANG_DWARVISH: return 672;
-    case LANG_THALASSIAN: return 813;
-    case LANG_DRACONIC: return 814;
-    case LANG_DEMONIC: return 815;
-    case LANG_TITAN: return 816;
-    case LANG_GNOMISH: return 7430;
-    case LANG_TROLL: return 7341;
-    case LANG_GUTTERSPEAK: return 17737;
-    case LANG_DRAENEI: return 29932;
-    } return 0;
-}
-
-uint32 GetSpellForLanguageSkill(uint32 SkillID)
-{
-    switch(SkillID)
-    {
-    case SKILL_LANG_COMMON: return 668;
-    case SKILL_LANG_ORCISH: return 669;
-    case SKILL_LANG_TAURAHE: return 670;
-    case SKILL_LANG_DARNASSIAN: return 671;
-    case SKILL_LANG_DWARVEN: return 672;
-    case SKILL_LANG_THALASSIAN: return 813;
-    case SKILL_LANG_DRACONIC: return 814;
-    case SKILL_LANG_DEMON_TONGUE: return 815;
-    case SKILL_LANG_TITAN: return 816;
-    case SKILL_LANG_OLD_TONGUE: return 817;
-    case SKILL_LANG_GNOMISH: return 7430;
-    case SKILL_LANG_TROLL: return 7341;
-    case SKILL_LANG_GUTTERSPEAK: return 17737;
-    case SKILL_LANG_DRAENEI: return 29932;
-    case SKILL_LANG_GOBLIN: return 69269;
-    case SKILL_LANG_WORGEN: return 69270;
-    } return 0;
-}
-
 ///====================================================================
 ///  Create
 ///  params: p_newChar
@@ -2539,16 +2496,20 @@ void Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
 
 void Player::smsg_InitialSpells()
 {
-    uint16 spellCount = (uint16)m_spells.size(), cooldownCount = 0;
+    uint16 spellCount = 0, cooldownCount = 0;
     WorldPacket data(SMSG_INITIAL_SPELLS, 5 + (spellCount * 4) + ((m_cooldownMap[0].size() + m_cooldownMap[1].size()) * 4) );
     data << uint8(0) << uint16(spellCount); // spell count
 
     SpellEntry *sp;
     for (SpellSet::iterator sitr = m_spells.begin(); sitr != m_spells.end(); ++sitr)
     {
-        if((sp = dbcSpell.LookupEntry(*sitr)) && (!sp->isSpellbookInvisible() || isGM()))
-            data << uint32(*sitr) << uint16(0x0000);
-        else spellCount -= 1;
+        if((sp = dbcSpell.LookupEntry(*sitr)) == NULL)
+            continue;
+        if(sp->isSpellbookInvisible())
+            continue;
+
+        data << uint32(*sitr) << uint16(0x0000);
+        ++spellCount;
     }
     data.put<uint16>(1, spellCount);
 
@@ -2993,7 +2954,7 @@ void Player::OnPushToWorld()
 
     if(GetTaxiState())
     {
-        PopPendingUpdates(m_mapId); // Create HAS to be sent before this!
+        PopPendingUpdates(m_mapId, false); // Create HAS to be sent before this!
         TaxiStart(GetTaxiPath(), m_taxiData->ModelId, m_taxiData->TravelTime);
     } else m_mapInstance->PushToProcessed(this);
 }
@@ -4997,7 +4958,7 @@ void Player::PushOutOfRange(uint16 mapId, WoWGuid guid)
     _bufferS.Acquire();
     // Set data size for limiting update blocks to 4Kb
     if( (guid.pLen() + m_OutOfRangeIds.size()) >= 0x1000 )
-        PopPendingUpdates(mapId);
+        PopPendingUpdates(mapId, false);
 
     ++m_OutOfRangeIdCount;
     m_OutOfRangeIds << guid.asPacked();
@@ -5022,7 +4983,7 @@ void Player::PushUpdateBlock(uint16 mapId, ByteBuffer *data, uint32 updatecount)
 
     // Set data size for limiting update blocks to 45Kb
     if( (data->size() + m_updateDataBuff.size()) >= 0xAFFF )
-        PopPendingUpdates(mapId);
+        PopPendingUpdates(mapId, false);
 
     m_updateDataCount += updatecount;
     m_updateDataBuff.append(data->contents(), data->size());
@@ -5037,7 +4998,7 @@ void Player::PushUpdateBlock(uint16 mapId, ByteBuffer *data, uint32 updatecount)
     _bufferS.Release();
 }
 
-void Player::PopPendingUpdates(uint16 mapId)
+void Player::PopPendingUpdates(uint16 mapId, bool fromWorld)
 {
     if(m_session == NULL)
         return;
@@ -5395,7 +5356,7 @@ void Player::SoftLoadPlayer()
     for(SpellSet::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
     {
         SpellEntry *info = dbcSpell.LookupEntry(*itr);
-        if(info && info->isPassiveSpell() && !info->isSpellExpiringWithPet())
+        if(info && info->isPassiveSpell() && !info->isSpellExpiringWithPet() && !info->isSpellbookInvisible())
             GetSpellInterface()->TriggerSpell(info, this);
     }
 
@@ -6070,7 +6031,7 @@ void Player::_AddLanguages(bool All)
     {
         uint32 skillId = *langToAdd.begin();
         langToAdd.erase(langToAdd.begin());
-        if(uint32 spell_id = ::GetSpellForLanguageSkill(skillId))
+        if(uint32 spell_id = sSpellMgr.getSpellIdForLanguageSkill(skillId))
             addSpell(spell_id);
 
     }

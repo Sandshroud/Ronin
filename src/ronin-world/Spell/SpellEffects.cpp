@@ -596,7 +596,29 @@ void SpellEffectClass::SpellEffectWeaponDamageNoSchool(uint32 i, WorldObject *ta
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     if(spTarget == NULL || (target->IsUnit() && !castPtr<Unit>(target)->isAlive()))
         return;
-    spTarget->accumAmount += amount;
+
+    float minDamage = 0.f, damageDiff = 1.f;
+    if(_unitCaster->IsCreature() || !(false/* Check to see if damage is based on weapon proto or player stat*/))
+    {   // Creatures we don't have weapons so just grab our actual min and max damage
+        minDamage = _unitCaster->GetFloatValue(UNIT_FIELD_MINDAMAGE);
+        damageDiff = _unitCaster->GetFloatValue(UNIT_FIELD_MAXDAMAGE)-minDamage;
+    }
+    else // Players we grab actual weapon damage values
+    {
+        Player *p_caster = castPtr<Player>(_unitCaster);
+        Item *equippedWeapon = NULL;
+        if(m_spellInfo->spellType >= RANGED)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+        else if(m_spellInfo->spellType == OFFHAND)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+        else equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+        if(equippedWeapon == NULL)
+            return;
+        minDamage = equippedWeapon->GetProto()->minDamage;
+        damageDiff = equippedWeapon->GetProto()->maxDamage-minDamage;
+    }
+
+    spTarget->accumAmount += amount + float2int32(minDamage + ((float)(rand()%float2int32(damageDiff))));
 }
 
 void SpellEffectClass::SpellEffectAddExtraAttacks(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Add Extra Attacks
@@ -1208,7 +1230,29 @@ void SpellEffectClass::SpellEffectWeaponDamage(uint32 i, WorldObject *target, in
     SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
     if(spTarget == NULL || (target->IsUnit() && !castPtr<Unit>(target)->isAlive()))
         return;
-    spTarget->accumAmount += amount;
+
+    float minDamage = 0.f, damageDiff = 1.f;
+    if(_unitCaster->IsCreature() || !(false/* Check to see if damage is based on weapon proto or player stat*/))
+    {   // Creatures we don't have weapons so just grab our actual min and max damage
+        minDamage = _unitCaster->GetFloatValue(UNIT_FIELD_MINDAMAGE);
+        damageDiff = _unitCaster->GetFloatValue(UNIT_FIELD_MAXDAMAGE)-minDamage;
+    }
+    else // Players we grab actual weapon damage values
+    {
+        Player *p_caster = castPtr<Player>(_unitCaster);
+        Item *equippedWeapon = NULL;
+        if(m_spellInfo->spellType >= RANGED)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+        else if(m_spellInfo->spellType == OFFHAND)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+        else equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+        if(equippedWeapon == NULL)
+            return;
+        minDamage = equippedWeapon->GetProto()->minDamage;
+        damageDiff = equippedWeapon->GetProto()->maxDamage-minDamage;
+    }
+
+    spTarget->accumAmount += amount + float2int32(minDamage + ((float)(rand()%float2int32(damageDiff))));
 }
 
 void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // power burn
@@ -1948,7 +1992,28 @@ void SpellEffectClass::SpellEffectDummyMelee(uint32 i, WorldObject *target, int3
     if(spTarget == NULL)
         return;
 
-    spTarget->accumAmount += amount;    
+    float minDamage = 0.f, damageDiff = 1.f;
+    if(_unitCaster->IsCreature() || !(false/* Check to see if damage is based on weapon proto or player stat*/))
+    {   // Creatures we don't have weapons so just grab our actual min and max damage
+        minDamage = _unitCaster->GetFloatValue(UNIT_FIELD_MINDAMAGE);
+        damageDiff = _unitCaster->GetFloatValue(UNIT_FIELD_MAXDAMAGE)-minDamage;
+    }
+    else // Players we grab actual weapon damage values
+    {
+        Player *p_caster = castPtr<Player>(_unitCaster);
+        Item *equippedWeapon = NULL;
+        if(m_spellInfo->spellType >= RANGED)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_RANGED);
+        else if(m_spellInfo->spellType == OFFHAND)
+            equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_OFFHAND);
+        else equippedWeapon = p_caster->GetInventory()->GetInventoryItem(EQUIPMENT_SLOT_MAINHAND);
+        if(equippedWeapon == NULL)
+            return;
+        minDamage = equippedWeapon->GetProto()->minDamage;
+        damageDiff = equippedWeapon->GetProto()->maxDamage-minDamage;
+    }
+
+    spTarget->accumAmount += amount + float2int32(minDamage + ((float)(rand()%float2int32(damageDiff))));
 }
 
 void SpellEffectClass::SpellEffectSpellSteal(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

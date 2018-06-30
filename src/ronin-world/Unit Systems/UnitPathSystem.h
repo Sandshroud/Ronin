@@ -98,6 +98,7 @@ private:
     MovementSpeedTypes _moveSpeed;
 
     uint32 m_pathCounter, m_pathStartTime, m_pathLength;
+    uint8 m_forcedSendFlags;
 
     MovementPoint srcPoint, lastUpdatePoint;
     float _currDestX, _currDestY, _currDestZ;

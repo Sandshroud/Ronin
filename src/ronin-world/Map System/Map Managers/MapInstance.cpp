@@ -1830,7 +1830,7 @@ void MapInstance::_PerformPendingUpdates()
     {
         plyr = *_processQueue.begin();
         if(plyr && plyr->GetMapInstance() == this)
-            plyr->PopPendingUpdates(_mapId);
+            plyr->PopPendingUpdates(_mapId, true);
         _processQueue.erase(_processQueue.begin());
     }
     m_updateMutex.Release();
@@ -1886,7 +1886,7 @@ void MapInstance::_PerformPendingActions()
         _softDCPlayers.erase(plObj);
         _updates.erase(plObj);
 
-        plObj->PopPendingUpdates(_mapId);
+        plObj->PopPendingUpdates(_mapId, true);
 
         // If it's a player and he's inside boundaries - update his nearby cells
         if(plObj->GetPositionX() <= _maxX && plObj->GetPositionX() >= _minX &&

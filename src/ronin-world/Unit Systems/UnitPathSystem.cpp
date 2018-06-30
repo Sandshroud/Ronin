@@ -4,7 +4,7 @@
 float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
 UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
-m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
+m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_forcedSendFlags(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
 srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), _currDestX(fInfinite), _currDestY(fInfinite), _currDestZ(fInfinite)
 {
 
@@ -209,6 +209,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     _CleanupPath();
 
     m_pathCounter++;
+    m_forcedSendFlags = 0;
     m_lastMSTimeUpdate = m_pathStartTime = getMSTime();
     m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
 
@@ -226,12 +227,12 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
         float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
         m_pathLength = (dist/speed)*1000.f;
 
-        int32 stepTiming = 500;
-        if((m_pathLength/((float)stepTiming)) > 255)
-            stepTiming = std::max<int32>(500, float2int32(ceil(m_pathLength/25500.f)*100.f));
-
-        if(m_pathLength > 800)
+        if(m_pathLength > 1200)
         {
+            int32 stepTiming = 500;
+            if((m_pathLength/((float)stepTiming)) > 255)
+                stepTiming = std::max<int32>(500, float2int32(ceil(m_pathLength/25500.f)*100.f));
+
             bool ignoreTerrainHeight = m_Unit->canFly();
             float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
             float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ), posToAdd = 0.f;
@@ -253,7 +254,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
                 m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, px, py, targetZ))));
             }
-        }
+        } else m_forcedSendFlags |= MOVEBCFLAG_UNCOMP;
 
         m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ))));
     }
@@ -356,17 +357,19 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
         data << uint32(0) << uint8(1);
     else
     {
+        uint8 sendFlags = m_forcedSendFlags|packetSendFlags;
+
         data << uint32(m_pathCounter);
         if(_destO == fInfinite) data << uint8(0);
         else data << uint8(4) << float( _destO );
-        data << uint32(buildMonsterMoveFlags(packetSendFlags));
+        data << uint32(buildMonsterMoveFlags(sendFlags));
         data << uint32(m_pathLength);
 
         uint32 counter = 1;
         size_t counterPos = data.wpos();
         data << uint32(counter);
         // Append uncompressed buffer
-        if(packetSendFlags & MOVEBCFLAG_UNCOMP)
+        if(sendFlags & MOVEBCFLAG_UNCOMP)
         {
             for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
             {
@@ -384,7 +387,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
         // Append our last point, could use _dest if we wanted to
         data << lastPoint->pos.x << lastPoint->pos.y << lastPoint->pos.z;
         // Append compressed buffer here
-        if((packetSendFlags & MOVEBCFLAG_UNCOMP) == 0)
+        if((sendFlags & MOVEBCFLAG_UNCOMP) == 0)
         {
             LocationVector middle(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
             middle.x = (middle.x+lastPoint->pos.x)/2.f;
@@ -415,6 +418,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
     MovementPoint *lastPoint = m_movementPoints.HasItems() ? m_movementPoints.at(m_movementPoints.size()-1).get() : NULL;
     if(lastPoint == NULL)
         return;
+    uint8 sendFlags = m_forcedSendFlags|packetSendFlags;
 
     WorldPacket data(SMSG_MONSTER_MOVE, 100);
     data << m_Unit->GetGUID().asPacked();
@@ -423,14 +427,14 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
     data << uint32(m_pathCounter);
     if(_destO == fInfinite) data << uint8(0);
     else data << uint8(4) << float( _destO );
-    data << uint32(buildMonsterMoveFlags(packetSendFlags));
+    data << uint32(buildMonsterMoveFlags(sendFlags));
     data << uint32(m_pathLength - lastUpdatePoint.timeStamp);
 
     uint32 counter = 1;
     size_t counterPos = data.wpos();
     data << uint32(counter);
     // Append uncompressed buffer
-    if(packetSendFlags & MOVEBCFLAG_UNCOMP)
+    if(sendFlags & MOVEBCFLAG_UNCOMP)
     {
         for(uint32 i = 0; i < m_movementPoints.size()-1; i++)
         {
@@ -448,7 +452,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
     // Append our last point, could use _dest if we wanted to
     data << lastPoint->pos.x << lastPoint->pos.y << lastPoint->pos.z;
     // Append compressed buffer here
-    if((packetSendFlags & MOVEBCFLAG_UNCOMP) == 0)
+    if((sendFlags & MOVEBCFLAG_UNCOMP) == 0)
     {
         LocationVector middle(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
         middle.x = (middle.x+lastPoint->pos.x)/2.f;
@@ -468,7 +472,7 @@ void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)
     }
     data.put<uint32>(counterPos, counter);
 
-    if(packetSendFlags & MOVEBCFLAG_DELAYED)
+    if(sendFlags & MOVEBCFLAG_DELAYED)
         plr->PushPacketToQueue(&data);
     else plr->PushPacket(&data);
 }

@@ -58,6 +58,14 @@ public:
         return NULL;
     }
 
+    // Get our cached language spell id by skill
+    uint32 getSpellIdForLanguageSkill(uint16 skillId)
+    {
+        if(m_SpellIdForLanguage.find(skillId) != m_SpellIdForLanguage.end())
+            return m_SpellIdForLanguage[skillId];
+        return 0;
+    }
+
 private:    // Spell fixes, start with class then continue to zones, items, quests
     void _RegisterWarriorFixes();
     void _RegisterPaladinFixes();
@@ -97,6 +105,9 @@ private:
     // Set proc flags based on spell data
     void SetProcFlags(SpellEntry *sp);
 
+    // Set custom fields and process into groups
+    void ProcessSpellInformation(SpellEntry *sp);
+
     // Dumy spell id storage
     std::set<uint32> m_dummySpells;
 
@@ -115,6 +126,8 @@ private:
     std::set<std::pair<char*, uint16>> m_languageSkillIds;
     // Skill line processors
     std::map<uint32, std::vector<uint32>> m_skillLineEntriesBySkillLine;
+    // Skill lines for languages
+    std::map<uint16, uint32> m_SpellIdForLanguage;
 };
 
 #define sSpellMgr SpellManager::getSingleton()
