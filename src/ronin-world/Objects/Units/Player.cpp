@@ -2915,7 +2915,7 @@ void Player::OnPrePushToWorld()
     }
 }
 
-void Player::OnPushToWorld()
+void Player::OnPushToWorld(uint32 msTime)
 {
     uint8 teleState = m_TeleportState;
     m_TeleportState = 0;
@@ -2933,7 +2933,7 @@ void Player::OnPushToWorld()
     m_beingPushed = false;
     sWorld.mInWorldPlayerCount++;
 
-    Unit::OnPushToWorld();
+    Unit::OnPushToWorld(msTime);
 
     // Send our auras
     m_AuraInterface.SendAuraData();
@@ -3368,7 +3368,7 @@ Corpse* Player::CreateCorpse()
     // spawn
     if( m_mapInstance == NULL )
         sWorldMgr.PushToWorldQueue(pCorpse);
-    else pCorpse->PushToWorld(m_mapInstance);
+    else m_mapInstance->AddObject(pCorpse);
 
     return pCorpse;
 }

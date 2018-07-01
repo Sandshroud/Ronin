@@ -119,7 +119,7 @@ public:
     // Removes us from world after update
     virtual void DetatchFromSummoner();
 
-    void OnPushToWorld();
+    void OnPushToWorld(uint32 msTime);
     void CreateAs(SummonHandler* NewHandle);
     void Load(Unit* m_owner, LocationVector & position, uint32 spellid, int32 summonslot);
 

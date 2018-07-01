@@ -274,7 +274,7 @@ public:
 
     void Load(uint32 mapId, float x, float y, float z, float o, uint32 mode, CreatureSpawn *spawn = NULL, bool reload = false);
 
-    void OnPushToWorld();
+    virtual void OnPushToWorld(uint32 msTime);
     virtual void DetatchFromSummoner() { Cleanup(); }
 
     void BuildTrainerData(WorldPacket *data, Player *plr);

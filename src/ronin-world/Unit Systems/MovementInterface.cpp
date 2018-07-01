@@ -1311,7 +1311,7 @@ void MovementInterface::OnPrePushToWorld()
     else { removeServerFlag(MOVEMENTFLAG_FLYING); removeServerFlag(MOVEMENTFLAG_TOGGLE_NO_GRAVITY); }
 }
 
-void MovementInterface::OnPushToWorld()
+void MovementInterface::OnPushToWorld(uint32 msTime)
 {
     UnlockTransportData();
     if(!m_Unit->IsPlayer())

@@ -846,7 +846,7 @@ Unit* GameObject::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,
     p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
     p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
     p->SetFactionTemplate(u_caster->GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-    p->PushToWorld(GetMapInstance());
+    GetMapInstance()->AddObject(p);
     return p;
 
 }
@@ -1283,7 +1283,7 @@ void GameObject::Use(Player *p)
             pGo->SetGOui32Value(GO_UINT32_M_RIT_CASTER, p->GetLowGUID());
             pGo->SetGOui32Value(GO_UINT32_M_RIT_TARGET, pPlayer->GetLowGUID());
             pGo->SetGOui32Value(GO_UINT32_RIT_SPELL, 61994);
-            pGo->PushToWorld(p->GetMapInstance());
+            p->GetMapInstance()->AddObject(pGo);
 
             /* member one: the (w00t) caster */
             pGo->m_ritualmembers[0] = p->GetLowGUID();

@@ -326,7 +326,7 @@ public:
 
     void OnPreSetInWorld();
     void OnPrePushToWorld();
-    void OnPushToWorld();
+    void OnPushToWorld(uint32 msTime);
     void OnRemoveFromWorld();
     void OnFirstTimeSync();
 

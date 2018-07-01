@@ -407,7 +407,7 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
                 // Process all pending inputs in sequence
-                instance->_ProcessInputQueue();
+                instance->_ProcessInputQueue(msTimer);
                 if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
                     break;
                 // Process all script updates before object updates

@@ -24,6 +24,8 @@
 #define MAPMGR_INACTIVE_MOVE_TIME 10
 extern bool bServerShutdown;
 
+unsigned int MapInstance::ActiveCellRange = 2;
+
 MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData *data) : CellHandler<MapCell>(map), _mapId(mapId), m_instanceID(instanceid), m_script(NULL), pdbcMap(dbcMap.LookupEntry(mapId)),
     m_stateManager(new WorldStateManager(this)), _processCallback(this), _removalCallback(this)
 {
@@ -200,11 +202,6 @@ WorldObject *MapInstance::GetInRangeObject(ObjectCellManager *manager, WoWGuid g
     return NULL;
 }
 
-void MapInstance::EventPushObjectToSelf(WorldObject *obj)
-{
-    obj->PushToWorld(this);
-}
-
 void MapInstance::PushObject(WorldObject* obj)
 {
     /////////////
@@ -295,7 +292,6 @@ void MapInstance::PushObject(WorldObject* obj)
 
     //Add to the cell's object list
     objCell->AddObject(obj);
-
     obj->SetMapCell(objCell);
 
     m_objectStorageLock.Acquire();
@@ -303,7 +299,7 @@ void MapInstance::PushObject(WorldObject* obj)
     if(plObj)
     {
         m_PlayerStorage.insert(std::make_pair(plObj->GetGUID(), plObj));
-        UpdateCellActivity(cx, cy, 2);
+        UpdateCellActivity(cx, cy, MapInstance::ActiveCellRange);
     }
     else
     {
@@ -386,7 +382,11 @@ void MapInstance::PushObject(WorldObject* obj)
             for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByZone[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByZone[plObj->GetZoneId()].end(); itr++)
             {
                 if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
+                {
                     plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
+                    if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
+                        castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
+                }
                 m_createBuffer.clear();
             }
         }
@@ -397,7 +397,11 @@ void MapInstance::PushObject(WorldObject* obj)
             for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByArea[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByArea[plObj->GetZoneId()].end(); itr++)
             {
                 if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
+                {
                     plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
+                    if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
+                        castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
+                }
                 m_createBuffer.clear();
             }
         }
@@ -685,7 +689,7 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         }
 
         // Update our cell activity real quick
-        if(plObj) UpdateCellActivity(cellX, cellY, ObjectCellManager::VisibleCellRange+1);
+        if(plObj) UpdateCellActivity(cellX, cellY, MapInstance::ActiveCellRange);
 
         // Grab our new cell and store our old cell pointer
         MapCell *objCell = GetCellOrInit(cellX, cellY, plObj ? true : false, true), *pOldCell = obj->GetMapCell();
@@ -830,7 +834,11 @@ void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
         plObj->AddVisibleObject(curObj);
         curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
         if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
+        {
             plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
+            if(curObj->IsUnit() && castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->hasDestination())
+                castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
+        }
         m_createBuffer.clear();
     }
 }
@@ -937,6 +945,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
 
 void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
 {
+    bool isActiveCellSet = _CellActive(x, y, radius);
     uint32 endX = (x + radius) <= _sizeX ? x + radius : (_sizeX-1);
     uint32 endY = (y + radius) <= _sizeY ? y + radius : (_sizeY-1);
     uint32 startX = x - radius > 0 ? x - radius : 0;
@@ -956,7 +965,7 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
             objCell = GetCell(posX, posY);
             sp = _map->GetSpawnsList(posX, posY);
             // Check cell activity for spawn loading
-            if (objCell == NULL && _CellActive(posX, posY))
+            if (objCell == NULL && isActiveCellSet)
             {
                 ASSERT(objCell = Create(posX, posY));
                 objCell->Init(posX, posY, _mapId, this);
@@ -967,11 +976,11 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
             else if(objCell)
             {
                 //Cell is now active
-                if (_CellActive(posX, posY) && !objCell->IsActive())
+                if (isActiveCellSet && !objCell->IsActive())
                 {
                     objCell->SetActivity(true);
                     objCell->LoadCellData(sp);
-                } else if (!_CellActive(posX, posY) && objCell->IsActive()) // Cell is no longer active
+                } else if (!_CellActive(posX, posY, MapInstance::ActiveCellRange) && objCell->IsActive()) // Cell is no longer active
                     objCell->SetActivity(false);
             }
         }
@@ -1073,12 +1082,12 @@ MapCell *MapInstance::GetCellOrInit(uint32 x, uint32 y, bool shouldInit, bool pr
     return mapCell;
 }
 
-bool MapInstance::_CellActive(uint32 x, uint32 y)
+bool MapInstance::_CellActive(uint32 x, uint32 y, int radius)
 {
-    uint32 endX = ((x+1) <= _sizeX) ? x + 1 : (_sizeX-1);
-    uint32 endY = ((y+1) <= _sizeY) ? y + 1 : (_sizeY-1);
-    uint32 startX = x > 0 ? x - 1 : 0;
-    uint32 startY = y > 0 ? y - 1 : 0;
+    uint32 endX = ((x+radius) <= _sizeX) ? x + radius : (_sizeX-1);
+    uint32 endY = ((y+radius) <= _sizeY) ? y + radius : (_sizeY-1);
+    uint32 startX = x > radius ? x - radius : 0;
+    uint32 startY = y > radius ? y - radius : 0;
     uint32 posX, posY;
 
     MapCell *objCell;
@@ -1087,11 +1096,8 @@ bool MapInstance::_CellActive(uint32 x, uint32 y)
         for (posY = startY; posY <= endY; posY++ )
         {
             objCell = GetCell(posX, posY);
-            if (objCell)
-            {
-                if (objCell->HasPlayers() || objCell->IsForcedActive() )
-                    return true;
-            }
+            if (objCell && (objCell->HasPlayers() || objCell->IsForcedActive()))
+                return true;
         }
     }
     return false;
@@ -1334,6 +1340,10 @@ void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint3
     for(auto itr = cellVector->begin(); itr != cellVector->end(); itr++)
     {
         std::pair<uint16, uint16> cellPair = ObjectCellManager::unPack(*itr);
+        // We should skip the cell even if we're a player since a loading cell will lack data, but it is unlikely to happen anyway
+        if(!obj->IsPlayer() && IsCellLoading(cellPair.first, cellPair.second))
+            continue;
+
         UpdateCellData(obj, cellPair.first, cellPair.second, obj->IsPlayer(), true);
     }
 }
@@ -1594,12 +1604,12 @@ bool MapInstance::CanUseCollision(WorldObject* obj)
     return false;
 }
 
-void MapInstance::_ProcessInputQueue()
+void MapInstance::_ProcessInputQueue(uint32 msTime)
 {
     if(!m_objectinsertlock.AttemptAcquire())
         return;
     for(ObjectSet::iterator i = m_objectinsertpool.begin(); i != m_objectinsertpool.end(); i++)
-        (*i)->PushToWorld(this);
+        (*i)->PushToWorld(this, msTime);
     m_objectinsertpool.clear();
     m_objectinsertlock.Release();
 }
@@ -1894,7 +1904,7 @@ void MapInstance::_PerformPendingActions()
         {
             uint32 x = GetPosX(plObj->GetPositionX());
             uint32 y = GetPosY(plObj->GetPositionY());
-            UpdateCellActivity(x, y, 2);
+            UpdateCellActivity(x, y, MapInstance::ActiveCellRange);
         }
         m_PlayerStorage.erase( plObj->GetGUID() );
 
@@ -1961,7 +1971,7 @@ void MapInstance::TeleportPlayers()
 void MapInstance::UnloadCell(uint32 x, uint32 y)
 {
     MapCell * c = GetCell(x,y);
-    if(c == NULL || c->HasPlayers() || _CellActive(x,y) || !c->IsUnloadPending())
+    if(c == NULL || c->HasPlayers() || _CellActive(x,y,MapInstance::ActiveCellRange) || !c->IsUnloadPending())
         return;
 
     sLog.Debug("MapInstance","Unloading Cell [%d][%d] on map %d (instance %d)...", x, y, _mapId, m_instanceID);

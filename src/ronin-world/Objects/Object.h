@@ -436,11 +436,11 @@ public:
 
     RONIN_INLINE void SetMapInstance(MapInstance* instance) { m_mapInstance = instance; }
 
-    void PushToWorld(MapInstance* instance);
+    void PushToWorld(MapInstance* instance, uint32 msTime);
 
     virtual void OnPreSetInWorld() { }
     virtual void OnPrePushToWorld() { }
-    virtual void OnPushToWorld() { }
+    virtual void OnPushToWorld(uint32 msTime) { }
 
     virtual void OnFieldUpdated(uint16 index);
 

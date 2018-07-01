@@ -98,7 +98,7 @@ bool ContinentManager::run()
         currentTime = cClock::system_clock::now();
 #endif
         // Process all pending inputs in sequence
-        m_continent->_ProcessInputQueue();
+        m_continent->_ProcessInputQueue(mstime);
         if(!SetThreadState(THREADSTATE_BUSY))
             break;
 #if DEBUG_CONTINENT_PERF == 1

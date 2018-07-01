@@ -427,7 +427,7 @@ public:
 
     virtual void OnPreSetInWorld();
     virtual void OnPrePushToWorld();
-    virtual void OnPushToWorld();
+    virtual void OnPushToWorld(uint32 msTime);
     virtual void RemoveFromWorld();
     virtual void EventExploration(MapInstance *instance);
 

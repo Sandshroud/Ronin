@@ -80,11 +80,11 @@ void Summon::DetatchFromSummoner()
     Deactivate(0);
 }
 
-void Summon::OnPushToWorld()
+void Summon::OnPushToWorld(uint32 msTime)
 {
     if(m_Internal != NULL)
         m_Internal->OnPushToWorld();
-    WorldObject::OnPushToWorld();
+    WorldObject::OnPushToWorld(msTime);
 }
 
 void Summon::CreateAs(SummonHandler* NewHandle)
@@ -369,7 +369,7 @@ void SpellEffectClass::SummonWild(Unit *u_caster, uint32 i, int32 amount, Summon
         u_caster->AddSummonToSlot(slot, s);
         s->CreateAs(new WildSummon());
         s->Load(u_caster, SpawnLocation, m_spellInfo->Id, slot);
-        s->PushToWorld(u_caster->GetMapInstance());
+        u_caster->GetMapInstance()->AddObject(s);
 
         if(Properties)
         {
@@ -410,7 +410,7 @@ void SpellEffectClass::SummonTotem(Unit *u_caster, uint32 i, int32 amount, Summo
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetMaxHealth(amount);
     s->SetHealth(amount);
-    s->PushToWorld(u_caster->GetMapInstance());
+    u_caster->GetMapInstance()->AddObject(s);
 
     if(u_caster->IsPlayer())
     {
@@ -501,7 +501,7 @@ void SpellEffectClass::SummonPossessed(Unit *u_caster, uint32 i, int32 amount, S
     s->CreateAs(new PossessedSummon());
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
-    s->PushToWorld(u_caster->GetMapInstance());
+    u_caster->GetMapInstance()->AddObject(s);
 
     if(u_caster->IsPlayer())
         castPtr<Player>(u_caster)->Possess(s);
@@ -532,7 +532,7 @@ void SpellEffectClass::SummonCompanion(Unit *u_caster, uint32 i, int32 amount, S
     s->CreateAs(new CompanionSummon());
     s->Load(u_caster, v, m_spellInfo->Id, slot);
     s->SetCreatedBySpell(m_spellInfo->Id);
-    s->PushToWorld(u_caster->GetMapInstance());
+    u_caster->GetMapInstance()->AddObject(s);
     u_caster->SetSummonedCritterGUID(s->GetGUID());
 }
 

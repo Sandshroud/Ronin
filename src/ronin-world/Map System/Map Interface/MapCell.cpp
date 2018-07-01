@@ -241,7 +241,9 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
     if(sp == NULL)
         return 0;
 
+    _instance->StartCellLoading(_x, _y);
     uint32 loadCount = 0, mapId = _instance->GetMapId();
+    uint32 msTime = RONIN_UTIL::ThreadTimer::getThreadTime();
     InstanceData *data = _instance->m_iData;
     if(uint32 stackSize = sp->CreatureSpawns.size())//got creatures
     {
@@ -277,7 +279,7 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             // Push to our map instance
             if(_instance->IsCreaturePoolUpdating())
                 _instance->AddObject(allocation);
-            else allocation->PushToWorld(_instance);
+            else allocation->PushToWorld(_instance, msTime);
             loadCount++;
         }
 
@@ -320,12 +322,13 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
             // Push to our map instance
             if(_instance->IsGameObjectPoolUpdating())
                 _instance->AddObject(allocation);
-            else allocation->PushToWorld(_instance);
+            else allocation->PushToWorld(_instance, msTime);
             loadCount++;
         }
 
         _instance->mGameObjectPool.AddPool(_gameobjectStack, stackSize);
     }
+    _instance->FinishCellLoading(_x, _y);
     return loadCount;
 }
 

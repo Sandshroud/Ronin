@@ -593,9 +593,9 @@ void Creature::SetDeathState(DeathState s)
         m_mapInstance->SetUnitState(m_spawn->guid, s == JUST_DIED ? DEAD : s);
 }
 
-void Creature::OnPushToWorld()
+void Creature::OnPushToWorld(uint32 msTime)
 {
-    Unit::OnPushToWorld();
+    Unit::OnPushToWorld(msTime);
     for(std::set<uint32>::iterator itr = _creatureData->Auras.begin(); itr != _creatureData->Auras.end(); itr++)
         if(SpellEntry *sp = dbcSpell.LookupEntry((*itr)))
             m_spellInterface.TriggerSpell(sp, this);
@@ -1060,7 +1060,8 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     }
 
     // Push our waypoints through to AI
-    m_movementInterface.GetPath()->SetAutoPath(m_spawn ? &m_spawn->m_waypointData : NULL);
+    if(m_spawn && m_spawn->m_waypointData.size())
+        m_movementInterface.GetPath()->SetAutoPath(&m_spawn->m_waypointData);
 }
 
 void Creature::RemoveLimboState(Unit* healer)

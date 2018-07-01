@@ -77,8 +77,7 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
     m_aliveDuration = duration;
     m_factionTemplate = caster->GetFactionTemplate();
 
-    PushToWorld(caster->GetMapInstance());
-
+    caster->GetMapInstance()->AddObject(this);
     if(caster->IsUnit() && m_spellProto->isChanneledSpell())
     {
         castPtr<Unit>(caster)->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, GetGUID());

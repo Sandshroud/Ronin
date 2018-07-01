@@ -1019,7 +1019,7 @@ void WorldObject::InactiveUpdate(uint32 msTime, uint32 uiDiff)
 
 //Unlike addtoworld it pushes it directly ignoring add pool
 //this can only be called from the thread of mapmgr!!!
-void WorldObject::PushToWorld(MapInstance* instance)
+void WorldObject::PushToWorld(MapInstance* instance, uint32 msTime)
 {
     ASSERT(instance != NULL);
     if(instance == NULL)
@@ -1054,7 +1054,7 @@ void WorldObject::PushToWorld(MapInstance* instance)
     instance->PushObject(this);
 
     // call virtual function to handle stuff.. :P
-    OnPushToWorld();
+    OnPushToWorld(msTime);
 
     // Set Object in world
     Object::SetInWorld(true);

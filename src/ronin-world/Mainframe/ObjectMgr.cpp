@@ -1098,7 +1098,7 @@ void ObjectMgr::LoadCorpses(MapInstance* mgr)
                 continue;
             }
 
-            pCorpse->PushToWorld(mgr);
+            mgr->AddObject(pCorpse);
         } while( result->NextRow() );
 
         delete result;

@@ -55,6 +55,9 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
 
     if(hasDestination())
     {
+        if(m_pathStartTime >= msTime)
+            return false;
+
         uint32 timeWalked = msTime-m_pathStartTime;
         if(msTime <= m_pathStartTime)
             return false;
@@ -152,6 +155,19 @@ void UnitPathSystem::SetAutoPath(WaypointStorage *storage)
 
     m_autoPath = true;
     waypathIterator = (_waypointPath = storage)->begin();
+    if(m_autoPathDelay)
+        return;
+
+    CreatureWaypoint *point = waypathIterator->second;
+    switch(point->moveType)
+    {
+    case 0: SetSpeed(MOVE_SPEED_WALK); break;
+    case 1: SetSpeed(MOVE_SPEED_RUN); break;
+    case 2: SetSpeed(MOVE_SPEED_FLIGHT); break;
+    }
+
+    MoveToPoint(point->x, point->y, point->z, point->o);
+    m_pendingAutoPathDelay = point->delay;
 }
 
 bool UnitPathSystem::hasDestination() { return !(_destX == fInfinite && _destY == fInfinite); }
@@ -210,7 +226,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
     m_pathCounter++;
     m_forcedSendFlags = 0;
-    m_lastMSTimeUpdate = m_pathStartTime = getMSTime();
+    m_lastMSTimeUpdate = m_pathStartTime = RONIN_UTIL::ThreadTimer::getThreadTime();
     m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
 
     // Set our last update point data to our source with no move time

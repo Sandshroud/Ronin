@@ -635,7 +635,7 @@ bool ChatHandler::HandleGOSpawn(const char *args, WorldSession *m_session)
 
     go->Load(mapid, x, y, z, o, 0.f, 0.f, 0.f, 0.f, NULL);
     go->SetInstanceID(chr->GetInstanceID());
-    go->PushToWorld(chr->GetMapInstance());
+    chr->GetMapInstance()->AddObject(go);
 
     sWorld.LogGM(m_session, "Spawned gameobject %u at %f %f %f (%s)", entryID, x, y, z, Save ? "Saved" : "Not Saved");
     return true;

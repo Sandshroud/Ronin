@@ -532,6 +532,8 @@ public:
     typedef Loki::AssocVector<WoWGuid, GameObject* > GameObjectStorageMap;
     typedef Loki::AssocVector<WoWGuid, DynamicObject*> DynamicObjectStorageMap;
 
+    static unsigned int ActiveCellRange;
+
 //////////////////////////////////////////////////////////
 // Map initializers and functions
 ///////////////////////////////////
@@ -544,8 +546,6 @@ public:
     void Destruct();
 
     WorldObject *GetInRangeObject(ObjectCellManager *manager, WoWGuid guid);
-
-    void EventPushObjectToSelf(WorldObject *obj);
 
     void PushObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
@@ -677,7 +677,7 @@ public:
     void UpdateAllCells(bool apply, uint32 areamask = 0);
     RONIN_INLINE size_t GetPlayerCount() { return m_PlayerStorage.size(); }
 
-    void _ProcessInputQueue();
+    void _ProcessInputQueue(uint32 msTime);
     void _PerformScriptUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformCombatUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformPlayerUpdates(uint32 msTime, uint32 uiDiff);
@@ -740,7 +740,7 @@ protected: ///! Objects that exist on map
     bool IsFullRangeObject(WorldObject *obj);
 
     MapCell *GetCellOrInit(uint32 x, uint32 y, bool shouldInit, bool priority);
-    bool _CellActive(uint32 x, uint32 y);
+    bool _CellActive(uint32 x, uint32 y, int radius);
 
     void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
 
@@ -762,6 +762,10 @@ public:
 
     bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
 
+    bool IsCellLoading(uint16 x, uint16 y) { return m_loadingCells.find(std::make_pair(x, y)) != m_loadingCells.end(); }
+    void StartCellLoading(uint16 x, uint16 y) { m_loadingCells.insert(std::make_pair(x, y)); }
+    void FinishCellLoading(uint16 x, uint16 y) { m_loadingCells.erase(std::make_pair(x, y)); }
+
     void CellActionPending(uint16 x, uint16 y) { m_pendingCellActions.insert(std::make_pair(x, y)); }
 
 protected:
@@ -770,7 +774,7 @@ protected:
 
     /* Update System */
     Mutex m_updateMutex, m_setLock;
-    std::set<std::pair<uint16, uint16>> m_pendingCellActions;
+    std::set<std::pair<uint16, uint16>> m_pendingCellActions, m_loadingCells;
     ObjectSet _updates, _movedObjects, _pendingRemoval, _pendingCleanup;
     PlayerSet _processQueue, _movedPlayers, _softDCPlayers;
 

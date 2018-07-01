@@ -1430,7 +1430,7 @@ bool ChatHandler::HandleCreatureSpawnCommand(const char *args, WorldSession *m_s
     CreatureSpawn * sp = NULL;
 
     p->Load(mgr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetOrientation(), mode, sp);
-    p->PushToWorld(mgr);
+    mgr->AddObject(p);
 
     BlueSystemMessage(m_session, "Spawned a creature `%s` with entry %u at %f %f %f on map %u in phase %u", ctrData->GetFullName(),
         entry, plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId(), plr->GetPhaseMask());
@@ -1930,7 +1930,7 @@ bool ChatHandler::HandleGORotate(const char * args, WorldSession * m_session)
     float radius = atof(args)+go->GetOrientation();
     go->SetOrientation(radius);
     go->RemoveFromWorld();
-    go->PushToWorld(m_session->GetPlayer()->GetMapInstance());
+    m_session->GetPlayer()->GetMapInstance()->AddObject(go);
     go->SaveToDB();
     return true;
 }
@@ -1948,8 +1948,8 @@ bool ChatHandler::HandleGOMove(const char * args, WorldSession * m_session)
 
     go->RemoveFromWorld();
     go->SetPosition(m_session->GetPlayer()->GetPosition());
+    m_session->GetPlayer()->GetMapInstance()->AddObject(go);
     go->SaveToDB();
-    go->PushToWorld(m_session->GetPlayer()->GetMapInstance());
     return true;
 }
 

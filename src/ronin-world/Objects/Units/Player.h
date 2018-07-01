@@ -1205,7 +1205,7 @@ public:
     /////
     void OnPreSetInWorld();
     void OnPrePushToWorld();
-    void OnPushToWorld();
+    virtual void OnPushToWorld(uint32 msTime);
     void OnWorldPortAck();
     void OnWorldLogin();
     void SoftLoadPlayer();

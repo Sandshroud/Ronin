@@ -3480,11 +3480,11 @@ void Unit::OnPrePushToWorld()
     m_movementInterface.OnPrePushToWorld();
 }
 
-void Unit::OnPushToWorld()
+void Unit::OnPushToWorld(uint32 msTime)
 {
-    WorldObject::OnPushToWorld();
+    WorldObject::OnPushToWorld(msTime);
 
-    m_movementInterface.OnPushToWorld();
+    m_movementInterface.OnPushToWorld(msTime);
 }
 
 void Unit::RemoveFromWorld()
@@ -3677,7 +3677,7 @@ Unit* Unit::CreateTemporaryGuardian(uint32 guardian_entry,uint32 duration,float 
         p->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, GetGUID());
         p->SetUInt64Value(UNIT_FIELD_CREATEDBY, GetGUID());
         p->SetFactionTemplate(GetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE));
-        p->PushToWorld(GetMapInstance());
+        GetMapInstance()->AddObject(p);
         return p;
     }
     return NULL;
