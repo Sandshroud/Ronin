@@ -57,6 +57,7 @@ public: // Class functions
 
     void EnterEvade();
     void SetAutoPath(WaypointStorage *storage);
+    void InitializeAutoPath();
 
     void EnableAutoPath() { m_autoPath = (_waypointPath != NULL); }
     void DisableAutoPath() { m_autoPath = false; }

@@ -407,16 +407,17 @@ void QuestMgr::AppendQuestList(Object *obj, Player *plr, uint32 &count, WorldPac
 
 uint32 QuestMgr::CalcQuestStatus(Player* plr, QuestRelation* qst)
 {
-    return CalcQuestStatus(plr, qst->qst, qst->type, false);
+    return CalcQuestStatus(plr, qst->qst, qst->type);
 }
 
 // Crow: ALL NOT AVAILABLES MUST GO FIRST!
-uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck)
+uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck, bool skipprevquestcheck)
 {
     std::list<uint32>::iterator itr;
     uint32 status = QMGR_QUEST_AVAILABLE;
 
-    if(qst->qst_previous_quest_id && !(plr->HasFinishedQuest(qst->qst_previous_quest_id)))
+    // We can skip previous quest check if we're gaining our status beforehand
+    if(skipprevquestcheck == false && qst->qst_previous_quest_id && !(plr->HasFinishedQuest(qst->qst_previous_quest_id)))
         return QMGR_QUEST_NOT_AVAILABLE;
 
     if(qst->required_team >= 0 && qst->required_team != plr->GetTeam())
@@ -446,6 +447,10 @@ uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck)
     {
         for(uint32 i = 0; i < qst->count_requiredquests; i++)
         {
+            // Skip ourselves or previous quest since it's already been looked at.
+            if(qst->required_quests[i] == qst->id || qst->required_quests[i] == qst->qst_previous_quest_id)
+                continue;
+
             if (qst->required_quests[i] > 0 && !( plr->HasFinishedQuest(qst->required_quests[i]) || plr->HasFinishedDailyQuest(qst->required_quests[i])))
                 return QMGR_QUEST_NOT_AVAILABLE;
         }
@@ -479,13 +484,13 @@ uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck)
     return status;
 }
 
-uint32 QuestMgr::CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck)
+uint32 QuestMgr::CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck, bool skipPrevQuestCheck)
 {
     QuestLogEntry* qle = plr->GetQuestLogForEntry(qst->id);
     if (!qle)
     {
         if (type & QUESTGIVER_QUEST_START)
-            return PlayerMeetsReqs(plr, qst, skiplevelcheck);
+            return PlayerMeetsReqs(plr, qst, skiplevelcheck, skipPrevQuestCheck);
     }
     else
     {
@@ -1231,6 +1236,7 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
                         WorldPacket data(SMSG_QUESTUPDATE_ADD_ITEM, 8);
                         data << qle->GetQuest()->required_item[j] << uint32(1);
                         plr->PushPacket(&data);
+
                         if(qle->CanBeFinished())
                         {
                             plr->ProcessVisibleQuestGiverStatus();
@@ -1489,12 +1495,12 @@ void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint3
             {
                 if(qst->reward_itemcount[i] == 0)
                     continue;
-                plr->GetInventory()->AddItemById(qst->reward_item[i], qst->reward_itemcount[i], 0, ADDITEM_FLAG_GIFTED);
+                plr->GetInventory()->AddItemById(qst->reward_item[i], qst->reward_itemcount[i], 0, ADDITEM_FLAG_GIFTED|ADDITEM_FLAG_QUICKSAVE);
             }
         }
 
         if(qst->count_reward_choiceitem && qst->reward_choiceitem[reward_slot])
-            plr->GetInventory()->AddItemById(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], 0, ADDITEM_FLAG_GIFTED);
+            plr->GetInventory()->AddItemById(qst->reward_choiceitem[reward_slot], qst->reward_choiceitemcount[reward_slot], 0, ADDITEM_FLAG_GIFTED|ADDITEM_FLAG_QUICKSAVE);
     }
 
     //Add to finished quests

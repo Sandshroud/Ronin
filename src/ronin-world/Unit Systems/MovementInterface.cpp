@@ -1314,19 +1314,20 @@ void MovementInterface::OnPrePushToWorld()
 void MovementInterface::OnPushToWorld(uint32 msTime)
 {
     UnlockTransportData();
-    if(!m_Unit->IsPlayer())
-        return;
-    // Push data for our active mover
-    WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER);
-    data.WriteGuidBitString(8, m_moverGuid, 5, 7, 3, 6, 0, 4, 1, 2);
-    data.WriteSeqByteString(8, m_moverGuid, 6, 2, 3, 0, 5, 7, 1, 4);
-    castPtr<Player>(m_Unit)->PushPacket( &data );
-    // Disable player root from login/map transfer
-    m_pendingMoveData.add(MOVEMENT_CODE_UNROOT);
-    // Send a spline gravity enable since we don't have the regular packet parsed yet
-    m_pendingMoveData.add(MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE);
-    // Send a time sync request
-    SendTimeSyncReq();
+    if(m_Unit->IsPlayer())
+    {
+        // Push data for our active mover
+        WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER);
+        data.WriteGuidBitString(8, m_moverGuid, 5, 7, 3, 6, 0, 4, 1, 2);
+        data.WriteSeqByteString(8, m_moverGuid, 6, 2, 3, 0, 5, 7, 1, 4);
+        castPtr<Player>(m_Unit)->PushPacket( &data );
+        // Disable player root from login/map transfer
+        m_pendingMoveData.add(MOVEMENT_CODE_UNROOT);
+        // Send a spline gravity enable since we don't have the regular packet parsed yet
+        m_pendingMoveData.add(MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE);
+        // Send a time sync request
+        SendTimeSyncReq();
+    } else m_path.InitializeAutoPath();
 }
 
 void MovementInterface::OnRemoveFromWorld()

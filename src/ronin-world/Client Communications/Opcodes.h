@@ -31,6 +31,9 @@ public:
 
     void SetOpcodeListData();
 
+    bool IsValidOpcodeForInput(uint32 opcode);
+    bool IsValidOpcodeForOutput(uint32 opcode);
+
     uint32 ConvertOpcodeForInput(uint32 opcode);
     uint32 ConvertOpcodeForOutput(uint32 opcode);
     const char *GetOpcodeName(uint32 opcode);

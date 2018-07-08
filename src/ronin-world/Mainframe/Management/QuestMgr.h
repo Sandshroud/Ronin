@@ -260,11 +260,11 @@ public:
     QuestStorageMap::iterator GetQuestStorageBegin() { return QuestStorage.begin(); };
     QuestStorageMap::iterator GetQuestStorageEnd() { return QuestStorage.end(); };
 
-    uint32 PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck);
+    uint32 PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck, bool skipprevquestcheck);
 
     uint32 CalcStatus(Object* quest_giver, Player* plr);
     uint32 CalcQuestStatus(Player* plr, QuestRelation* qst);
-    uint32 CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck);
+    uint32 CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck = false, bool skipPrevQuestCheck = false);
     uint32 ActiveQuestsCount(Object* quest_giver, Player* plr);
 
     //Packet Forging...

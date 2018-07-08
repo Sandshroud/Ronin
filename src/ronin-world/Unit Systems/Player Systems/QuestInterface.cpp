@@ -329,27 +329,20 @@ void QuestLogEntry::UpdatePlayerFields()
     if(m_Player == NULL)
         return;
 
-    uint32 field0 = 0;
-    uint64 field1 = 0;
+    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 0, m_quest->id);
+    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 1, m_questStatus == QUEST_STATUS__FAILED ? 0x02 : ((CanBeFinished() || m_questStatus == QUEST_STATUS__COMPLETE) ? 0x01 : 0x00));
     for(uint8 i = 0; i < 4; i++)
     {
+        uint8 index = i/2, offset = i%2;
         if(m_quest->required_mob[i])
         {
             if(m_objectiveCount[i] == 0)
                 continue;
-            field1 |= uint64(m_objectiveCount[i])<<(i*16);
+            m_Player->SetUInt16Value(PLAYER_QUEST_LOG + m_slot*5 + 2 + index, offset, m_objectiveCount[i]);
         } else if(m_quest->required_areatriggers[i])
-            field1 |= uint64((m_areaTriggerFlags&(1<<i)))<<(i*16);
+            m_Player->SetUInt16Value(PLAYER_QUEST_LOG + m_slot*5 + 2 + index, offset, (m_areaTriggerFlags&(1<<i)) ? 1 : 0);
     }
 
-    if( m_questStatus == QUEST_STATUS__FAILED )
-        field0 = 0x02;
-    else if(CanBeFinished() || m_questStatus == QUEST_STATUS__COMPLETE )
-        field0 = 0x01;
-
-    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 0, m_quest->id);
-    m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 1, field0);
-    m_Player->SetUInt64Value(PLAYER_QUEST_LOG + m_slot*5 + 2, field1);
     m_Player->SetUInt32Value(PLAYER_QUEST_LOG + m_slot*5 + 4, m_expirationTime);
 }
 

@@ -155,10 +155,21 @@ void UnitPathSystem::SetAutoPath(WaypointStorage *storage)
 
     m_autoPath = true;
     waypathIterator = (_waypointPath = storage)->begin();
-    if(m_autoPathDelay)
+}
+
+void UnitPathSystem::InitializeAutoPath()
+{
+    if(_waypointPath == NULL)
         return;
 
     CreatureWaypoint *point = waypathIterator->second;
+    while(point->x == m_Unit->GetPositionX() && point->y == m_Unit->GetPositionY())
+    {
+        point = (++waypathIterator)->second;
+        if(waypathIterator == _waypointPath->end())
+            break;
+    }
+
     switch(point->moveType)
     {
     case 0: SetSpeed(MOVE_SPEED_WALK); break;
@@ -251,7 +262,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
             bool ignoreTerrainHeight = m_Unit->canFly();
             float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
-            float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ), posToAdd = 0.f;
+            float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance ? instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ) : _destZ, posToAdd = 0.f;
             if(ignoreTerrainHeight)
                 posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/((float)stepTiming)));
             else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/((float)stepTiming)));
@@ -264,7 +275,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
                 lastCalcPoint += posToAdd;
 
                 float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
-                float targetZ = instance->GetWalkableHeight(m_Unit, px, py, maxZ);
+                float targetZ = instance ? instance->GetWalkableHeight(m_Unit, px, py, maxZ) : maxZ;
                 if(ignoreTerrainHeight && lastCalcPoint > targetZ)
                     targetZ = lastCalcPoint;
 

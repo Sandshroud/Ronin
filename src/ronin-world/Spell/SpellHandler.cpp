@@ -51,7 +51,7 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         if(!qst)
             return;
 
-        if( sQuestMgr.PlayerMeetsReqs(_player, qst, false) != QMGR_QUEST_AVAILABLE || qst->qst_min_level > _player->getLevel() )
+        if( sQuestMgr.PlayerMeetsReqs(_player, qst, false, false) != QMGR_QUEST_AVAILABLE || qst->qst_min_level > _player->getLevel() )
             return;
 
         WorldPacket data;

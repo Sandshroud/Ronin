@@ -812,7 +812,7 @@ void SpellEffectClass::SpellEffectWeaponDmgPerc(uint32 i, WorldObject *target, i
         damageDiff = equippedWeapon->GetProto()->maxDamage-minDamage;
     }
 
-    spTarget->accumAmount += float2int32(((minDamage + (damageDiff ? ((float)(rand()%float2int32(damageDiff))) : 0.f)) * ((float)amount))/100.f);
+    spTarget->accumAmount += float2int32(((damageDiff ? ((float)(rand()%float2int32(damageDiff))) : 0.f) * ((float)amount))/100.f);
 
     // Double down and do offhand strike
     if(m_spellInfo->NameHash == SPELL_HASH_MUTILATE)

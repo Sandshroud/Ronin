@@ -1073,7 +1073,7 @@ enum Opcodes
     SMSG_QUESTGIVER_STATUS,                                     // 4.3.4:0x2115
     SMSG_QUESTGIVER_STATUS_MULTIPLE,                            // 4.3.4:0x4F25
     SMSG_QUESTLOG_FULL,                                         // 4.3.4:0x0E36
-    SMSG_QUESTUPDATE_ADD_ITEM,                                  // 4.3.4:UNK
+    SMSG_QUESTUPDATE_ADD_ITEM,                                  // 4.3.4:0x119B
     SMSG_QUESTUPDATE_ADD_KILL,                                  // 4.3.4:0x0D27
     SMSG_QUESTUPDATE_ADD_PVP_KILL,                              // 4.3.4:0x4416
     SMSG_QUESTUPDATE_COMPLETE,                                  // 4.3.4:0x2937

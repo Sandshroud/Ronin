@@ -1428,7 +1428,7 @@ void Player::DeleteFromDB(WoWGuid guid)
     CharacterDatabase.Execute("DELETE FROM character_inventory WHERE guid=%u",guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_known_titles WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_questlog WHERE guid = %u", guid.getLow());
-    CharacterDatabase.Execute("DELETE FROM character_quests_completed WHERE guid = %u", guid.getLow());
+    CharacterDatabase.Execute("DELETE FROM character_quests_completed_repeatable WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_skills WHERE guid = %u", guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_social WHERE guid = %u OR socialguid = %u", guid.getLow(), guid.getLow());
     CharacterDatabase.Execute("DELETE FROM character_spells WHERE guid = %u", guid.getLow());
@@ -2001,7 +2001,7 @@ void Player::_LoadSkills(QueryResult *result)
             continue;
 
         uint8 skillPos = fields[2].GetUInt8();
-        uint32 field = skillPos/2, offset = skillPos&1;
+        uint32 field = skillPos/2, offset = skillPos%2;
         if(GetUInt16Value(PLAYER_SKILL_LINEID_0+field, offset))
             continue;
 
@@ -2023,7 +2023,7 @@ void Player::_SaveSkills(QueryBuffer * buf)
     std::stringstream ss;
     for(auto itr = m_skillIndexes.begin(); itr != m_skillIndexes.end(); itr++)
     {
-        uint32 field = itr->second/2, offset = itr->second&1;
+        uint32 field = itr->second/2, offset = itr->second%2;
         if(ss.str().length())
             ss << ", ";
         ss << "(" << GetLowGUID()
@@ -3541,7 +3541,7 @@ void Player::AddToCompletedQuests(uint32 quest_id, bool quickSave)
         }
 
         // Push a character quest completion mask update
-        if(quickSave) CharacterDatabase.Execute("UPDATE character_quests_completion_masks SET mask = '%llu' WHERE index = '%u'", val, offset);
+        if(quickSave) CharacterDatabase.Execute("REPLACE INTO character_quests_completion_masks VALUES('%u', '%u', '%llu');", GetLowGUID(), offset, val);
     }
     else if(qst->qst_is_repeatable == REPEATABLE_QUEST)
         m_completedRepeatableQuests.insert(std::make_pair(quest_id, UNIXTIME));
@@ -5905,7 +5905,7 @@ void Player::AddSkillLine(uint16 skillLine, uint16 step, uint16 skillMax, uint16
 
     for(uint8 i = 0; i < MAX_PLAYER_SKILLS; i++)
     {
-        uint32 field = i/2, offset = i&1;
+        uint32 field = i/2, offset = i%2;
         if(GetUInt16Value(PLAYER_SKILL_LINEID_0+field, offset))
             continue;
 
@@ -5936,7 +5936,7 @@ void Player::RemoveSkillLine(uint16 skillLine)
     if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
         return;
 
-    uint32 field = itr->second/2, offset = itr->second&1;
+    uint32 field = itr->second/2, offset = itr->second%2;
     SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, 0);
     SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, 0);
     SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, 0);
@@ -5952,7 +5952,7 @@ void Player::UpdateSkillLine(uint16 skillLine, uint16 step, uint16 skillMax, boo
     if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
         return;
 
-    uint32 field = itr->second/2, offset = itr->second&1;
+    uint32 field = itr->second/2, offset = itr->second%2;
     if(forced == false && GetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset) >= step)
         return;
 
@@ -5966,7 +5966,7 @@ void Player::ModSkillLineAmount(uint16 skillLine, int16 amount, bool bonus)
     if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
         return;
 
-    uint32 field = itr->second/2, offset = itr->second&1;
+    uint32 field = itr->second/2, offset = itr->second%2;
     if(bonus)
     {
         uint16 val = GetUInt16Value(PLAYER_SKILL_MODIFIER_0+field, offset);
@@ -5983,7 +5983,7 @@ uint16 Player::getSkillLineMax(uint16 skillLine)
     Loki::AssocVector<uint16, uint8>::iterator itr;
     if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
         return 0;
-    uint32 field = itr->second/2, offset = itr->second&1;
+    uint32 field = itr->second/2, offset = itr->second%2;
     return GetUInt16Value(PLAYER_SKILL_MAX_RANK_0+field, offset);
 }
 
@@ -5992,7 +5992,7 @@ uint16 Player::getSkillLineVal(uint16 skillLine, bool incBonus)
     Loki::AssocVector<uint16, uint8>::iterator itr;
     if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
         return 0;
-    uint32 field = itr->second/2, offset = itr->second&1;
+    uint32 field = itr->second/2, offset = itr->second%2;
     uint16 ret = GetUInt16Value(PLAYER_SKILL_MAX_RANK_0+field, offset);
     if(incBonus) ret += GetUInt16Value(PLAYER_SKILL_MODIFIER_0+field, offset);
     return ret;
@@ -6003,7 +6003,7 @@ uint16 Player::getSkillLineStep(uint16 skillLine)
     Loki::AssocVector<uint16, uint8>::iterator itr;
     if((itr = m_skillIndexes.find(skillLine)) == m_skillIndexes.end())
         return 0;
-    uint32 field = itr->second/2, offset = itr->second&1;
+    uint32 field = itr->second/2, offset = itr->second%2;
     return GetUInt16Value(PLAYER_SKILL_STEP_0+field, offset);
 }
 

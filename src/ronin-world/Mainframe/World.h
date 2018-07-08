@@ -380,6 +380,8 @@ public:
 
     void Destruct();
 
+    bool ProcessMapInstanceUpdate(ThreadContext *master, MapInstance *instance, uint32 msTime, uint32 uiDiff);
+
     uint32 GetMaxLevel(WorldSession *session);
     uint32 GetMaxLevelStatCalc();
 

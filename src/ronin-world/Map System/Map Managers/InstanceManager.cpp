@@ -379,9 +379,10 @@ MapInstance *InstanceManager::_LoadInstance(uint32 mapId, uint32 instanceId)
 
 void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
 {
+    bool threadManaged = false;
     uint32 diff = 0, msTimer = 0;
     MapInstanceContainer *container = NULL;
-    while(slaveThis->SetThreadState(THREADSTATE_BUSY))
+    while(slaveThis->SetThreadState(THREADSTATE_BUSY) && !threadManaged)
     {
         msTimer = getMSTime();
         instancePoolLock.Acquire();
@@ -402,66 +403,10 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
                 // Update our collision system via instanced map system
                 sVMapInterface.UpdateSingleMap(instance->GetMapId(), diff, instance->GetInstanceID());
 
-                // Process all pending actions in sequence
-                instance->_PerformPendingActions();
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Process all pending inputs in sequence
-                instance->_ProcessInputQueue(msTimer);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Process all script updates before object updates
-                instance->_PerformScriptUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all combat state updates before any unit updates
-                instance->_PerformCombatUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all delayed spell updates before object updates
-                instance->_PerformDelayedSpellUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all unit path updates in sequence
-                instance->_PerformUnitPathUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all player updates in sequence
-                instance->_PerformPlayerUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all dynamic object updates in sequence
-                instance->_PerformDynamicObjectUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all creature updates in sequence
-                instance->_PerformCreatureUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all object updates in sequence
-                instance->_PerformObjectUpdates(msTimer, diff);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all movement updates in sequence without player data
-                instance->_PerformMovementUpdates(false);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all session updates in sequence
-                instance->_PerformSessionUpdates();
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all movement updates in sequence with player data
-                instance->_PerformMovementUpdates(true);
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Process secondary pending actions in sequence
-                instance->_PerformPendingActions();
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
-                // Perform all pending object updates in sequence
-                instance->_PerformPendingUpdates();
-                if(!slaveThis->SetThreadState(THREADSTATE_BUSY))
-                    break;
+                // Push our instance to be updated by the world management system
+                if(!sWorld.ProcessMapInstanceUpdate(slaveThis, instance, msTimer, diff))
+                    threadManaged = true;
+
                 // Reset the last update timer for next update processing
                 container->ResetTimer(msTimer);
                 // Readd the instance to the update pool

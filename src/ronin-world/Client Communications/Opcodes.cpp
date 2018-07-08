@@ -33,6 +33,18 @@ OpcodeManager::~OpcodeManager()
 
 }
 
+bool OpcodeManager::IsValidOpcodeForInput(uint32 opcode)
+{
+    return true;
+}
+
+bool OpcodeManager::IsValidOpcodeForOutput(uint32 opcode)
+{
+    if(inputMap.find(opcode) == inputMap.end())
+        return false;
+    return true;
+}
+
 uint32 OpcodeManager::ConvertOpcodeForInput(uint32 opcode)
 {
     // Leave verify alone
@@ -1102,6 +1114,7 @@ void OpcodeManager::SetOpcodeListData()
     SetOpcodeData(SMSG_QUESTGIVER_STATUS, "SMSG_QUESTGIVER_STATUS", 0x2115);
     SetOpcodeData(SMSG_QUESTGIVER_STATUS_MULTIPLE, "SMSG_QUESTGIVER_STATUS_MULTIPLE", 0x4F25);
     SetOpcodeData(SMSG_QUESTLOG_FULL, "SMSG_QUESTLOG_FULL", 0x0E36);
+    SetOpcodeData(SMSG_QUESTUPDATE_ADD_ITEM, "SMSG_QUESTUPDATE_ADD_ITEM", 0x119B);
     SetOpcodeData(SMSG_QUESTUPDATE_ADD_KILL, "SMSG_QUESTUPDATE_ADD_KILL", 0x0D27);
     SetOpcodeData(SMSG_QUESTUPDATE_ADD_PVP_KILL, "SMSG_QUESTUPDATE_ADD_PVP_KILL", 0x4416);
     SetOpcodeData(SMSG_QUESTUPDATE_COMPLETE, "SMSG_QUESTUPDATE_COMPLETE", 0x2937);

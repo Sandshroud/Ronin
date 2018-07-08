@@ -339,6 +339,87 @@ void World::Destruct()
     delete this;
 }
 
+bool World::ProcessMapInstanceUpdate(ThreadContext *master, MapInstance *instance, uint32 msTime, uint32 uiDiff)
+{
+    // Process all pending actions in sequence
+    instance->_PerformPendingActions();
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Process all pending inputs in sequence
+    instance->_ProcessInputQueue(msTime);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Process all script updates before object updates
+    instance->_PerformScriptUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all combat state updates before any unit updates
+    instance->_PerformCombatUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all delayed spell updates before object updates
+    instance->_PerformDelayedSpellUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all unit path updates in sequence
+    instance->_PerformUnitPathUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all player updates in sequence
+    instance->_PerformPlayerUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all dynamic object updates in sequence
+    instance->_PerformDynamicObjectUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all creature updates in sequence
+    instance->_PerformCreatureUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all object updates in sequence
+    instance->_PerformObjectUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all movement updates in sequence without player data
+    instance->_PerformMovementUpdates(false);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all session updates in sequence
+    instance->_PerformSessionUpdates();
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all movement updates in sequence with player data
+    instance->_PerformMovementUpdates(true);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Process secondary pending actions in sequence
+    instance->_PerformPendingActions();
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // Perform all pending object updates in sequence
+    instance->_PerformPendingUpdates();
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
+    // We've finished our update!
+    return true;
+}
+
 WorldSession* World::FindSession(uint32 id)
 {
     m_sessionLock.Acquire();

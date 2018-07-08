@@ -1016,7 +1016,7 @@ void WorldSession::SendPacket(WorldPacket* packet)
     if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
         return;
 
-    if(_zlibStream && packet->size() >= 0x400)
+    if(_zlibStream && packet->size() >= 0x400 && sOpcodeMgr.IsValidOpcodeForOutput(packet->GetOpcode()))
     {
         ByteBuffer buff;
         buff << uint32(packet->size());
@@ -1040,7 +1040,7 @@ void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
     if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
         return;
 
-    if(_zlibStream && len >= 0x400)
+    if(_zlibStream && len >= 0x400 && sOpcodeMgr.IsValidOpcodeForOutput(opcode))
     {
         ByteBuffer buff;
         buff << uint32(len);

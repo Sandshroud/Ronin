@@ -51,6 +51,7 @@ enum AddItemFlags
     ADDITEM_FLAG_GIFTED = 0x02,
     ADDITEM_FLAG_CREATED = 0x04,
     ADDITEM_FLAG_SILENT = 0x08,
+    ADDITEM_FLAG_QUICKSAVE = 0x10
 };
 
 #define ITEM_NO_SLOT_AVAILABLE -1 //works for all kind of slots now

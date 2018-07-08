@@ -2991,7 +2991,9 @@ uint32 PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randompr
                 uint16 bagSlot = GetBagSlotByGuid(free_stack_item->GetGUID(), inventorySlot);
                 _sendPushResult(free_stack_item, bagSlot, inventorySlot, added, addItemFlags);
                 free_stack_item->SetUInt32Value( ITEM_FIELD_STACK_COUNT, free_stack_item->GetUInt32Value(ITEM_FIELD_STACK_COUNT) + added );
-                free_stack_item->m_isDirty = true;
+                if((addItemFlags & ADDITEM_FLAG_QUICKSAVE) == 0)
+                    free_stack_item->m_isDirty = true;
+                else free_stack_item->SaveToDB(bagSlot, inventorySlot, false, NULL);
                 return 0; // None left
             }
         }
@@ -3018,6 +3020,9 @@ uint32 PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randompr
             _sendPushResult(item, lr->ContainerSlot, lr->Slot, toadd, addItemFlags);
             sQuestMgr.OnPlayerItemPickup(chr, item, toadd);
             added -= toadd;
+
+            if(addItemFlags & ADDITEM_FLAG_QUICKSAVE)
+                item->SaveToDB(lr->ContainerSlot, lr->Slot, true, NULL);
         }
         else
         {

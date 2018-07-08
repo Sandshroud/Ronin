@@ -103,7 +103,6 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
     sLog.Debug( "WORLD"," Received CMSG_QUESTGIVER_QUERY_QUEST." );
     CHECK_INWORLD_RETURN();
 
-    WorldPacket data;
     uint64 guid;
     uint32 quest_id;
     uint32 status = 0;
@@ -169,6 +168,7 @@ void WorldSession::HandleQuestGiverQueryQuestOpcode( WorldPacket & recv_data )
         return;
     }
 
+    WorldPacket data;
     if(status == QMGR_QUEST_NOT_FINISHED || status == QMGR_QUEST_FINISHED)
     {
         if(qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE)
@@ -546,34 +546,36 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
     if( reward_slot >= 6 )
         return;
 
-    bool bValid = false, bRegularGossip = true;
-    Quest *qst = NULL;
+    bool bValid = false, bRegularGossip = false;
+    Quest *qst = NULL, *qst_next = NULL;
     WorldObject* qst_giver = NULL;
     uint32 guidtype = GUID_HIPART(guid);
 
     if(guidtype == HIGHGUID_TYPE_UNIT)
     {
         Creature* quest_giver = _player->GetMapInstance()->GetCreature(guid);
-        if(quest_giver)
-            qst_giver = quest_giver;
-        else
+        if(quest_giver == NULL)
             return;
 
+        qst_giver = quest_giver;
         bValid = quest_giver->isQuestGiver();
-        if(bValid)
-            qst = sQuestMgr.GetQuestPointer(quest_id);
+        if(bValid && (qst = sQuestMgr.GetQuestPointer(quest_id)) && qst->qst_next_quest_id && (qst_next = sQuestMgr.GetQuestPointer(qst->qst_next_quest_id)))
+            if(sQuestMgr.CalcQuestStatus(_player, qst_next, (uint8)quest_giver->GetQuestRelation(qst_next->id), false, true) < QMGR_QUEST_CHAT)
+                qst_next = NULL;
     }
     else if(guidtype==HIGHGUID_TYPE_GAMEOBJECT)
     {
         GameObject* quest_giver = _player->GetMapInstance()->GetGameObject(guid);
-        if(quest_giver)
-            qst_giver = quest_giver;
-        else
+        if(quest_giver == NULL)
             return;
+
+        qst_giver = quest_giver;
         //bValid = quest_giver->isQuestGiver();
         //if(bValid)
         bValid = true;
-        qst = sQuestMgr.GetQuestPointer(quest_id);
+        if(bValid && (qst = sQuestMgr.GetQuestPointer(quest_id)) && qst->qst_next_quest_id && (qst_next = sQuestMgr.GetQuestPointer(qst->qst_next_quest_id)))
+            if(sQuestMgr.CalcQuestStatus(_player, qst_next, (uint8)quest_giver->GetQuestRelation(qst_next->id), false, true) < QMGR_QUEST_CHAT)
+                qst_next = NULL;
     }
 
     if (!qst_giver)
@@ -612,12 +614,13 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
 
     sQuestMgr.OnQuestFinished(_player, qst, qst_giver, reward_slot);
 
-    if(qst->qst_next_quest_id)
+    // We have a next quest pointer and it's been validated, so queue a quest query
+    if(qst_next)
     {
         WorldPacket data(CMSG_QUESTGIVER_QUERY_QUEST, 12);
-        data << guid << qst->qst_next_quest_id;
+        data << guid << qst_next->id;
         HandleQuestGiverQueryQuestOpcode(data);
-    } else if(bRegularGossip == false)
+    } else if(bRegularGossip)
         OutPacket(SMSG_GOSSIP_COMPLETE);
 }
 
@@ -655,7 +658,7 @@ void WorldSession::HandlePushQuestToPartyOpcode(WorldPacket &recv_data)
 
                         uint32 response = 0;
                         //CHECKS IF CAN TAKE THE QUEST
-                        status = sQuestMgr.PlayerMeetsReqs(pPlayer, pQuest, false);
+                        status = sQuestMgr.PlayerMeetsReqs(pPlayer, pQuest, false, false);
                         if(status != QMGR_QUEST_CHAT && status != QMGR_QUEST_AVAILABLE)
                             response = QUEST_SHARE_MSG_CANT_TAKE_QUEST;
 
