@@ -2500,13 +2500,17 @@ void Player::smsg_InitialSpells()
     WorldPacket data(SMSG_INITIAL_SPELLS, 5 + (spellCount * 4) + ((m_cooldownMap[0].size() + m_cooldownMap[1].size()) * 4) );
     data << uint8(0) << uint16(spellCount); // spell count
 
-    SpellEntry *sp;
+    SpellEntry *sp; SkillLineEntry *skill;
     for (SpellSet::iterator sitr = m_spells.begin(); sitr != m_spells.end(); ++sitr)
     {
         if((sp = dbcSpell.LookupEntry(*sitr)) == NULL)
             continue;
         if(sp->isSpellbookInvisible())
             continue;
+        // Specific profession spells are not unlearned, so we just don't send them
+        if((sp->SpellSkillLine) && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)) && skill->categoryId == SKILL_TYPE_PROFESSION)
+            if(FindHighestRankProfessionSpell(skill->id) == NULL)
+                continue;
 
         data << uint32(*sitr) << uint16(0x0000);
         ++spellCount;
@@ -2624,6 +2628,11 @@ void Player::addSpell(uint32 spell_id, uint32 forget)
     // Check if we're logging in.
     if(!IsInWorld())
         return;
+
+    SkillLineEntry *skill; // If we're learning a profession spell for a profession we don't have, skip notification and triggering
+    if(spell->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(spell->SpellSkillLine)) && skill->categoryId == SKILL_TYPE_PROFESSION)
+        if(FindHighestRankProfessionSpell(skill->id) == NULL)
+            return;
 
     SpellEntry* sp2 = FindLowerRankSpell(spell, -1);
     if(sp2 != NULL && sp2->Id == forget)

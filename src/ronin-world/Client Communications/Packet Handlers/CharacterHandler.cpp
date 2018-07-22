@@ -895,7 +895,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     if( pi == NULL )
         return;
 
-    QueryResult* result = CharacterDatabase.Query("SELECT bytes2 FROM character_data WHERE guid = '%u'", guid.getLow());
+    QueryResult* result = CharacterDatabase.Query("SELECT appearance2 FROM character_data WHERE guid = '%u'", guid.getLow());
     if(!result)
         return;
 
@@ -949,7 +949,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     uint32 player_bytes2 = fields[0].GetUInt32();
     player_bytes2 &= ~0xFF;
     player_bytes2 |= facialHair;
-    CharacterDatabase.Execute("UPDATE character_data SET gender = '%u', bytes = '%u', bytes2 = '%u', customizable = '0' WHERE guid = '%u'", gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, guid.getLow());
+    CharacterDatabase.Execute("UPDATE character_data SET appearance3 = '%u', appearance = '%u', appearance2 = '%u', customizeFlags = '0', lastSaveTime = '%llu' WHERE guid = '%u'", gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, uint64(UNIXTIME), guid.getLow());
     delete result;
 
     //WorldPacket data(SMSG_CHAR_CUSTOMIZE, recv_data.size() + 1);

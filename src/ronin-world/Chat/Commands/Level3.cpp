@@ -1501,7 +1501,7 @@ bool ChatHandler::HandleForceRenameCommand(const char * args, WorldSession * m_s
 
     if(Player* plr = objmgr.GetPlayer(pi->charGuid))
         BlueSystemMessageToPlr(plr, "%s forced your character to be renamed next logon.", m_session->GetPlayer()->GetName());
-    else CharacterDatabase.Execute("UPDATE character_data SET forced_rename_pending = 1 WHERE guid = %u", pi->charGuid.getLow());
+    else CharacterDatabase.Execute("UPDATE character_data SET customizeFlags = 1 WHERE guid = %u", pi->charGuid.getLow());
 
     CharacterDatabase.Execute("INSERT INTO banned_names VALUES('%s')", CharacterDatabase.EscapeString(pi->charName).c_str());
     GreenSystemMessage(m_session, "Forcing %s to rename his character next logon.", args);
@@ -1524,8 +1524,11 @@ bool ChatHandler::HandleRecustomizeCharCommand(const char * args, WorldSession *
     }
 
     if(Player* plr = objmgr.GetPlayer(pi->charGuid))
+    {
         BlueSystemMessageToPlr(plr, "%s granted you a character recustomization, please relog.", m_session->GetPlayer()->GetName());
-    else CharacterDatabase.Execute("UPDATE character_data SET customizable = 1 WHERE guid = %u", pi->charGuid.getLow());
+        plr->getPlayerInfo()->charCustomizeFlags |= 0x02;
+    }
+    else CharacterDatabase.Execute("UPDATE character_data SET customizeFlags = 2 WHERE guid = %u", pi->charGuid.getLow());
 
     GreenSystemMessage(m_session, "Granting %s a character recustomization on his/her next character logon.", args);
     sWorld.LogGM(m_session, "Granted %s a character recustomization (%u)", pi->charName.c_str(), pi->charGuid.getLow());
