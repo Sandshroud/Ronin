@@ -119,6 +119,7 @@ public:
     RONIN_INLINE Unit *GetCaster() { return _unitCaster; }
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
     RONIN_INLINE uint8 GetCastNumber() { return m_castNumber; }
+    RONIN_INLINE bool HasCastTime() { return m_castTime > 0; }
 
     // Packet writing functions
     void writeSpellGoTargets( WorldPacket * data );

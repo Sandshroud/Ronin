@@ -165,8 +165,8 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         }
     }
 
-    if(Spell* spell = new Spell(_player, spellInfo, castCount))
-        if( spell->prepare(&targets, false) == SPELL_CANCAST_OK )
+    if(Spell* spell = new Spell(_player, spellInfo, castCount, tmpItem->GetGUID()))
+        if( spell->prepare(&targets, false) == SPELL_CANCAST_OK && !spell->HasCastTime())
             _player->Cooldown_AddItem( itemProto, x );
 }
 
