@@ -1763,7 +1763,7 @@ bool QuestMgr::OnActivateQuestGiver(Object* qst_giver, Player* plr)
         ASSERT(itr != q_end);
 
         uint32 status = CalcStatus(qst_giver, plr);
-        if (status == QMGR_QUEST_FINISHED || ((*itr)->qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE))
+        if (status >= QMGR_QUEST_FINISHED_LOWLEVEL || ((*itr)->qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE))
         {
             sQuestMgr.BuildOfferReward(&data, (*itr)->qst, qst_giver, 1, plr);
             plr->PushPacket(&data);

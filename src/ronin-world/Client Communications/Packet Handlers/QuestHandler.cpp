@@ -546,7 +546,7 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
     if( reward_slot >= 6 )
         return;
 
-    bool bValid = false, bRegularGossip = false;
+    bool bValid = false;
     Quest *qst = NULL, *qst_next = NULL;
     WorldObject* qst_giver = NULL;
     uint32 guidtype = GUID_HIPART(guid);
@@ -620,7 +620,16 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket& recvPacket)
         WorldPacket data(CMSG_QUESTGIVER_QUERY_QUEST, 12);
         data << guid << qst_next->id;
         HandleQuestGiverQueryQuestOpcode(data);
-    } else if(bRegularGossip)
+        return; // End here
+    }
+
+    // This will resend quest list and any other gossip options
+    WorldPacket data(SMSG_GOSSIP_MESSAGE, 200);
+    sGossipMgr.BuildGossipMessage(&data, _player, qst_giver);
+    SendPacket( &data );
+
+    // End gossip if we have nothing
+    if(sQuestMgr.CalcStatus(qst_giver, _player) < QMGR_QUEST_CHAT)
         OutPacket(SMSG_GOSSIP_COMPLETE);
 }
 
