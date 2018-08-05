@@ -147,6 +147,9 @@ enum CooldownTypes
     COOLDOWN_TYPE_SPELL         = 0,
     COOLDOWN_TYPE_CATEGORY      = 1,
     NUM_COOLDOWN_TYPES,
+
+    COOLDOWN_TYPE_INF_SPELL     = 2,
+    COOLDOWN_TYPE_INF_CATEGORY  = 3,
 };
 
 enum LootType
@@ -350,6 +353,7 @@ struct PlayerCooldown
     uint32 SpellId;
     uint32 ItemId;
     time_t ExpireTime;
+    bool InfiniteCD, PendingEvent;
 };
 
 enum ItemBonusModSlot
@@ -596,6 +600,8 @@ public:
     void PushPacket(WorldPacket *data, bool direct = false);
     void PushPacketToQueue(WorldPacket *data);
 
+    virtual void OnAuraRemove(SpellEntry *sp, Unit* m_target);
+
     // Do not use for packets, use push instead
     RONIN_INLINE WorldSession* GetSession() const { return m_session; }
 
@@ -817,6 +823,7 @@ public:
     void Cooldown_AddItem(ItemPrototype * pProto, uint32 x);
     bool Cooldown_CanCast(SpellEntry * pSpell);
     bool Cooldown_CanCast(ItemPrototype * pProto, uint32 x);
+    void Cooldown_Event(SpellEntry *sp);
 
 protected:
     void _Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId, uint32 ItemId);
@@ -1161,7 +1168,8 @@ public:
     void ResetAllCooldowns();
     void ClearCooldownForSpell(uint32 spell_id);
     PlayerCooldownMap GetCooldownMap(uint8 index = COOLDOWN_TYPE_SPELL) { return m_cooldownMap[index]; };
-    bool SpellHasCooldown(uint32 spellid) { return (m_cooldownMap[COOLDOWN_TYPE_SPELL].find(spellid) != m_cooldownMap[COOLDOWN_TYPE_SPELL].end()); };
+    bool SpellHasCooldown(uint32 spellid);
+    bool SpellHasCooldownEvent(uint32 spellId);
 
     void PushOutOfRange(uint16 mapId, WoWGuid guid);
     void PushUpdateBlock(uint16 mapId, ByteBuffer *data, uint32 updatecount);
@@ -1335,7 +1343,7 @@ private:
     SpellSet m_spells;
     Loki::AssocVector<uint8, SpellSet> m_spellsByEffect;
     Loki::AssocVector<uint16, SpellSet> m_spellsBySkill;
-    std::set<uint32> m_spellCategories;
+    std::map<uint32, uint16> m_spellCategories;
 
     // Player skill access data
     Loki::AssocVector<uint16, uint8> m_skillIndexes;

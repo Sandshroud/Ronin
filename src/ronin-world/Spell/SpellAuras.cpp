@@ -329,7 +329,7 @@ void Aura::Remove()
     Unit * m_caster = GetUnitCaster();
     if (m_caster != NULL)
     {
-        m_caster->OnAuraRemove(m_spellProto->NameHash, m_target);
+        m_caster->OnAuraRemove(m_spellProto, m_target);
         if(m_spellProto->IsSpellChannelSpell() && m_caster->isCasting() && m_caster->GetSpellInterface()->GetCurrentSpellProto()->Id == m_spellProto->Id)
             m_caster->GetSpellInterface()->CleanupCurrentSpell();
     }
@@ -925,7 +925,14 @@ void Aura::SpellAuraDamageShield(bool apply)
 
 void Aura::SpellAuraModStealth(bool apply)
 {
+    if(apply)
+        m_target->SetByteFlag(UNIT_FIELD_BYTES_1, 2, 0x02);
+    else m_target->RemoveByteFlag(UNIT_FIELD_BYTES_1, 2, 0x02);
 
+    //0x20000000 is see stealthed
+    if( apply )
+        m_target->SetByteFlag(PLAYER_FIELD_BYTES2, 3, 0x20);
+    else m_target->RemoveByteFlag(PLAYER_FIELD_BYTES2, 3, 0x20);
 }
 
 void Aura::SpellAuraModDetect(bool apply)
@@ -2008,9 +2015,9 @@ void Aura::SpellAuraEmphaty(bool apply)
 void Aura::SpellAuraUntrackable(bool apply)
 {
     if(apply)
-        m_target->SetFlag(UNIT_FIELD_BYTES_1, 0x04000000);
+        m_target->SetFlag(UNIT_FIELD_BYTES_1, 0x00040000);
     else
-        m_target->RemoveFlag(UNIT_FIELD_BYTES_1, 0x04000000);
+        m_target->RemoveFlag(UNIT_FIELD_BYTES_1, 0x00040000);
 }
 
 void Aura::SpellAuraModOffhandDamagePCT(bool apply)

@@ -667,7 +667,7 @@ public:
 
     void AddOnAuraRemoveSpell(uint32 NameHash, uint32 procSpell, uint32 procChance, bool procSelf);
     void RemoveOnAuraRemoveSpell(uint32 NameHash);
-    void OnAuraRemove(uint32 NameHash, Unit* m_target);
+    virtual void OnAuraRemove(SpellEntry *sp, Unit* m_target);
 
     //dummy auras, spell stuff
     RONIN_INLINE void AddDummyAura( SpellEntry* sp ) { m_DummyAuras[sp->NameHash] = sp; }

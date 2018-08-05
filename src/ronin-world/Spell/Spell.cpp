@@ -263,14 +263,18 @@ void Spell::cancel()
 
 void Spell::AddCooldown()
 {
-    if( _unitCaster->IsPlayer() && !castPtr<Player>(_unitCaster)->hasCooldownCheat())
-        castPtr<Player>(_unitCaster)->Cooldown_Add( m_spellInfo, NULL );
+    if(!_unitCaster->IsPlayer())
+        return;
+
+    castPtr<Player>(_unitCaster)->Cooldown_Add( m_spellInfo, NULL );
 }
 
 void Spell::AddStartCooldown()
 {
-    if( _unitCaster->IsPlayer() && !castPtr<Player>(_unitCaster)->hasCooldownCheat())
-        castPtr<Player>(_unitCaster)->Cooldown_AddStart( m_spellInfo );
+    if(!_unitCaster->IsPlayer())
+        return;
+
+    castPtr<Player>(_unitCaster)->Cooldown_AddStart( m_spellInfo );
 }
 
 void Spell::cast(bool check)

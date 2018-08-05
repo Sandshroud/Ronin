@@ -3900,15 +3900,15 @@ void Unit::RemoveOnAuraRemoveSpell(uint32 NameHash)
         itr->second->deleted = true;
 }
 
-// Aura by NameHash has been removed
-void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
+void Unit::OnAuraRemove(SpellEntry *sp, Unit* m_target)
 {
+    // Aura by NameHash has been removed
     Loki::AssocVector<uint32, onAuraRemove*>::iterator itr;
-    if((itr = m_onAuraRemoveSpells.find(NameHash)) != m_onAuraRemoveSpells.end())
+    if((itr = m_onAuraRemoveSpells.find(sp->NameHash)) != m_onAuraRemoveSpells.end())
     {
         bool apply = true;
-        SpellEntry *sp = dbcSpell.LookupEntry(itr->second->spell);
-        if (itr->second->deleted == true || sp == NULL || itr->second->spell == NULL)
+        SpellEntry *sp2 = dbcSpell.LookupEntry(itr->second->spell);
+        if (itr->second->deleted == true || sp2 == NULL || itr->second->spell == NULL)
             return;
         if(itr->second->self == false && m_target == NULL)
             return;
@@ -3919,7 +3919,7 @@ void Unit::OnAuraRemove(uint32 NameHash, Unit* m_target)
             return;
 
         // Trigger the aura spell
-        GetSpellInterface()->TriggerSpell(sp, itr->second->self ? this : m_target);
+        GetSpellInterface()->TriggerSpell(sp2, itr->second->self ? this : m_target);
     }
 }
 

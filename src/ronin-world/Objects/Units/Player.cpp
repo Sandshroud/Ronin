@@ -726,6 +726,15 @@ void Player::PushPacketToQueue(WorldPacket *data)
         m_mapInstance->PushToProcessed(this);
 }
 
+void Player::OnAuraRemove(SpellEntry *sp, Unit* m_target)
+{
+    Unit::OnAuraRemove(sp, m_target);
+
+    PlayerCooldownMap::iterator itr;
+    if((itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find(sp->Id)) != m_cooldownMap[COOLDOWN_TYPE_SPELL].end() && itr->second.InfiniteCD)
+        Cooldown_Event(sp);
+}
+
 uint32 Player::GetDifficulty(MapEntry *map)
 {
     Group *group = GetGroup();
@@ -1673,17 +1682,28 @@ void Player::_LoadPlayerCooldowns(QueryResult *result)
         Field *fields = result->Fetch();
         uint32 spellId = fields[1].GetUInt32();
         uint16 type = fields[2].GetUInt8();
+
+        bool inf = false; // Infinite values are stored in DB as a different type, so reallign and set our flag
+        if(type == COOLDOWN_TYPE_INF_SPELL || type == COOLDOWN_TYPE_INF_CATEGORY)
+        {
+            inf = true;
+            type -= 2;
+        }
+
         if( type >= NUM_COOLDOWN_TYPES )
             continue;
+
         uint32 category = fields[3].GetUInt32();
         time_t expireTime = fields[4].GetUInt64();
-        if(expireTime <= UNIXTIME)
+        if(inf == false && expireTime <= UNIXTIME)
             continue;
 
         PlayerCooldown &cd = m_cooldownMap[type][category];
         cd.SpellId = spellId;
         cd.ExpireTime = expireTime;
         cd.ItemId = fields[5].GetUInt32();
+        cd.InfiniteCD = inf;
+        cd.PendingEvent = false;
     }while(result->NextRow());
 }
 
@@ -1697,7 +1717,7 @@ void Player::_SavePlayerCooldowns(QueryBuffer * buf)
     {
         for(PlayerCooldownMap::iterator itr = m_cooldownMap[i].begin(); itr != m_cooldownMap[i].end(); itr++)
         {
-            if(itr->second.ExpireTime <= UNIXTIME)
+            if(!itr->second.InfiniteCD && itr->second.ExpireTime <= UNIXTIME)
                 continue;
 
             if(ss.str().length())
@@ -1705,7 +1725,7 @@ void Player::_SavePlayerCooldowns(QueryBuffer * buf)
 
             ss << "(" << GetLowGUID()
             << ", " << uint32(itr->second.SpellId)
-            << ", " << uint32(i)
+            << ", " << uint32(i + (itr->second.InfiniteCD ? 2 : 0))
             << ", " << uint32(itr->first)
             << ", " << uint64(itr->second.ExpireTime)
             << ", " << uint32(itr->second.ItemId);
@@ -2110,6 +2130,7 @@ void Player::_LoadSpells(QueryResult *result)
 {
     if(result)
     {
+        SkillLineEntry *skill;
         do
         {
             if(SpellEntry *sp = dbcSpell.LookupEntry(result->Fetch()[1].GetUInt32()))
@@ -2120,13 +2141,13 @@ void Player::_LoadSpells(QueryResult *result)
                 for(uint8 i = 0; i < 3; i++)
                     if(uint8 effect = sp->Effect[i])
                         m_spellsByEffect[effect].insert(sp->Id);
-                if(sp->SpellSkillLine)
-                    m_spellsBySkill[sp->SpellSkillLine].insert(sp->Id);
-
                 if(sp->Category)
-                    m_spellCategories.insert(sp->Category);
+                    m_spellCategories[sp->Category]++;
+                if(sp->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)))
+                    m_spellsBySkill[sp->SpellSkillLine].insert(sp->Id);
             }
         }while(result->NextRow());
+
     }
 
     guildmgr.AddGuildPerks(this);
@@ -2508,7 +2529,7 @@ void Player::smsg_InitialSpells()
         if(sp->isSpellbookInvisible())
             continue;
         // Specific profession spells are not unlearned, so we just don't send them
-        if((sp->SpellSkillLine) && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)) && skill->categoryId == SKILL_TYPE_PROFESSION)
+        if(sp->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)) && skill->categoryId == SKILL_TYPE_PROFESSION)
             if(FindHighestRankProfessionSpell(skill->id) == NULL)
                 continue;
 
@@ -2525,19 +2546,27 @@ void Player::smsg_InitialSpells()
         itr2 = itr++;
 
         // don't keep around expired cooldowns
-        if( itr2->second.ExpireTime <= curr || (itr2->second.ExpireTime - curr) < 5 )
+        if(itr2->second.InfiniteCD)
+        {
+            SpellEntry *sp = dbcSpell.LookupEntry(itr2->first);
+            if(sp == NULL || (sp->isDisabledWhileActive() && !HasAura(itr2->first)))
+            {
+                m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr2 );
+                continue;
+            }
+        }
+        else if( itr2->second.ExpireTime <= curr || (itr2->second.ExpireTime - curr) < 5 )
         {
             m_cooldownMap[COOLDOWN_TYPE_SPELL].erase( itr2 );
             continue;
         }
 
-        uint32 msTimeLeft = (itr2->second.ExpireTime - curr)*1000;
+        uint32 msTimeLeft = itr2->second.InfiniteCD ? 1 : (itr2->second.ExpireTime - curr)*1000;
         data << uint32( itr2->second.SpellId ); // spell id
         data << uint32( itr2->second.ItemId );  // item id
         data << uint16( 0 );                    // spell category
         data << uint32( msTimeLeft );           // cooldown remaining in ms (for spell)
-        data << uint32( 0 );                    // cooldown remaining in ms (for category)
-
+        data << uint32( itr2->second.InfiniteCD ? 0x80000000 : 0 ); // cooldown remaining in ms (for category)
         ++cooldownCount;
 
         sLog.outDebug("sending spell cooldown for spell %u to %u ms", itr2->first, msTimeLeft);
@@ -2546,6 +2575,10 @@ void Player::smsg_InitialSpells()
     for( PlayerCooldownMap::iterator itr2, itr = m_cooldownMap[COOLDOWN_TYPE_CATEGORY].begin(); itr != m_cooldownMap[COOLDOWN_TYPE_CATEGORY].end(); )
     {
         itr2 = itr++;
+
+        // Don't send infinite category cooldowns
+        if(itr2->second.InfiniteCD)
+            continue;
 
         // don't keep around expired cooldowns
         if( itr2->second.ExpireTime <= curr || (itr2->second.ExpireTime - curr) < 5 )
@@ -2623,7 +2656,7 @@ void Player::addSpell(uint32 spell_id, uint32 forget)
     if(spell->SpellSkillLine)
         m_spellsBySkill[spell->SpellSkillLine].insert(spell_id);
     if(spell->Category)
-        m_spellCategories.insert(spell->Category);
+        m_spellCategories[spell->Category]++;
 
     // Check if we're logging in.
     if(!IsInWorld())
@@ -4260,7 +4293,7 @@ void Player::removeSpellByNameHash(uint32 hash)
             if(e->SpellSkillLine)
                 m_spellsBySkill[e->SpellSkillLine].erase(e->Id);
             if(e->Category)
-                m_spellCategories.erase(e->Category);
+                m_spellCategories[e->Category]--;
         }
     }
 }
@@ -4863,6 +4896,25 @@ void Player::ClearCooldownForSpell(uint32 spell_id)
             }
         }
     }
+}
+
+
+bool Player::SpellHasCooldown(uint32 spellId)
+{
+    PlayerCooldownMap::iterator itr;
+    if((itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find(spellId)) == m_cooldownMap[COOLDOWN_TYPE_SPELL].end())
+        return false;
+    if(itr->second.InfiniteCD || itr->second.ExpireTime > UNIXTIME)
+        return true;
+    return false;
+}
+
+bool Player::SpellHasCooldownEvent(uint32 spellId)
+{
+    PlayerCooldownMap::iterator itr;
+    if((itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find(spellId)) == m_cooldownMap[COOLDOWN_TYPE_SPELL].end())
+        return false;
+    return itr->second.PendingEvent;
 }
 
 void Player::ClearCooldownsOnLine(uint32 skill_line, uint32 called_from)
@@ -6242,7 +6294,8 @@ PlayerInfo::~PlayerInfo()
 void Player::FillMapWithSpellCategories(std::map<uint32, int32> *map)
 {
     for(auto itr = m_spellCategories.begin(); itr != m_spellCategories.end(); itr++)
-        (*map)[*itr] = 0;
+        if(itr->second > 0)
+            (*map)[itr->first] = 0;
 }
 
 // COOLDOWNS
@@ -6256,6 +6309,8 @@ void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId
             itr->second.ExpireTime = Time;
             itr->second.ItemId = ItemId;
             itr->second.SpellId = SpellId;
+            itr->second.InfiniteCD = false;
+            itr->second.PendingEvent = false;
         }
     }
     else
@@ -6264,6 +6319,8 @@ void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId
         cd.ExpireTime = Time;
         cd.ItemId = ItemId;
         cd.SpellId = SpellId;
+        cd.InfiniteCD = false;
+        cd.PendingEvent = false;
 
         m_cooldownMap[Type].insert( std::make_pair( Misc, cd ) );
     }
@@ -6273,10 +6330,40 @@ void Player::_Cooldown_Add(uint32 Type, uint32 Misc, time_t Time, uint32 SpellId
 
 void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
 {
+    time_t currTime = UNIXTIME;
+    if(pSpell->isDisabledWhileActive())
+    {
+        PlayerCooldownMap::iterator itr = m_cooldownMap[COOLDOWN_TYPE_SPELL].find( pSpell->Id );
+        if( itr != m_cooldownMap[COOLDOWN_TYPE_SPELL].end( ) )
+        {
+            if( itr->second.InfiniteCD == false || itr->second.ExpireTime <= currTime )
+            {
+                itr->second.InfiniteCD = true;
+                itr->second.PendingEvent = true;
+                itr->second.ExpireTime = 0;
+                itr->second.ItemId = pItemCaster ? pItemCaster->GetProto()->ItemId : 0;
+                itr->second.SpellId = pSpell->Id;
+            }
+        }
+        else
+        {
+            PlayerCooldown cd;
+            cd.InfiniteCD = true;
+            cd.PendingEvent = true;
+            cd.ExpireTime = 0;
+            cd.ItemId = pItemCaster ? pItemCaster->GetProto()->ItemId : 0;
+            cd.SpellId = pSpell->Id;
+
+            m_cooldownMap[COOLDOWN_TYPE_SPELL].insert( std::make_pair( pSpell->Id, cd ) );
+        }
+
+        sLog.Debug("Player","added cooldown for type %u misc %u time INF item %u spell %u", COOLDOWN_TYPE_SPELL, pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0, pSpell->Id);
+        return;
+    }
+
     if( m_cooldownCheat )
         return;
 
-    time_t currTime = UNIXTIME;
     if( pSpell->CategoryRecoveryTime > 0 && pSpell->Category )
     {
         int32 recover = pSpell->CategoryRecoveryTime;
@@ -6299,6 +6386,49 @@ void Player::Cooldown_Add(SpellEntry * pSpell, Item* pItemCaster)
         }
 
         _Cooldown_Add( COOLDOWN_TYPE_SPELL, pSpell->Id, currTime+time_t(recover < 2000 ? 1 : (recover/1000)), pSpell->Id, pItemCaster ? pItemCaster->GetProto()->ItemId : 0 );
+    }
+}
+
+void Player::Cooldown_Event(SpellEntry *sp)
+{
+    WorldPacket data(SMSG_COOLDOWN_EVENT, 20);
+    data << uint32(sp->Id);
+    data << uint64(GetGUID());
+    PushPacket(&data);
+
+    if( m_cooldownCheat )
+    {   // Just clear the cooldown here
+        ClearCooldownForSpell(sp->Id);
+        return;
+    }
+
+    // Cut us off here if no event was pending
+    if(!SpellHasCooldownEvent(sp->Id))
+        return;
+
+    time_t currTime = UNIXTIME;
+    if( sp->CategoryRecoveryTime > 0 && sp->Category )
+    {
+        int32 recover = sp->CategoryRecoveryTime;
+        if( sp->SpellGroupType )
+        {
+            SM_FIValue(SMT_COOLDOWN_DECREASE, &recover, sp->SpellGroupType);
+            SM_PIValue(SMT_COOLDOWN_DECREASE, &recover, sp->SpellGroupType);
+        }
+
+        _Cooldown_Add( COOLDOWN_TYPE_CATEGORY, sp->Category, currTime+time_t(recover < 2000 ? 1 : (recover/1000)), sp->Id, 0 );
+    }
+
+    if( sp->RecoveryTime > 0 )
+    {
+        int32 recover = sp->RecoveryTime;
+        if( sp->SpellGroupType )
+        {
+            SM_FIValue(SMT_COOLDOWN_DECREASE, &recover, sp->SpellGroupType);
+            SM_PIValue(SMT_COOLDOWN_DECREASE, &recover, sp->SpellGroupType);
+        }
+
+        _Cooldown_Add( COOLDOWN_TYPE_SPELL, sp->Id, currTime+time_t(recover < 2000 ? 1 : (recover/1000)), sp->Id, 0 );
     }
 }
 
