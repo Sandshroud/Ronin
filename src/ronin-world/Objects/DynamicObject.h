@@ -43,6 +43,8 @@ public:
     virtual void Destruct();
     virtual void Update(uint32 msTime, uint32 uiDiff);
 
+    virtual void OnPushToWorld(uint32 msTime);
+
     virtual bool IsDynamicObj() { return true; }
 
     // Don't think we need reactivate for world objects either

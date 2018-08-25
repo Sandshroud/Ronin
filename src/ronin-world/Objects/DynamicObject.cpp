@@ -58,6 +58,12 @@ void DynamicObject::Update(uint32 msTime, uint32 uiDiff)
     UpdateTargets(uiDiff);
 }
 
+void DynamicObject::OnPushToWorld(uint32 msTime)
+{
+    // Update targets with no time diff
+    UpdateTargets(0);
+}
+
 void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, float y, float z, int32 duration, float radius)
 {
     // Call the object create function
@@ -83,7 +89,6 @@ void DynamicObject::Create(WorldObject* caster, BaseSpell* pSpell, float x, floa
         castPtr<Unit>(caster)->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, GetGUID());
         castPtr<Unit>(caster)->SetUInt32Value(UNIT_CHANNEL_SPELL, m_spellProto->Id);
     }
-    UpdateTargets(0);
 }
 
 void FillDynamicObjectTargetMapCallback::operator()(DynamicObject *obj, Unit *caster, Unit *target, float range)
@@ -118,6 +123,10 @@ void FillDynamicObjectTargetMapCallback::operator()(DynamicObject *obj, Unit *ca
 
 void DynamicObject::UpdateTargets(uint32 p_time)
 {
+    // Don't update targets till we're in world for sure
+    if(!IsInWorld())
+        return;
+
     Unit* u_caster = NULL;
     if(GUID_HIPART(casterGuid) == HIGHGUID_TYPE_GAMEOBJECT)
     {

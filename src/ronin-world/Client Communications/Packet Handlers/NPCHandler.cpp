@@ -288,23 +288,16 @@ void WorldSession::HandleSpiritHealerActivateOpcode( WorldPacket & recv_data )
 //////////////////////////////////////////////////////////////
 void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
 {
-    uint32 e = 0, i = 0;
     uint32 textID;
-    uint64 targetGuid;
-    GossipText *pGossip = NULL;
-
-    recv_data >> textID;
+    WoWGuid targetGuid;
+    recv_data >> textID >> targetGuid;
     sLog.Debug("WORLD","CMSG_NPC_TEXT_QUERY ID '%u'", textID );
 
-    recv_data >> targetGuid;
     GetPlayer()->SetUInt64Value(UNIT_FIELD_TARGET, targetGuid);
-
-    if(textID != 68)
-        pGossip = NpcTextStorage.LookupEntry(textID);
 
     WorldPacket data(SMSG_NPC_TEXT_UPDATE, 50000);
     data << textID;
-    if(pGossip)
+    if(GossipText *pGossip = (textID == 68 ? NULL : NpcTextStorage.LookupEntry(textID)))
     {
         for(uint8 i = 0; i < 8; i++)
         {
@@ -320,7 +313,7 @@ void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
                 data << pGossip->Texts[i].Text[1];
             data << pGossip->Infos[i].Lang;
 
-            for(int e = 0; e < 3; e++)
+            for(uint8 e = 0; e < 3; e++)
             {
                 data << uint32(pGossip->Infos[i].Delay[e]);
                 data << uint32(pGossip->Infos[i].Emote[e]);
@@ -334,7 +327,7 @@ void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
         data << (textID != 68 ? "Hello, $N. What can I do for you?" : "Greetings, $N"); // Team
         data << uint32(0x00);       // Language
 
-        for(int e = 0; e < 3; e++)
+        for(uint8 e = 0; e < 3; e++)
         {
             data << uint32(0x00);       // Emote delay
             data << uint32(0x00);       // Emote
@@ -346,7 +339,7 @@ void WorldSession::HandleNpcTextQueryOpcode( WorldPacket & recv_data )
             data << uint8(0x00) << uint8(0x00); // Team
             data << uint32(0x00);       // Language
 
-            for(int e = 0; e < 3; e++)
+            for(uint8 e = 0; e < 3; e++)
             {
                 data << uint32(0x00);       // Emote delay
                 data << uint32(0x00);       // Emote

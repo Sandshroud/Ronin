@@ -767,7 +767,7 @@ struct SkillLineEntry
     //char *description;
     uint32 spellIcon;
     //char *alternateName;
-    //uint32 canLink;
+    uint32 canLink;
 };
 
 struct SkillLineAbilityEntry
@@ -1195,6 +1195,8 @@ struct SpellEntry
     bool _IsSpellMeleeSpell() { return (reqMainHandWeapon() || reqOffHandWeapon()); }
     // Use to check if spell is melee/ranged spell
     bool IsSpellWeaponSpell() { return spellType <= 3; }
+    // Used to check if we're a skill learning spell
+    uint32 IsSpellTeachingSkill(uint8 effectMask = 0xFF, uint8 *returnIndex = NULL);
 
     bool isSpellAuraApplicator(uint32 effIndex) { return EffectApplyAuraName[effIndex] != 0; }
     bool isSpellAuraApplicator() { return (EffectApplyAuraName[0] || EffectApplyAuraName[1] || EffectApplyAuraName[2]); }

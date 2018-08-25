@@ -217,7 +217,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillRaceClassInfoEntry, dbcSkillRaceClassInfo)
 static const char *skillraceclassinfoFormat = "xuuuuuxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineEntry, dbcSkillLine);
-static const char *skilllineFormat = "uusxuxx";
+static const char *skilllineFormat = "uusxuxu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(SkillLineAbilityEntry, dbcSkillLineSpell);
 static const char *skilllinespellFormat = "uuuuuxxuuuuuxx";
@@ -427,6 +427,22 @@ template<class T> void DBCLoader::LoadDBC(bool *result, std::string filename, co
     l->Init(filename.c_str(), format);
     // Result must only be set to false
     if(!l->Load()) *result = false;
+}
+
+uint32 SpellEntry::IsSpellTeachingSkill(uint8 effectMask, uint8 *returnIndex)
+{
+    // Skill step goes first
+    if(HasEffect(SPELL_EFFECT_SKILL_STEP, effectMask, returnIndex))
+        return SPELL_EFFECT_SKILL_STEP;
+    if(HasEffect(SPELL_EFFECT_WEAPON, effectMask, returnIndex))
+        return SPELL_EFFECT_WEAPON;
+    if(HasEffect(SPELL_EFFECT_LANGUAGE, effectMask, returnIndex))
+        return SPELL_EFFECT_LANGUAGE;
+    if(HasEffect(SPELL_EFFECT_DUAL_WIELD, effectMask, returnIndex))
+        return SPELL_EFFECT_DUAL_WIELD;
+    if(HasEffect(SPELL_EFFECT_SKILL, effectMask, returnIndex))
+        return SPELL_EFFECT_SKILL;
+    return SPELL_EFFECT_NULL;
 }
 
 //#define DISABLE_DBC_MULTILOADING

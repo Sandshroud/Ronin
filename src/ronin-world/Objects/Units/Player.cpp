@@ -2529,7 +2529,7 @@ void Player::smsg_InitialSpells()
         if(sp->isSpellbookInvisible())
             continue;
         // Specific profession spells are not unlearned, so we just don't send them
-        if(sp->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)) && skill->categoryId == SKILL_TYPE_PROFESSION)
+        if(sp->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)) && (skill->categoryId == SKILL_TYPE_PROFESSION || (skill->categoryId == SKILL_TYPE_SECONDARY && skill->canLink)))
             if(FindHighestRankProfessionSpell(skill->id) == NULL)
                 continue;
 
@@ -2663,7 +2663,7 @@ void Player::addSpell(uint32 spell_id, uint32 forget)
         return;
 
     SkillLineEntry *skill; // If we're learning a profession spell for a profession we don't have, skip notification and triggering
-    if(spell->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(spell->SpellSkillLine)) && skill->categoryId == SKILL_TYPE_PROFESSION)
+    if(spell->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(spell->SpellSkillLine)) && (skill->categoryId == SKILL_TYPE_PROFESSION || (skill->categoryId == SKILL_TYPE_SECONDARY && skill->canLink)))
         if(FindHighestRankProfessionSpell(skill->id) == NULL)
             return;
 
@@ -5416,9 +5416,21 @@ void Player::SoftLoadPlayer()
 {
     for(SpellSet::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
     {
-        SpellEntry *info = dbcSpell.LookupEntry(*itr);
-        if(info && info->isPassiveSpell() && !info->isSpellExpiringWithPet() && !info->isSpellbookInvisible())
-            GetSpellInterface()->TriggerSpell(info, this);
+        if(SpellEntry *info = dbcSpell.LookupEntry(*itr))
+        {
+            uint8 retIndex = 0xFF;
+            uint32 skillEffect = SPELL_EFFECT_NULL;
+            if(info->isPassiveSpell() && !info->isSpellExpiringWithPet() && !info->isSpellbookInvisible())
+                GetSpellInterface()->TriggerSpell(info, this);
+            else if((skillEffect = info->IsSpellTeachingSkill(0xFF, &retIndex)) != SPELL_EFFECT_NULL)
+            {   // Ensure we have skill lines for the spells we're holding, Skills are already loaded so if it's not there just reset
+                uint32 skillLine = info->SpellSkillLine;
+                if(skillLine == 0 || skillEffect == SPELL_EFFECT_SKILL_STEP)
+                    skillLine = info->EffectMiscValue[retIndex];
+                if(!HasSkillLine(skillLine))
+                    GetSpellInterface()->TriggerSpell(info, this);
+            }
+        }
     }
 
     // Initialize our talent info
