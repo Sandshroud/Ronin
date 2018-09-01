@@ -846,10 +846,7 @@ void Player::ProcessImmediateItemUpdate(Item *item)
     if(!IsInWorld())
         return;
 
-    ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
-    if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, this, 0xFFFF))
-        PushUpdateBlock(m_mapId, &buff, count);
-    buff.clear();
+    m_mapInstance->HandleItemUpdateRequest(this, item);
     m_mapInstance->PushToProcessed(this);
 }
 
@@ -858,14 +855,11 @@ void Player::ProcessPendingItemUpdates()
     if(m_pendingUpdates.empty() || !IsInWorld() || m_session == NULL)
         return;
 
-    ByteBuffer &buff = GetMapInstance()->m_updateBuffer;
     while(m_pendingUpdates.size())
     {
         Item *item = *m_pendingUpdates.begin();
         m_pendingUpdates.erase(m_pendingUpdates.begin());
-        if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&buff, this, 0xFFFF))
-            PushUpdateBlock(m_mapId, &buff, count);
-        buff.clear();
+        m_mapInstance->HandleItemUpdateRequest(this, item);
     }
     m_mapInstance->PushToProcessed(this);
 }

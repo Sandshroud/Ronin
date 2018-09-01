@@ -41,8 +41,7 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData
     m_forceCombatState = false;
 
     // buffers
-    m_createBuffer.reserve(0x7FFF);
-    m_updateBuffer.reserve(0x1FF);
+    m_dataBuffer.reserve(0x7FFF);
 
     m_PlayerStorage.clear();
     m_DynamicObjectStorage.clear();
@@ -282,13 +281,15 @@ void MapInstance::PushObject(WorldObject* obj)
         objCell->Init(cx, cy, _mapId, this);
     ASSERT(objCell);
 
+    m_dataBufferLock.Acquire();
     uint32 count = 0, minX = cx ? cx-1 : 0, maxX = (cx < _sizeY-1 ? cx+1 : _sizeY-1), minY = cy ? cy-1 : 0, maxY = (cy < _sizeY-1 ? cy+1 : _sizeY-1);
-    if(plObj && (count = plObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj)))
+    if(plObj && (count = plObj->BuildCreateUpdateBlockForPlayer(&m_dataBuffer, plObj)))
     {
         sLog.Debug("MapInstance","Creating player %llu for himself.", obj->GetGUID().raw());
-        plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
+        plObj->PushUpdateBlock(_mapId, &m_dataBuffer, count);
     }
-    m_createBuffer.clear();
+    m_dataBuffer.clear();
+    m_dataBufferLock.Release();
 
     //Add to the cell's object list
     objCell->AddObject(obj);
@@ -376,18 +377,19 @@ void MapInstance::PushObject(WorldObject* obj)
         // Update our player's zone
         plObj->UpdateAreaInfo(this);
 
+        m_dataBufferLock.Acquire();
         /* Add the zone wide objects */
         if(m_fullRangeObjectsByZone[plObj->GetZoneId()].size())
         {
             for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByZone[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByZone[plObj->GetZoneId()].end(); itr++)
             {
-                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
+                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_dataBuffer, plObj))
                 {
-                    plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
+                    plObj->PushUpdateBlock(_mapId, &m_dataBuffer, count);
                     if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
                         castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
                 }
-                m_createBuffer.clear();
+                m_dataBuffer.clear();
             }
         }
 
@@ -396,15 +398,16 @@ void MapInstance::PushObject(WorldObject* obj)
         {
             for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByArea[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByArea[plObj->GetZoneId()].end(); itr++)
             {
-                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
+                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_dataBuffer, plObj))
                 {
-                    plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
+                    plObj->PushUpdateBlock(_mapId, &m_dataBuffer, count);
                     if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
                         castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
                 }
-                m_createBuffer.clear();
+                m_dataBuffer.clear();
             }
         }
+        m_dataBufferLock.Release();
     }
 
     if(MapScript *script = m_script)
@@ -722,26 +725,26 @@ void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject 
     {
         plObj2->AddVisibleObject(obj);
         obj->GetCellManager()->AddVisibleBy(plObj2->GetGUID());
-        if(uint32 count = obj->BuildCreateUpdateBlockForPlayer(&_instance->m_createBuffer, plObj2))
+        if(uint32 count = obj->BuildCreateUpdateBlockForPlayer(&m_callbackBuffer, plObj2))
         {
-            plObj2->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
+            plObj2->PushUpdateBlock(_instance->GetMapId(), &m_callbackBuffer, count);
             if(obj->IsUnit() && castPtr<Unit>(obj)->GetMovementInterface()->GetPath()->hasDestination())
                 castPtr<Unit>(obj)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj2, MOVEBCFLAG_DELAYED);
         }
-        _instance->m_createBuffer.clear();
+        m_callbackBuffer.clear();
     }
 
     if( plObj != NULL && _instance->canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
     {
         plObj->AddVisibleObject( curObj );
         curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
-        if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &_instance->m_createBuffer, plObj ))
+        if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &m_callbackBuffer, plObj ))
         {
-            plObj->PushUpdateBlock(_instance->GetMapId(), &_instance->m_createBuffer, count);
+            plObj->PushUpdateBlock(_instance->GetMapId(), &m_callbackBuffer, count);
             if(curObj->IsUnit() && castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->hasDestination())
                 castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
         }
-        _instance->m_createBuffer.clear();
+        m_callbackBuffer.clear();
     }
 }
 
@@ -814,32 +817,6 @@ uint8 MapInstance::GetPoolOverrideForZone(uint32 zoneId)
         //return 7;
     default:
         return 0;
-    }
-}
-
-void MapInstance::UpdateObjectVisibility(Player *plObj, WorldObject *curObj)
-{
-    ASSERT(plObj && curObj);
-
-    std::set<WoWGuid>::iterator itr;
-    bool cansee = canObjectsInteract(plObj, curObj) && plObj->CanSee(curObj), isvisible = plObj->GetVisibility(curObj, &itr);
-    if(!cansee && isvisible)
-    {
-        curObj->GetCellManager()->RemoveVisibleBy(plObj->GetGUID());
-        plObj->PushOutOfRange(_mapId, curObj->GetGUID());
-        plObj->RemoveVisibleObject(itr);
-    }
-    else if(cansee && !isvisible)
-    {
-        plObj->AddVisibleObject(curObj);
-        curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
-        if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer(&m_createBuffer, plObj))
-        {
-            plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
-            if(curObj->IsUnit() && castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->hasDestination())
-                castPtr<Unit>(curObj)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
-        }
-        m_createBuffer.clear();
     }
 }
 
@@ -1295,24 +1272,24 @@ void MapInstanceBroadcastObjectUpdateCallback::operator()(WorldObject *obj, Worl
     uint32 targetFlag = obj->GetUpdateFlag(plrTarget);
     if(targetFlag & UF_FLAG_PARTY_MEMBER)
     {
-        if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(_instance->GetUpdateBuffer(), plrTarget, UF_FLAGMASK_PARTY_MEMBER))
+        if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(&m_callbackBuffer, plrTarget, UF_FLAGMASK_PARTY_MEMBER))
         {
-            plrTarget->PushUpdateBlock(_instance->GetMapId(), _instance->GetUpdateBuffer(), count);
-            _instance->GetUpdateBuffer()->clear();
+            plrTarget->PushUpdateBlock(_instance->GetMapId(), &m_callbackBuffer, count);
+            m_callbackBuffer.clear();
         }
     }
     else if(targetFlag & UF_FLAG_OWNER)
     {
-        if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(_instance->GetUpdateBuffer(), plrTarget, UF_FLAGMASK_OWN_PET))
+        if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(&m_callbackBuffer, plrTarget, UF_FLAGMASK_OWN_PET))
         {
-            plrTarget->PushUpdateBlock(_instance->GetMapId(), _instance->GetUpdateBuffer(), count);
-            _instance->GetUpdateBuffer()->clear();
+            plrTarget->PushUpdateBlock(_instance->GetMapId(), &m_callbackBuffer, count);
+            m_callbackBuffer.clear();
         }
     }
-    else if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(_instance->GetUpdateBuffer(), plrTarget, UF_FLAGMASK_PUBLIC))
+    else if(uint32 count = obj->BuildValuesUpdateBlockForPlayer(&m_callbackBuffer, plrTarget, UF_FLAGMASK_PUBLIC))
     {
-        plrTarget->PushUpdateBlock(_instance->GetMapId(), _instance->GetUpdateBuffer(), count);
-        _instance->GetUpdateBuffer()->clear();
+        plrTarget->PushUpdateBlock(_instance->GetMapId(), &m_callbackBuffer, count);
+        m_callbackBuffer.clear();
     }
 }
 
@@ -1419,6 +1396,19 @@ void MapInstance::HandleSpellTargetMapping(MapTargetCallback *callback, SpellTar
     });
 
     storage->cellvector.clear();
+}
+
+void MapInstanceProcessItemUpdateCallback::Process(Player *plr, Item *item)
+{
+    if(uint32 count = item->BuildValuesUpdateBlockForPlayer(&m_callbackBuffer, plr, 0xFFFF))
+        plr->PushUpdateBlock(plr->GetMapId(), &m_callbackBuffer, count);
+    m_callbackBuffer.clear();
+}
+
+void MapInstance::HandleItemUpdateRequest(Player *plr, Item *item)
+{
+    if(ProcessItemUpdateCallbackStack::callbackStorage *storage = _processItemUpdateCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this))
+        ((MapInstanceProcessItemUpdateCallback*)&storage)->Process(plr, item);
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)
@@ -1822,10 +1812,11 @@ void MapInstance::_PerformPendingUpdates()
         // players have to receive their own updates ;)
         if( wObj->IsPlayer() )
         {
-            // need to be different! ;)
-            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_updateBuffer, castPtr<Player>( wObj ), UF_FLAGMASK_SELF) )
-                castPtr<Player>( wObj )->PushUpdateBlock(_mapId, &m_updateBuffer, count );
-            m_updateBuffer.clear();
+            m_dataBufferLock.Acquire(); // need to be different! ;)
+            if( count = wObj->BuildValuesUpdateBlockForPlayer(&m_dataBuffer, castPtr<Player>( wObj ), UF_FLAGMASK_SELF) )
+                castPtr<Player>( wObj )->PushUpdateBlock(_mapId, &m_dataBuffer, count );
+            m_dataBuffer.clear();
+            m_dataBufferLock.Release();
         }
 
         wObj->OnUpdateProcess();

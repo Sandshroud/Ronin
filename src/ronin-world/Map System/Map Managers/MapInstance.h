@@ -325,11 +325,12 @@ private:
 class MapInstanceObjectProcessCallback : public ObjectProcessCallback
 {
 public:
-    MapInstanceObjectProcessCallback(MapInstance *instance) : _instance(instance) {}
+    MapInstanceObjectProcessCallback(MapInstance *instance) : _instance(instance) { m_callbackBuffer.reserve(0x7FFF); }
     void operator()(WorldObject *obj, WorldObject *curObj);
     void SetCell(uint32 cellX, uint32 cellY) { _cellX = cellX; _cellY = cellY; }
 
 protected:
+    ByteBuffer m_callbackBuffer;
     MapInstance *_instance;
     uint32 _cellX, _cellY;
 };
@@ -403,6 +404,7 @@ public:
 
 private:
     MapInstance *_instance;
+    ByteBuffer m_callbackBuffer;
 };
 
 class MapInstanceBroadcastChatPacketCallback : public ObjectProcessCallback
@@ -474,6 +476,18 @@ private:
 
     uint32 _effIndex, _targetType;
     float _x, _y, _z, _minRange, _maxRange;
+};
+
+class MapInstanceProcessItemUpdateCallback : public ObjectProcessCallback
+{
+public:
+    MapInstanceProcessItemUpdateCallback(MapInstance *instance) : _instance(instance) {}
+    void operator()(WorldObject *obj, WorldObject *curObj) {}
+    void Process(Player *player, Item *item);
+
+private:
+    MapInstance *_instance;
+    ByteBuffer m_callbackBuffer;
 };
 
 template <class T> class CallbackStack
@@ -603,6 +617,9 @@ public:
     // Spell targetting functions: note range is squared in the function, do not input squared range
     void HandleSpellTargetMapping(MapTargetCallback *callback, SpellTargetClass *spell, uint32 i, uint32 targetType, float x, float y, float z, float minRange, float maxRange, uint32 typeMask = 0);
 
+    // Updates item for player inside an allocation based on thread
+    void HandleItemUpdateRequest(Player *plr, Item *item);
+
 protected:
     // These are stored in MapInstance.cpp with functions
     friend class MapInstanceObjectProcessCallback;
@@ -638,6 +655,10 @@ protected:
     typedef CallbackStack<MapInstanceSpellTargetMappingCallback> SpellTargetMappingCallbackStack;
     friend class MapInstanceSpellTargetMappingCallback;
     SpellTargetMappingCallbackStack _spellTargetMappingCBStack;
+
+    typedef CallbackStack<MapInstanceProcessItemUpdateCallback> ProcessItemUpdateCallbackStack;
+    friend class MapInstanceProcessItemUpdateCallback;
+    ProcessItemUpdateCallbackStack _processItemUpdateCBStack;
 
     // These are stored in SpellTargets.cpp with functions
 public:
@@ -742,8 +763,6 @@ protected: ///! Objects that exist on map
     MapCell *GetCellOrInit(uint32 x, uint32 y, bool shouldInit, bool priority);
     bool _CellActive(uint32 x, uint32 y, int radius);
 
-    void UpdateObjectVisibility(Player *plObj, WorldObject *curObj);
-
     friend class ObjectCellManager;
     friend class PlayerCellManager;
     bool UpdateCellData(WorldObject *Obj, uint32 cellX, uint32 cellY, bool playerObj, bool priority);
@@ -805,10 +824,8 @@ public:
     WorldStateManager* m_stateManager;
 
     // bytebuffer caching
-    ByteBuffer m_createBuffer, m_updateBuffer;
-
-    ByteBuffer *GetCreateBuffer() { return &m_createBuffer; }
-    ByteBuffer *GetUpdateBuffer() { return &m_updateBuffer; }
+    Mutex m_dataBufferLock;
+    ByteBuffer m_dataBuffer;
 
     // Object cell stacking
     Mutex objectCellCacheLock;
