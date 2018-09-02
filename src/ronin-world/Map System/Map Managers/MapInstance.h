@@ -481,7 +481,7 @@ private:
 class MapInstanceProcessItemUpdateCallback : public ObjectProcessCallback
 {
 public:
-    MapInstanceProcessItemUpdateCallback(MapInstance *instance) : _instance(instance) {}
+    MapInstanceProcessItemUpdateCallback(MapInstance *instance) : _instance(instance) { m_callbackBuffer.reserve(0x1FFF); }
     void operator()(WorldObject *obj, WorldObject *curObj) {}
     void Process(Player *player, Item *item);
 

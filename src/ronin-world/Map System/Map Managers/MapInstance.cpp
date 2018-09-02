@@ -1408,7 +1408,7 @@ void MapInstanceProcessItemUpdateCallback::Process(Player *plr, Item *item)
 void MapInstance::HandleItemUpdateRequest(Player *plr, Item *item)
 {
     if(ProcessItemUpdateCallbackStack::callbackStorage *storage = _processItemUpdateCBStack.getOrAllocateCallback(RONIN_UTIL::GetThreadId(), this))
-        ((MapInstanceProcessItemUpdateCallback*)&storage)->Process(plr, item);
+        ((MapInstanceProcessItemUpdateCallback*)storage)->Process(plr, item);
 }
 
 bool MapInstance::UpdateQueued(WorldObject *obj)
