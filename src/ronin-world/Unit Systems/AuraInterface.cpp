@@ -156,6 +156,29 @@ void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
     if(uint8 index = aura->GetSpellProto()->buffIndex)
         if(m_buffIndexAuraSlots[index] == aura_slot)
             m_buffIndexAuraSlots.erase(index);
+
+    if(m_shapeShiftAuras.find(aura_slot) != m_shapeShiftAuras.end())
+        m_shapeShiftAuras.erase(aura_slot);
+}
+
+void AuraInterface::OnSetShapeShift(uint8 ss)
+{
+    std::set<uint8> m_aurasToRemove;
+    for(uint8 x = 0; x < m_maxPosAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+    {
+        if(Aura *aur = m_auras[x])
+        {
+            if(aur->GetSpellProto()->AppliesAura(SPELL_AURA_MOD_SHAPESHIFT))
+                continue;
+            // Check if it's a shapeshift required aura and if we're either a 0 ss or if we don't meet the requirement
+            if((m_shapeShiftAuras.find(x) != m_shapeShiftAuras.end()) && (ss == NULL || ((aur->GetSpellProto()->RequiredShapeShift & (uint32)1 << (ss-1)) == 0)))
+                m_aurasToRemove.insert(x);
+        }
+    }
+
+    for(std::set<uint8>::iterator itr = m_aurasToRemove.begin(); itr != m_aurasToRemove.end(); itr++)
+        RemoveAuraBySlot(*itr);
+    m_aurasToRemove.clear();
 }
 
 bool AuraInterface::IsDazed()
@@ -933,6 +956,8 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
 
     if(uint8 index = aur->GetSpellProto()->buffIndex)
         m_buffIndexAuraSlots[index] = aur->GetAuraSlot();
+    if(aur->GetSpellProto()->RequiredShapeShift)
+        m_shapeShiftAuras.insert(aur->GetAuraSlot());
     m_auraLock.HighRelease();
 
     aur->ApplyModifiers(true);

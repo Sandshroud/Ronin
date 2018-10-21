@@ -832,8 +832,8 @@ float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
         callback.InitMod(&speedMod);
         m_Unit->m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_DECREASE_SPEED, &callback);
 
-        // Readjust base speed with new minimum modifier
-        baseSpeed *= (100.f+speedMod)/100.f;
+        // Decrease based on default movement speed, but since decrease is always negative, grab it's float abs first
+        baseSpeed -= m_defaultSpeeds[speedType] * (fabs(speedMod)/100.f);
         // Check if we have a minimum speed amount
         if(m_Unit->m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_MINIMUM_SPEED))
         {

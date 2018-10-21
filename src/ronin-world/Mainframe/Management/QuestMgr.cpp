@@ -1233,8 +1233,8 @@ void QuestMgr::OnPlayerItemPickup(Player* plr, Item* item, uint32 pickedupstacks
                     TRIGGER_QUEST_EVENT(qle->GetQuest()->id, OnPlayerItemPickup)(entry, pcount, plr, qle);
                     if(pcount < qle->GetQuest()->required_itemcount[j])
                     {
-                        WorldPacket data(SMSG_QUESTUPDATE_ADD_ITEM, 8);
-                        data << qle->GetQuest()->required_item[j] << uint32(1);
+                        WorldPacket data;
+                        sQuestMgr.BuildQuestUpdateAddItem(&data, entry, pcount);
                         plr->PushPacket(&data);
 
                         if(qle->CanBeFinished())

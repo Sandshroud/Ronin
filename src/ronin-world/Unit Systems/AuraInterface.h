@@ -64,6 +64,7 @@ public:
     void OnChangeLevel(uint32 newlevel);
     uint8 GetFreeSlot(bool ispositive);
     void OnAuraRemove(Aura* aura, uint8 aura_slot);
+    void OnSetShapeShift(uint8 ss);
 
     bool IsDazed();
     bool IsPoisoned();
@@ -174,6 +175,7 @@ private:
     Aura *m_auras[TOTAL_AURAS];
     uint8 m_maxPosAuraSlot, m_maxNegAuraSlot, m_maxPassiveAuraSlot;
     std::map<uint8, uint8> m_buffIndexAuraSlots;
+    std::set<uint8> m_shapeShiftAuras;
     RWMutex m_auraLock;
 
     /*******************

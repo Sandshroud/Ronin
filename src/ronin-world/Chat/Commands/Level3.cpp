@@ -1242,7 +1242,6 @@ bool ChatHandler::HandleItemReqCheatCommand(const char* args, WorldSession * m_s
 
 bool ChatHandler::HandleResetSkillsCommand(const char* args, WorldSession * m_session)
 {
-    SkillLineEntry * se;
     Player* plr = getSelectedChar(m_session, true);
     if(!plr) return true;
 

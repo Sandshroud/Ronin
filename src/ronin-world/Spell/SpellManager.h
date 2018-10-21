@@ -11,6 +11,7 @@ class SpellCastTargets;
 
 typedef bool(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
 typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellScriptedEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount);
 
 typedef bool(*tCanCastCCS)(SpellEntry *sp, Creature *ctr);
 typedef bool(*tGenCCSTargets)(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
@@ -43,6 +44,7 @@ public:
     // Modifiers for effect amounts and dummy effect handlers
     bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
     bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+    bool TriggerScriptedEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt);
 
     bool CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr);
     bool GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
@@ -66,6 +68,9 @@ public:
         return 0;
     }
 
+    // Grab our class for supplied skill line
+    uint8 GetClassForSkillLine(uint32 skillLine);
+
 private:    // Spell fixes, start with class then continue to zones, items, quests
     void _RegisterWarriorFixes();
     void _RegisterPaladinFixes();
@@ -78,10 +83,13 @@ private:    // Spell fixes, start with class then continue to zones, items, ques
     void _RegisterWarlockFixes();
     void _RegisterDruidFixes();
 
+    void _RegisterTirisfalGladesScripts();
+    void _RegisterSilvermoonCityScripts();
+
     // Register handler
     RONIN_INLINE void _RegisterAmountModifier(uint32 spellId, uint32 effIndex, tSpellAmountModifier amountHandler) { m_amountModifierHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), amountHandler)); }
     RONIN_INLINE void _RegisterDummyEffect(uint32 spellId, uint32 effIndex, tSpellDummyEffect dummyHandler) { m_dummyEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), dummyHandler)); }
-
+    RONIN_INLINE void _RegisterScriptedEffect(uint32 spellId, uint32 effIndex, tSpellScriptedEffect scriptedHandler) { m_scriptedEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), scriptedHandler)); }
 
     RONIN_INLINE void _RegisterCanCastCCS(uint32 spellId, tCanCastCCS canCastCCS) { m_canCastCCSTriggers.insert(std::make_pair(spellId, canCastCCS)); }
     RONIN_INLINE void _RegisterGenCCSTargets(uint32 spellId, tGenCCSTargets genCCSTargets) { m_genCCSTargetTriggers.insert(std::make_pair(spellId, genCCSTargets)); }
@@ -113,6 +121,7 @@ private:
 
     // Dummy effect handler storage
     std::map<std::pair<uint32, uint32>, tSpellAmountModifier> m_amountModifierHandlers;
+    std::map<std::pair<uint32, uint32>, tSpellScriptedEffect> m_scriptedEffectHandlers;
     std::map<std::pair<uint32, uint32>, tSpellDummyEffect> m_dummyEffectHandlers;
 
     // Creature Combat spell limiters
@@ -122,6 +131,7 @@ private:
     // Skill line parsed data
     std::map<uint8, std::vector<SkillLineEntry*>> m_skillLinesByCategory;
     std::map<std::string, SkillLineEntry*> m_skillLinesByName;
+    std::map<uint32, uint8> m_skillLineClasses;
     // Language spells
     std::set<std::pair<char*, uint16>> m_languageSkillIds;
     // Skill line processors

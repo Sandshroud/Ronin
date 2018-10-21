@@ -5788,6 +5788,9 @@ void Player::SetShapeShift(uint8 ss)
     SpellShapeshiftFormEntry *form = dbcSpellShapeshiftForm.LookupEntry(ss);
     SetPowerType(form ? form->forcedPowerType : myClass->powerType);
 
+    // Trigger shape shift application or removal
+    m_AuraInterface.OnSetShapeShift(ss);
+
     // Trigger a set of mod type updates(Aura update also does this)
     for(uint8 i = UF_UTYPE_STATS; i <= UF_UTYPE_MOVEMENT; i++)
         TriggerModUpdate(i);

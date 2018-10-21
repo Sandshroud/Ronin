@@ -1446,6 +1446,9 @@ void SpellEffectClass::SpellEffectHealMechanical(uint32 i, WorldObject *target, 
 
 void SpellEffectClass::SpellEffectScriptEffect(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Script Effect
 {
+    if(!sSpellMgr.TriggerScriptedEffect(this, i, target, amount))
+        return;
+
     sLog.outDebug("Unhandled Scripted Effect In Spell %u", m_spellInfo->Id);
 }
 

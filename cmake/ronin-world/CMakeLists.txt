@@ -128,6 +128,12 @@ FILE(GLOB map_system_map_managers_instance_scripts_sources
 source_group("Map System\\Map Managers\\Instance Scripts" FILES ${map_system_map_managers_instance_scripts_sources})
 SET(group_sources ${group_sources} ${map_system_map_managers_instance_scripts_sources})
 
+FILE(GLOB map_system_map_managers_zone_scripts_sources
+"${prefix}/Map System/Map Managers/ZoneScripts/*.h"
+"${prefix}/Map System/Map Managers/ZoneScripts/*.cpp")
+source_group("Map System\\Map Managers\\Zone Scripts" FILES ${map_system_map_managers_zone_scripts_sources})
+SET(group_sources ${group_sources} ${map_system_map_managers_zone_scripts_sources})
+
 FILE(GLOB map_system_map_tiles_sources
 "${prefix}/Map System/Map Tiles/*.h"
 "${prefix}/Map System/Map Tiles/*.cpp")

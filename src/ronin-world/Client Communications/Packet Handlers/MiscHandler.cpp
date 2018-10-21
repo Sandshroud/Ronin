@@ -871,12 +871,13 @@ void WorldSession::HandleGameObjectUse(WorldPacket & recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
     sLog.outDebug("WORLD: CMSG_GAMEOBJ_USE: [GUID %d]", guid);
 
     if(GameObject* obj = _player->GetMapInstance()->GetGameObject(guid))
-        obj->Use(_player);
+        if(true)//!_player->CanInteractWithObject<GameObject>(obj))
+            obj->Use(_player);
 }
 
 void WorldSession::HandleTutorialFlag( WorldPacket & recv_data )

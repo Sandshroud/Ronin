@@ -125,7 +125,7 @@ void SpellInterface::LaunchSpell(SpellEntry *info, float posX, float posY, float
 
 void SpellInterface::LaunchSpell(SpellEntry *info, Unit *target)
 {
-    SpellCastTargets targets(target->GetGUID());
+    SpellCastTargets targets(target ? target->GetGUID() : m_Unit->GetGUID());
     if(Spell *spell = new Spell(m_Unit, info))
         spell->prepare(&targets, false);
 }

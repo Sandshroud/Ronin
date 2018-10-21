@@ -831,7 +831,7 @@ bool ObjectMgr::GetCreatureFamilyIDFromName(const char *name, uint32 &out)
 void ObjectMgr::LoadTrainers()
 {
     mTrainerData.clear();
-
+    std::set<uint32> handledEntries;
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_trainerdata "))
     {
         do
@@ -845,11 +845,13 @@ void ObjectMgr::LoadTrainers()
             data.reqSkill = fields[3].GetUInt32();
             data.reqSkillValue = fields[4].GetUInt32();
             data.trainerTitle = fields[5].GetString();
+            handledEntries.insert(entry);
         }while( result->NextRow() );
         delete result;
     }
     sLog.Notice("ObjectMgr", "%u trainers loaded.", mTrainerData.size());
 
+    uint32 count = 0;
     for(CreatureDataManager::iterator itr = sCreatureDataMgr.begin(); itr != sCreatureDataMgr.end(); ++itr)
     {
         CreatureData *data = (*itr)->second;
@@ -870,11 +872,13 @@ void ObjectMgr::LoadTrainers()
             tdata.subCategory = i;
             tdata.reqSkill = tdata.reqSkillValue = 0;
             tdata.trainerTitle = className.c_str();
+            ++count;
             break;
         }
     }
+    sLog.Notice("ObjectMgr", "Processed %u creature trainer information", count);
 
-    uint32 count = 0;
+    count = 0;
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM trainer_spells "))
     {
         do
@@ -928,6 +932,40 @@ void ObjectMgr::LoadTrainers()
         tSpell.reqSkill = tSpell.reqSkillValue = 0;
         map->insert(std::make_pair(sp->Id, tSpell));
     }
+
+#ifdef HANDLE_TRANSFERS
+    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM transfer_trainerdata "))
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            uint32 entry = fields[0].GetUInt32();
+            if(handledEntries.find(entry) != handledEntries.end())
+                continue;
+            SpellEntry *sp = dbcSpell.LookupEntry(fields[1].GetUInt32());
+            if(sp == NULL || sp->SpellSkillLine == 0)
+                continue;
+            if(SkillLineEntry *sklse = dbcSkillLine.LookupEntry(sp->SpellSkillLine))
+            {
+                switch(sklse->categoryId)
+                {
+                case SKILL_TYPE_CLASS:
+                    if(uint8 classId = sSpellMgr.GetClassForSkillLine(sp->SpellSkillLine))
+                    {
+                        WorldDatabase.Execute("INSERT INTO creature_trainerdata VALUES('%u', '1', '%u', '0', '0', '0', '%s Trainer');", entry, classId, classNames[classId-1]);
+                        handledEntries.insert(entry);
+                    }
+
+                    break;
+                case SKILL_TYPE_PROFESSION:
+                    sLog.printf("");
+                    break;
+                }
+            }
+        }while( result->NextRow() );
+        delete result;
+    }
+#endif
 }
 
 ObjectMgr::AreaTriggerData *ObjectMgr::GetAreaTriggerData(uint32 entry)

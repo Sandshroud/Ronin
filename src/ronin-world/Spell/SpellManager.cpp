@@ -43,14 +43,54 @@ void SpellManager::ParseSpellDBC()
 
         m_skillLinesByCategory[skillLine->categoryId].push_back(skillLine);
         m_skillLinesByName.insert(std::make_pair(skillLine->name, skillLine));
+
     }
 
+    std::set<uint32> processedSkillLines;
+    sLog.Notice("SpellManager", "Parsing %u spell skills...", dbcSkillLineSpell.GetNumRows());
     for(uint32 i = 0; i < dbcSkillLineSpell.GetNumRows(); i++)
     {
         if (SkillLineAbilityEntry *skillLineAbility = dbcSkillLineSpell.LookupRow(i))
         {
             if(SpellEntry *sp = dbcSpell.LookupEntry(skillLineAbility->spell))
+            {
                 sp->SpellSkillLine = skillLineAbility->skilline;
+                if((skillLine = dbcSkillLine.LookupEntry(sp->SpellSkillLine)) && processedSkillLines.find(sp->SpellSkillLine) == processedSkillLines.end())
+                {
+                    switch(skillLine->categoryId)
+                    {
+                    case SKILL_TYPE_CLASS:
+                        {
+                            if(skillLineAbility->classMask)
+                            {
+                                uint8 _class = 0;
+                                for(uint8 i = 1; i < CLASS_MAX; ++i)
+                                {
+                                    if(skillLineAbility->classMask & (1<<(i-1)))
+                                    {
+                                        _class = i;
+                                        break;
+                                    }
+                                }
+
+                                if(_class)
+                                {
+                                    m_skillLineClasses.insert(std::make_pair(sp->SpellSkillLine, _class));
+                                    processedSkillLines.insert(sp->SpellSkillLine);
+                                }
+                            }
+                        }break;
+                    case SKILL_TYPE_SECONDARY:
+                        {
+
+                        }break;
+                    case SKILL_TYPE_PROFESSION:
+                        {
+
+                        }break;
+                    }
+                }
+            }
 
             m_skillLineEntriesBySkillLine[skillLineAbility->skilline].push_back(skillLineAbility->Id);
         }
@@ -173,6 +213,10 @@ void SpellManager::LoadSpellFixes()
     _RegisterMageFixes();
     _RegisterWarlockFixes();
     _RegisterDruidFixes();
+
+    // Register zone specific fixes
+    _RegisterTirisfalGladesScripts();
+    _RegisterSilvermoonCityScripts();
 }
 
 bool validateSpellFamily(SpellEntry *sp, uint8 &outClass)
@@ -548,6 +592,15 @@ bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, U
     return false;
 }
 
+bool SpellManager::TriggerScriptedEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt)
+{
+    SpellEntry *sp = spell->GetSpellProto();
+    std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
+    if(m_scriptedEffectHandlers.find(spEff) != m_scriptedEffectHandlers.end())
+        return (*m_scriptedEffectHandlers.at(spEff))(sp, effIndex, target, modAmt);
+    return false;
+}
+
 bool SpellManager::CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr)
 {
     if(m_canCastCCSTriggers.find(sp->Id) != m_canCastCCSTriggers.end())
@@ -590,6 +643,14 @@ bool SpellManager::IsAuraApplicable(Unit *unit, SpellEntry *spell)
     }
 
     return true;
+}
+
+uint8 SpellManager::GetClassForSkillLine(uint32 skillLine)
+{
+    std::map<uint32, uint8>::iterator itr;
+    if((itr = m_skillLineClasses.find(skillLine)) != m_skillLineClasses.end())
+        return itr->second;
+    return 0;
 }
 
 std::map<uint8, uint32> Spell::m_implicitTargetFlags;
