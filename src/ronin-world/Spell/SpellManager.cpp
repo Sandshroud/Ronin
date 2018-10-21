@@ -214,9 +214,13 @@ void SpellManager::LoadSpellFixes()
     _RegisterWarlockFixes();
     _RegisterDruidFixes();
 
+    _RegisterHomeboundData();
+    _RegisterTranslocateData();
+
     // Register zone specific fixes
     _RegisterTirisfalGladesScripts();
     _RegisterSilvermoonCityScripts();
+    _RegisterDalaranScripts();
 }
 
 bool validateSpellFamily(SpellEntry *sp, uint8 &outClass)
@@ -598,6 +602,15 @@ bool SpellManager::TriggerScriptedEffect(SpellEffectClass *spell, uint32 effInde
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_scriptedEffectHandlers.find(spEff) != m_scriptedEffectHandlers.end())
         return (*m_scriptedEffectHandlers.at(spEff))(sp, effIndex, target, modAmt);
+    return false;
+}
+
+bool SpellManager::FetchSpellCoordinates(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    SpellEntry *sp = spell->GetSpellProto();
+    std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
+    if(m_teleportEffectHandlers.find(spEff) != m_teleportEffectHandlers.end())
+        return (*m_teleportEffectHandlers.at(spEff))(sp, effIndex, target, modAmt, mapId, X, Y, Z, O);
     return false;
 }
 

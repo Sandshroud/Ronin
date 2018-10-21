@@ -150,95 +150,6 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTar
     }
 }
 
-void SpellEffectClass::HandleTeleport(uint32 id, Unit* Target)
-{
-    if(Target == NULL || Target->GetTypeId() != TYPEID_PLAYER || !id || id == 1)
-        return;
-
-    Player* pTarget = castPtr<Player>( Target );
-
-    uint32 mapid;
-    float x,y,z,o;
-
-    if(TeleportCoords* TC = TeleportCoordStorage.LookupEntry(id))
-    {
-        mapid = TC->mapId;
-        x = TC->x;
-        y = TC->y;
-        z = TC->z;
-        o = TC->o;
-    }
-    else
-    {
-        switch(id)
-        {
-    /*  case :
-            {
-                mapid = ;
-                x = f;
-                y = f;
-                z = f;
-                o = 0.0f;
-            }break;*/
-        case 556: // Ronin effects.
-        case 8690:
-        case 39937:
-            {
-                mapid = pTarget->GetBindMapId();
-                x = pTarget->GetBindPositionX();
-                y = pTarget->GetBindPositionY();
-                z = pTarget->GetBindPositionZ();
-                o = pTarget->GetOrientation();
-            }break;
-        case 59901: // Portal Effect: Caverns Of Time
-            {
-                mapid = 1;
-                x = -8164.8f;
-                y = -4768.5f;
-                z = 34.3f;
-                o = 0.0f;
-            }break;
-        case 61419: // Portal Effect: The purple parlor
-            {
-                mapid = 571;
-                x = 5848.48f;
-                y = 853.706f;
-                z = 843.182f;
-                o = 0.0f;
-            }break;
-        case 61420: // Portal Effect: Violet Citadel
-            {
-                mapid = 571;
-                x = 5819.26f;
-                y = 829.774f;
-                z = 680.22f;
-                o = 0.0f;
-            }break;
-
-        default:
-            {
-                if(m_targets.m_dest.x && m_targets.m_dest.y)
-                {
-                    mapid = pTarget->GetMapId();
-                    x = m_targets.m_dest.x;
-                    y = m_targets.m_dest.y;
-                    z = m_targets.m_dest.z;
-                    o = pTarget->GetOrientation();
-                }
-                else
-                {
-                    sLog.outDebug("Unknown teleport spell: %u", id);
-                    return;
-                }
-            }break;
-        }
-    }
-
-    pTarget->EventAttackStop();
-    pTarget->SetSelection(NULL);
-    pTarget->SafeTeleport(mapid, 0, x, y, z, o);
-}
-
 void SpellEffectClass::Heal(Unit *target, uint8 effIndex, int32 amount)
 {
     if( target == NULL || !target->isAlive() )
@@ -499,11 +410,17 @@ void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amo
 
 void SpellEffectClass::SpellEffectTeleportUnits(uint32 i, WorldObject *target, int32 amount, bool rawAmt)  // Teleport Units
 {
-    if(target->IsPlayer())
-        HandleTeleport(m_spellInfo->Id, castPtr<Player>(target));
-    else
-    {
+    uint32 mapId;
+    float x,y,z,o;
+    if(!sSpellMgr.FetchSpellCoordinates(this, i, target, amount, mapId, x, y, z, o))
+        return;
 
+    if(target->IsPlayer())
+    {
+        castPtr<Player>(target)->EventAttackStop();
+        castPtr<Player>(target)->SetSelection(NULL);
+        castPtr<Player>(target)->SafeTeleport(mapId, 0, x, y, z, o);
+        return;
     }
 }
 

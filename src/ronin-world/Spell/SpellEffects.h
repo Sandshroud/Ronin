@@ -42,8 +42,6 @@ public:
     // Handle the Effects of the Spell
     void HandleEffects(uint32 i, SpellTarget *spTarget, WorldObject *target);
     void HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTarget);
-    // Handles Teleport function
-    void HandleTeleport(uint32 id, Unit* Target);
     // Handles healing function
     void Heal(Unit *target, uint8 effIndex, int32 amount);
     // Handles skill up
