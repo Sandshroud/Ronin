@@ -20,7 +20,7 @@
 #include "StdAfx.h"
 #include "3487_silvermoon_city.h"
 
-bool SilvermoonTranslocateScript(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount)
+bool SilvermoonTranslocateScript(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
     static SpellEntry *translocate = dbcSpell.LookupEntry(25649);
     if(translocate == NULL) // We need our translocate

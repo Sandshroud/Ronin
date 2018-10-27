@@ -20,7 +20,7 @@
 #include "StdAfx.h"
 #include "0085_tirisfal_glades.h"
 
-bool UndercityTranslocateScript(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount)
+bool UndercityTranslocateScript(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
     static SpellEntry *translocate = dbcSpell.LookupEntry(26566);
     if(translocate == NULL) // We need our translocate

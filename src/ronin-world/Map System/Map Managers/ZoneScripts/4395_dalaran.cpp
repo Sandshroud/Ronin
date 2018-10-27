@@ -20,7 +20,7 @@
 #include "StdAfx.h"
 #include "3487_silvermoon_city.h"
 
-bool PortalEffectCavernsOfTime(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+bool PortalEffectCavernsOfTime(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {
     Player *plrTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if(plrTarget == NULL)
@@ -34,7 +34,7 @@ bool PortalEffectCavernsOfTime(SpellEntry *sp, uint32 effIndex, WorldObject *tar
     return true;
 }
 
-bool PortalEffectPurpleParlor(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+bool PortalEffectPurpleParlor(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {
     Player *plrTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if(plrTarget == NULL)
@@ -48,7 +48,7 @@ bool PortalEffectPurpleParlor(SpellEntry *sp, uint32 effIndex, WorldObject *targ
     return true;
 }
 
-bool PortalEffectVioletCitadel(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+bool PortalEffectVioletCitadel(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {
     Player *plrTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if(plrTarget == NULL)

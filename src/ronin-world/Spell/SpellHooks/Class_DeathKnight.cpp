@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-bool DeathKnightDeathCoilTrigger(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool DeathKnightDeathCoilTrigger(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     static SpellEntry *attackSpell = dbcSpell.LookupEntry(47632), *healSpell = dbcSpell.LookupEntry(47633);
     if(attackSpell == NULL || healSpell == NULL)
@@ -21,11 +21,11 @@ bool DeathKnightDeathCoilTrigger(SpellEntry *sp, uint32 effIndex, Unit *caster, 
     return true;
 }
 
-bool DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool DeathKnightFrostAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
-        switch(sp->Id)
+        switch(spell->GetSpellProto()->Id)
         {
             // Icy Touch has an AP modifier of 0.2
         case 45477: amount += float2int32(((float)unitCaster->GetAttackPower())*0.2f); break;
@@ -34,11 +34,11 @@ bool DeathKnightFrostAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caste
     return true;
 }
 
-bool DeathKnightUnholyAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool DeathKnightUnholyAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
-        switch(sp->Id)
+        switch(spell->GetSpellProto()->Id)
         {
             // Death Coil has an AP modifier of 0.2
         case 47632: amount += float2int32(((float)unitCaster->GetAttackPower())*0.288f); break;

@@ -4,10 +4,10 @@
 
 #include "StdAfx.h"
 
-bool PaladinBlessingApplicator(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinBlessingApplicator(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     Group *grp = NULL;
-    SpellEntry *triggerSpell = dbcSpell.LookupEntry(sp->Id == 19740 ? 79101 : 79062);
+    SpellEntry *triggerSpell = dbcSpell.LookupEntry(spell->GetSpellProto()->Id == 19740 ? 79101 : 79062);
     if(triggerSpell && caster->IsPlayer() && target->IsPlayer() && (grp = castPtr<Player>(caster)->GetGroup()) && grp->HasMember(castPtr<Player>(target)))
     {
         grp->Lock();
@@ -22,8 +22,9 @@ bool PaladinBlessingApplicator(SpellEntry *sp, uint32 effIndex, Unit *caster, Wo
     return true;
 }
 
-bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinJudgementDummyHandler(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
+    SpellEntry *sp = spell->GetSpellProto();
     Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL, *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if(unitCaster && unitTarget)
     {
@@ -42,8 +43,9 @@ bool PaladinJudgementDummyHandler(SpellEntry *sp, uint32 effIndex, Unit *caster,
     return true;
 }
 
-bool PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinJudgementTriggerAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
+    SpellEntry *sp = spell->GetSpellProto();
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {
         switch(sp->Id)
@@ -63,7 +65,7 @@ bool PaladinJudgementTriggerAmountModifier(SpellEntry *sp, uint32 effIndex, Unit
     return true;
 }
 
-bool PaladinExorcismAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinExorcismAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     // Exorcism gets a raw attack power increase of 0.315-0.325%, not sure yet which
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
@@ -71,7 +73,7 @@ bool PaladinExorcismAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster
     return true;
 }
 
-bool PaladinTemplarsVerdictAmountModifier(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinTemplarsVerdictAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
     {

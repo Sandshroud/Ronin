@@ -144,6 +144,16 @@ void SpellInterface::TriggerSpell(SpellEntry *info, Unit *target)
         spell->prepare(&targets, true);
 }
 
+void SpellInterface::LaunchSpellFromSpell(SpellEntry *info, Unit *target, SpellEntry *parent)
+{
+    SpellCastTargets targets(target ? target->GetGUID() : m_Unit->GetGUID());
+    if(Spell *spell = new Spell(m_Unit, info))
+    {
+        spell->setSpellParent(parent);
+        spell->prepare(&targets, false);
+    }
+}
+
 uint32 SpellInterface::getNextMeleeSpell()
 {
     _spellLock.Acquire();

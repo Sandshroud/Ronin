@@ -9,10 +9,10 @@ class ItemPrototype;
 class SpellEffectClass;
 class SpellCastTargets;
 
-typedef bool(*tSpellAmountModifier)(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
-typedef bool(*tSpellDummyEffect)(SpellEntry *sp, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
-typedef bool(*tSpellScriptedEffect)(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount);
-typedef bool(*tSpellTeleportData)(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O);
+typedef bool(*tSpellAmountModifier)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellDummyEffect)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellScriptedEffect)(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount);
+typedef bool(*tSpellTeleportData)(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O);
 
 typedef bool(*tCanCastCCS)(SpellEntry *sp, Creature *ctr);
 typedef bool(*tGenCCSTargets)(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
@@ -107,6 +107,7 @@ private:
 
     // Creates a dummy spell entry pointer at ID
     SpellEntry *_CreateDummySpell(uint32 id);
+    SpellEntry *_CreateScriptedEffectSpell(uint32 id);
 
     // Links spell target flags to spell target IDs
     void SetupSpellTargets();

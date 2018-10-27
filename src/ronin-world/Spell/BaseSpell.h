@@ -120,6 +120,10 @@ public:
     RONIN_INLINE SpellEntry *GetSpellProto() { return m_spellInfo; }
     RONIN_INLINE uint8 GetCastNumber() { return m_castNumber; }
     RONIN_INLINE bool HasCastTime() { return m_castTime > 0; }
+    RONIN_INLINE SpellEntry *GetSpellParent() { return m_spellParent; }
+
+    // Sets data based on spell parent
+    void setSpellParent(SpellEntry *sp) { m_spellParent = sp; }
 
     // Packet writing functions
     void writeSpellGoTargets( WorldPacket * data );
@@ -198,7 +202,7 @@ protected:
     Unit *_unitCaster;
     WoWGuid m_casterGuid;
 
-    SpellEntry *m_spellInfo;
+    SpellEntry *m_spellInfo, *m_spellParent;
     WoWGuid m_itemCaster;
     uint8 m_castNumber;
 

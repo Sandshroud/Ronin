@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-bool ReturnToHomebind(SpellEntry *sp, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+bool ReturnToHomebind(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {
     Player *plrTarget = target->IsPlayer() ? castPtr<Player>(target) : NULL;
     if(plrTarget == NULL)

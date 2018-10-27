@@ -34,6 +34,8 @@ public:
     void TriggerSpell(SpellEntry *info, float posX, float posY, float posZ);
     void TriggerSpell(SpellEntry *info, Unit *target);
 
+    void LaunchSpellFromSpell(SpellEntry *info, Unit *target, SpellEntry *parent);
+
     // Next melee spells
     uint32 getNextMeleeSpell();
     void TriggerNextMeleeSpell(Unit *target);

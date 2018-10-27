@@ -583,7 +583,7 @@ bool SpellManager::ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, 
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_amountModifierHandlers.find(spEff) != m_amountModifierHandlers.end())
-        return (*m_amountModifierHandlers.at(spEff))(sp, effIndex, caster, target, amount);
+        return (*m_amountModifierHandlers.at(spEff))(spell, effIndex, caster, target, amount);
     return false;
 }
 
@@ -592,7 +592,7 @@ bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, U
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_dummyEffectHandlers.find(spEff) != m_dummyEffectHandlers.end())
-        return (*m_dummyEffectHandlers.at(spEff))(sp, effIndex, caster, target, amount);
+        return (*m_dummyEffectHandlers.at(spEff))(spell, effIndex, caster, target, amount);
     return false;
 }
 
@@ -601,7 +601,7 @@ bool SpellManager::TriggerScriptedEffect(SpellEffectClass *spell, uint32 effInde
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_scriptedEffectHandlers.find(spEff) != m_scriptedEffectHandlers.end())
-        return (*m_scriptedEffectHandlers.at(spEff))(sp, effIndex, target, modAmt);
+        return (*m_scriptedEffectHandlers.at(spEff))(spell, effIndex, target, modAmt);
     return false;
 }
 
@@ -610,7 +610,7 @@ bool SpellManager::FetchSpellCoordinates(SpellEffectClass *spell, uint32 effInde
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_teleportEffectHandlers.find(spEff) != m_teleportEffectHandlers.end())
-        return (*m_teleportEffectHandlers.at(spEff))(sp, effIndex, target, modAmt, mapId, X, Y, Z, O);
+        return (*m_teleportEffectHandlers.at(spEff))(spell, effIndex, target, modAmt, mapId, X, Y, Z, O);
     return false;
 }
 
@@ -737,7 +737,7 @@ void SpellManager::SetupSpellTargets()
 
 SpellEntry* SpellManager::_CreateDummySpell(uint32 id)
 {
-    std::string name = "Dummy Trigger";
+    static std::string name = "Dummy Trigger";
     SpellEntry* sp = new SpellEntry();
     memset(sp, 0, sizeof(SpellEntry*));
     sp->Id = id;
@@ -751,14 +751,53 @@ SpellEntry* SpellManager::_CreateDummySpell(uint32 id)
     sp->procChance = 75;
     sp->rangeIndex = 13;
     sp->EquippedItemClass = uint32(-1);
-    sp->Effect[0] = SPELL_EFFECT_DUMMY;
-    sp->EffectImplicitTargetA[0] = 25;
     sp->NameHash = crc32((const unsigned char*)name.c_str(), (unsigned int)name.length());
-    if(!dbcSpell.SetEntry(62388, sp))
+    if(!dbcSpell.SetEntry(id, sp))
     {
         delete sp;
         return NULL;
     }
+    SetSingleSpellDefaults(sp);
+    ApplySingleSpellFixes(sp);
+    ApplyCoeffSpellFixes(sp);
+    SetProcFlags(sp);
+    ProcessSpellInformation(sp);
+    sp->Effect[0] = SPELL_EFFECT_DUMMY;
+    sp->EffectImplicitTargetA[0] = 25;
+
+    m_dummySpells.insert(id);
+    return sp;
+}
+
+SpellEntry* SpellManager::_CreateScriptedEffectSpell(uint32 id)
+{
+    static std::string name = "Dummy Script Trigger";
+    SpellEntry* sp = new SpellEntry();
+    memset(sp, 0, sizeof(SpellEntry*));
+    sp->Id = id;
+    sp->Attributes[0] = 384;
+    sp->Attributes[1] = 268435456;
+    sp->Attributes[2] = 4;
+    sp->Name = ((char*)name.c_str());
+    sp->Rank = ((char*)" ");
+    sp->Description = ((char*)" ");
+    sp->CastingTimeIndex = 1;
+    sp->procChance = 75;
+    sp->rangeIndex = 13;
+    sp->EquippedItemClass = uint32(-1);
+    sp->NameHash = crc32((const unsigned char*)name.c_str(), (unsigned int)name.length());
+    if(!dbcSpell.SetEntry(id, sp))
+    {
+        delete sp;
+        return NULL;
+    }
+    SetSingleSpellDefaults(sp);
+    ApplySingleSpellFixes(sp);
+    ApplyCoeffSpellFixes(sp);
+    SetProcFlags(sp);
+    ProcessSpellInformation(sp);
+    sp->Effect[0] = SPELL_EFFECT_SCRIPT_EFFECT;
+    sp->EffectImplicitTargetA[0] = 25;
 
     m_dummySpells.insert(id);
     return sp;
