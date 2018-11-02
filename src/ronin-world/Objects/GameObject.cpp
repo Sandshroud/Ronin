@@ -504,7 +504,12 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
     SetFlags(spawn ? spawn->flags : pInfo->DefaultFlags);
     SetDisplayId(pInfo->DisplayID);
     SetType(pInfo->Type);
-    SetState(0x01);
+    SetState(GO_STATE_READY_TO_ACTIVATE);
+    if(pInfo->IsDummyObject())
+    {
+        SetFlags((spawn ? spawn->flags : pInfo->DefaultFlags) | GO_FLAG_IN_USE);
+        SetState(GO_STATE_FORCE_ACTIVATED);
+    }
 
     // Event objects should be spawned inactive
     if(m_spawn && (m_spawn->eventId || m_spawn->conditionId))
@@ -539,9 +544,9 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
     {
         SetFlag(GAMEOBJECT_FLAGS, (GO_FLAG_TRANSPORT | GO_FLAG_NODESPAWN));
         m_updateFlags |= UPDATEFLAG_TRANSPORT;
-        SetState(24);
+        SetState(GO_STATE_TRANSPORT_ACTIVE);
     }
-    else if( GetFlags() & GO_FLAG_IN_USE || GetFlags() & GO_FLAG_LOCKED )
+    else if( GetFlags() & (GO_FLAG_IN_USE|GO_FLAG_LOCKED) )
         SetAnimProgress(100);
 
     if(GetType() == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
@@ -610,7 +615,7 @@ void GameObject::DeleteFromDB()
 
 void GameObject::EventCloseDoor()
 {
-    SetState(0);
+    SetState(GO_STATE_READY_TO_ACTIVATE);
 }
 
 void GameObject::InitializeDuelData(Player *player1, Player *player2)
@@ -818,7 +823,7 @@ void GameObject::_LoadQuests()
     if( pInfo && lootmgr.GetGameObjectQuestLoot(pInfo->ID) )
     {
         SetUInt32Value(GAMEOBJECT_DYNAMIC, 0);
-        SetState(0);
+        SetState(GO_STATE_ACTIVATED);
         SetFlags(GO_FLAG_IN_USE);
     }
 }
@@ -1037,7 +1042,7 @@ void GameObject::Use(Player *p)
             else
             {
                 SetFlags(33);
-                SetState(0);
+                SetState(GO_STATE_ACTIVATED);
             }
         }break;
     case GAMEOBJECT_TYPE_FLAGSTAND:
@@ -1238,14 +1243,9 @@ void GameObject::Use(Player *p)
         }break;
     case GAMEOBJECT_TYPE_GOOBER:
         {
-            SpellEntry * sp = dbcSpell.LookupEntry(goinfo->GetSpellID());
-            if(sp == NULL)
-            {
-                sLog.outError("Gameobject Type Goober doesn't have a spell to cast or page to read entry %u (May be false positive if object has a script)", goinfo->ID);
-                return;
-            }
+            if(SpellEntry * sp = dbcSpell.LookupEntry(goinfo->GetSpellID()))
+                p->GetSpellInterface()->LaunchSpell(sp, p);
 
-            p->GetSpellInterface()->LaunchSpell(sp, p);
         }break;
     case GAMEOBJECT_TYPE_CAMERA://eye of azora
         {

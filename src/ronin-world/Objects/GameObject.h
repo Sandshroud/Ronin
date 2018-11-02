@@ -84,6 +84,15 @@ enum GameObjectFlags
     GO_FLAG_DESTROYED       = 0x400
 };
 
+enum GameObjectStates
+{
+    GO_STATE_ACTIVATED          = 0x00,
+    GO_STATE_READY_TO_ACTIVATE  = 0x01,
+    GO_STATE_FORCE_ACTIVATED    = 0x02,
+    GO_STATE_TRANSPORT_ACTIVE   = 0x18,
+    GO_STATE_TRANSPORT_INACTIVE = 0x19,
+};
+
 enum GameObjectDynFlags
 {
     GO_DYNFLAG_QUEST        = 0x09,
@@ -546,6 +555,32 @@ struct GameObjectInfo
         case GAMEOBJECT_TYPE_AREADAMAGE:    timer = data.areadamage.autoCloseTime; break;
         }
         return std::max<uint32>(1000, timer);
+    }
+
+    bool IsDummyObject()
+    {
+        switch(Type)
+        {
+        case GAMEOBJECT_TYPE_GOOBER:
+            {
+                if(data.goober.lockId)
+                    return false;
+                if(data.goober.questId)
+                    return false;
+                if(data.goober.consumable)
+                    return false;
+                if(data.goober.pageId)
+                    return false;
+                if(data.goober.spellId)
+                    return false;
+                if(data.goober.gossipID)
+                    return false;
+                if(data.goober.WorldStateSetsState)
+                    return false;
+                return true;
+            }break;
+        }
+        return false;
     }
 };
 

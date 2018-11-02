@@ -36,11 +36,11 @@ bool TranslocateToSilvermoonCity(SpellEffectClass *spell, uint32 effIndex, World
  */
 bool TranslocateToDuskwitherSpireTrigger(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
-    static SpellEntry *translocate = dbcSpell.LookupEntry(26572);
-    if(translocate == NULL) // We need our translocate
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
         return false;
 
-    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
+    static SpellEntry *translocate = dbcSpell.LookupEntry(26572);
+    if(translocate == NULL) // We need our translocate
         return false;
 
     castPtr<Player>(target)->GetSpellInterface()->LaunchSpellFromSpell(translocate, NULL, spell->GetSpellProto());
@@ -80,11 +80,11 @@ bool TranslocateToDuskwitherSpire(SpellEffectClass *spell, uint32 effIndex, Worl
  */
 bool TranslocateToFalconWatchTrigger(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
-    static SpellEntry *translocate = dbcSpell.LookupEntry(30141);
-    if(translocate == NULL) // We need our translocate
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
         return false;
 
-    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
+    static SpellEntry *translocate = dbcSpell.LookupEntry(30141);
+    if(translocate == NULL) // We need our translocate
         return false;
 
     castPtr<Player>(target)->GetSpellInterface()->LaunchSpellFromSpell(translocate, NULL, spell->GetSpellProto());
@@ -124,6 +124,9 @@ bool TranslocateToFalconWatch(SpellEffectClass *spell, uint32 effIndex, WorldObj
  */
 bool TranslocateToFirewingPointSpireTrigger(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
+        return false;
+
     static SpellEntry *translocate = NULL;
     switch(spell->GetSpellProto()->Id)
     {
@@ -132,9 +135,6 @@ bool TranslocateToFirewingPointSpireTrigger(SpellEffectClass *spell, uint32 effI
     }
 
     if(translocate == NULL) // We need our translocate
-        return false;
-
-    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
         return false;
 
     castPtr<Player>(target)->GetSpellInterface()->LaunchSpellFromSpell(translocate, NULL, spell->GetSpellProto());
@@ -167,6 +167,9 @@ bool TranslocateToFirewingPointSpireBottom(SpellEffectClass *spell, uint32 effIn
  */
 bool TranslocateToFirewingPointTrigger(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
+        return false;
+
     static SpellEntry *translocate = NULL;
     switch(spell->GetSpellProto()->Id)
     {
@@ -175,9 +178,6 @@ bool TranslocateToFirewingPointTrigger(SpellEffectClass *spell, uint32 effIndex,
     }
 
     if(translocate == NULL) // We need our translocate
-        return false;
-
-    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
         return false;
 
     castPtr<Player>(target)->GetSpellInterface()->LaunchSpellFromSpell(translocate, NULL, spell->GetSpellProto());
