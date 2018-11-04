@@ -121,6 +121,7 @@ public:
     RONIN_INLINE uint8 GetCastNumber() { return m_castNumber; }
     RONIN_INLINE bool HasCastTime() { return m_castTime > 0; }
     RONIN_INLINE SpellEntry *GetSpellParent() { return m_spellParent; }
+    uint8 GetEffectiveCasterLevel();
 
     // Sets data based on spell parent
     void setSpellParent(SpellEntry *sp) { m_spellParent = sp; }

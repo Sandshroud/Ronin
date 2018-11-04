@@ -3,7 +3,7 @@
 
 float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
-UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
+UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_orientationLock(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
 m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_forcedSendFlags(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
 srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), _currDestX(fInfinite), _currDestY(fInfinite), _currDestZ(fInfinite)
 {
@@ -57,6 +57,12 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
     {
         if(m_pathStartTime >= msTime)
             return false;
+
+        if(m_movementDisabled)
+        {   // Increment path start time since we aren't able to move
+            m_pathStartTime += uiDiff;
+            return false;
+        }
 
         uint32 timeWalked = msTime-m_pathStartTime;
         if(msTime <= m_pathStartTime)
@@ -338,7 +344,7 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
 void UnitPathSystem::SetOrientation(float orientation)
 {
     // Only update if we need to
-    if(RONIN_UTIL::fuzzyEq(orientation, m_Unit->GetOrientation()))
+    if(IsOrientationLocked() || RONIN_UTIL::fuzzyEq(orientation, m_Unit->GetOrientation()))
         return;
 
     m_pathCounter++;
@@ -354,6 +360,40 @@ void UnitPathSystem::SetOrientation(float orientation)
     data << uint32(buildMonsterMoveFlags(MOVEBCFLAG_UNCOMP)) << uint32(0) << uint32(1);
     data.appendvector(*pos);
     m_Unit->SendMessageToSet( &data, false );
+}
+
+void UnitPathSystem::OnSpeedChange(MovementSpeedTypes speedType)
+{
+    if(!m_Unit->IsInWorld() || !hasDestination() || speedType != _moveSpeed)
+        return;
+
+    uint32 msTimer = RONIN_UTIL::ThreadTimer::getThreadTime();
+    uint32 timeWalked = msTimer-m_pathStartTime;
+    if(timeWalked > m_pathLength)
+        return;
+
+    LocationVector startPoint(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+    // If we have no path data but are broadcasting, check validity of last update point
+    if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
+        startPoint = *m_Unit->GetPositionV();
+
+    uint32 oldPathLength = m_pathLength-timeWalked;
+    float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->CalcDistanceSq(startPoint.x, startPoint.y, startPoint.z, _currDestX, _currDestY, _currDestZ));
+    m_pathLength = (dist/speed)*1000.f;
+
+    m_lastMSTimeUpdate = m_pathStartTime = msTimer;
+    for(size_t i = 0, t = 0; i < m_movementPoints.size(); ++i)
+    {
+        if(m_movementPoints.at(i)->timeStamp <= lastUpdatePoint.timeStamp)
+        {
+            m_movementPoints.at(i)->timeStamp = 0;
+            continue;
+        }
+
+        m_movementPoints.at(i)->timeStamp = (((float)(++t))*500.f * ((float(m_pathLength))/((float)oldPathLength)));
+    }
+
+    BroadcastMovementPacket();
 }
 
 void UnitPathSystem::StopMoving()

@@ -58,7 +58,9 @@ public:
     void OnDeath();
     void OnRespawn();
     void OnPathChange();
+    void OnStartCast(SpellEntry *sp);
     void OnTakeDamage(uint32 msTime, Unit *attacker, uint32 damage);
+    void OnAlterUnitState(uint32 modType);
 
     bool FindTarget(uint32 msTime);
 

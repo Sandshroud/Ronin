@@ -130,7 +130,7 @@ public:
     void EventPeriodicManaPct(float);
     void EventPeriodicRegenManaStatPct(uint32 perc,uint32 stat);
     void EventPeriodicSpeedModify(int32 mod);
-    void EventPeriodicDrink(uint32 amount);
+    void EventPeriodicDrinkDummy(int32 index, uint32 amount);
 
     // log message's
     void SendPeriodicAuraLog(uint32 amt, uint32 Flags);
@@ -199,8 +199,9 @@ private:
         struct PeriodicModifier
         {
             uint32 rate, timer;
-
+            uint16 tickCounter;
         } *periodicMod[3];
+        uint32 m_lifeTimer;
     } *_periodicData;
 
 protected:

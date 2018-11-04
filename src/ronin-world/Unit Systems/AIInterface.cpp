@@ -108,6 +108,12 @@ void AIInterface::OnPathChange()
 
 }
 
+void AIInterface::OnStartCast(SpellEntry *sp)
+{
+    if((sp->CastingTimeIndex || sp->isSpellInterruptOnMovement()) && m_path->hasDestination())
+        m_path->StopMoving();
+}
+
 void AIInterface::OnTakeDamage(uint32 msTime, Unit *attacker, uint32 damage)
 {
     if(m_AIFlags & AI_FLAG_DISABLED)
@@ -124,15 +130,34 @@ void AIInterface::OnTakeDamage(uint32 msTime, Unit *attacker, uint32 damage)
         m_AIState = AI_STATE_COMBAT;
     // Set target guid for combat
     if(attacker && m_targetGuid.empty())
-    {
         m_targetGuid = attacker->GetGUID();
-        _HandleCombatAI(msTime);
+}
+
+void AIInterface::OnAlterUnitState(uint32 modType)
+{
+    if(m_Creature->IsRooted() && !m_Creature->IsStunned())
+    {
+        m_path->ToggleMovementLock(true);
+        if(m_path->hasDestination())
+            m_path->StopMoving();
+    }
+    else if(m_Creature->IsStunned())
+    {
+        m_path->ToggleMovementLock(true);
+        m_path->ToggleOrientationLock(true);
+        if(m_path->hasDestination())
+            m_path->StopMoving();
+    }
+    else if(m_path->IsMovementLocked() || m_path->IsOrientationLocked())
+    {
+        m_path->ToggleMovementLock(false);
+        m_path->ToggleOrientationLock(false);
     }
 }
 
 bool AIInterface::FindTarget(uint32 msTime)
 {
-    if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld() || m_Creature->hasStateFlag(UF_EVADING))
+    if(m_AIFlags & AI_FLAG_DISABLED || !m_Creature->IsInWorld() || m_Creature->hasStateFlag(UF_EVADING) || m_Creature->IsStunned())
         return false;
     // If we're a non hostile faction, only search if we have a threatlist
     if(m_Creature->IsFactionNonHostile() && !m_Creature->IsInCombat())
@@ -153,6 +178,10 @@ bool AIInterface::FindTarget(uint32 msTime)
 
 void AIInterface::_HandleCombatAI(uint32 msTime)
 {
+    // Check if we're unable to utilize AI
+    if(m_Creature->IsFeared())
+        return;
+
     bool tooFarFromSpawn = false;
     Unit *unitTarget = m_Creature->GetInRangeObject<Unit>(m_targetGuid);
     if(m_Creature->isCasting() && m_Creature->GetSpellInterface()->GetCurrentSpellProto()->isSpellAttackInterrupting())
@@ -192,27 +221,33 @@ void AIInterface::_HandleCombatAI(uint32 msTime)
         }
     }
 
-    SpellEntry *sp = NULL;
-    float attackRange = 0.f, minRange = 0.f, x, y, z, o;
-    if (m_Creature->calculateAttackRange(m_Creature->GetPreferredAttackType(&sp), minRange, attackRange, sp))
-        attackRange *= 0.8f; // Cut our attack range down slightly to prevent range issues
-
-    m_Creature->GetPosition(x, y, z);
-    m_path->GetDestination(x, y);
-    if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
+    if(!m_path->IsMovementLocked())
     {
-        unitTarget->GetPosition(x, y, z);
-        o = m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f;
-        x -= attackRange * cosf(o);
-        y -= attackRange * sinf(o);
+        SpellEntry *sp = NULL;
+        float attackRange = 0.f, minRange = 0.f, x, y, z, o;
+        if (m_Creature->calculateAttackRange(m_Creature->GetPreferredAttackType(&sp), minRange, attackRange, sp))
+            attackRange *= 0.8f; // Cut our attack range down slightly to prevent range issues
 
-        m_path->SetSpeed(MOVE_SPEED_RUN);//unitTarget->GetCombatMovement());
-        m_path->MoveToPoint(x, y, z, o);
-    } else if(!m_Creature->isTargetInFront(unitTarget))
+        m_Creature->GetPosition(x, y, z);
+        m_path->GetDestination(x, y);
+        if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
+        {
+            unitTarget->GetPosition(x, y, z);
+            o = m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f;
+            x -= attackRange * cosf(o);
+            y -= attackRange * sinf(o);
+
+            m_path->SetSpeed(MOVE_SPEED_RUN);//unitTarget->GetCombatMovement());
+            m_path->MoveToPoint(x, y, z, o);
+        } else if(!m_Creature->isTargetInFront(unitTarget) && !m_path->IsOrientationLocked())
+            m_path->UpdateOrientation(unitTarget);
+
+        if(!m_Creature->checkAttackTarget(m_targetGuid))
+            m_Creature->EventAttackStart(m_targetGuid);
+    } else if(!m_Creature->isTargetInFront(unitTarget) && !m_path->IsOrientationLocked())
         m_path->UpdateOrientation(unitTarget);
 
-    if(!m_Creature->checkAttackTarget(m_targetGuid))
-        m_Creature->EventAttackStart(m_targetGuid);
+    m_Creature->GetMapInstance()->TriggerCombatTimer(m_Creature->GetGUID(), unitTarget->GetGUID(), 5000);
 }
 
 bool AIInterface::_PullTargetFromThreatList()

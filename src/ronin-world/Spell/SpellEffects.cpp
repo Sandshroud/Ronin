@@ -49,7 +49,7 @@ void SpellEffectClass::Destruct()
 
 int32 SpellEffectClass::CalculateEffect(uint32 i, WorldObject* target)
 {
-    int32 value = m_spellInfo->CalculateSpellPoints(i, _unitCaster->getLevel(), m_spellComboPoints);
+    int32 value = m_spellInfo->CalculateSpellPoints(i, GetEffectiveCasterLevel(), m_spellComboPoints);
 
     float fValue = value;
     float spell_mods[2] = { 0.f, 100.f };

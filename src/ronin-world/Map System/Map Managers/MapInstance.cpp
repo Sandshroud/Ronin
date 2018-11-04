@@ -87,6 +87,10 @@ void MapInstance::Preload()
 {
     if(sWorld.ServerPreloading >= 2)
         UpdateAllCells(true);
+    else if(IsInstance())
+    {
+
+    }
 }
 
 void MapInstance::Init(uint32 msTime)

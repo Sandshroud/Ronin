@@ -232,7 +232,7 @@ void SpellTargetClass::_AddTarget(WorldObject* target, const uint32 effIndex)
                         _unitCaster->SM_PIValue(SMT_CHARGES, (int32*)&stackSize, m_spellInfo->SpellGroupType);
                         stackSize *= -1;
                     }
-                    tgt->aura = new Aura(unitTarget, m_spellInfo, auraFlags, _unitCaster->getLevel(), stackSize, UNIXTIME, _unitCaster->GetGUID());
+                    tgt->aura = new Aura(unitTarget, m_spellInfo, auraFlags, GetEffectiveCasterLevel(), stackSize, UNIXTIME, _unitCaster->GetGUID());
                 }
             }
 

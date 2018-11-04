@@ -232,6 +232,13 @@ void Creature::OnAuraModChanged(uint32 modType)
     case SPELL_AURA_MOD_DETECT_RANGE:
         m_modQueuedModUpdates[100].push_back(modType);
         break;
+        // AI response for different aura types
+    case SPELL_AURA_MOD_FEAR:
+    case SPELL_AURA_MOD_STUN:
+    case SPELL_AURA_MOD_PACIFY:
+    case SPELL_AURA_MOD_ROOT:
+        m_aiInterface.OnAlterUnitState(modType);
+        break;
     }
     Unit::OnAuraModChanged(modType);
 }
@@ -339,7 +346,9 @@ void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
             if(!sSpellMgr.GenerateCreatureCombatSpellTargets(cSpell->spellEntry, this, &targets, m_attackTarget))
             {
                 targets.m_targetMask |= TARGET_FLAG_UNIT;
-                targets.m_unitTarget = m_attackTarget;
+                if(cSpell->spellEntry->isSpellHealingSpell() || cSpell->spellEntry->isSpellHealingEffect())
+                    targets.m_unitTarget = GetGUID();
+                else targets.m_unitTarget = m_attackTarget;
             }
 
             if(targets.m_targetMask & TARGET_FLAG_UNIT)
@@ -349,14 +358,17 @@ void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
                     continue;
                 if(cSpell->spellEntry->isSpellAuraApplicator() && spellTarget->HasAura(cSpell->spellEntry->Id))
                     continue;
+                if(cSpell->spellEntry->isSpellHealingSpell() || cSpell->spellEntry->isSpellHealingEffect())
+                    if(spellTarget->GetHealthPct() > 65) // Don't heal unless we're below a specific percentage
+                        continue;
             }
 
             cSpell->castTimer = cSpell->cooldownTimer;
             if(Spell *spell = new Spell(this, cSpell->spellEntry))
             {
-
                 if(spell->prepare(&targets, false) == SPELL_CANCAST_OK)
                 {
+                    m_aiInterface.OnStartCast(cSpell->spellEntry);
                     // Cancel auto attack if we have to cast
                     if(cSpell->spellEntry->CastingTimeIndex)
                         return;

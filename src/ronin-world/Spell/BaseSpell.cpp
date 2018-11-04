@@ -214,6 +214,18 @@ void BaseSpell::Destruct()
     delete this;
 }
 
+uint8 BaseSpell::GetEffectiveCasterLevel()
+{
+    if(!m_itemCaster.empty())
+    {
+        if(m_spellInfo->spellLevelMaxLevel && _unitCaster->getLevel() >= m_spellInfo->spellLevelMaxLevel)
+            return m_spellInfo->spellLevelMaxLevel;
+        return m_spellInfo->spellLevelBaseLevel;
+    }
+
+    return _unitCaster->getLevel();
+}
+
 void BaseSpell::writeSpellGoTargets( WorldPacket * data )
 {
     SpellTargetStorage::iterator itr;
@@ -297,9 +309,9 @@ void BaseSpell::writeSpellCastFlagData(WorldPacket *data, uint32 cast_flags)
         uint8 effIndex = 0;
         uint32 amount = 0, type = 0;
         if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL, effIndex))
-            amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), m_spellComboPoints);
+            amount = m_spellInfo->CalculateSpellPoints(effIndex, GetEffectiveCasterLevel(), m_spellComboPoints);
         else if(m_spellInfo->GetEffectIndex(SPELL_EFFECT_HEAL_PCT, effIndex))
-            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, _unitCaster->getLevel(), m_spellComboPoints);
+            type = 1, amount = m_spellInfo->CalculateSpellPoints(effIndex, GetEffectiveCasterLevel(), m_spellComboPoints);
         //else if(m_spellInfo->AppliesAura(SPELL_AURA_PERIODIC_HEAL)) {}// TODO
 
         *data << uint32(amount) << uint8(type);

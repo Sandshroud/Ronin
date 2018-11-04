@@ -1522,8 +1522,6 @@ void AuraInterface::_RecalculateModAmountByType(Modifier *mod)
 
 void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
-    m_Unit->OnAuraModChanged(mod->m_type);
-
     RWGuard guard(m_auraLock, true);
     uint16 mod_index = createModifierIndex(auraSlot, index);
     Loki::AssocVector<uint8, ModifierHolder*>::iterator itr;
@@ -1560,6 +1558,8 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
 
     if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER || mod->m_type == SPELL_AURA_MOD_CD_FROM_HASTE)
         UpdateSpellGroupModifiers(apply, mod, false);
+
+    m_Unit->OnAuraModChanged(mod->m_type);
 }
 
 void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool silent)

@@ -385,6 +385,7 @@ void InstanceManager::HandleUpdateRequests(InstanceManagerSlave *slaveThis)
     while(slaveThis->SetThreadState(THREADSTATE_BUSY) && !threadManaged)
     {
         msTimer = getMSTime();
+        RONIN_UTIL::ThreadTimer::SetThreadTime(msTimer);
         instancePoolLock.Acquire();
         if(!mInstancePool.empty())
         {

@@ -229,16 +229,41 @@ void Aura::Update(uint32 diff)
     if(m_deleted || _periodicData == NULL)
         return;
 
+    bool forceInitialTick = false;
+    if((m_spellProto->isPeriodicAtApplication() || m_spellProto->AppliesAura(SPELL_AURA_PERIODIC_DUMMY)) && _periodicData->m_lifeTimer == 0)
+        forceInitialTick = true;
+
+    _periodicData->m_lifeTimer += diff;
     for(uint32 i = 0; i < 3; i++)
     {
         PeriodicAura::PeriodicModifier *pMod = NULL;
         if((pMod = _periodicData->periodicMod[i]) == NULL)
             continue;
-        if((pMod->timer += diff) < pMod->rate)
-            continue;
-        pMod->timer -= pMod->rate;
+
+        // Update our tick timer
+        if(forceInitialTick == true)
+            pMod->timer += diff;
+        else
+        {
+            if((pMod->timer += diff) < pMod->rate)
+                continue;
+            pMod->timer -= pMod->rate;
+            ++pMod->tickCounter;
+        }
+
         TriggerPeriodic(i);
     }
+
+    bool empty = true;
+    for(uint32 i = 0; i < 3; i++)
+        if(_periodicData->periodicMod[i])
+            empty = false;
+
+    if(empty == false)
+        return;
+    
+    delete _periodicData;
+    _periodicData = NULL;
 }
 
 void Aura::UpdatePreApplication()
@@ -277,7 +302,7 @@ void Aura::TriggerPeriodic(uint32 i)
         break;
     case SPELL_AURA_PERIODIC_DUMMY:
         if(m_spellProto->NameHash == SPELL_HASH_DRINK)
-            EventPeriodicDrink(m_modList[i].m_amount);
+            EventPeriodicDrinkDummy(i, m_modList[i].m_amount);
         else if(m_spellProto->NameHash == SPELL_HASH_DEATH_AND_DECAY)
             EventPeriodicDamage(m_modList[0].m_amount);
         break;
@@ -412,11 +437,13 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
                 _periodicData = new PeriodicAura();
                 for(uint32 x = 0; x < 3; x++)
                     _periodicData->periodicMod[x] = NULL;
+                _periodicData->m_lifeTimer = 0;
             }
 
             _periodicData->periodicMod[modIndex] = new PeriodicAura::PeriodicModifier();
             _periodicData->periodicMod[modIndex]->rate = m_spellProto->EffectAmplitude[i] > 0 ? m_spellProto->EffectAmplitude[i] : 3000;
             _periodicData->periodicMod[modIndex]->timer = 0;
+            _periodicData->periodicMod[modIndex]->tickCounter = 0;
         }break;
     }
 }
@@ -791,13 +818,38 @@ void Aura::EventPeriodicSpeedModify(int32 modifier)
 
 }
 
-void Aura::EventPeriodicDrink(uint32 amount)
+void Aura::EventPeriodicDrinkDummy(int32 index, uint32 amount)
 {
-    uint32 v = m_target->GetPower(POWER_TYPE_MANA) + amount;
-    if( v > m_target->GetMaxPower(POWER_TYPE_MANA) )
-        v = m_target->GetMaxPower(POWER_TYPE_MANA);
-    m_target->SetPower(POWER_TYPE_MANA, v);
-    SendPeriodicAuraLog(amount, FLAG_PERIODIC_ENERGIZE);
+    int32 newAmt = amount;
+    if(m_target->isAlive() && m_target->IsPlayer() && m_target->IsInWorld() && m_target->GetMapInstance()->IsBattleArena())
+    {
+        switch(_periodicData->periodicMod[index]->tickCounter)
+        {
+            // Start and first tick skip
+        case 0: case 1:
+            return;
+        case 2:
+            newAmt = (amount*5)/3;
+            break;
+        case 3:
+            newAmt = (amount*4)/3;
+            break;
+        }
+    }
+
+    // Amount is divided by 5 for regen, dunno why it's not interval based
+    m_modList[0].m_amount = ceil(((float)newAmt)/5.f);
+
+    // Tell our unit that the mod has updated
+    m_target->OnAuraModChanged(m_modList[0].m_type);
+
+    // check if we're setting to basic
+    if(newAmt != amount)
+        return;
+
+    // Clean up our periodic tick since we don't need it
+    delete _periodicData->periodicMod[index];
+    _periodicData->periodicMod[index] = NULL;
 }
 
 void Aura::EventRelocateRandomTarget()
@@ -2171,10 +2223,9 @@ void Aura::RecalculateModBaseAmounts()
 {
     Unit *unitCaster = GetUnitCaster();
     Player *playerCaster = unitCaster ? unitCaster->IsPlayer() ? castPtr<Player>(unitCaster) : NULL : NULL;
-    uint32 casterLevel = unitCaster ? unitCaster->getLevel() : 0;
     for(uint32 i = 0; i < m_modcount; i++)
     {
-        int32 value = m_spellProto->CalculateSpellPoints(m_modList[i].i, casterLevel);
+        int32 value = m_spellProto->CalculateSpellPoints(m_modList[i].i, m_auraLevel);
         if( unitCaster != NULL )
         {
             int32 spell_flat_modifers = 0, spell_pct_modifers = 0;
