@@ -551,22 +551,31 @@ void TerrainMgr::CellGoneIdle(uint32 x, uint32 y)
 
 void TerrainMgr::LoadAllTerrain()
 {
+    if(dummyMap == true)
+        return;
+
     mutex.Acquire();
     FILE *input = NULL;
     fopen_s(&input, file_name.c_str(), "rb");
     if(input)
     {
         sLog.Debug("TerrainMgr", "[%u]: Loading all terrain", mapId);
+        // Load basic terrain and navmesh first
         for(uint8 x = 0; x < 64; x++)
-        {
             for(uint8 y = 0; y < 64; y++)
-            {
-                LoadCounter[x][y]++;
-                LoadTileInformation(x, y, input);
+                if(LoadTileInformation(x, y, input))
+                    ++LoadCounter[x][y];
+
+        // Load our vmap tiles since we've scaled past terrain
+        for(uint8 x = 0; x < 64; x++)
+            for(uint8 y = 0; y < 64; y++)
                 sVMapInterface.ActivateTile(mapId, x, y, input);
+
+        // Load navmesh data
+        for(uint8 x = 0; x < 64; x++)
+            for(uint8 y = 0; y < 64; y++)
                 sNavMeshInterface.LoadNavMesh(mapId, x, y);
-            }
-        }
+
         fclose(input);
         sLog.Debug("TerrainMgr", "[%u]: All terrain loaded", mapId);
     }
