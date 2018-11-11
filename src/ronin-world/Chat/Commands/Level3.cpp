@@ -1185,7 +1185,7 @@ bool ChatHandler::HandleNpcReturnCommand(const char* args, WorldSession* m_sessi
 
 bool ChatHandler::HandleModPeriodCommand(const char* args, WorldSession * m_session)
 {
-    Transporter* trans = m_session->GetPlayer()->m_CurrentTransporter;
+/*    Transporter* trans = m_session->GetPlayer()->m_CurrentTransporter;
     if(trans == 0)
     {
         RedSystemMessage(m_session, "You must be on a transporter.");
@@ -1200,7 +1200,7 @@ bool ChatHandler::HandleModPeriodCommand(const char* args, WorldSession * m_sess
     }
 
     trans->SetPeriod(np);
-    BlueSystemMessage(m_session, "Period of %s set to %u.", trans->GetInfo()->Name, np);
+    BlueSystemMessage(m_session, "Period of %s set to %u.", trans->GetInfo()->Name, np);*/
     return true;
 }
 
@@ -1735,7 +1735,7 @@ bool ChatHandler::HandleLookupSpellCommand(const char * args, WorldSession * m_s
 
     GreenSystemMessage(m_session, "Starting search of spell `%s`...", x.c_str());
     uint32 t = getMSTime();
-    uint32 count = 0;
+    uint32 count = 0, maxCount = m_session->CanUseCommand('z') ? 150 : 25;
     char itoabuf[12];
     std::string recout;
     for (uint32 index = 0; index < dbcSpell.GetNumRows(); index++)
@@ -1755,10 +1755,10 @@ bool ChatHandler::HandleLookupSpellCommand(const char * args, WorldSession * m_s
             if( pos != std::string::npos )
                 recout.insert( pos + 1, "%");
             SendMultilineMessage(m_session, recout.c_str());
-            ++count;
-            if(count == 25)
+
+            if(++count >= maxCount)
             {
-                RedSystemMessage(m_session, "More than 25 results returned. aborting.");
+                RedSystemMessage(m_session, "More than %u results returned. aborting.", maxCount);
                 break;
             }
         }

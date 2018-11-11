@@ -3219,43 +3219,26 @@ void MovementInterface::HandleAckTeleport(bool read, ByteBuffer &buff)
 {
     Player *plr = castPtr<Player>(m_Unit);
     plr->SetPlayerStatus(NONE);
-    if(!plr->IsInWorld())
-    {
-        Transporter *trans = NULL;
-        if((trans = plr->m_CurrentTransporter) && plr->GetMapId() != trans->GetMapId())
-        {
-            /* wow, our pc must really suck. */
-            float c_tposx, c_tposy, c_tposz, c_tposo;
-            plr->GetMovementInterface()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-            c_tposx += trans->GetPositionX();
-            c_tposy += trans->GetPositionY();
-            c_tposz += trans->GetPositionZ();
+    if(plr->IsInWorld())
+        return;
 
-            WorldPacket dataw(SMSG_NEW_WORLD, 20);
-            dataw << c_tposx << c_tposo << c_tposy << trans->GetMapId() << c_tposz;
-            plr->PushPacket(&dataw);
-
-            plr->SetMapId(trans->GetMapId());
-            plr->SetInstanceID(trans->GetInstanceID());
-            plr->SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-            if(trans->IsInWorld() && !sWorldMgr.PushToWorldQueue(plr))
-                plr->TeleportToHomebind(); //trans->TeleportPlayerToDestination(plr);
-        }
-        else
-        {
-            // don't overwrite the loading flag here.
-            // reason: talents/passive spells don't get cast on an invalid instance login
-            if( plr->m_TeleportState != 1 )
-                plr->m_TeleportState = 2;
-
-            plr->SetMapId(m_destMapId);
-            plr->SetInstanceID(m_destInstanceId);
-            plr->SetPosition(m_teleportLocation);
-            m_clientLocation.ChangeCoords(m_teleportLocation.x, m_teleportLocation.y, m_teleportLocation.z, m_teleportLocation.o);
-            if(!sWorldMgr.PushToWorldQueue(plr) && !plr->EjectFromInstance())
-                plr->TeleportToHomebind();
-        }
+    if(!plr->GetTransportGuid().empty())
+    {   // Just reallign with our transport
+        sTransportMgr.UpdateTransportData(plr);
+        return;
     }
+
+    // don't overwrite the loading flag here.
+    // reason: talents/passive spells don't get cast on an invalid instance login
+    if( plr->m_TeleportState != 1 )
+        plr->m_TeleportState = 2;
+
+    plr->SetMapId(m_destMapId);
+    plr->SetInstanceID(m_destInstanceId);
+    plr->SetPosition(m_teleportLocation);
+    m_clientLocation.ChangeCoords(m_teleportLocation.x, m_teleportLocation.y, m_teleportLocation.z, m_teleportLocation.o);
+    if(!sWorldMgr.PushToWorldQueue(plr) && !plr->EjectFromInstance())
+        plr->TeleportToHomebind();
 }
 
 void MovementInterface::HandleAckRoot(bool read, ByteBuffer &buffer)

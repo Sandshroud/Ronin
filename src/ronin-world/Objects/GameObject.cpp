@@ -54,6 +54,7 @@ void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
     m_duelState = NULL;
+    m_transportData = NULL;
 }
 
 GameObject::~GameObject()
@@ -106,6 +107,9 @@ void GameObject::Update(uint32 msTime, uint32 p_time)
     case GAMEOBJECT_TYPE_DUEL_ARBITER:
         _updateDuelState(msTime, p_time);
         break;
+    case GAMEOBJECT_TYPE_TRANSPORT:
+        _updateTransportState(msTime, p_time);
+        break;
     }
 }
 
@@ -116,6 +120,9 @@ void GameObject::InactiveUpdate(uint32 msTime, uint32 p_time)
     {
     case GAMEOBJECT_TYPE_DUEL_ARBITER:
         _updateDuelState(msTime, p_time);
+        break;
+    case GAMEOBJECT_TYPE_TRANSPORT:
+        _updateTransportState(msTime, p_time);
         break;
     }
 }
@@ -364,6 +371,15 @@ void GameObject::_updateDuelState(uint32 msTime, uint32 p_diff)
     }
 }
 
+void GameObject::_updateTransportState(uint32 msTime, uint32 p_diff)
+{
+    if(m_transportData == NULL)
+        return;
+
+    // Update our transport data tick
+    m_transportData->transportTick += p_diff;
+}
+
 void GameObject::SaveToDB()
 {
     if(m_spawn == NULL)
@@ -394,37 +410,6 @@ void GameObject::InitAI()
 {
     switch(pInfo->Type)
     {
-    case GAMEOBJECT_TYPE_TRAP:
-        {
-            m_triggerSpell = dbcSpell.LookupEntry(pInfo->GetSpellID());
-            m_triggerRange = std::max<float>(3.f, pInfo->data.trap.radius);
-            m_triggerRange *= m_triggerRange;
-        }break;
-    case GAMEOBJECT_TYPE_SPELL_FOCUS://redirect to properties of another go
-        {
-            if( pInfo->data.spellFocus.linkedTrapId == 0 )
-                return;
-
-            uint32 objectid = pInfo->data.spellFocus.linkedTrapId;
-            GameObjectInfo* gopInfo = GameObjectNameStorage.LookupEntry( objectid );
-            if(gopInfo == NULL)
-            {
-                sLog.Warning("GameObject", "Redirected gameobject %u doesn't seem to exists in database, skipping", objectid);
-                return;
-            }
-
-            m_triggerSpell = dbcSpell.LookupEntry(gopInfo->data.raw.data[4]);
-            return;
-        }break;
-    case GAMEOBJECT_TYPE_RITUAL:
-        {
-            if(m_ritualmembers)
-                return;
-
-            m_ritualmembers = new uint32[pInfo->data.ritual.reqParticipants];
-            memset(m_ritualmembers, 0, (sizeof(uint32)*(pInfo->data.ritual.reqParticipants)));
-            return;
-        }break;
     case GAMEOBJECT_TYPE_CHEST:
         {
             if(LockEntry *pLock = dbcLock.LookupEntry(pInfo->GetLockID()))
@@ -444,11 +429,61 @@ void GameObject::InitAI()
             }
             return;
         }break;
+    case GAMEOBJECT_TYPE_TRAP:
+        {
+            m_triggerSpell = dbcSpell.LookupEntry(pInfo->GetSpellID());
+            m_triggerRange = std::max<float>(3.f, pInfo->data.trap.radius);
+            m_triggerRange *= m_triggerRange;
+        }break;
+    case GAMEOBJECT_TYPE_CHAIR:
+        {
+            _recalculateChairSeats();
+            return;
+        }break;
+    case GAMEOBJECT_TYPE_SPELL_FOCUS://redirect to properties of another go
+        {
+            if( pInfo->data.spellFocus.linkedTrapId == 0 )
+                return;
+
+            uint32 objectid = pInfo->data.spellFocus.linkedTrapId;
+            GameObjectInfo* gopInfo = GameObjectNameStorage.LookupEntry( objectid );
+            if(gopInfo == NULL)
+            {
+                sLog.Warning("GameObject", "Redirected gameobject %u doesn't seem to exists in database, skipping", objectid);
+                return;
+            }
+
+            m_triggerSpell = dbcSpell.LookupEntry(gopInfo->data.raw.data[4]);
+            return;
+        }break;
+    case GAMEOBJECT_TYPE_TRANSPORT:
+        {
+            m_transportData = new GameObject::TransportData();
+            m_transportData->transportTick = 0;
+            m_transportData->currentPos.ChangeCoords(0.f, 0.f, 0.f, 0.f);
+            if(sTaxiMgr.GetTaxiPath(pInfo->data.transport.unknown))
+            {
+
+            }
+
+        }break;
+    case GAMEOBJECT_TYPE_MO_TRANSPORT:
+        {
+
+        }break;
+    case GAMEOBJECT_TYPE_RITUAL:
+        {
+            if(m_ritualmembers)
+                return;
+
+            m_ritualmembers = new uint32[pInfo->data.ritual.reqParticipants];
+            memset(m_ritualmembers, 0, (sizeof(uint32)*(pInfo->data.ritual.reqParticipants)));
+        }break;
     case GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING:
         {
             m_Go_Uint32Values[GO_UINT32_HEALTH] = pInfo->data.building.intactNumHits+pInfo->data.building.damagedNumHits;
+            m_zoneVisibleSpawn = true;
             SetAnimProgress(255);
-            return;
         }break;
     case GAMEOBJECT_TYPE_AURA_GENERATOR:
         {
@@ -548,13 +583,6 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
     }
     else if( GetFlags() & (GO_FLAG_IN_USE|GO_FLAG_LOCKED) )
         SetAnimProgress(100);
-
-    if(GetType() == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
-        m_zoneVisibleSpawn = true;
-
-    // Load up our chair data
-    if(pInfo->Type == GAMEOBJECT_TYPE_CHAIR && m_chairData.empty())
-        _recalculateChairSeats();
 
     // Trigger AI setup
     InitAI();

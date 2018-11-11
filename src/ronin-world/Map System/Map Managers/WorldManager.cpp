@@ -616,6 +616,7 @@ void WorldManager::_LoadTileData(MapEntry *mapEntry)
         return;
 
     map->PreloadTerrain(mapEntry->IsContinent());
+    sLog.Notice("WorldManager", "Finished loading tiles for map %u...", mapEntry->MapID);
 }
 
 void WorldManager::_InitializeContinent(MapEntry *mapEntry, Map *map)

@@ -85,6 +85,8 @@ MapInstance::~MapInstance()
 
 void MapInstance::Preload()
 {
+    sTransportMgr.PreloadMapInstance(this, _mapId);
+
     if(sWorld.ServerPreloading >= 2)
         UpdateAllCells(true);
     else if(IsInstance())
@@ -1551,7 +1553,7 @@ WorldObject* MapInstance::_GetObject(WoWGuid guid)
     {
     case HIGHGUID_TYPE_GAMEOBJECT: return GetGameObject(guid);
     case HIGHGUID_TYPE_DYNAMICOBJECT: return GetDynamicObject(guid);
-    case HIGHGUID_TYPE_TRANSPORTER: return objmgr.GetTransporter(guid.getLow());
+    //case HIGHGUID_TYPE_TRANSPORTER: return objmgr.GetTransporter(guid.getLow());
     case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(guid.getLow());
     }
     return GetUnit(guid);

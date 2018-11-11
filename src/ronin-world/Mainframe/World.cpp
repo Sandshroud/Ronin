@@ -310,6 +310,9 @@ void World::Destruct()
     sLog.Notice("TaxiMgr", "~TaxiMgr()");
     delete TaxiMgr::getSingletonPtr();
 
+    sLog.Notice("TransportMgr", "~TransportMgr()");
+    delete TransportMgr::getSingletonPtr();
+
     sLog.Notice("ChatHandler", "~ChatHandler()");
     delete ChatHandler::getSingletonPtr();
 
@@ -619,6 +622,7 @@ bool World::SetInitialWorldSettings()
     new GroupFinderMgr();
     new WeatherMgr();
     new TaxiMgr();
+    new TransportMgr();
     new AddonMgr();
     new ChatHandler();
     new WarnSystem();
@@ -653,6 +657,7 @@ bool World::SetInitialWorldSettings()
 
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
     MAKE_TASK(GroupFinderMgr, LoadFromDB);
+    MAKE_TASK(TransportMgr, ParseDBC);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, ProcessTitles);
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
@@ -703,9 +708,6 @@ bool World::SetInitialWorldSettings()
     tl.waitForThreadsToExit();
 
     LoadNameGenData();
-
-    sLog.Notice("World","Starting Transport System...");
-    objmgr.LoadTransporters();
 
     if(mainIni->ReadBoolean("Startup", "BackgroundLootLoading", true))
     {
@@ -824,6 +826,10 @@ void World::Update(uint32 msTime, uint32 uiDiff)
     // Guild updates
     if(GuildMgr::getSingletonPtr() != NULL)
         guildmgr.Update(uiDiff);
+
+    // Transport timer updates
+    if(TransportMgr::getSingletonPtr() != NULL)
+        sTransportMgr.ProcessTransports(msTime);
 
     // Update sessions
     UpdateSessions(uiDiff);

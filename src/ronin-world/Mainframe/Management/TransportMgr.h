@@ -21,7 +21,12 @@
 
 #pragma once
 
-class TransportPath
+struct TransportStatus
+{
+
+};
+
+/*class TransportPath
 {
 public:
     struct PathNode
@@ -95,45 +100,29 @@ typedef std::map<uint32, TWayPoint> WaypointMap;
 typedef std::map<uint32, TWayPoint>::iterator WaypointIterator;
 typedef std::map<uint32, Player*  > PassengerMap;
 typedef std::map<uint32, Player*  >::iterator PassengerIterator;
-typedef std::map<uint32, WorldObject* > TransportNPCMap;
+typedef std::map<uint32, WorldObject* > TransportNPCMap;*/
 
-bool FillTransporterPathVector(uint32 PathID, TransportPath & Path);
+struct TransportPath
+{
 
-class Transporter : public GameObject
+};
+
+class TransportMgr : public Singleton<TransportMgr>
 {
 public:
-    Transporter(uint64 guid);
-    ~Transporter();
-    virtual void Init();
-    virtual void Destruct();
-	virtual bool IsTransport() { return true; }
+    TransportMgr();
+    ~TransportMgr();
 
-    bool CreateAsTransporter(uint32 EntryID, const char* Name);
-    void UpdatePosition();
-    void TransportPassengers(uint32 mapid, uint32 oldmap, float x, float y, float z);
-    void EventClusterMapChange(uint32 mapid, LocationVector l);
+    void ParseDBC();
+    void ProcessTransports(uint32 msTime);
 
-    bool GenerateWaypoints();
+    void PreloadMapInstance(MapInstance *instance, uint32 mapId);
+    void ProcessingPendingEvents(MapInstance *instance);
 
-    RONIN_INLINE void AddPlayer(Player* pPlayer) { mPassengers[pPlayer->GetLowGUID()] = pPlayer; }
-    RONIN_INLINE void RemovePlayer(Player* pPlayer) {mPassengers.erase(pPlayer->GetLowGUID()); }
-    RONIN_INLINE bool HasPlayer(Player* pPlayer) { return mPassengers.find(pPlayer->GetLowGUID()) != mPassengers.end(); }
-    RONIN_INLINE void SetPeriod(uint32 val) { m_period = val; }
+    bool CheckTransportPosition(WoWGuid transport, uint32 mapId);
+    void UpdateTransportData(Player *plr);
+    void ClearPlayerData(Player *plr);
 
-    uint32 m_pathTime;
-    uint32 m_timer;
-
-    WaypointIterator mCurrentWaypoint;
-    WaypointIterator mNextWaypoint;
-
-    void OnPushToWorld();
-    uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
-
-private:
-    WaypointMap m_WayPoints;
-    PassengerMap mPassengers;
-
-    int32 m_period;
-
-    WaypointIterator GetNextWaypoint();
 };
+
+#define sTransportMgr TransportMgr::getSingleton()

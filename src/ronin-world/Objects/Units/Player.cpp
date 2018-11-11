@@ -248,7 +248,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_targetIcon                    = 0;
     bHasBindDialogOpen              = false;
     m_CurrentCharm                  = NULL;
-    m_CurrentTransporter            = NULL;
     m_SummonedObject                = NULL;
     m_currentLoot                   = (uint64)NULL;
     roll                            = 0;
@@ -1317,11 +1316,11 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     } else ss << "0, 0, 0, 0, ";
 
     // Transport data
-    if(m_CurrentTransporter)
+    if(m_movementInterface.GetTransportGuid())
     {
         float transx, transy, transz, transo;
         m_movementInterface.GetTransportPosition(transx, transy, transz, transo);
-        ss << uint32(m_CurrentTransporter->GetLowGUID()) << ", " << transx << ", " << transy << ", " << transz << ", ";
+        ss << m_movementInterface.GetTransportGuid().raw() << ", " << transx << ", " << transy << ", " << transz << ", ";
     } else ss << "0, 0, 0, 0, ";
 
     // instances
@@ -3062,12 +3061,8 @@ void Player::RemoveFromWorld()
 
     sWorld.mInWorldPlayerCount--;
 
-    if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
-    {
-        m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
-        m_CurrentTransporter = NULL;
-        GetMovementInterface()->ClearTransportData();
-    }
+    if(!m_movementInterface.isTransportLocked())
+        sTransportMgr.ClearPlayerData(this);
 
     m_changingMaps = true;
 }
@@ -3224,16 +3219,8 @@ void Player::BuildPlayerRepop()
 
 Corpse* Player::RepopRequestedPlayer()
 {
-    if( m_CurrentTransporter != NULL )
-    {
-        m_CurrentTransporter->RemovePlayer( castPtr<Player>(this) );
-        m_CurrentTransporter = NULL;
-        m_movementInterface.ClearTransportData();
-
-        ResurrectPlayer();
-        RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId() );
-        return NULL;
-    }
+    // Clear any transport data we may have
+    sTransportMgr.ClearPlayerData(this);
 
     // Remove corpse flag, so we have spirit state
     clearStateFlag(UF_CORPSE);
@@ -4807,12 +4794,8 @@ void Player::_Relocate(uint32 mapid, const LocationVector& v, bool force_new_wor
         m_movementInterface.TeleportToPosition(destination);
 
         //reset transporter if we where on one.
-        if( m_CurrentTransporter && !m_movementInterface.isTransportLocked() )
-        {
-            m_movementInterface.ClearTransportData();
-            m_CurrentTransporter->RemovePlayer(castPtr<Player>(this));
-            m_CurrentTransporter = NULL;
-        }
+        if(!m_movementInterface.isTransportLocked())
+            sTransportMgr.ClearPlayerData(this);
 
         // Update our object cell manager
         if(IsInWorld()) GetCellManager()->OnRelocate(m_mapInstance, destination);

@@ -115,8 +115,10 @@ void CreatureDataManager::LoadFromDB()
 
 void CreatureDataManager::LoadCreatureSpells()
 {
+    uint32 q_size = 0;
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_spells_combat"))
     {
+        q_size = result->GetRowCount();
         do
         {
             Field *fields = result->Fetch();
@@ -129,10 +131,12 @@ void CreatureDataManager::LoadCreatureSpells()
                     data->combatSpells.push_back(spellId);
         }while(result->NextRow());
         delete result;
+        sLog.Notice("ObjectMgr", "%u creature combat spells loaded.", q_size);
     }
 
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_spells_support"))
     {
+        q_size = result->GetRowCount();
         do
         {
             Field *fields = result->Fetch();
@@ -148,6 +152,7 @@ void CreatureDataManager::LoadCreatureSpells()
                 data->supportSpells.push_back(spellId);
         }while(result->NextRow());
         delete result;
+        sLog.Notice("ObjectMgr", "%u creature support spells loaded.", q_size);
     }
 }
 

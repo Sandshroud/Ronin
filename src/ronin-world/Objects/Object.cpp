@@ -612,7 +612,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     }
 
     if(flags & UPDATEFLAG_TRANSPORT)
-        *data << uint32(getMSTime());
+        *data << uint32(tThis->GetTransportTick());
 }
 
 void Object::DestroyForPlayer(Player* target, bool anim)

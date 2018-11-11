@@ -82,12 +82,6 @@ ObjectMgr::~ObjectMgr()
     sLog.Notice("ObjectMgr", "Deleting Achievement Cache...");
     for(AchievementCriteriaMap::iterator itr = m_achievementCriteriaMap.begin(); itr != m_achievementCriteriaMap.end(); itr++)
         delete (itr->second);
-
-    while(mTransports.size())
-    {
-        delete mTransports.begin()->second;
-        mTransports.erase(mTransports.begin());
-    }
 }
 
 //
@@ -1256,40 +1250,6 @@ Corpse* ObjectMgr::GetCorpse(uint32 corpseguid)
     CorpseMap::const_iterator itr = m_corpses.find(corpseguid);
     rv = (itr != m_corpses.end()) ? itr->second : NULL;
     _corpseslock.Release();
-    return rv;
-}
-
-Transporter* ObjectMgr::GetTransporter(uint32 guid)
-{
-    Transporter* rv;
-    _TransportLock.Acquire();
-    std::map<uint32, Transporter* >::const_iterator itr = mTransports.find(guid);
-    rv = (itr != mTransports.end()) ? itr->second : NULL;
-    _TransportLock.Release();
-    return rv;
-}
-
-void ObjectMgr::AddTransport(Transporter* pTransporter)
-{
-    _TransportLock.Acquire();
-    mTransports[pTransporter->GetLowGUID()]=pTransporter;
-    _TransportLock.Release();
-}
-
-Transporter* ObjectMgr::GetTransporterByEntry(uint32 entry)
-{
-    Transporter* rv = NULL;
-    _TransportLock.Acquire();
-    std::map<uint32, Transporter* >::iterator itr = mTransports.begin();
-    for(; itr != mTransports.end(); itr++)
-    {
-        if(itr->second->GetEntry() == entry)
-        {
-            rv = itr->second;
-            break;
-        }
-    }
-    _TransportLock.Release();
     return rv;
 }
 

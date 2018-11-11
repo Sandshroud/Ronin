@@ -303,12 +303,8 @@ void WorldSession::LogoutPlayer()
         // part channels
         plr->CleanupChannels();
 
-        if( plr->m_CurrentTransporter != NULL )
-        {
-            plr->m_CurrentTransporter->RemovePlayer( plr );
-            plr->m_CurrentTransporter = NULL;
-            plr->GetMovementInterface()->ClearTransportData();
-        }
+        // Clean up transport info
+        sTransportMgr.ClearPlayerData(plr);
 
         // cancel current spell
         plr->GetSpellInterface()->Cleanup();

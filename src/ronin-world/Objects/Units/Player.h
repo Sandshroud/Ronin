@@ -25,7 +25,6 @@ class Channel;
 class Creature;
 class TaxiPath;
 class GameObject;
-class Transporter;
 class Corpse;
 struct GuildRank;
 class Charter;
@@ -1495,7 +1494,6 @@ public:
     bool m_hardKick;
 
     Unit* m_CurrentCharm;
-    Transporter* m_CurrentTransporter;
     bool IgnoreSpellFocusRequirements;
     uint32 roll;
     bool m_cooldownCheat;

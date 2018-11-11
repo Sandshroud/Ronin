@@ -703,37 +703,14 @@ void WorldSession::FullLogin(Player* plr)
     bool enter_world = true;
 
     // Find our transporter and add us if we're on one.
-    if(!plr->GetTransportGuid().empty())
+    if(!plr->GetTransportGuid().empty() && plr->GetTransportGuid().getHigh() == HIGHGUID_TYPE_TRANSPORTER)
     {
-        WoWGuid transGuid = plr->GetTransportGuid();
-        Transporter* pTrans = objmgr.GetTransporter(transGuid.getLow());
-        if(pTrans)
+        if(sTransportMgr.CheckTransportPosition(plr->GetTransportGuid(), plr->GetMapId()))
         {
-            if(plr->isDead())
-                plr->RemoteRevive();
+            sTransportMgr.UpdateTransportData(plr);
 
-            float c_tposx, c_tposy, c_tposz, c_tposo;
-            plr->GetMovementInterface()->GetTransportPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-            c_tposx += pTrans->GetPositionX();
-            c_tposy += pTrans->GetPositionY();
-            c_tposz += pTrans->GetPositionZ();
-
-            if(plr->GetMapId() != pTrans->GetMapId())   // loaded wrong map
-            {
-                plr->SetMapId(pTrans->GetMapId());
-
-                WorldPacket dataw(SMSG_NEW_WORLD, 20);
-                dataw << c_tposx << c_tposo << c_tposy;
-                dataw << pTrans->GetMapId() << c_tposz;
-                SendPacket(&dataw);
-
-                // shit is sent in worldport ack.
-                enter_world = false;
-            }
-
-            plr->SetPosition(c_tposx, c_tposy, c_tposz, c_tposo);
-            plr->m_CurrentTransporter = pTrans;
-            pTrans->AddPlayer(plr);
+            // shit is sent in worldport ack.
+            enter_world = false;
         }
     }
 

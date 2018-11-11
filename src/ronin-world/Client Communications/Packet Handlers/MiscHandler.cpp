@@ -31,10 +31,9 @@ void WorldSession::HandleRepopRequestOpcode( WorldPacket & recv_data )
     if(!_player->isDead() || _player->isSpirit())
         return;
 
-    if(_player->m_CurrentTransporter)
-        _player->m_CurrentTransporter->RemovePlayer(_player);
+    sTransportMgr.ClearPlayerData(_player);
 
-      GetPlayer()->RepopRequestedPlayer();
+    GetPlayer()->RepopRequestedPlayer();
 }
 
 void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
@@ -46,19 +45,11 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
         return;
 
     ObjectLoot *loot = NULL;
-    if(guid.getHigh() == HIGHGUID_TYPE_ITEM)
-    {
-        if(Item *source = _player->GetInventory()->GetItemByGUID(guid))
-        {
-            obj = source;
-            loot = source->GetLoot();
-        }
-    }
-    else if(WorldObject *source = _player->GetInRangeObject(guid))
-    {
-        obj = source;
-        loot = source->GetLoot();
-    }
+    if(guid.getHigh() == HIGHGUID_TYPE_ITEM && (obj = _player->GetInventory()->GetItemByGUID(guid)))
+        loot = obj->GetLoot();
+    else if(obj = _player->GetInRangeObject(guid))
+        loot = obj->GetLoot();
+    else return;
 
     obj->LootLock();
     if(loot && loot->HasLoot(_player))
@@ -334,78 +325,46 @@ void WorldSession::HandleLootReleaseOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
 {
-    uint32 min_level;
-    uint32 max_level;
-    uint32 class_mask;
-    uint32 race_mask;
-    uint32 zone_count;
-    uint32 * zones = 0;
-    uint32 name_count;
-    std::string *names = 0, chatname, unkstr;
-    bool cname;
-    uint32 i;
-
     if( ((uint32)UNIXTIME - m_lastWhoTime) < 10 && !GetPlayer()->hasGMTag() )
         return;
 
-    m_lastWhoTime = (uint32)UNIXTIME;
-    recv_data >> min_level >> max_level;
-    recv_data >> chatname >> unkstr >> race_mask >> class_mask;
-    recv_data >> zone_count;
+    bool cname = false, gm = HasGMPermissions();
+    uint32 i = 0, *zones = 0, team = _player->GetTeam();
+    std::string *names = 0, chatname, unkstr;
+    uint32 min_level = recv_data.read<uint32>(), max_level = recv_data.read<uint32>();
+    recv_data >> chatname >> unkstr;
+    uint32 race_mask = recv_data.read<uint32>(), class_mask = recv_data.read<uint32>();
 
+    uint32 zone_count = recv_data.read<uint32>();
     if(zone_count > 0 && zone_count < 10)
     {
         zones = new uint32[zone_count];
-
         for(i = 0; i < zone_count; i++)
             recv_data >> zones[i];
-    }
-    else
-    {
-        zone_count = 0;
-    }
+    } else zone_count = 0;
 
-    recv_data >> name_count;
+    uint32 name_count = recv_data.read<uint32>();
     if(name_count > 0 && name_count < 10)
     {
         names = new std::string[name_count];
-
         for(i = 0; i < name_count; i++)
             recv_data >> names[i];
-    }
-    else
-    {
-        name_count = 0;
-    }
+    } else name_count = 0;
 
     if(chatname.length() > 0)
         cname = true;
-    else cname = false;
 
     sLog.Debug( "WORLD"," Recvd CMSG_WHO Message with %u zones and %u names", zone_count, name_count );
 
-    bool gm = false;
-    uint32 team = _player->GetTeam();
-    if(HasGMPermissions())
-        gm = true;
-
-    uint32 sent_count = 0;
-    uint32 total_count = 0;
-
-    ObjectMgr::PlayerStorageMap::const_iterator itr,iend;
-    Player* plr;
-    uint32 lvl;
-    bool add;
-    WorldPacket data;
-    data.SetOpcode(SMSG_WHO);
+    WorldPacket data(SMSG_WHO, 1000);
     data << uint64(0);
 
+    uint32 sent_count = 0, total_count = 0;
     objmgr._playerslock.AcquireReadLock();
-    iend=objmgr._players.end();
-    itr=objmgr._players.begin();
+    ObjectMgr::PlayerStorageMap::const_iterator itr = objmgr._players.begin(), iend = objmgr._players.end();
     while(itr !=iend && sent_count < 50)
     {
-        plr = itr->second;
+        Player *plr = itr->second;
         ++itr;
 
         if(!plr->GetSession() || !plr->IsInWorld())
@@ -423,14 +382,14 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
         ++total_count;
 
         // Add by default, if we don't have any checks
-        add = true;
+        bool valid = true;
 
         // Chat name
         if(cname && chatname != *plr->GetNameString())
             continue;
 
         // Level check
-        lvl = plr->GetUInt32Value(UNIT_FIELD_LEVEL);
+        uint32 lvl = plr->GetUInt32Value(UNIT_FIELD_LEVEL);
         if(min_level && max_level)
         {
             // skip players outside of level range
@@ -442,40 +401,40 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
         if(zone_count)
         {
             // people that fail the zone check don't get added
-            add = false;
+            valid = false;
             for(i = 0; i < zone_count; i++)
             {
                 if(zones[i] == plr->GetZoneId())
                 {
-                    add = true;
+                    valid = true;
                     break;
                 }
             }
         }
 
         if(!(class_mask & plr->getClassMask()) || !(race_mask & plr->getRaceMask()))
-            add = false;
+            valid = false;
 
         // skip players that fail zone check
-        if(!add)
+        if(valid == false)
             continue;
 
         // name check
         if(name_count)
         {
             // people that fail name check don't get added
-            add = false;
+            valid = false;
             for(i = 0; i < name_count; i++)
             {
                 if(!strnicmp(names[i].c_str(), plr->GetName(), names[i].length()))
                 {
-                    add = true;
+                    valid = true;
                     break;
                 }
             }
         }
 
-        if(!add)
+        if(valid == false)
             continue;
 
         // if we're here, it means we've passed all testing
@@ -487,11 +446,8 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
             GuildInfo* gInfo = guildmgr.GetGuildInfo(GuildId);
             if(gInfo != NULL)
                 data << gInfo->m_guildName.c_str();
-            else
-                data << uint8(0);
-        }
-        else
-            data << uint8(0);
+            else data << uint8(0);
+        } else data << uint8(0);
 
         data << plr->GetUInt32Value(UNIT_FIELD_LEVEL);
         data << uint32(plr->getClass());
@@ -501,10 +457,8 @@ void WorldSession::HandleWhoOpcode( WorldPacket & recv_data )
         ++sent_count;
     }
     objmgr._playerslock.ReleaseReadLock();
-    data.wpos(0);
-    data << sent_count;
-    data << sent_count;
-
+    data.put<uint32>(0, sent_count);
+    data.put<uint32>(4, sent_count);
     SendPacket(&data);
 
     // free up used memory

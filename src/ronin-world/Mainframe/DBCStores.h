@@ -1593,14 +1593,26 @@ struct TaxiPathNodeEntry
     uint32 departureEventId;
 };
 
-struct Trainerspell
+struct TransportAnimationEntry
 {
-    uint32 Id;
-    uint32 skilline1;
-    uint32 skilline2;
-    uint32 skilline3;
-    uint32 maxlvl;
-    uint32 charclass;
+    uint32 index;
+    uint32 transportEntry;
+    uint32 timeSegment;
+    float posX;
+    float posY;
+    float posZ;
+    uint32 movementIndex;
+};
+
+struct TransportRotationEntry
+{
+    uint32 index;
+    uint32 transportEntry;
+    uint32 timeSegment;
+    float rotX;
+    float rotY;
+    float rotZ;
+    float rotW;
 };
 
 struct VehicleEntry

@@ -86,6 +86,7 @@ private:    // Spell fixes, start with class then continue to zones, items, ques
     void _RegisterDruidFixes();
 
     void _RegisterHomeboundData();
+    void _RegisterTeleportData();
     void _RegisterTranslocateData();
 
     void _RegisterTirisfalGladesScripts();

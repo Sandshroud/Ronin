@@ -155,7 +155,6 @@ public:
     typedef std::map<uint32, std::vector<VendorItem> >           VendorMap;
     typedef std::map<uint32, TrainerData >                       TrainerDataMap;
     typedef std::map<std::pair<uint8, uint8>, TrainerSpellMap>   TrainerSpellStorage;
-    typedef std::map<uint32, Transporter* >                      TransportMap;
     typedef std::map<uint32, Corpse* >                           CorpseMap;
     typedef std::map<uint32, Group*>                             GroupMap;
 
@@ -176,7 +175,6 @@ public:
     CorpseMap m_corpses;
     Mutex _corpseslock;
     Mutex m_corpseguidlock;
-    Mutex _TransportLock;
     uint32 m_hiCorpseGuid;
 
     Mutex m_achievementLock;
@@ -309,9 +307,6 @@ public:
     uint64 GenerateEquipmentSetGuid();
     uint32 GenerateItemGuid();
 
-    void LoadTransporters();
-    void AddTransport(Transporter* pTransporter);
-
     void LoadExtraItemStuff();
 
     bool GetCreatureFamilyIDFromName(const char *name, uint32 &out);
@@ -334,9 +329,6 @@ public:
         return r;
     }
 
-    Transporter* GetTransporter(uint32 guid);
-    Transporter* GetTransporterByEntry(uint32 entry);
-
     std::map<uint32, uint32> ItemsInSets;
 
     void HashWMOAreaTables();
@@ -352,7 +344,6 @@ protected:
     uint32 m_hiItemGuid;
     uint32 m_hiGroupId;
 
-    uint64 TransportersCount;
     std::map<WoWGuid,PlayerInfo*> m_playersinfo;
     PlayerNameStringIndexMap m_playersInfoByName;
 
@@ -384,8 +375,6 @@ protected:
 
     //Corpse Collector
     CorpseCollectorMap mCorpseCollector;
-
-    TransportMap mTransports;
 
     ItemSetContentMap mItemSets;
 

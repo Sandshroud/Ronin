@@ -728,6 +728,9 @@ public:
 
     RONIN_INLINE bool isQuestGiver() { return GetType() == GAMEOBJECT_TYPE_QUESTGIVER; }
 
+    // Transport objects
+    uint32 GetTransportTick() { return m_transportData ? m_transportData->transportTick : 0; }
+
     //Destructable Building
     void TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster, uint32 spellid = 0);
     void SetStatusDestroyed();
@@ -774,7 +777,20 @@ protected:
 
     void _searchNearbyUnits();
 
+    // GAMEOBJECT_TYPE_DUEL_ARBITER
     uint32 _duelUpdateDiff;
     void _updateDuelState(uint32 msTime, uint32 p_diff);
     DuelStorage *m_duelState;
+
+    // GAMEOBJECT_TYPE_TRANSPORT
+    void _updateTransportState(uint32 msTime, uint32 p_diff);
+protected:
+    struct TransportData
+    {
+        uint32 transportTick;
+        //WaypointMap *movementPath;
+
+        LocationVector currentPos;
+        std::set<WoWGuid> m_passengers;
+    } *m_transportData;
 };

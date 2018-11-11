@@ -37,7 +37,6 @@ class Pet;
 class Transporter;
 class Corpse;
 class CBattleground;
-class Transporter;
 class MapTargetCallback;
 class DynamicObjectTargetCallback;
 class SpellTargetClass;

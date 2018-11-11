@@ -191,7 +191,7 @@ extern size_t __line__;
 #include "SpellAuras.h"
 #include "ClassSpells.h"
 #include "TaxiMgr.h"
-#include "TransporterHandler.h"
+#include "TransportMgr.h"
 #include "WeatherMgr.h"
 #include "TicketMgr.h"
 #include "ObjectMgr.h"

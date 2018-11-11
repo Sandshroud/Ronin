@@ -215,6 +215,7 @@ void SpellManager::LoadSpellFixes()
     _RegisterDruidFixes();
 
     _RegisterHomeboundData();
+    _RegisterTeleportData();
     _RegisterTranslocateData();
 
     // Register zone specific fixes
@@ -500,6 +501,7 @@ void SpellManager::PoolSpellData()
     dbcSpellShapeshift.Unload();
     dbcSpellTargetRestrictions.Unload();
     dbcSpellTotems.Unload();
+    sLog.Notice("SpellManager", "Finished unloading pooled DBCs...");
 }
 
 bool SpellManager::CanTriggerInstantKillEffect(Unit *unitCaster, Unit *unitTarget, SpellEntry *sp)
