@@ -341,9 +341,18 @@ void MapCell::UnloadCellData(bool preDestruction)
     RWGuard guard(_objLock, true);
 
     for(auto it = m_ctrIndex.begin(); it != m_ctrIndex.end(); ++it)
-        _instance->RemoveObject(&_creatureStack[it->first]);
+    {
+        if(_creatureStack[it->first].IsInWorld())
+            _instance->RemoveObject(&_creatureStack[it->first]);
+        _creatureStack[it->first].Destruct();
+    }
+
     for(auto it = m_gobjIndex.begin(); it != m_gobjIndex.end(); ++it)
-        _instance->RemoveObject(&_gameobjectStack[it->first]);
+    {
+        if(_gameobjectStack[it->first].IsInWorld())
+            _instance->RemoveObject(&_gameobjectStack[it->first]);
+        _gameobjectStack[it->first].Destruct();
+    }
 
     if(_creatureStack)
         delete [] _creatureStack;

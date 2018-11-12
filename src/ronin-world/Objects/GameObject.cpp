@@ -50,6 +50,7 @@ void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount
     m_spawn = NULL;
     m_deleted = false;
     m_created = false;
+    m_loadFailed = false;
     m_zoneVisibleSpawn = false;
     memset(m_Go_Uint32Values, 0, sizeof(uint32)*GO_UINT32_MAX);
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
@@ -139,6 +140,17 @@ void GameObject::OnPrePushToWorld()
 
     if(m_mapInstance && m_zoneId && m_zoneVisibleSpawn)
         m_mapInstance->AddZoneVisibleSpawn(m_zoneId, this);
+}
+
+void GameObject::OnPushToWorld(uint32 msTime)
+{
+    WorldObject::OnPushToWorld(msTime);
+
+    if(m_loadFailed == true) // We failed to load, queue us for cleanup
+    {
+        Deactivate(0);
+        m_mapInstance->QueueCleanup(this);
+    }
 }
 
 void GameObject::RemoveFromWorld()
@@ -489,15 +501,14 @@ void GameObject::InitAI()
             m_transportData = new GameObject::TransportData();
             m_transportData->transportTick = 0;
             m_transportData->currentPos.ChangeCoords(0.f, 0.f, 0.f, 0.f);
-            if(sTaxiMgr.GetTaxiPath(pInfo->data.transport.unknown))
-            {
-
-            }
-
         }break;
     case GAMEOBJECT_TYPE_MO_TRANSPORT:
         {
-
+            if(!sTransportMgr.RegisterTransport(this, m_mapId))
+            {
+                m_loadFailed = true;
+                return;
+            }
         }break;
     case GAMEOBJECT_TYPE_RITUAL:
         {

@@ -628,6 +628,7 @@ public:
     virtual uint32 getConditionID() { return m_spawn ? m_spawn->conditionId : 0; }
 
     virtual void OnPrePushToWorld();
+    virtual void OnPushToWorld(uint32 msTime);
     virtual void RemoveFromWorld();
 
     virtual void Reactivate();
@@ -756,7 +757,7 @@ public:
     void Use(Player *p);
 
 protected:
-    bool m_summonedGo, m_deleted;
+    bool m_summonedGo, m_deleted, m_loadFailed;
     GameObjectInfo *pInfo;
     uint32 m_Go_Uint32Values[GO_UINT32_MAX];
 

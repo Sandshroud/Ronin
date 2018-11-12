@@ -62,6 +62,11 @@ void TransportMgr::PreloadMapInstance(MapInstance *instance, uint32 mapId)
 
 }
 
+bool TransportMgr::RegisterTransport(GameObject *gobj, uint32 mapId)
+{
+    return false;
+}
+
 void TransportMgr::ProcessingPendingEvents(MapInstance *instance)
 {
 

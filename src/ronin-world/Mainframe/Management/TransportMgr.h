@@ -117,6 +117,7 @@ public:
     void ProcessTransports(uint32 msTime);
 
     void PreloadMapInstance(MapInstance *instance, uint32 mapId);
+    bool RegisterTransport(GameObject *gobj, uint32 mapId);
     void ProcessingPendingEvents(MapInstance *instance);
 
     bool CheckTransportPosition(WoWGuid transport, uint32 mapId);

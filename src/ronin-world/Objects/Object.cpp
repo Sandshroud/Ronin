@@ -952,7 +952,8 @@ void WorldObject::Destruct()
     m_lastMovementZone = 0;
     m_instanceId = -1;
 
-    Object::Destruct();
+    if(m_isManagedBulkSpawn == false)
+        Object::Destruct();
 }
 
 void WorldObject::Cleanup()
