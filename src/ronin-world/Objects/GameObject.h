@@ -710,6 +710,7 @@ public:
     // loooot
     void GenerateLoot();
 
+    bool CanUse(Player *plr);
     RONIN_INLINE void SetState(uint8 state);
     RONIN_INLINE uint8 GetState() { return GetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_STATE); }
     RONIN_INLINE void SetArtKit(uint8 kit) { SetByte(GAMEOBJECT_BYTES_1, GAMEOBJECT_BYTES_ART_KIT, kit); }
@@ -726,6 +727,7 @@ public:
     void SetDisplayId(uint32 id);
     RONIN_INLINE uint32 GetDisplayId() { return GetUInt32Value( GAMEOBJECT_DISPLAYID ); }
 
+    uint32 GetStartFlags() { return (m_spawn ? m_spawn->flags : pInfo->DefaultFlags); }
     RONIN_INLINE bool isQuestGiver() { return GetType() == GAMEOBJECT_TYPE_QUESTGIVER; }
 
     // Transport objects

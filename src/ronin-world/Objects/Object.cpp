@@ -28,6 +28,7 @@ void Object::Construct(WoWGuid guid, uint32 fieldCount)
     m_objGuid = guid;
     m_valuesCount = fieldCount;
     m_updateMask.SetCount(fieldCount);
+    m_dynamicFields.SetCount(fieldCount);
 
     m_uint32Values = new uint32[m_valuesCount];
     memset(m_uint32Values, 0, sizeof(uint32)*m_valuesCount);
@@ -429,7 +430,7 @@ void Object::_BuildChangedValuesUpdate(ByteBuffer * data, Player* target, Update
 
 uint32 Object::_GetSwappedValueForUpdate(uint32 index, uint16 fieldFlag, Player *target)
 {
-    if((fieldFlag & UF_FLAG_DYNAMIC) == 0)
+    if((fieldFlag & UF_FLAG_DYNAMIC) == 0 && !m_dynamicFields.GetBit(index))
         return m_uint32Values[index];
 
     uint32 val = m_uint32Values[index];
@@ -462,9 +463,27 @@ uint32 Object::_GetSwappedValueForUpdate(uint32 index, uint16 fieldFlag, Player 
         
         }
     }
-    else if(IsGameObject() && index == GAMEOBJECT_DYNAMIC)
+    else if(IsGameObject())
     {
-
+        GameObject *gThis = castPtr<GameObject>(this);
+        switch(index)
+        {
+        case GAMEOBJECT_DYNAMIC:
+            break;
+        case GAMEOBJECT_FLAGS:
+            {   // Clear our in use flags if we can use it
+                if(gThis->CanUse(target))
+                    val &= ~GO_FLAG_IN_USE;
+            }break;
+        case GAMEOBJECT_BYTES_1:
+            {
+                if(gThis->CanUse(target))
+                {   // Set us ready to activate
+                    val &= ~0x000000FF;
+                    val |= GO_STATE_READY_TO_ACTIVATE;
+                }
+            }break;
+        }
     }
     return val;
 }

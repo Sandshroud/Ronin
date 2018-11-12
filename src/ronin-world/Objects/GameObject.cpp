@@ -412,20 +412,40 @@ void GameObject::InitAI()
     {
     case GAMEOBJECT_TYPE_CHEST:
         {
+            bool requiresQuest = false, calcMineRemain = false;
             if(LockEntry *pLock = dbcLock.LookupEntry(pInfo->GetLockID()))
             {
                 for(uint32 i = 0; i < 8; i++)
                 {
-                    if(pLock->locktype[i] == 2) //locktype;
+                    switch(pLock->locktype[i])
                     {
-                        //herbalism and mining;
-                        if(pLock->lockmisc[i] == LOCKTYPE_MINING || pLock->lockmisc[i] == LOCKTYPE_HERBALISM)
+                    case 1:
                         {
-                            CalcMineRemaining(true);
-                            break;
-                        }
+                            if(ItemPrototype *proto = sItemMgr.LookupEntry(pLock->lockmisc[i]))
+                                requiresQuest = (proto->Class == ITEM_CLASS_QUEST);
+                        }break;
+                    case 2:
+                        {
+                            //herbalism and mining;
+                            if(calcMineRemain == false && (pLock->lockmisc[i] == LOCKTYPE_MINING || pLock->lockmisc[i] == LOCKTYPE_HERBALISM))
+                                calcMineRemain = true;
+                        }break;
+
                     }
                 }
+            }
+
+            if(calcMineRemain)
+                CalcMineRemaining(true);
+
+            if(requiresQuest)
+            {
+                // Force a dynamic flag for our two affected fields
+                m_dynamicFields.SetBit(GAMEOBJECT_FLAGS);
+                m_dynamicFields.SetBit(GAMEOBJECT_BYTES_1);
+                // We're dynamic, but default values should be locked
+                SetFlags(GetStartFlags() | GO_FLAG_IN_USE);
+                SetState(GO_STATE_FORCE_ACTIVATED);
             }
             return;
         }break;
@@ -455,6 +475,14 @@ void GameObject::InitAI()
 
             m_triggerSpell = dbcSpell.LookupEntry(gopInfo->data.raw.data[4]);
             return;
+        }break;
+    case GAMEOBJECT_TYPE_GOOBER:
+        {
+            if(pInfo->data.goober.questId && !GetLoot()->items.empty())
+            {
+                SetFlags(GetStartFlags() | GO_FLAG_IN_USE);
+                SetState(GO_STATE_FORCE_ACTIVATED);
+            }
         }break;
     case GAMEOBJECT_TYPE_TRANSPORT:
         {
@@ -542,7 +570,7 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
     SetState(GO_STATE_READY_TO_ACTIVATE);
     if(pInfo->IsDummyObject())
     {
-        SetFlags((spawn ? spawn->flags : pInfo->DefaultFlags) | GO_FLAG_IN_USE);
+        SetFlags(GetStartFlags() | GO_FLAG_IN_USE);
         SetState(GO_STATE_FORCE_ACTIVATED);
     }
 
@@ -905,6 +933,26 @@ uint32 GameObject::GetGOReqSkill()
 void GameObject::GenerateLoot()
 {
 
+}
+
+bool GameObject::CanUse(Player *plr)
+{
+    switch(GetType())
+    {
+    case GAMEOBJECT_TYPE_CHEST:
+        {
+            if(LockEntry *pLock = dbcLock.LookupEntry(pInfo->GetLockID()))
+            {
+                for(uint32 i = 0; i < 8; i++)
+                {
+                    if(pLock->locktype[i] == 1 && plr->GetInventory()->GetItemCount(pLock->lockmisc[i]))
+                        return true;
+                }
+            }
+
+        }
+    }
+    return false;
 }
 
 void GameObject::SetState(uint8 state)

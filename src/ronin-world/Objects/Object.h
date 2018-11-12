@@ -293,7 +293,7 @@ protected:
     //! Notification flags for updates
     uint16 m_notifyFlags;
     //! List of object properties that need updating.
-    UpdateMask m_updateMask;
+    UpdateMask m_updateMask, m_dynamicFields;
     //! True if object is in world
     bool m_inWorld;
     //! Event handler for processing delayed functions
