@@ -605,6 +605,7 @@ class SERVER_DECL GameObject : public WorldObject
 protected:
     friend class MapInstance;
     friend class MapCell;
+    friend class TransportMgr;
 
     // DO NOT CALL DIRECTLY, USE MAP INSTANCE ALLOCATION SYSTEM
     GameObject();
@@ -632,6 +633,8 @@ public:
     virtual void RemoveFromWorld();
 
     virtual void Reactivate();
+
+    uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
 
     RONIN_INLINE GameObjectInfo* GetInfo() { return pInfo; }
     RONIN_INLINE void SetInfo(GameObjectInfo * goi) { pInfo = goi; }

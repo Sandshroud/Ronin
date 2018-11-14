@@ -166,6 +166,11 @@ void GameObject::Reactivate()
     // Todo: Check spawn points and reset data for respawn event
 }
 
+uint32 GameObject::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
+{
+    return WorldObject::BuildCreateUpdateBlockForPlayer(data, target);
+}
+
 void GameObject::_recalculateChairSeats()
 {
     bool newData = m_chairData.empty();
@@ -504,6 +509,7 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_MO_TRANSPORT:
         {
+            m_zoneVisibleSpawn = true;
             if(!sTransportMgr.RegisterTransport(this, m_mapId))
             {
                 m_loadFailed = true;

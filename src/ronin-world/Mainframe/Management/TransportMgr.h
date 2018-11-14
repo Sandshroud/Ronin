@@ -21,102 +21,40 @@
 
 #pragma once
 
-struct TransportStatus
-{
-
-};
-
-/*class TransportPath
+class TransportStatus
 {
 public:
-    struct PathNode
-    {
-        uint32 mapid;
-        float x,y,z;
-        uint32 actionFlag;
-        uint32 delay;
-    };
+    TransportStatus();
+    ~TransportStatus();
 
-    RONIN_INLINE void SetLength(const unsigned int sz)
-    {
-        i_nodes.resize( sz );
-    }
+    void Update(uint32 msTime, uint32 uiDiff);
 
-    RONIN_INLINE size_t Size(void) const { return i_nodes.size(); }
-    RONIN_INLINE void Resize(unsigned int sz) { i_nodes.resize(sz); }
-    RONIN_INLINE void Clear(void) { i_nodes.clear(); }
-    RONIN_INLINE PathNode* GetNodes(void) { return static_cast<PathNode *>(&i_nodes[0]); }
-    float GetTotalLength(void)
-    {
-        float len = 0, xd, yd, zd;
-        for(unsigned int idx=1; idx < i_nodes.size(); idx++)
-        {
-            xd = i_nodes[ idx ].x - i_nodes[ idx-1 ].x;
-            yd = i_nodes[ idx ].y - i_nodes[ idx-1 ].y;
-            zd = i_nodes[ idx ].z - i_nodes[ idx-1 ].z;
-            len += (float)sqrt( xd * xd + yd*yd + zd*zd );
-        }
-        return len;
-    }
+    uint32 getMapId() { return _mapId; }
 
-    PathNode& operator[](const unsigned int idx) { return i_nodes[idx]; }
-    const PathNode& operator()(const unsigned int idx) const { return i_nodes[idx]; }
-
-protected:
-    std::vector<PathNode> i_nodes;
-};
-
-struct keyFrame {
-    keyFrame(float _x, float _y, float _z, uint32 _mapid, int _actionflag, int _delay)
-    { x = _x; y = _y; z = _z; mapid = _mapid; actionflag = _actionflag; delay = _delay; distFromPrev = -1; distSinceStop = -1; distUntilStop = -1;
-    tFrom = 0; tTo = 0;}
-
-    float x;
-    float y;
-    float z;
-    uint32 mapid;
-    int actionflag;
-    int delay;
-    float distSinceStop;
-    float distUntilStop;
-    float distFromPrev;
-    float tFrom, tTo;
-};
-
-struct TWayPoint {
-    TWayPoint() : mapid(0), x(0), y(0), z(0), teleport(0), delayed(false) {}
-    TWayPoint(uint32 _mapid, float _x, float _y, float _z, bool _teleport) :
-    mapid(_mapid), x(_x), y(_y), z(_z), teleport(_teleport), delayed(false) {}
-    uint32 mapid;
-    float x;
-    float y;
-    float z;
-    float o;
-    bool teleport;
-    bool delayed;
-};
-
-typedef std::map<uint32, TWayPoint> WaypointMap;
-typedef std::map<uint32, TWayPoint>::iterator WaypointIterator;
-typedef std::map<uint32, Player*  > PassengerMap;
-typedef std::map<uint32, Player*  >::iterator PassengerIterator;
-typedef std::map<uint32, WorldObject* > TransportNPCMap;*/
-
-struct TransportPath
-{
+private:
+    uint32 _mapId;
 
 };
 
 class TransportMgr : public Singleton<TransportMgr>
 {
+private:
+    struct TransportData
+    {
+        int32 mapIds[2];
+        TaxiPath *transportPath;
+
+        GameObjectInfo *transportTemplate;
+    };
+
 public:
     TransportMgr();
     ~TransportMgr();
 
-    void ParseDBC();
+    void LoadTransportData();
     void ProcessTransports(uint32 msTime);
 
-    void PreloadMapInstance(MapInstance *instance, uint32 mapId);
+    void PreloadMapInstance(uint32 msTime, MapInstance *instance, uint32 mapId);
     bool RegisterTransport(GameObject *gobj, uint32 mapId);
     void ProcessingPendingEvents(MapInstance *instance);
 
@@ -124,6 +62,12 @@ public:
     void UpdateTransportData(Player *plr);
     void ClearPlayerData(Player *plr);
 
+protected:
+    void _CreateTransportData(GameObjectInfo *info, TaxiPath *path);
+
+    std::map<uint32, TransportData*> m_transportDataStorage;
+
+    std::map<WoWGuid, TransportStatus*> m_transportStatusStorage;
 };
 
 #define sTransportMgr TransportMgr::getSingleton()

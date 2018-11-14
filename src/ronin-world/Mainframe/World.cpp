@@ -394,6 +394,11 @@ bool World::ProcessMapInstanceUpdate(ThreadContext *master, MapInstance *instanc
     if(!master->SetThreadState(THREADSTATE_BUSY))
         return false;
 
+    // Perform all transport updates in sequence
+    instance->_PerformTransportUpdates(msTime, uiDiff);
+    if(!master->SetThreadState(THREADSTATE_BUSY))
+        return false;
+
     // Perform all movement updates in sequence without player data
     instance->_PerformMovementUpdates(false);
     if(!master->SetThreadState(THREADSTATE_BUSY))
@@ -657,7 +662,7 @@ bool World::SetInitialWorldSettings()
 
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
     MAKE_TASK(GroupFinderMgr, LoadFromDB);
-    MAKE_TASK(TransportMgr, ParseDBC);
+    MAKE_TASK(TransportMgr, LoadTransportData);
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, ProcessTitles);
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);

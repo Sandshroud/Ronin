@@ -34,7 +34,6 @@ class GameObject;
 class Creature;
 class Player;
 class Pet;
-class Transporter;
 class Corpse;
 class CBattleground;
 class MapTargetCallback;
@@ -703,6 +702,7 @@ public:
     void _PerformPlayerUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformCreatureUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformObjectUpdates(uint32 msTime, uint32 uiDiff);
+    void _PerformTransportUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformDelayedSpellUpdates(uint32 msTime, uint32 uiDiff);
     void _PerformUnitPathUpdates(uint32 msTime, uint32 uiDiff);
@@ -906,6 +906,17 @@ public:
         ASSERT(guid.getHigh() == HIGHGUID_TYPE_GAMEOBJECT);
         GameObjectStorageMap::iterator itr = m_gameObjectStorage.find(guid);
         return (itr != m_gameObjectStorage.end()) ? itr->second : NULL;
+    }
+
+////////////////////////////////////////////////////////
+// Local (MapInstance) storage/generation of Transporters
+/////////////////////////////////////////////
+    GameObjectStorageMap m_transporterStorage;
+    RONIN_INLINE GameObject* GetTransporter(WoWGuid guid)
+    {
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_TRANSPORTER);
+        GameObjectStorageMap::iterator itr = m_transporterStorage.find(guid);
+        return (itr != m_transporterStorage.end()) ? itr->second : NULL;
     }
 
 //////////////////////////////////////////////////////////

@@ -33,23 +33,33 @@ TransportMgr::~TransportMgr()
 
 }
 
-void TransportMgr::ParseDBC()
+void TransportMgr::LoadTransportData()
 {
-    for(uint32 j = 0; j < dbcTaxiPathNode.GetNumRows(); j++)
-    {
-        /*DBCTaxiPathNode *pathnode = dbcTaxiPathNode.LookupRow(j);
-        if(pathnode->path == PathID)
-        {
-            Path[i].mapid       = pathnode->mapid;
-            Path[i].x           = pathnode->x;
-            Path[i].y           = pathnode->y;
-            Path[i].z           = pathnode->z;
-            Path[i].actionFlag  = pathnode->flag;
-            Path[i].delay       = pathnode->waittime;
-            ++i;
-        }*/
-    }
+    QueryResult *result = WorldDatabase.Query("SELECT entry, data0 FROM gameobject_names WHERE type = 15");
+    if(result == NULL)
+        return; // No usable transport data in gameobject names
 
+    uint32 creationCount = 0;
+    do
+    {
+        GameObjectInfo *info = NULL;
+        uint32 objectInfoEntry = result->Fetch()[0].GetUInt32();
+        if((info = GameObjectNameStorage.LookupEntry(objectInfoEntry)) == NULL)
+            continue; // Not possible but check anyway
+
+        TaxiPath *transportPath = NULL;
+        uint32 taxiPath = result->Fetch()[1].GetUInt32();
+        if((transportPath = sTaxiMgr.GetTaxiPath(taxiPath)) == NULL)
+            continue; // Possible as we might have deprecated transports
+
+        // Create our transport data
+        _CreateTransportData(info, transportPath);
+        ++creationCount;
+    }while(result->NextRow());
+    delete result;
+    result = NULL;
+
+    sLog.Notice("TransportMgr", "%u transports loaded from database", creationCount);
 }
 
 void TransportMgr::ProcessTransports(uint32 msTime)
@@ -57,13 +67,40 @@ void TransportMgr::ProcessTransports(uint32 msTime)
 
 }
 
-void TransportMgr::PreloadMapInstance(MapInstance *instance, uint32 mapId)
+void TransportMgr::PreloadMapInstance(uint32 msTime, MapInstance *instance, uint32 mapId)
 {
+    for(auto itr = m_transportDataStorage.begin(); itr != m_transportDataStorage.end(); ++itr)
+    {
+        TransportData *transData = itr->second;
+        if(mapId != transData->mapIds[0] && mapId != transData->mapIds[1])
+            continue;
 
+        TaxiPathNodeEntry* taxiPoint = transData->transportPath->GetPathNode(transData->transportPath->GetStartNode(mapId));
+        if(taxiPoint == NULL)
+            continue;
+
+        GameObject *gobj = new GameObject();
+        gobj->Construct(transData->transportTemplate, MAKE_NEW_GUID(transData->transportTemplate->ID, transData->transportTemplate->ID, HIGHGUID_TYPE_TRANSPORTER));
+
+        // Finish loading our allocation
+        gobj->Load(mapId, taxiPoint->LocX, taxiPoint->LocY, taxiPoint->LocZ);
+        gobj->SetInstanceID(instance->GetInstanceID());
+
+        // Push to our map instance
+        if(instance->IsGameObjectPoolUpdating())
+            instance->AddObject(gobj);
+        else gobj->PushToWorld(instance, msTime);
+
+        // Second map, deactivate till we're in timer
+        if(mapId != transData->mapIds[0])
+            gobj->Deactivate(0);
+    }
 }
 
 bool TransportMgr::RegisterTransport(GameObject *gobj, uint32 mapId)
 {
+    if(gobj->GetGUID().getHigh() == HIGHGUID_TYPE_TRANSPORTER)
+        return true; // YOLOLOLOLO
     return false;
 }
 
@@ -85,4 +122,15 @@ void TransportMgr::UpdateTransportData(Player *plr)
 void TransportMgr::ClearPlayerData(Player *plr)
 {
 
+}
+
+void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
+{
+    TransportData *data = new TransportData();
+    data->transportTemplate = info;
+    data->transportPath = path;
+    for(uint8 i = 0; i < 2; ++i)
+        data->mapIds[i] = path->mapData[i].mapId;
+
+    m_transportDataStorage.insert(std::make_pair(info->ID, data));
 }

@@ -85,8 +85,6 @@ MapInstance::~MapInstance()
 
 void MapInstance::Preload()
 {
-    sTransportMgr.PreloadMapInstance(this, _mapId);
-
     if(sWorld.ServerPreloading >= 2)
         UpdateAllCells(true);
     else if(IsInstance())
@@ -97,6 +95,8 @@ void MapInstance::Preload()
 
 void MapInstance::Init(uint32 msTime)
 {
+    sTransportMgr.PreloadMapInstance(msTime, this, _mapId);
+
     mCreaturePool.ResetTime(msTime);
     mGameObjectPool.ResetTime(msTime);
     mDynamicObjectPool.ResetTime(msTime);
@@ -147,6 +147,12 @@ void MapInstance::Destruct()
         m_delQueue.push_back(gObj);
         gObj->RemoveFromWorld();
     }
+    while(m_transporterStorage.size())
+    {
+        GameObject *gObj = m_transporterStorage.begin()->second;
+        m_delQueue.push_back(gObj);
+        gObj->RemoveFromWorld();
+    }
     while(m_DynamicObjectStorage.size())
     {
         DynamicObject *dynObj = m_DynamicObjectStorage.begin()->second;
@@ -181,6 +187,7 @@ void MapInstance::Destruct()
     m_DynamicObjectStorage.clear();
     m_CreatureStorage.clear();
     m_gameObjectStorage.clear();
+    m_transporterStorage.clear();
 
     _updates.clear();
     _processQueue.clear();
@@ -331,6 +338,15 @@ void MapInstance::PushObject(WorldObject* obj)
                 m_gameObjectStorage.insert(std::make_pair(obj->GetGUID(), go));
                 TRIGGER_INSTANCE_EVENT( this, OnGameObjectPushToWorld )( go );
                 sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
+            }break;
+
+        case HIGHGUID_TYPE_TRANSPORTER:
+            {
+                GameObject* go = castPtr<GameObject>(obj);
+                m_transporterStorage.insert(std::make_pair(obj->GetGUID(), go));
+                TRIGGER_INSTANCE_EVENT( this, OnGameObjectPushToWorld )( go );
+
+                //sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
             }break;
 
         case HIGHGUID_TYPE_DYNAMICOBJECT:
@@ -505,6 +521,13 @@ void MapInstance::RemoveObject(WorldObject* obj)
                 m_gameObjectStorage.erase(obj->GetGUID());
                 TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
                 sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
+            }break;
+
+        case HIGHGUID_TYPE_TRANSPORTER:
+            {
+                m_transporterStorage.erase(obj->GetGUID());
+                TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
+                //sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
             }break;
         }
     }
@@ -1553,7 +1576,7 @@ WorldObject* MapInstance::_GetObject(WoWGuid guid)
     {
     case HIGHGUID_TYPE_GAMEOBJECT: return GetGameObject(guid);
     case HIGHGUID_TYPE_DYNAMICOBJECT: return GetDynamicObject(guid);
-    //case HIGHGUID_TYPE_TRANSPORTER: return objmgr.GetTransporter(guid.getLow());
+    case HIGHGUID_TYPE_TRANSPORTER: return GetTransporter(guid);
     case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(guid.getLow());
     }
     return GetUnit(guid);
@@ -1705,6 +1728,12 @@ void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
 {
     mGameObjectPool.Update(msTime, uiDiff, _updatePool);
     mGameObjectPool.ProcessRemovals();
+}
+
+void MapInstance::_PerformTransportUpdates(uint32 msTime, uint32 uiDiff)
+{   // Transports are kinda permanent so we just process them till they enter deactivated state
+    for(auto itr = m_transporterStorage.begin(); itr != m_transporterStorage.end(); ++itr)
+        itr->second->Update(msTime, uiDiff);
 }
 
 void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)

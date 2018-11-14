@@ -105,6 +105,7 @@ public:
     }
 
 protected:
+    friend class TransportMgr;
     std::map<uint32, TaxiPathNodeEntry*> m_pathNodes;
 
     struct MapPointStorage
