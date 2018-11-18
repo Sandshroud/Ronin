@@ -86,7 +86,7 @@ void TransportMgr::LoadTransportData()
         uint32 objectInfoEntry = result->Fetch()[0].GetUInt32();
         if((info = GameObjectNameStorage.LookupEntry(objectInfoEntry)) == NULL)
             continue; // Not possible but check anyway
-        if(info->data.moTransport.moveSpeed == 0.f)
+        if(info->data.moTransport.moveSpeed != 30.f)
             continue; // We have no movement speed so do not initialize
 
         TaxiPath *transportPath = NULL;
