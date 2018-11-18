@@ -56,6 +56,7 @@ void GameObject::Construct(GameObjectInfo *info, WoWGuid guid, uint32 fieldCount
     m_Go_Uint32Values[GO_UINT32_MINES_REMAINING] = 1;
     m_duelState = NULL;
     m_transportData = NULL;
+    m_transportTaxiData = NULL;
 }
 
 GameObject::~GameObject()
@@ -96,6 +97,18 @@ void GameObject::Destruct()
         }
     }
 
+    if(m_transportData )
+    {
+        delete m_transportData;
+        m_transportData = NULL;
+    }
+
+    if(m_transportTaxiData)
+    {
+        delete m_transportTaxiData;
+        m_transportTaxiData = NULL;
+    }
+
     WorldObject::Destruct();
 }
 
@@ -111,6 +124,9 @@ void GameObject::Update(uint32 msTime, uint32 p_time)
     case GAMEOBJECT_TYPE_TRANSPORT:
         _updateTransportState(msTime, p_time);
         break;
+    case GAMEOBJECT_TYPE_MO_TRANSPORT:
+        _updateTransportTaxiState(msTime, p_time);
+        break;
     }
 }
 
@@ -124,6 +140,9 @@ void GameObject::InactiveUpdate(uint32 msTime, uint32 p_time)
         break;
     case GAMEOBJECT_TYPE_TRANSPORT:
         _updateTransportState(msTime, p_time);
+        break;
+    case GAMEOBJECT_TYPE_MO_TRANSPORT:
+        _updateTransportTaxiState(msTime, p_time);
         break;
     }
 }
@@ -161,9 +180,36 @@ void GameObject::RemoveFromWorld()
         m_mapInstance->RemoveZoneVisibleSpawn(m_zoneId, this);
 }
 
+void GameObject::EventExploration(MapInstance *instance)
+{
+    switch(GetType())
+    {
+    case GAMEOBJECT_TYPE_MO_TRANSPORT:
+        UpdateAreaInfo(instance);
+        break;
+    }
+}
+
+bool GameObject::CanReactivate()
+{
+    switch(GetType())
+    {
+    case GAMEOBJECT_TYPE_MO_TRANSPORT:
+        return m_transportTaxiData->isActive;
+    }
+
+    return true;
+}
+
 void GameObject::Reactivate()
 {
     // Todo: Check spawn points and reset data for respawn event
+    switch(GetType())
+    {
+    case GAMEOBJECT_TYPE_MO_TRANSPORT:
+        m_mapInstance->ChangeObjectLocation(this);
+        break;
+    }
 }
 
 uint32 GameObject::BuildCreateUpdateBlockForPlayer(ByteBuffer *data, Player* target )
@@ -397,6 +443,138 @@ void GameObject::_updateTransportState(uint32 msTime, uint32 p_diff)
     m_transportData->transportTick += p_diff;
 }
 
+void GameObject::_updateTransportTaxiState(uint32 msTime, uint32 p_diff)
+{
+    ASSERT(m_transportTaxiData != NULL);
+
+    if(m_transportTaxiData->isActive == false)
+    {
+        // Check our activation schedule with our transport manager
+        if(sTransportMgr.CheckTransportPosition(GetGUID(), m_mapId))
+            m_transportTaxiData->isActive = true;
+        return;
+    }
+
+    m_transportTaxiData->transportTick += p_diff;
+    // If we have a transport delay, don't update our tick timer
+    if(m_transportTaxiData->m_transportDelay > p_diff && ((m_transportTaxiData->m_transportDelay -= p_diff) > 0))
+        return;
+
+    m_transportTaxiData->m_transportDelay = 0;
+    m_transportTaxiData->transportTravelTick += p_diff;
+
+    // We're at the timer point where our path ends, so cycle into our deactivated state if we transfer maps, or start over
+    if(m_transportTaxiData->transportTravelTick >= m_transportTaxiData->pathTravelTime)
+    {   // End path
+        TaxiPath::posPoint *currPoint = &m_transportTaxiData->movementPath->m_pathData[0];
+        // Reset our position to the start of our path and clear any processed data/timers
+        SetPosition(currPoint->x, currPoint->y, currPoint->z, 0.f);
+        m_transportTaxiData->m_processedDelayTimers.clear();
+        m_transportTaxiData->transportTravelTick = 0;
+
+        // Reset our tick timer to our stored start time
+        m_transportTaxiData->transportTick = m_transportTaxiData->pathStartTime;
+
+        if(m_transportTaxiData->changesMaps)
+        {
+            Deactivate(0);
+            m_transportTaxiData->isActive = false;
+            // Tell our transportmgr that we're inactive now
+            sTransportMgr.ChangeTransportActiveMap(GetGUID(), m_mapId);
+        }
+    }
+    else
+    {
+        // We have taxi delays and at least one is still pending
+        if(m_transportTaxiData->m_taxiDelayTimers.size() != m_transportTaxiData->m_processedDelayTimers.size())
+        {
+            uint32 timer = 0;
+            for(auto itr = m_transportTaxiData->m_taxiDelayTimers.begin(); itr != m_transportTaxiData->m_taxiDelayTimers.end(); ++itr)
+            {
+                if(m_transportTaxiData->m_processedDelayTimers.find(itr->first) != m_transportTaxiData->m_processedDelayTimers.end())
+                    continue;
+                if(itr->first >= m_transportTaxiData->transportTravelTick)
+                    break; // We can stop looking here since these are ordered by time
+
+                // Push the delay timer to processed and pass our received time forward
+                m_transportTaxiData->m_processedDelayTimers.insert(itr->first);
+                timer = itr->second;
+            }
+
+            if(timer != 0)
+            {
+                uint32 lastPathTime = 0;
+                TaxiPath::posPoint *lastPoint = NULL;
+                // Find the point that matches up with our current travel time, we can also use our delay timer but for now keep the processing for safety
+                for(size_t i = 0; i < m_transportTaxiData->m_pathTimers.size(); ++i)
+                {
+                    uint32 pathTime = m_transportTaxiData->m_pathTimers[i];
+                    TaxiPath::posPoint *currPoint = &m_transportTaxiData->movementPath->m_pathData[i];
+                    if(pathTime > m_transportTaxiData->transportTravelTick)
+                        break;
+                    lastPathTime = pathTime;
+                    lastPoint = currPoint;
+                }
+
+                uint32 pathDiff = m_transportTaxiData->transportTravelTick-lastPathTime;
+
+                // Play our docking noise
+                PlaySoundToSet(5495);
+
+                // Set our position to our last point
+                SetPosition(lastPoint->x, lastPoint->y, lastPoint->z, 0.f);
+                // Update our tick time to match the last path time
+                m_transportTaxiData->transportTravelTick = lastPathTime;
+
+                // Set our delay to our new delay timer minus the difference for our update
+                m_transportTaxiData->m_transportDelay = timer-pathDiff;
+
+                // We've processed this time so push it into our handle queue
+                m_transportTaxiData->m_processedDelayTimers.insert(timer);
+                return;
+            }
+        }
+
+        uint32 lastPointTimer = 0, nextPointTimer = 0;
+        TaxiPath::posPoint *lastPoint = NULL, *nextPoint = NULL;
+        for(size_t i = 0; i < m_transportTaxiData->m_pathTimers.size(); ++i)
+        {
+            uint32 pathTime = m_transportTaxiData->m_pathTimers[i];
+            TaxiPath::posPoint *currPoint = &m_transportTaxiData->movementPath->m_pathData[i];
+            if(pathTime == m_transportTaxiData->transportTravelTick)
+            {   // We're at this point, end here
+                lastPointTimer = pathTime;
+                lastPoint = currPoint;
+                break;
+            }
+            else if(pathTime > m_transportTaxiData->transportTravelTick)
+            {
+                nextPointTimer = pathTime;
+                nextPoint = currPoint;
+                break;
+            }
+
+            lastPointTimer = pathTime;
+            lastPoint = currPoint;
+        }
+
+        // We should have a last point as long as we have precalculated timers
+        if(lastPoint)
+        {
+            float x = lastPoint->x, y = lastPoint->y, z = lastPoint->z, timeDiff = m_transportTaxiData->transportTravelTick-lastPointTimer;
+            if(nextPoint && timeDiff > 0.f)
+            {
+                float p = (timeDiff/(nextPointTimer-lastPointTimer));
+                x -= ((x-nextPoint->x)*p);
+                y -= ((y-nextPoint->y)*p);
+                z -= ((z-nextPoint->z)*p);
+            }
+
+            SetPosition(x, y, z, 0.f);
+        }
+    }
+}
+
 void GameObject::SaveToDB()
 {
     if(m_spawn == NULL)
@@ -509,12 +687,23 @@ void GameObject::InitAI()
         }break;
     case GAMEOBJECT_TYPE_MO_TRANSPORT:
         {
-            m_zoneVisibleSpawn = true;
-            if(!sTransportMgr.RegisterTransport(this, m_mapId))
+            // Create our transporter data
+            m_transportTaxiData = new GameObject::TransportTaxiData();
+            if(!sTransportMgr.RegisterTransport(this, m_mapId, m_transportTaxiData))
             {
                 m_loadFailed = true;
                 return;
             }
+
+            // Make us a zone spawn and force our transport flag
+            m_zoneVisibleSpawn = true;
+            m_updateFlags |= UPDATEFLAG_TRANSPORT|UPDATEFLAG_DYN_MODEL;
+            m_transportTaxiData->transportTravelTick = 0;
+
+            SetUInt32Value(GAMEOBJECT_LEVEL, m_transportTaxiData->calculatedPathTimer);
+            SetState(GO_STATE_ACTIVATED);
+            SetFlags(GO_FLAG_TRIGGERED);
+            SetAnimProgress(100);
         }break;
     case GAMEOBJECT_TYPE_RITUAL:
         {
@@ -986,6 +1175,15 @@ void GameObject::SetDisplayId(uint32 id)
     {
         sVMapInterface.UpdateObjectModel(GetGUID(), GetMapId(), GetInstanceID(), id);
     }
+}
+
+uint32 GameObject::GetTransportTick()
+{
+    if(m_transportTaxiData)
+        return m_transportTaxiData->transportTick;
+    if(m_transportData)
+        return m_transportData->transportTick;
+    return 0;
 }
 
 //Destructable Buildings

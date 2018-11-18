@@ -53,6 +53,8 @@ void PlayerCellManager::Update(MapInstance *instance, uint32 msTime, uint32 uiDi
         if(++count >= MAX_CELL_UPDATES)
             return;
     }
+
+    instance->UpdateAreaAndZoneVisibility(castPtr<Player>(_object));
 }
 
 void PlayerCellManager::SetCurrentCell(MapInstance *instance, float newX, float newY, float newZ, uint8 cellRange)

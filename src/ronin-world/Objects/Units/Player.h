@@ -584,6 +584,7 @@ public:
     virtual void EventExploration(MapInstance *instance);
 
     virtual bool IsPlayer() { return true; }
+    virtual bool IsMapCellInitializer() { return true; }
 
     // Reactivate is a function players don't need
     virtual void Reactivate() {}

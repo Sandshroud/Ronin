@@ -496,7 +496,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     GameObject *tThis = NULL;
     Unit *uThis = IsUnit() ? castPtr<Unit>(this) : NULL;
     ByteBuffer livingBuffer, stopFrameBuffer;
-    if (IsGameObject() && castPtr<GameObject>(this)->GetType() == GAMEOBJECT_TYPE_TRANSPORT)
+    if (IsGameObject() && flags & UPDATEFLAG_TRANSPORT)
         tThis = castPtr<GameObject>(this);
 
     data->WriteBit(0);
@@ -1985,8 +1985,6 @@ void WorldObject::UpdateAreaInfo(MapInstance *mgr)
     m_wmoId = m_zoneId = m_areaId = 0;
     m_areaFlags = OBJECT_AREA_FLAG_NONE;
     if(mgr == NULL && (mgr = GetMapInstance()) == NULL)
-        return;
-    if(!IsPlayer())
         return;
 
     // Holes are used for WMO placement

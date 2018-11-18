@@ -81,10 +81,21 @@ public:
         if(mapId) *mapId = mapData[1].mapId != -1 ? mapData[1].mapId : mapData[0].mapId;
     }
 
+    uint32 GetNextMap(uint32 mapId)
+    {
+        if(mapId == mapData[0].mapId)
+            return mapData[1].mapId;
+        return mapData[0].mapId;
+    }
+
     bool HasMapChange(uint32 mapId)
     {
+        // From any map to a specific map
+        if(mapData[0].mapId == -1)
+            return mapData[1].mapId != -1;
+        // From whatever map we're on to our target map
         if(mapId != mapData[0].mapId)
-            return false;
+            return mapData[1].mapId == mapId;
         return mapData[1].mapId != -1;
     }
 
@@ -106,6 +117,7 @@ public:
 
 protected:
     friend class TransportMgr;
+    friend class GameObject;
     std::map<uint32, TaxiPathNodeEntry*> m_pathNodes;
 
     struct MapPointStorage
@@ -115,6 +127,13 @@ protected:
         uint32 startNode;
         std::vector<posPoint> m_pathData;
     } mapData[2];
+
+    MapPointStorage *GetMapPointStorage(uint32 mapId)
+    {
+        if(mapId == mapData[0].mapId)
+            return &mapData[0];
+        return &mapData[1];
+    }
 
     uint32 _Id, _To, _From, _Price;
     float endX, endY, endZ;

@@ -623,6 +623,8 @@ public:
     virtual void OnFieldUpdated(uint16 index);
 
     virtual bool IsGameObject() { return true; }
+    virtual bool IsTransport() { return m_transportTaxiData != NULL; }
+    virtual bool IsMapCellInitializer() { return IsTransport(); }
 
     virtual bool IsActiveObject() { return true; }
     virtual uint32 getEventID() { return m_spawn ? m_spawn->eventId : 0; }
@@ -631,7 +633,9 @@ public:
     virtual void OnPrePushToWorld();
     virtual void OnPushToWorld(uint32 msTime);
     virtual void RemoveFromWorld();
+    virtual void EventExploration(MapInstance *instance);
 
+    virtual bool CanReactivate();
     virtual void Reactivate();
 
     uint32 __fastcall BuildCreateUpdateBlockForPlayer( ByteBuffer *data, Player* target );
@@ -735,7 +739,7 @@ public:
     RONIN_INLINE bool isQuestGiver() { return GetType() == GAMEOBJECT_TYPE_QUESTGIVER; }
 
     // Transport objects
-    uint32 GetTransportTick() { return m_transportData ? m_transportData->transportTick : 0; }
+    uint32 GetTransportTick();
 
     //Destructable Building
     void TakeDamage(uint32 amount, WorldObject* mcaster, Player* pcaster, uint32 spellid = 0);
@@ -790,6 +794,9 @@ protected:
 
     // GAMEOBJECT_TYPE_TRANSPORT
     void _updateTransportState(uint32 msTime, uint32 p_diff);
+
+    // GAMEOBJECT_TYPE_MO_TRANSPORT
+    void _updateTransportTaxiState(uint32 msTime, uint32 p_diff);
 protected:
     struct TransportData
     {
@@ -799,4 +806,26 @@ protected:
         LocationVector currentPos;
         std::set<WoWGuid> m_passengers;
     } *m_transportData;
+
+    struct TransportTaxiData
+    {
+        bool isActive;
+        uint32 transportTick, transportTravelTick;
+
+        LocationVector currentPos;
+        std::set<WoWGuid> m_passengers;
+
+        bool changesMaps;
+        uint32 pathStartTime, pathTravelTime, calculatedPathTimer;
+
+        std::set<uint32> m_teleportPoints;
+        std::map<size_t, uint32> m_pathTimers;
+        TaxiPath::MapPointStorage *movementPath;
+
+        float moveSpeed, moveAcceleration;
+        std::set<uint32> m_processedDelayTimers;
+        std::map<uint32, uint32> m_taxiDelayTimers;
+
+        uint32 m_transportDelay;
+    } *m_transportTaxiData;
 };

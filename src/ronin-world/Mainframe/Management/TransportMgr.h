@@ -24,16 +24,21 @@
 class TransportStatus
 {
 public:
-    TransportStatus();
+    TransportStatus(uint32 transportEntry);
     ~TransportStatus();
 
-    void Update(uint32 msTime, uint32 uiDiff);
+    void Initialize(uint32 mapId);
+    void Update();
 
-    uint32 getMapId() { return _mapId; }
+    void QueueMapTransfer(uint32 oldMap, uint32 newMapId);
+
+    uint32 getMapId() { Guard guard(dataLock); return _mapId; }
 
 private:
-    uint32 _mapId;
+    int32 _mapId, _pendingMapId;
+    uint32 transportEntry;
 
+    Mutex dataLock;
 };
 
 class TransportMgr : public Singleton<TransportMgr>
@@ -43,7 +48,11 @@ private:
     {
         int32 mapIds[2];
         TaxiPath *transportPath;
+        std::map<size_t, uint32> pathPointTimes[2];
+        std::map<uint32, uint32> taxiDelayTimers[2];
 
+        uint32 timerStart[2], pathTravelTime[2];
+        uint32 calculatedPathTimer;
         GameObjectInfo *transportTemplate;
     };
 
@@ -52,12 +61,12 @@ public:
     ~TransportMgr();
 
     void LoadTransportData();
-    void ProcessTransports(uint32 msTime);
+    void ProcessTransports(uint32 uiDiff);
 
     void PreloadMapInstance(uint32 msTime, MapInstance *instance, uint32 mapId);
-    bool RegisterTransport(GameObject *gobj, uint32 mapId);
-    void ProcessingPendingEvents(MapInstance *instance);
+    bool RegisterTransport(GameObject *gobj, uint32 mapId, GameObject::TransportTaxiData *dataOut);
 
+    void ChangeTransportActiveMap(WoWGuid transport, uint32 oldMapId);
     bool CheckTransportPosition(WoWGuid transport, uint32 mapId);
     void UpdateTransportData(Player *plr);
     void ClearPlayerData(Player *plr);
@@ -67,6 +76,8 @@ protected:
 
     std::map<uint32, TransportData*> m_transportDataStorage;
 
+    Mutex m_transportStatusLock;
+    uint32 m_transportUpdateTimer;
     std::map<WoWGuid, TransportStatus*> m_transportStatusStorage;
 };
 

@@ -65,6 +65,7 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData
     mGameObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 4 * std::max<uint32>(1, threadCount) : 2);
     mDynamicObjectPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 * std::max<uint32>(1, threadCount) : 1);
     mUnitPathPool.Initialize(pdbcMap && pdbcMap->IsContinent() ? 2 * std::max<uint32>(1, threadCount) : 1);
+    mTransporterPool.Initialize(2);
 
     projectileSpellUpdateTime[0] = projectileSpellUpdateTime[1] = 0;
     projectileSpellIndex[0] = projectileSpellIndex[1] = 0;
@@ -99,6 +100,7 @@ void MapInstance::Init(uint32 msTime)
 
     mCreaturePool.ResetTime(msTime);
     mGameObjectPool.ResetTime(msTime);
+    mTransporterPool.ResetTime(msTime);
     mDynamicObjectPool.ResetTime(msTime);
     mUnitPathPool.ResetTime(msTime);
 }
@@ -120,6 +122,7 @@ void MapInstance::Destruct()
 
     mCreaturePool.Cleanup();
     mGameObjectPool.Cleanup();
+    mTransporterPool.Cleanup();
     mDynamicObjectPool.Cleanup();
     mUnitPathPool.Cleanup();
 
@@ -343,6 +346,7 @@ void MapInstance::PushObject(WorldObject* obj)
         case HIGHGUID_TYPE_TRANSPORTER:
             {
                 GameObject* go = castPtr<GameObject>(obj);
+                mTransporterPool.Add(go);
                 m_transporterStorage.insert(std::make_pair(obj->GetGUID(), go));
                 TRIGGER_INSTANCE_EVENT( this, OnGameObjectPushToWorld )( go );
 
@@ -357,7 +361,7 @@ void MapInstance::PushObject(WorldObject* obj)
     m_objectStorageLock.Release();
 
     // Handle activation of that object.
-    if(objCell->IsActive() && (!obj->IsBulkSpawn() || obj->IsDynamicObj()))
+    if(objCell->IsActive() && (!obj->IsBulkSpawn() || obj->IsDynamicObj()) && !obj->IsTransport())
     {
         m_poolLock.Acquire();
         switch(obj->GetTypeId())
@@ -399,37 +403,7 @@ void MapInstance::PushObject(WorldObject* obj)
         // Update our player's zone
         plObj->UpdateAreaInfo(this);
 
-        m_dataBufferLock.Acquire();
-        /* Add the zone wide objects */
-        if(m_fullRangeObjectsByZone[plObj->GetZoneId()].size())
-        {
-            for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByZone[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByZone[plObj->GetZoneId()].end(); itr++)
-            {
-                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_dataBuffer, plObj))
-                {
-                    plObj->PushUpdateBlock(_mapId, &m_dataBuffer, count);
-                    if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
-                        castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
-                }
-                m_dataBuffer.clear();
-            }
-        }
-
-        /* Add the area wide objects */
-        if(m_fullRangeObjectsByArea[plObj->GetAreaId()].size())
-        {
-            for(std::vector<WorldObject* >::iterator itr = m_fullRangeObjectsByArea[plObj->GetZoneId()].begin(); itr != m_fullRangeObjectsByArea[plObj->GetZoneId()].end(); itr++)
-            {
-                if(count = (*itr)->BuildCreateUpdateBlockForPlayer(&m_dataBuffer, plObj))
-                {
-                    plObj->PushUpdateBlock(_mapId, &m_dataBuffer, count);
-                    if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
-                        castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plObj, MOVEBCFLAG_DELAYED);
-                }
-                m_dataBuffer.clear();
-            }
-        }
-        m_dataBufferLock.Release();
+        UpdateAreaAndZoneVisibility(plObj);
     }
 
     if(MapScript *script = m_script)
@@ -525,8 +499,10 @@ void MapInstance::RemoveObject(WorldObject* obj)
 
         case HIGHGUID_TYPE_TRANSPORTER:
             {
+                GameObject *gObj = castPtr<GameObject>(obj);
+                mTransporterPool.QueueRemoval(gObj);
                 m_transporterStorage.erase(obj->GetGUID());
-                TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( castPtr<GameObject>(obj) );
+                TRIGGER_INSTANCE_EVENT( this, OnGameObjectRemoveFromWorld )( gObj );
                 //sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
             }break;
         }
@@ -590,97 +566,6 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
     if(Group *grp = plObj ? plObj->GetGroup() : NULL)
         grp->HandlePartialChange( PARTY_UPDATE_FLAG_LOCATION, plObj );
 
-    /*
-    ////////////////////////////////////////
-    // Update in-range data for zone objects
-    ////////////////////////////////////////
-    uint32 lastZone = obj->GetLastMovementZone(), currZone;
-    if(lastZone != (currZone = obj->GetZoneId()))
-    {
-        if(lastZone && m_fullRangeObjectsByZone[lastZone].size())
-        {
-            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByZone[lastZone].begin(); itr != m_fullRangeObjectsByZone[lastZone].end(); itr++)
-            {
-                if((curObj = *itr) == NULL)
-                    continue;
-                if(!curObj->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != curObj->GetGUID()))
-                {
-                    obj->RemoveInRangeObject(curObj);
-                    curObj->RemoveInRangeObject(obj);
-                }
-            }
-        }
-
-        if(currZone && m_fullRangeObjectsByZone[currZone].size())
-        {
-            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByZone[currZone].begin(); itr != m_fullRangeObjectsByZone[currZone].end(); itr++)
-            {
-                if((curObj = *itr) == NULL)
-                    continue;
-                if(obj->IsInRangeSet(curObj) || !curObj->IsActivated())
-                    continue;
-
-                obj->AddInRangeObject(curObj);
-                curObj->AddInRangeObject(obj);
-
-                if(plObj && canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
-                {
-                    plObj->AddVisibleObject( curObj );
-                    curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
-                    if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                        plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
-                    m_createBuffer.clear();
-                }
-            }
-        }
-    }
-    obj->SetLastMovementZone(currZone);
-
-    ////////////////////////////////////////
-    // Update in-range data for area objects
-    ////////////////////////////////////////
-    uint32 lastArea = obj->GetLastMovementArea(), currArea;
-    if(lastArea != (currArea = obj->GetAreaId()))
-    {
-        if(lastArea && m_fullRangeObjectsByArea[lastArea].size())
-        {
-            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByArea[lastArea].begin(); itr != m_fullRangeObjectsByArea[lastArea].end(); itr++)
-            {
-                if((curObj = *itr) == NULL)
-                    continue;
-                if(!curObj->IsTransport() || (!obj->IsUnit() || castPtr<Unit>(obj)->GetTransportGuid() != curObj->GetGUID()))
-                {
-                    obj->RemoveInRangeObject(curObj);
-                    curObj->RemoveInRangeObject(obj);
-                }
-            }
-        }
-
-        if(currArea && m_fullRangeObjectsByArea[currArea].size())
-        {
-            for(std::vector<WorldObject*>::iterator itr = m_fullRangeObjectsByArea[currArea].begin(); itr != m_fullRangeObjectsByArea[currArea].end(); itr++)
-            {
-                if((curObj = *itr) == NULL)
-                    continue;
-                if(obj->IsInRangeSet(curObj) || !curObj->IsActivated())
-                    continue;
-
-                obj->AddInRangeObject(curObj);
-                curObj->AddInRangeObject(obj);
-
-                if(plObj && canObjectsInteract(plObj, curObj) && plObj->CanSee( curObj ) && !plObj->IsVisible( curObj ) )
-                {
-                    plObj->AddVisibleObject( curObj );
-                    curObj->GetCellManager()->AddVisibleBy(plObj->GetGUID());
-                    if(uint32 count = curObj->BuildCreateUpdateBlockForPlayer( &m_createBuffer, plObj ))
-                        plObj->PushUpdateBlock(_mapId, &m_createBuffer, count);
-                    m_createBuffer.clear();
-                }
-            }
-        }
-    }
-    obj->SetLastMovementArea(currArea);*/
-
     // Check if we're moving to a new map
     if(obj->GetMapInstance() != this)
     {
@@ -721,10 +606,14 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
         }
 
         // Update our cell activity real quick
-        if(plObj) UpdateCellActivity(cellX, cellY, MapInstance::ActiveCellRange);
+        if(plObj)
+        {
+            UpdateCellActivity(cellX, cellY, MapInstance::ActiveCellRange);
+            UpdateAreaAndZoneVisibility(plObj);
+        }
 
         // Grab our new cell and store our old cell pointer
-        MapCell *objCell = GetCellOrInit(cellX, cellY, plObj ? true : false, true), *pOldCell = obj->GetMapCell();
+        MapCell *objCell = GetCellOrInit(cellX, cellY, obj->IsMapCellInitializer(), true), *pOldCell = obj->GetMapCell();
         if(objCell != pOldCell)
         {
             // Remove us from old cell
@@ -737,12 +626,68 @@ void MapInstance::ChangeObjectLocation( WorldObject* obj )
                 objCell->AddObject(obj);
 
             // Non player objects need area info for current cell
-            if(!obj->IsPlayer())
+            if(obj->IsPlayer() == false)
                 obj->UpdateAreaInfo(this);
 
             // Set our cellId
             obj->GetCellManager()->SetCurrentCell(this, fposX, fposY, fposZ, ObjectCellManager::VisibleCellRange);
             CacheObjectCell(obj->GetGUID(), ObjectCellManager::_makeCell(cellX, cellY));
+        }
+
+        // Our full range objects need to have their visibility updated if our zone or area change
+        if(IsFullRangeObject(obj))
+        {
+            Player *plr = NULL;
+            std::set<WoWGuid> removeVisible;
+            bool fullZone = m_zoneFullRangeObjects.find(obj) != m_zoneFullRangeObjects.end();
+            bool fullArea = m_areaFullRangeObjects.find(obj) != m_areaFullRangeObjects.end();
+            uint32 currZone = obj->GetZoneId(), currArea = obj->GetAreaId();
+            for(std::set<WoWGuid>::iterator itr = obj->GetCellManager()->beginVisible(); itr != obj->GetCellManager()->endVisible(); ++itr)
+            {
+                Player *plr = GetPlayer(*itr);
+                if(plr == NULL)
+                {
+                    removeVisible.insert(*itr);
+                    continue;
+                }
+
+                if(fullZone && plr->GetZoneId() != currZone)
+                    removeVisible.insert(*itr);
+                else if(fullArea && plr->GetAreaId() != currArea)
+                    removeVisible.insert(*itr);
+            }
+
+            if(fullZone && m_zoneFullRangeObjects[obj] != currZone)
+            {   // Change our zone info
+                uint32 oldZone = m_zoneFullRangeObjects[obj];
+                // Erase from old zone vector our object
+                std::vector<WorldObject*>::iterator itr;
+                if((itr = std::find(m_fullRangeObjectsByZone[oldZone].begin(), m_fullRangeObjectsByZone[oldZone].end(), obj)) != m_fullRangeObjectsByZone[oldZone].end())
+                    m_fullRangeObjectsByZone[oldZone].erase(itr);
+                // Add to new vector our object and set new zone ID
+                m_fullRangeObjectsByZone[currZone].push_back(obj);
+                m_zoneFullRangeObjects[obj] = currZone;
+            }
+
+            if(fullArea && m_areaFullRangeObjects[obj] != currArea)
+            {   // Change our area info
+                uint32 oldArea = m_areaFullRangeObjects[obj];
+                // Erase from old area vector our object
+                std::vector<WorldObject*>::iterator itr;
+                if((itr = std::find(m_fullRangeObjectsByArea[oldArea].begin(), m_fullRangeObjectsByArea[oldArea].end(), obj)) != m_fullRangeObjectsByArea[oldArea].end())
+                    m_fullRangeObjectsByArea[oldArea].erase(itr);
+                // Add to new vector our object and set new area ID
+                m_fullRangeObjectsByArea[currArea].push_back(obj);
+                m_areaFullRangeObjects[obj] = currArea;
+            }
+
+            for(auto itr = removeVisible.begin(); itr != removeVisible.end(); ++itr)
+            {
+                if(Player *plr = GetPlayer(*itr))
+                    plr->RemoveIfVisible(_mapId, obj);
+
+                obj->GetCellManager()->RemoveVisibleBy(*itr);
+            }
         }
     }
 }
@@ -780,7 +725,7 @@ void MapInstanceObjectProcessCallback::operator()(WorldObject *obj, WorldObject 
 bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, bool playerObj, bool priority)
 {
     // Check our cell status
-    MapCell *objCell = GetCellOrInit(cellX, cellY, playerObj, priority);
+    MapCell *objCell = GetCellOrInit(cellX, cellY, obj->IsMapCellInitializer(), priority);
     if(objCell == NULL)
         return false;
 
@@ -1352,6 +1297,65 @@ void MapInstance::UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint3
 
         UpdateCellData(obj, cellPair.first, cellPair.second, obj->IsPlayer(), true);
     }
+
+    // Zone wide visibility
+    if(!obj->IsPlayer())
+        return;
+    UpdateAreaAndZoneVisibility(castPtr<Player>(obj));
+}
+
+void MapInstance::UpdateAreaAndZoneVisibility(Player *plr)
+{
+    uint32 areaId = plr->GetAreaId(), zoneId = plr->GetZoneId();
+    if(m_fullRangeObjectsByZone.find(zoneId) != m_fullRangeObjectsByZone.end())
+    {
+        for(auto itr = m_fullRangeObjectsByZone[zoneId].begin(); itr != m_fullRangeObjectsByZone[zoneId].end(); ++itr)
+        {
+            if(!(*itr)->IsActivated())
+                continue;
+
+            if( canObjectsInteract(plr, *itr) && plr->CanSee(*itr) && !plr->IsVisible(*itr) )
+            {
+                plr->AddVisibleObject(*itr);
+                (*itr)->GetCellManager()->AddVisibleBy(plr->GetGUID());
+
+                m_dataBufferLock.Acquire();
+                if(uint32 count = (*itr)->BuildCreateUpdateBlockForPlayer( &m_dataBuffer, plr ))
+                {
+                    plr->PushUpdateBlock(GetMapId(), &m_dataBuffer, count);
+                    if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
+                        castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plr, MOVEBCFLAG_DELAYED);
+                }
+                m_dataBuffer.clear();
+                m_dataBufferLock.Release();
+            }
+        }
+    }
+
+    if(m_fullRangeObjectsByArea.find(zoneId) != m_fullRangeObjectsByArea.end())
+    {
+        for(auto itr = m_fullRangeObjectsByArea[areaId].begin(); itr != m_fullRangeObjectsByArea[areaId].end(); ++itr)
+        {
+            if(!(*itr)->IsActivated())
+                continue;
+
+            if( canObjectsInteract(plr, *itr) && plr->CanSee(*itr) && !plr->IsVisible(*itr) )
+            {
+                plr->AddVisibleObject(*itr);
+                (*itr)->GetCellManager()->AddVisibleBy(plr->GetGUID());
+
+                m_dataBufferLock.Acquire();
+                if(uint32 count = (*itr)->BuildCreateUpdateBlockForPlayer( &m_dataBuffer, plr ))
+                {
+                    plr->PushUpdateBlock(GetMapId(), &m_dataBuffer, count);
+                    if((*itr)->IsUnit() && castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->hasDestination())
+                        castPtr<Unit>(*itr)->GetMovementInterface()->GetPath()->SendMovementPacket(plr, MOVEBCFLAG_DELAYED);
+                }
+                m_dataBuffer.clear();
+                m_dataBufferLock.Release();
+            }
+        }
+    }
 }
 
 void MapInstanceDynamicObjectTargetMappingCallback::operator()(WorldObject *obj, WorldObject *curObj)
@@ -1731,9 +1735,9 @@ void MapInstance::_PerformObjectUpdates(uint32 msTime, uint32 uiDiff)
 }
 
 void MapInstance::_PerformTransportUpdates(uint32 msTime, uint32 uiDiff)
-{   // Transports are kinda permanent so we just process them till they enter deactivated state
-    for(auto itr = m_transporterStorage.begin(); itr != m_transporterStorage.end(); ++itr)
-        itr->second->Update(msTime, uiDiff);
+{
+    mTransporterPool.Update(msTime, uiDiff, NULL);
+    mTransporterPool.ProcessRemovals();
 }
 
 void MapInstance::_PerformDynamicObjectUpdates(uint32 msTime, uint32 uiDiff)
@@ -1885,6 +1889,7 @@ void MapInstance::_PerformPendingActions()
 
     mCreaturePool.ProcessRemovals();
     mGameObjectPool.ProcessRemovals();
+    mTransporterPool.ProcessRemovals();
     mDynamicObjectPool.ProcessRemovals();
     mUnitPathPool.ProcessRemovals();
 

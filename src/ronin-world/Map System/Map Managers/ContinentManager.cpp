@@ -72,9 +72,6 @@ bool ContinentManager::run()
         // Update our collision system via singular map system
         sVMapInterface.UpdateSingleMap(m_mapId, diff);
 
-        // Update any pending transport events
-        sTransportMgr.ProcessingPendingEvents(m_continent);
-
         // Push our instance to be updated by the world management system
         if(!sWorld.ProcessMapInstanceUpdate(this, m_continent, mstime, diff))
             break;

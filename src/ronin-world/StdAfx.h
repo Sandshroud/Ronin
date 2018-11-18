@@ -139,6 +139,7 @@ extern size_t __line__;
 #include "Object.h"
 #include "CellHandler.h"
 #include "TerrainMgr.h"
+#include "TaxiMgr.h"
 #include "Map.h"
 
 #include "AIInterface.h"
@@ -190,7 +191,6 @@ extern size_t __line__;
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "ClassSpells.h"
-#include "TaxiMgr.h"
 #include "TransportMgr.h"
 #include "WeatherMgr.h"
 #include "TicketMgr.h"

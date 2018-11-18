@@ -834,7 +834,7 @@ void World::Update(uint32 msTime, uint32 uiDiff)
 
     // Transport timer updates
     if(TransportMgr::getSingletonPtr() != NULL)
-        sTransportMgr.ProcessTransports(msTime);
+        sTransportMgr.ProcessTransports(uiDiff);
 
     // Update sessions
     UpdateSessions(uiDiff);

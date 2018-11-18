@@ -608,6 +608,7 @@ public:
     void BroadcastObjectUpdate(WorldObject *obj);
 
     void UpdateObjectCellVisibility(WorldObject *obj, std::vector<uint32> *cellVector);
+    void UpdateAreaAndZoneVisibility(Player *plr);
 
     // Dynamic object target mapping
     void HandleDynamicObjectRangeMapping(DynamicObjectTargetCallback *callback, DynamicObject *object, Unit *caster, float minRange, float maxRange, uint32 typeMask = 0);
@@ -806,7 +807,7 @@ public:
     Mutex m_poolLock;
     ThreadManager::TaskPool *_updatePool;
     StoragePool<Creature> mCreaturePool;
-    StoragePool<GameObject> mGameObjectPool;
+    StoragePool<GameObject> mGameObjectPool, mTransporterPool;
     StoragePool<DynamicObject> mDynamicObjectPool;
     StoragePool<UnitPathSystem> mUnitPathPool;
 

@@ -264,6 +264,7 @@ public:
     virtual bool IsVehicle() { return false; }
     virtual bool IsTransport() { return false; }
     virtual bool IsSummonerPlayer() { return false; }
+    virtual bool IsMapCellInitializer() { return false; }
 
     template<typename T> RONIN_INLINE bool IsType() { return false; }
     template<> RONIN_INLINE bool IsType<Unit>() { return IsUnit(); }
@@ -353,6 +354,9 @@ public:
 
     void AddVisibleBy(WoWGuid guid) { m_visibleTo.insert(guid); }
     void RemoveVisibleBy(WoWGuid guid) { m_visibleTo.erase(guid); }
+
+    std::set<WoWGuid>::iterator beginVisible() { return m_visibleTo.begin(); }
+    std::set<WoWGuid>::iterator endVisible() { return m_visibleTo.end(); }
 
 protected:
     friend class MapInstance;
