@@ -469,7 +469,7 @@ void GameObject::_updateTransportTaxiState(uint32 msTime, uint32 p_diff)
         TaxiPath::posPoint *currPoint = &m_transportTaxiData->movementPath->m_pathData[0];
         // Reset our position to the start of our path and clear any processed data/timers
         SetPosition(currPoint->x, currPoint->y, currPoint->z, 0.f);
-        m_transportTaxiData->m_processedDelayTimers.clear();
+        m_transportTaxiData->processedDelayTimers.clear();
         m_transportTaxiData->transportTravelTick = 0;
 
         // Reset our tick timer to our stored start time
@@ -486,18 +486,18 @@ void GameObject::_updateTransportTaxiState(uint32 msTime, uint32 p_diff)
     else
     {
         // We have taxi delays and at least one is still pending
-        if(m_transportTaxiData->m_taxiDelayTimers.size() != m_transportTaxiData->m_processedDelayTimers.size())
+        if(m_transportTaxiData->taxiDelayTimers.size() != m_transportTaxiData->processedDelayTimers.size())
         {
             uint32 timer = 0;
-            for(auto itr = m_transportTaxiData->m_taxiDelayTimers.begin(); itr != m_transportTaxiData->m_taxiDelayTimers.end(); ++itr)
+            for(auto itr = m_transportTaxiData->taxiDelayTimers.begin(); itr != m_transportTaxiData->taxiDelayTimers.end(); ++itr)
             {
-                if(m_transportTaxiData->m_processedDelayTimers.find(itr->first) != m_transportTaxiData->m_processedDelayTimers.end())
+                if(m_transportTaxiData->processedDelayTimers.find(itr->first) != m_transportTaxiData->processedDelayTimers.end())
                     continue;
                 if(itr->first >= m_transportTaxiData->transportTravelTick)
                     break; // We can stop looking here since these are ordered by time
 
                 // Push the delay timer to processed and pass our received time forward
-                m_transportTaxiData->m_processedDelayTimers.insert(itr->first);
+                m_transportTaxiData->processedDelayTimers.insert(itr->first);
                 timer = itr->second;
             }
 
@@ -506,9 +506,9 @@ void GameObject::_updateTransportTaxiState(uint32 msTime, uint32 p_diff)
                 uint32 lastPathTime = 0;
                 TaxiPath::posPoint *lastPoint = NULL;
                 // Find the point that matches up with our current travel time, we can also use our delay timer but for now keep the processing for safety
-                for(size_t i = 0; i < m_transportTaxiData->m_pathTimers.size(); ++i)
+                for(size_t i = 0; i < m_transportTaxiData->pathTimers.size(); ++i)
                 {
-                    uint32 pathTime = m_transportTaxiData->m_pathTimers[i];
+                    uint32 pathTime = m_transportTaxiData->pathTimers[i];
                     TaxiPath::posPoint *currPoint = &m_transportTaxiData->movementPath->m_pathData[i];
                     if(pathTime > m_transportTaxiData->transportTravelTick)
                         break;
@@ -530,16 +530,16 @@ void GameObject::_updateTransportTaxiState(uint32 msTime, uint32 p_diff)
                 m_transportTaxiData->m_transportDelay = timer-pathDiff;
 
                 // We've processed this time so push it into our handle queue
-                m_transportTaxiData->m_processedDelayTimers.insert(timer);
+                m_transportTaxiData->processedDelayTimers.insert(timer);
                 return;
             }
         }
 
         uint32 lastPointTimer = 0, nextPointTimer = 0;
         TaxiPath::posPoint *lastPoint = NULL, *nextPoint = NULL;
-        for(size_t i = 0; i < m_transportTaxiData->m_pathTimers.size(); ++i)
+        for(size_t i = 0; i < m_transportTaxiData->pathTimers.size(); ++i)
         {
-            uint32 pathTime = m_transportTaxiData->m_pathTimers[i];
+            uint32 pathTime = m_transportTaxiData->pathTimers[i];
             TaxiPath::posPoint *currPoint = &m_transportTaxiData->movementPath->m_pathData[i];
             if(pathTime == m_transportTaxiData->transportTravelTick)
             {   // We're at this point, end here
@@ -831,14 +831,17 @@ void GameObject::Load(uint32 mapId, float x, float y, float z, float angleOverri
 uint32 GameObject::BuildStopFrameData(ByteBuffer *buff)
 {
     uint32 frameCount = 0, stopFrame = 0;
-    if((stopFrame = pInfo->data.transport.stopFrame1) > 0)
-        frameCount++, *buff << uint32(stopFrame);
-    if((stopFrame = pInfo->data.transport.stopFrame2) > 0)
-        frameCount++, *buff << uint32(stopFrame);
-    if((stopFrame = pInfo->data.transport.stopFrame3) > 0)
-        frameCount++, *buff << uint32(stopFrame);
-    if((stopFrame = pInfo->data.transport.stopFrame4) > 0)
-        frameCount++, *buff << uint32(stopFrame);
+    if(GetType() == GAMEOBJECT_TYPE_TRANSPORT)
+    {
+        if((stopFrame = pInfo->data.transport.stopFrame1) > 0)
+            frameCount++, *buff << uint32(stopFrame);
+        if((stopFrame = pInfo->data.transport.stopFrame2) > 0)
+            frameCount++, *buff << uint32(stopFrame);
+        if((stopFrame = pInfo->data.transport.stopFrame3) > 0)
+            frameCount++, *buff << uint32(stopFrame);
+        if((stopFrame = pInfo->data.transport.stopFrame4) > 0)
+            frameCount++, *buff << uint32(stopFrame);
+    }
     return frameCount;
 }
 

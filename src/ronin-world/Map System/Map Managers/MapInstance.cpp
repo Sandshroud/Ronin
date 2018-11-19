@@ -343,7 +343,7 @@ void MapInstance::PushObject(WorldObject* obj)
                 sVMapInterface.LoadGameobjectModel(obj->GetGUID(), _mapId, go->GetDisplayId(), go->GetFloatValue(OBJECT_FIELD_SCALE_X), go->GetPositionX(), go->GetPositionY(), go->GetPositionZ(), go->GetOrientation(), go->GetInstanceID(), go->GetPhaseMask());
             }break;
 
-        case HIGHGUID_TYPE_TRANSPORTER:
+        case HIGHGUID_TYPE_MO_TRANSPORT:
             {
                 GameObject* go = castPtr<GameObject>(obj);
                 mTransporterPool.Add(go);
@@ -497,7 +497,7 @@ void MapInstance::RemoveObject(WorldObject* obj)
                 sVMapInterface.UnLoadGameobjectModel(obj->GetGUID(), m_instanceID, _mapId);
             }break;
 
-        case HIGHGUID_TYPE_TRANSPORTER:
+        case HIGHGUID_TYPE_MO_TRANSPORT:
             {
                 GameObject *gObj = castPtr<GameObject>(obj);
                 mTransporterPool.QueueRemoval(gObj);
@@ -1580,7 +1580,7 @@ WorldObject* MapInstance::_GetObject(WoWGuid guid)
     {
     case HIGHGUID_TYPE_GAMEOBJECT: return GetGameObject(guid);
     case HIGHGUID_TYPE_DYNAMICOBJECT: return GetDynamicObject(guid);
-    case HIGHGUID_TYPE_TRANSPORTER: return GetTransporter(guid);
+    case HIGHGUID_TYPE_MO_TRANSPORT: return GetTransporter(guid);
     case HIGHGUID_TYPE_CORPSE: return objmgr.GetCorpse(guid.getLow());
     }
     return GetUnit(guid);

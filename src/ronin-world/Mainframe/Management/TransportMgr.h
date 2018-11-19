@@ -48,6 +48,7 @@ private:
     {
         int32 mapIds[2];
         TaxiPath *transportPath;
+        std::set<uint32> teleportationPoints;
         std::map<size_t, uint32> pathPointTimes[2];
         std::map<uint32, uint32> taxiDelayTimers[2];
 

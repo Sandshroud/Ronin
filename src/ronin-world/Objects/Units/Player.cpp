@@ -1544,7 +1544,7 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     }
 
     uint32 transGuid = fields[PLAYERLOAD_FIELD_TRANSPORTERGUID].GetUInt32();
-    GetMovementInterface()->SetTransportData(uint64(transGuid ? MAKE_NEW_GUID(transGuid, 0, HIGHGUID_TYPE_TRANSPORTER) : 0), 0,
+    GetMovementInterface()->SetTransportData(uint64(transGuid ? MAKE_NEW_GUID(transGuid, transGuid, HIGHGUID_TYPE_MO_TRANSPORT) : 0), 0,
         fields[PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_X].GetFloat(), fields[PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Y].GetFloat(),
         fields[PLAYERLOAD_FIELD_TRANSPORTER_OFFSET_Z].GetFloat(), 0.f, 0);
 

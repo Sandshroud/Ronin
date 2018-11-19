@@ -915,7 +915,7 @@ public:
     GameObjectStorageMap m_transporterStorage;
     RONIN_INLINE GameObject* GetTransporter(WoWGuid guid)
     {
-        ASSERT(guid.getHigh() == HIGHGUID_TYPE_TRANSPORTER);
+        ASSERT(guid.getHigh() == HIGHGUID_TYPE_MO_TRANSPORT);
         GameObjectStorageMap::iterator itr = m_transporterStorage.find(guid);
         return (itr != m_transporterStorage.end()) ? itr->second : NULL;
     }

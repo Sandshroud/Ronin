@@ -703,7 +703,7 @@ void WorldSession::FullLogin(Player* plr)
     bool enter_world = true;
 
     // Find our transporter and add us if we're on one.
-    if(!plr->GetTransportGuid().empty() && plr->GetTransportGuid().getHigh() == HIGHGUID_TYPE_TRANSPORTER)
+    if(!plr->GetTransportGuid().empty() && plr->GetTransportGuid().getHigh() == HIGHGUID_TYPE_MO_TRANSPORT)
     {
         if(sTransportMgr.CheckTransportPosition(plr->GetTransportGuid(), plr->GetMapId()))
         {

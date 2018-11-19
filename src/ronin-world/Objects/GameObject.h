@@ -813,18 +813,18 @@ protected:
         uint32 transportTick, transportTravelTick;
 
         LocationVector currentPos;
-        std::set<WoWGuid> m_passengers;
+        std::set<WoWGuid> passengers;
 
         bool changesMaps;
         uint32 pathStartTime, pathTravelTime, calculatedPathTimer;
 
-        std::set<uint32> m_teleportPoints;
-        std::map<size_t, uint32> m_pathTimers;
+        std::set<uint32> teleportPoints;
+        std::map<size_t, uint32> pathTimers;
         TaxiPath::MapPointStorage *movementPath;
 
         float moveSpeed, moveAcceleration;
-        std::set<uint32> m_processedDelayTimers;
-        std::map<uint32, uint32> m_taxiDelayTimers;
+        std::set<uint32> processedDelayTimers;
+        std::map<uint32, uint32> taxiDelayTimers;
 
         uint32 m_transportDelay;
     } *m_transportTaxiData;

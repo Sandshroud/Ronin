@@ -130,7 +130,7 @@ void TransportMgr::PreloadMapInstance(uint32 msTime, MapInstance *instance, uint
             continue;
 
         GameObject *gobj = new GameObject();
-        gobj->Construct(transData->transportTemplate, MAKE_NEW_GUID(transData->transportTemplate->ID, transData->transportTemplate->ID, HIGHGUID_TYPE_TRANSPORTER));
+        gobj->Construct(transData->transportTemplate, MAKE_NEW_GUID(transData->transportTemplate->ID, transData->transportTemplate->ID, HIGHGUID_TYPE_MO_TRANSPORT));
 
         // Finish loading our allocation
         gobj->Load(mapId, taxiPoint->LocX, taxiPoint->LocY, taxiPoint->LocZ);
@@ -149,7 +149,7 @@ void TransportMgr::PreloadMapInstance(uint32 msTime, MapInstance *instance, uint
 
 bool TransportMgr::RegisterTransport(GameObject *gobj, uint32 mapId, GameObject::TransportTaxiData *dataOut)
 {
-    if(gobj->GetGUID().getHigh() != HIGHGUID_TYPE_TRANSPORTER)
+    if(gobj->GetGUID().getHigh() != HIGHGUID_TYPE_MO_TRANSPORT)
         return false; // Not initialized correctly
 
     std::map<uint32, TransportData*>::iterator itr;
@@ -174,13 +174,14 @@ bool TransportMgr::RegisterTransport(GameObject *gobj, uint32 mapId, GameObject:
     // Grab our movement speed from our transport data
     dataOut->moveSpeed = itr->second->transportTemplate->data.moTransport.moveSpeed;
 
+    // Fill in teleportation points1
+    dataOut->teleportPoints.insert(itr->second->teleportationPoints.begin(), itr->second->teleportationPoints.end());
+
     // Transfer our path point
-    for(auto itr2 = itr->second->pathPointTimes[index].begin(); itr2 != itr->second->pathPointTimes[index].end(); ++itr2)
-        dataOut->m_pathTimers.insert(std::make_pair(itr2->first, itr2->second));
+    dataOut->pathTimers.insert(itr->second->pathPointTimes[index].begin(), itr->second->pathPointTimes[index].end());
 
     // Transfer our delay timers
-    for(auto itr2 = itr->second->taxiDelayTimers[index].begin(); itr2 != itr->second->taxiDelayTimers[index].end(); ++itr2)
-        dataOut->m_taxiDelayTimers.insert(std::make_pair(itr2->first, itr2->second));
+    dataOut->taxiDelayTimers.insert(itr->second->taxiDelayTimers[index].begin(), itr->second->taxiDelayTimers[index].end());
 
     // Grab our calc start time but also set our tick to match
     dataOut->transportTick = dataOut->pathStartTime = itr->second->timerStart[index];
@@ -245,16 +246,16 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
         data->mapIds[m] = path->mapData[m].mapId;
         if(path->mapData[m].m_pathData.empty())
             continue;
+        uint32 startNode = path->GetStartNode(data->mapIds[m]);
 
         std::map<size_t, double> m_speedModifierMap;
         for(size_t i = 0; i < path->mapData[m].m_pathData.size(); ++i)
         {
             m_speedModifierMap.insert(std::make_pair(i, 1.));
-            if((node = path->GetPathNode(i)) && node->delay > 5)
+            if((node = path->GetPathNode(startNode+i)) && node->delay > 5)
             {
-                // Accelerate faster than we stopped
-                m_speedModifierMap[i+2] = 1. + (0.1/(double)info->data.moTransport.accelRate);
-                m_speedModifierMap[i+1] = 1. + (0.8/(double)info->data.moTransport.accelRate);
+                m_speedModifierMap[i+2] = 1. + (0.65/(double)info->data.moTransport.accelRate);
+                m_speedModifierMap[i+1] = 1. + (1.25/(double)info->data.moTransport.accelRate);
                 m_speedModifierMap[i] = 1. + (1.4/(double)info->data.moTransport.accelRate);
                 m_speedModifierMap[i-1] = 1. + (1.25/(double)info->data.moTransport.accelRate);
                 m_speedModifierMap[i-2] = 1. + (0.65/(double)info->data.moTransport.accelRate);
@@ -265,7 +266,7 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
         uint32 totalDelayTimer = 0;
         for(size_t i = 0; i < path->mapData[m].m_pathData.size(); ++i)
         {
-            node = path->GetPathNode(i);
+            node = path->GetPathNode(startNode+i);
             ASSERT(node != NULL);
 
             // Point length is actually distance between us and our previous point!
@@ -275,6 +276,10 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
                 traversedTime[1] += (moveLength/moveSpeed)*1000.*m_speedModifierMap[i];
             }
 
+            // Teleportation flag
+            if(node->flags & 0x02)
+                data->teleportationPoints.insert(i);
+
             // Push traverse time after our updated time is added
             data->pathPointTimes[m].insert(std::make_pair(i, float2int32(traversedTime[1])));
 
@@ -282,13 +287,6 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
             {
                 data->taxiDelayTimers[m].insert(std::make_pair(float2int32(traversedTime[1]), node->delay*1000));
                 totalDelayTimer += node->delay;
-            }
-
-            // Teleportation flag
-            if(node->flags & 0x02)
-            {
-                //dataOut->m_teleportPoints.insert(i);
-                printf("");
             }
         }
 
@@ -306,8 +304,11 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
 
     m_transportDataStorage.insert(std::make_pair(info->ID, data));
 
+    if(info->ID == 164871)
+        printf("");
+
     // ID: 164871 Timer: 255895
     TransportStatus *status = new TransportStatus(info->ID);
     status->Initialize(data->mapIds[0]);
-    m_transportStatusStorage.insert(std::make_pair(WoWGuid(MAKE_NEW_GUID(info->ID, info->ID, HIGHGUID_TYPE_TRANSPORTER)), status));
+    m_transportStatusStorage.insert(std::make_pair(WoWGuid(MAKE_NEW_GUID(info->ID, info->ID, HIGHGUID_TYPE_MO_TRANSPORT)), status));
 }
