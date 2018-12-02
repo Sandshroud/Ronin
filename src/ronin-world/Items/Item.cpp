@@ -281,7 +281,7 @@ int32 Item::AddEnchantment(uint32 enchantId, uint32 Duration, bool Perm /* = fal
     int32 Slot = Slot_;
     m_isDirty = true;
 
-    uint8 invSlot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
+    int16 invSlot = m_owner ? m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() ) : -1;
 
     // Create the enchantment struct.
     EnchantmentInstance *Instance = new EnchantmentInstance();
@@ -294,7 +294,8 @@ int32 Item::AddEnchantment(uint32 enchantId, uint32 Duration, bool Perm /* = fal
     Instance->RandomSuffix = RandomSuffix;
     Instance->Dummy = dummy;
 
-    m_owner->ApplyItemMods(this, invSlot, false);
+    if(invSlot != -1)
+        m_owner->ApplyItemMods(this, invSlot, false);
 
     // Set the enchantment in the item fields.
     SetEnchantmentId(Slot, enchantId);
@@ -305,19 +306,20 @@ int32 Item::AddEnchantment(uint32 enchantId, uint32 Duration, bool Perm /* = fal
     if(m_enchantments[Slot])
         delete m_enchantments[Slot];
     m_enchantments[Slot] = Instance;
-    m_owner->ApplyItemMods(this, invSlot, true);
+
+    if(invSlot != -1)
+        m_owner->ApplyItemMods(this, invSlot, true);
 
     // No need to send the log packet, if the owner isn't in world (we're still loading)
-    if( !m_owner->IsInWorld() )
-        return Slot;
+    if( m_owner && m_owner->IsInWorld() )
+        m_owner->SaveToDB(false);
 
-    m_owner->SaveToDB(false);
     return Slot;
 }
 
 void Item::LoadEnchantment(uint8 slot, uint32 enchantId, uint32 suffix, uint32 expireTime, uint32 charges)
 {
-    uint8 invSlot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
+    //int16 invSlot = m_owner ? m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() ) : -1;
     EnchantmentInstance *Instance = new EnchantmentInstance();
     Instance->Enchantment = dbcSpellItemEnchant.LookupEntry(enchantId);
     Instance->EnchantmentId = enchantId;
@@ -346,8 +348,9 @@ void Item::RemoveEnchantment( uint32 Slot )
     if(instance == NULL)
         return;
 
-    uint8 invSlot = m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() );
-    m_owner->ApplyItemMods(this, invSlot, false);
+    int16 invSlot = m_owner ? m_owner->GetInventory()->GetInventorySlotByGuid( GetGUID() ) : -1;
+    if(invSlot != -1)
+        m_owner->ApplyItemMods(this, invSlot, false);
 
     m_isDirty = true;
 
@@ -360,7 +363,9 @@ void Item::RemoveEnchantment( uint32 Slot )
     // Remove the enchantment instance.
     m_enchantments[Slot] = NULL;
     delete instance;
-    m_owner->ApplyItemMods(this, invSlot, true);
+
+    if(invSlot != -1)
+        m_owner->ApplyItemMods(this, invSlot, true);
 }
 
 void Item::EventRemoveEnchantment( uint32 Slot )
