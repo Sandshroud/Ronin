@@ -40,10 +40,12 @@ public:
 
     void ComputeLen();
     void GetPosForTime(uint32 mapid, float &x, float &y, float &z, uint32 time);
-    RONIN_INLINE uint32 GetID() { return _Id; }
     void SendMoveForTime(Player* riding, Player* to, uint32 time, uint32 maxTime);
     void AddPathNode(uint32 index, TaxiPathNodeEntry* pn) { m_pathNodes.insert(std::make_pair(index, pn)); }
+    TaxiPath *CloneAsCatmullRom();
+
     TaxiPathNodeEntry* GetPathNode(uint32 i);
+    RONIN_INLINE uint32 GetID() { return _Id; }
     RONIN_INLINE uint32 GetPrice() { return _Price; }
     RONIN_INLINE uint32 GetSourceNode() { return _From; }
     RONIN_INLINE uint32 GetEndNode() { return _To; }
@@ -101,9 +103,10 @@ public:
 
     struct posPoint
     {
-        posPoint(float _x, float _y, float _z) : x(_x), y(_y), z(_z), length(0.f) {}
+        posPoint(float _x, float _y, float _z) : x(_x), y(_y), z(_z), length(0.f), matchedNode(0) {}
         float x, y, z;
         float length;
+        uint32 matchedNode;
     };
 
     RONIN_INLINE std::vector<posPoint> *GetPath(uint32 mapId)

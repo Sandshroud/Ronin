@@ -30,7 +30,22 @@ TransportMgr::TransportMgr() : m_transportUpdateTimer(0)
 
 TransportMgr::~TransportMgr()
 {
+    while(m_transportDataStorage.size())
+    {
+        TransportData *tData = m_transportDataStorage.begin()->second;
+        m_transportDataStorage.erase(m_transportDataStorage.begin());
+        delete tData->transportPath;
+        delete tData;
+    }
+    m_transportDataStorage.clear();
 
+    while(m_transportStatusStorage.size())
+    {
+        TransportStatus *status = m_transportStatusStorage.begin()->second;
+        m_transportStatusStorage.erase(m_transportStatusStorage.begin());
+        delete status;
+    }
+    m_transportStatusStorage.clear();
 }
 
 TransportStatus::TransportStatus(uint32 entry) : _mapId(-1), _pendingMapId(-1), transportEntry(entry)
@@ -174,9 +189,6 @@ bool TransportMgr::RegisterTransport(GameObject *gobj, uint32 mapId, GameObject:
     // Grab our movement speed from our transport data
     dataOut->moveSpeed = itr->second->transportTemplate->data.moTransport.moveSpeed;
 
-    // Fill in teleportation points1
-    dataOut->teleportPoints.insert(itr->second->teleportationPoints.begin(), itr->second->teleportationPoints.end());
-
     // Transfer our path point
     dataOut->pathTimers.insert(itr->second->pathPointTimes[index].begin(), itr->second->pathPointTimes[index].end());
 
@@ -229,61 +241,195 @@ void TransportMgr::ClearPlayerData(Player *plr)
 
 }
 
-void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
+void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *inputPath)
 {
     TransportData *data = new TransportData();
     data->transportTemplate = info;
-    data->transportPath = path;
+    // Grab a catmull rom path clone from our source
+    data->transportPath = inputPath->CloneAsCatmullRom();
     data->timerStart[0] = data->timerStart[1] = 0;
 
+    TaxiPath *ourPath = data->transportPath;
     // Use double precision to calculate traversal time between points
     double traversedTime[2] = { 0., 0. };
-    double moveSpeed = info->data.moTransport.moveSpeed;
+    double moveSpeed = info->data.moTransport.moveSpeed, accelerate = info->data.moTransport.accelRate;
+    // Find our acceleration distance
+    float currDecelSpeed = moveSpeed, decelerateDistance = 0.f, currAccSpeed = accelerate, accelerateDistance = 0.f;
+    while(true)
+    {
+        bool processed = true;
+        if(currDecelSpeed > 0.f)
+        {
+            processed = false;
+            // We've traveled this distance
+            decelerateDistance += currDecelSpeed;
+            // We've decelerated this much over that difference
+            if(currDecelSpeed >= accelerate)
+                currDecelSpeed -= accelerate;
+            else // We actually hit our stop point somewhere while decelerating
+            {
+                // Remove our decelerate speed
+                decelerateDistance -= currDecelSpeed;
+                // Temp: Just add our accelerate distance, it'll be close enough
+                decelerateDistance += accelerate;
+                // We're done decelerating
+                currDecelSpeed = 0.f;
+            }
+        }
+
+        if(currAccSpeed < moveSpeed)
+        {
+            processed = false;
+            // We've traveled this distance
+            accelerateDistance += currAccSpeed;
+            // We've accelerated this much over that difference
+            if(currAccSpeed+accelerate <= moveSpeed)
+                currAccSpeed += accelerate;
+            else // We actually hit our stop point somewhere while decelerating
+            {
+                // Remove our decelerate speed
+                accelerateDistance -= currAccSpeed;
+                // Temp: Just add our accelerate distance, it'll be close enough
+                accelerateDistance += (moveSpeed * ((moveSpeed-currAccSpeed)/accelerate));
+                // We're done decelerating
+                currAccSpeed = moveSpeed;
+            }
+        }
+
+        if(processed)
+            break;
+    }
+
     TaxiPathNodeEntry *node = NULL;
     for(uint8 m = 0; m < 2; ++m)
     {
         data->pathTravelTime[m] = 0;
-        data->mapIds[m] = path->mapData[m].mapId;
-        if(path->mapData[m].m_pathData.empty())
+        data->mapIds[m] = ourPath->mapData[m].mapId;
+        if(ourPath->mapData[m].m_pathData.empty())
             continue;
-        uint32 startNode = path->GetStartNode(data->mapIds[m]);
 
-        std::map<size_t, double> m_speedModifierMap;
-        for(size_t i = 0; i < path->mapData[m].m_pathData.size(); ++i)
+        std::set<size_t> delayPoints;
+        std::map<size_t, double> pointSpeedMap;
+        for(size_t i = 0; i < ourPath->mapData[m].m_pathData.size(); ++i)
         {
-            m_speedModifierMap.insert(std::make_pair(i, 1.));
-            if((node = path->GetPathNode(startNode+i)) && node->delay > 5)
-            {
-                m_speedModifierMap[i+2] = 1. + (0.65/(double)info->data.moTransport.accelRate);
-                m_speedModifierMap[i+1] = 1. + (1.25/(double)info->data.moTransport.accelRate);
-                m_speedModifierMap[i] = 1. + (1.4/(double)info->data.moTransport.accelRate);
-                m_speedModifierMap[i-1] = 1. + (1.25/(double)info->data.moTransport.accelRate);
-                m_speedModifierMap[i-2] = 1. + (0.65/(double)info->data.moTransport.accelRate);
-            }
+            // Point length is actually distance between us and our previous point!
+            if(double moveLength = ourPath->mapData[m].m_pathData[i].length)
+                pointSpeedMap.insert(std::make_pair(i, (moveLength/moveSpeed)*1000.));
+            if((node = ourPath->GetPathNode(ourPath->mapData[m].m_pathData[i].matchedNode)) && node->delay > 5)
+                delayPoints.insert(i);
         }
 
-        traversedTime[1] = 0;
-        uint32 totalDelayTimer = 0;
-        for(size_t i = 0; i < path->mapData[m].m_pathData.size(); ++i)
+        for(auto itr = delayPoints.begin(); itr != delayPoints.end(); ++itr)
         {
-            node = path->GetPathNode(startNode+i);
-            ASSERT(node != NULL);
-
-            // Point length is actually distance between us and our previous point!
-            if(double moveLength = path->mapData[m].m_pathData[i].length)
+            size_t index = *itr, index2 = 0;
+            std::map<size_t, float> pointsToDecelerate, pointsToAccelerate;
+            float distance = ourPath->mapData[m].m_pathData[index].length;
+            pointsToDecelerate.insert(std::make_pair(index, std::min(decelerateDistance, distance)));
+            while(distance < decelerateDistance)
             {
-                traversedTime[0] += (moveLength/moveSpeed)*1000.*m_speedModifierMap[i];
-                traversedTime[1] += (moveLength/moveSpeed)*1000.*m_speedModifierMap[i];
+                ++index2;
+                if(index2 == index)
+                    break;
+                TaxiPath::posPoint *currPoint = &ourPath->mapData[m].m_pathData[index-index2];
+                if(currPoint->length == 0.f)
+                    break;
+
+                distance += currPoint->length;
+                pointsToDecelerate.insert(std::make_pair(index-index2, std::min(decelerateDistance, std::min((currPoint->length+(decelerateDistance-distance)), currPoint->length))));
             }
 
-            // Teleportation flag
-            if(node->flags & 0x02)
-                data->teleportationPoints.insert(i);
+            index2 = 0;
+            distance = 0.f;
+            while(distance < accelerateDistance)
+            {
+                ++index2;
+                if(index+index2 == (ourPath->mapData[m].m_pathData.size()))
+                    break;
+                TaxiPath::posPoint *currPoint = &ourPath->mapData[m].m_pathData[index+index2];
+                if(currPoint->length == 0.f)
+                    break;
+
+                distance += currPoint->length;
+                pointsToAccelerate.insert(std::make_pair(index+index2, std::min(accelerateDistance, std::min((currPoint->length+(accelerateDistance-distance)), currPoint->length))));
+            }
+            index2 = 0;
+
+            // We've already started decelerating
+            double currMoveSpeed = moveSpeed, totalMoved = 0.;
+            for(auto itr = pointsToDecelerate.begin(); itr != pointsToDecelerate.end(); ++itr)
+            {
+                double movedTime = 0., neededMove = (currMoveSpeed-totalMoved);
+                totalMoved += itr->second;
+                while(totalMoved > currMoveSpeed)
+                {
+                    totalMoved -= currMoveSpeed;
+                    // Our movetime is 1 second times how much distance we moved over our speed at the time
+                    movedTime += (1000. * (neededMove/currMoveSpeed));
+                    // Tick our decelerate
+                    currMoveSpeed -= accelerate;
+                    if(currMoveSpeed < accelerate)
+                        currMoveSpeed = accelerate;
+                    // Change needed movement speed to match new movement speed
+                    neededMove = currMoveSpeed;
+                }
+
+                movedTime += (1000.*(std::min<float>(totalMoved, itr->second)/currMoveSpeed));
+
+                // Check if we can just set our move time to match our new calculated move time
+                if(ourPath->mapData[m].m_pathData[itr->first].length == itr->second)
+                    pointSpeedMap[itr->first] = movedTime;
+                else // We only used a certain amount of length, so just modify the existing value
+                {
+                    // Remove the move time of the distance we've calculated
+                    pointSpeedMap[itr->first] -= ((itr->second/moveSpeed)*1000.);
+                    pointSpeedMap[itr->first] += movedTime;
+                }
+            }
+
+            /*// Start at our acceleration speed
+            currMoveSpeed = accelerate; totalMoved = 0.;
+            for(auto itr = pointsToAccelerate.begin(); itr != pointsToAccelerate.end(); ++itr)
+            {
+                double movedTime = 0., neededMove = (currMoveSpeed-totalMoved);
+                totalMoved += itr->second;
+                while(totalMoved > currMoveSpeed)
+                {
+                    totalMoved -= currMoveSpeed;
+                    // Our movetime is 1 second times how much distance we moved over our speed at the time
+                    movedTime += (1000. * (neededMove/currMoveSpeed));
+                    currMoveSpeed += accelerate;
+                    if(currMoveSpeed > moveSpeed)
+                        currMoveSpeed = moveSpeed;
+                    // Change needed movement speed to match new movement speed
+                    neededMove = currMoveSpeed;
+                }
+
+                movedTime += float2int32(1000.*(std::min<float>(totalMoved, itr->second)/currMoveSpeed));
+
+                // Check if we can just set our move time to match our new calculated move time
+                if(ourPath->mapData[m].m_pathData[itr->first].length == itr->second)
+                    pointSpeedMap[itr->first] = movedTime;
+                else // We only used a certain amount of length, so just modify the existing value
+                {
+                    // Remove the move time of the distance we've calculated
+                    pointSpeedMap[itr->first] -= ((itr->second/moveSpeed)*1000.);
+                    pointSpeedMap[itr->first] += movedTime;
+                }
+                printf("");
+            }*/
+        }
+
+        uint32 totalDelayTimer = 0;
+        for(size_t i = 0; i < ourPath->mapData[m].m_pathData.size(); ++i)
+        {
+            // Point length is actually distance between us and our previous point!
+            traversedTime[0] += pointSpeedMap[i];
+            traversedTime[1] += pointSpeedMap[i];
 
             // Push traverse time after our updated time is added
             data->pathPointTimes[m].insert(std::make_pair(i, float2int32(traversedTime[1])));
 
-            if(node->delay > 5)
+            if(delayPoints.find(i) != delayPoints.end() && (node = ourPath->GetPathNode(ourPath->mapData[m].m_pathData[i].matchedNode)))
             {
                 data->taxiDelayTimers[m].insert(std::make_pair(float2int32(traversedTime[1]), node->delay*1000));
                 totalDelayTimer += node->delay;
@@ -295,7 +441,7 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
         // Add our total delay timer to our overall time for this map
         traversedTime[0] += (totalDelayTimer*1000);
 
-        if(m == 0 && path->mapData[1].m_pathData.size()) // We need our start time for path 2 to be the timer for our last path end
+        if(m == 0 && ourPath->mapData[1].m_pathData.size()) // We need our start time for path 2 to be the timer for our last path end
             data->timerStart[1] = data->pathTravelTime[m] + (totalDelayTimer*1000);
     }
 
@@ -303,9 +449,6 @@ void TransportMgr::_CreateTransportData(GameObjectInfo *info, TaxiPath *path)
     data->calculatedPathTimer = traversedTime[0];
 
     m_transportDataStorage.insert(std::make_pair(info->ID, data));
-
-    if(info->ID == 164871)
-        printf("");
 
     // ID: 164871 Timer: 255895
     TransportStatus *status = new TransportStatus(info->ID);

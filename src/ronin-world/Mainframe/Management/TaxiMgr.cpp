@@ -27,35 +27,6 @@ initialiseSingleton( TaxiMgr );
  *     TaxiPath    *
  ************************/
 
-TaxiPath::posPoint interpolatedPosition( TaxiPath::posPoint P0, TaxiPath::posPoint P1, TaxiPath::posPoint P2, TaxiPath::posPoint P3, uint8 u ) //Catmull-Rom interpolation
-{
-    static double pathPoints[5] = { 0.1f, 0.25f, 0.5f, 0.75f, 0.9f };
-    double u3 = pathPoints[u] * pathPoints[u] * pathPoints[u], u2 = pathPoints[u] * pathPoints[u];
-    double f1 = -0.5 * u3 + u2 - 0.5 * pathPoints[u];
-    double f2 =  1.5 * u3 - 2.5 * u2 + 1.0;
-    double f3 = -1.5 * u3 + 2.0 * u2 + 0.5 * pathPoints[u];
-    double f4 =  0.5 * u3 - 0.5 * u2;
-    return TaxiPath::posPoint(P0.x * f1 + P1.x * f2 + P2.x * f3 + P3.x * f4, P0.y * f1 + P1.y * f2 + P2.y * f3 + P3.y * f4, P1.z+(u*((P2.z-P1.z)/5)));
-}
-
-void savePathCatmullRom( std::vector<TaxiPath::posPoint> *path, std::vector<TaxiPath::posPoint> *pathOut ) //main function to calculate the Path
-{
-    if ( path == NULL || path->empty() )
-        return;
-
-    int32 length = path->size();
-    for ( int32 i = 0; i < length-1; i++ )
-    {
-        pathOut->push_back(path->at(i));
-        for(uint8 u = 0; u < 5; u++)
-        {
-            int32 i0 = std::max(0, i-1), i1 = i, i2 = std::min(i+1, length-1), i3 = std::min(i+2, length-1);
-            TaxiPath::posPoint vec = interpolatedPosition((*path)[i0], (*path)[i1], (*path)[i2], (*path)[i3], u);
-            pathOut->push_back(vec);   //store each value
-        }
-    }
-}
-
 float TaxiPath::dist(posPoint a, posPoint b)
 {
     float delta_x = fabs(a.x - b.x), delta_y = fabs(a.y - b.y), delta_z = fabs(a.z - b.z);
@@ -88,7 +59,9 @@ void TaxiPath::ComputeLen()
         return;
 
     uint8 index = 0;
+    uint32 lastFlags = itr->second->flags;
     posPoint lastPos(itr->second->LocX, itr->second->LocY, itr->second->LocZ);
+    lastPos.matchedNode = itr->second->NodeIndex;
     mapData[index].m_pathData.push_back(lastPos);
     mapData[index].mapId = itr->second->ContinentID;
     mapData[index].startNode = itr->second->NodeIndex;
@@ -97,7 +70,8 @@ void TaxiPath::ComputeLen()
     for(; itr != m_pathNodes.end(); itr++)
     {
         TaxiPathNodeEntry *nodeEntry = itr->second;
-        if(mapData[index].mapId != nodeEntry->ContinentID)
+        // We're changing maps or our last node was a teleport
+        if(mapData[index].mapId != nodeEntry->ContinentID || lastFlags & 0x01)
         {
             // only support 2 map changes
             if(index == 1)
@@ -110,15 +84,19 @@ void TaxiPath::ComputeLen()
             mapStartY = nodeEntry->LocY;
             mapStartZ = nodeEntry->LocZ;
             posPoint pos(nodeEntry->LocX, nodeEntry->LocY, nodeEntry->LocZ);
+            pos.matchedNode = nodeEntry->NodeIndex;
             mapData[index].m_pathData.push_back(pos);
+            lastFlags = nodeEntry->flags;
             lastPos = pos;
             continue;
         }
 
         posPoint pos(nodeEntry->LocX, nodeEntry->LocY, nodeEntry->LocZ);
         pos.length = dist(pos, lastPos);
+        pos.matchedNode = nodeEntry->NodeIndex;
         mapData[index].m_pathData.push_back(pos);
         mapData[index].length += pos.length;
+        lastFlags = nodeEntry->flags;
         lastPos = pos;
     }
 
@@ -154,6 +132,66 @@ void TaxiPath::GetPosForTime(uint32 mapid, float &x, float &y, float &z, uint32 
             z -= ((z-next.z)*p);
         }
     }
+}
+
+TaxiPath::posPoint interpolatedPosition( TaxiPath::posPoint P0, TaxiPath::posPoint P1, TaxiPath::posPoint P2, TaxiPath::posPoint P3, uint8 u ) //Catmull-Rom interpolation
+{
+    static double pathPoints[5] = { 0.1f, 0.25f, 0.5f, 0.75f, 0.9f };
+    double u3 = pathPoints[u] * pathPoints[u] * pathPoints[u], u2 = pathPoints[u] * pathPoints[u];
+    double f1 = -0.5 * u3 + u2 - 0.5 * pathPoints[u];
+    double f2 =  1.5 * u3 - 2.5 * u2 + 1.0;
+    double f3 = -1.5 * u3 + 2.0 * u2 + 0.5 * pathPoints[u];
+    double f4 =  0.5 * u3 - 0.5 * u2;
+    return TaxiPath::posPoint(P0.x * f1 + P1.x * f2 + P2.x * f3 + P3.x * f4, P0.y * f1 + P1.y * f2 + P2.y * f3 + P3.y * f4, P1.z+(u*((P2.z-P1.z)/5)));
+}
+
+TaxiPath *TaxiPath::CloneAsCatmullRom()
+{
+    TaxiPath *newPath = new TaxiPath(_Id, _To, _From, _Price);
+    newPath->endX = endX;
+    newPath->endY = endY;
+    newPath->endZ = endZ;
+    newPath->mapStartX = mapStartX;
+    newPath->mapStartY = mapStartY;
+    newPath->mapStartZ = mapStartZ;
+    newPath->m_pathNodes.insert(m_pathNodes.begin(), m_pathNodes.end());
+
+    size_t index = 0;
+    for(uint8 m = 0; m < 2; ++m)
+    {
+        newPath->mapData[m].mapId = mapData[m].mapId;
+        newPath->mapData[m].startNode = mapData[m].startNode;
+        if(mapData[m].m_pathData.empty())
+            continue;
+
+        TaxiPathNodeEntry *startNode = GetPathNode(mapData[m].startNode);
+        posPoint lastPos(startNode->LocX, startNode->LocY, startNode->LocZ);
+        int32 length = mapData[m].m_pathData.size();
+        for ( int32 i = 0; i < length-1; i++ )
+        {
+            ++index;
+            TaxiPath::posPoint point(mapData[m].m_pathData.at(i));
+            point.length = dist(lastPos, point);
+            point.matchedNode = mapData[m].startNode+i;
+            newPath->mapData[m].m_pathData.push_back(point);
+            lastPos = point;
+
+            for(uint8 u = 0; u < 5; u++)
+            {
+                int32 i0 = std::max(0, i-1), i1 = i, i2 = std::min(i+1, length-1), i3 = std::min(i+2, length-1);
+                TaxiPath::posPoint vec = interpolatedPosition(mapData[m].m_pathData[i0], mapData[m].m_pathData[i1], mapData[m].m_pathData[i2], mapData[m].m_pathData[i3], u);
+                vec.length = dist(lastPos, vec);
+                newPath->mapData[m].m_pathData.push_back(vec);   //store each value
+                lastPos = vec;
+            }
+        }
+
+        TaxiPath::posPoint lastPoint(mapData[m].m_pathData.at(length-1));
+        lastPoint.length = dist(lastPos, lastPoint);
+        lastPoint.matchedNode = mapData[m].startNode+(length-1);
+        newPath->mapData[m].m_pathData.push_back(lastPoint);
+    }
+    return newPath;
 }
 
 TaxiPathNodeEntry* TaxiPath::GetPathNode(uint32 i)

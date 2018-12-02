@@ -818,7 +818,6 @@ protected:
         bool changesMaps;
         uint32 pathStartTime, pathTravelTime, calculatedPathTimer;
 
-        std::set<uint32> teleportPoints;
         std::map<size_t, uint32> pathTimers;
         TaxiPath::MapPointStorage *movementPath;
 
