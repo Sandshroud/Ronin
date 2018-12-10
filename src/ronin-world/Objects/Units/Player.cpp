@@ -1026,9 +1026,17 @@ void Player::UpdateCombatRating(uint8 combatRating, float value)
         SetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE, value);
         break;
     case 10:
-        for(uint8 i = 0; i < 7; i++)
-            SetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE+i, value);
-        break;
+        {
+            float baseValue = 0.f;
+            uint8 level = std::min<uint8>(MAXIMUM_ATTAINABLE_LEVEL, getLevel());
+            gtFloat *critBase = dbcSpellCritBase.LookupEntry(getClass() - 1), *critRatio = dbcSpellCrit.LookupEntry((getClass() - 1) * MAXIMUM_ATTAINABLE_LEVEL + level - 1);
+            if(critBase && critRatio && GetMaxPowerFieldForType(POWER_TYPE_MANA))
+                baseValue += (critBase->val + (GetStat(STAT_INTELLECT) * critRatio->val))* 100.f;
+
+            baseValue += value;
+            for(uint8 i = 0; i < 7; i++)
+                SetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE+i, baseValue);
+        }break;
     case 17:
         SetFloatValue(PLAYER_FIELD_MOD_HASTE, value);
         m_AuraInterface.UpdateAuraModsWithModType(SPELL_AURA_MOD_CD_FROM_HASTE);
@@ -1137,9 +1145,6 @@ void Player::UpdatePlayerRatings()
             playerRatingCallback.resetVal();
         // Mastery requires the aura before the rating can come into effect, so nullify it here
         if(index == PLAYER_RATING_MODIFIER_MASTERY && !m_AuraInterface.HasAurasWithModType(SPELL_AURA_MASTERY))
-            playerRatingCallback.resetVal();
-        // Parry requires that we have the ability to parry, weirdly enough
-        if(index == PLAYER_RATING_MODIFIER_PARRY && !HasSpellWithEffect(SPELL_EFFECT_PARRY))
             playerRatingCallback.resetVal();
         // Apply rating diminishing returns for points above specific percentage steps
         int32 val = ApplyRatingDiminishingReturn(cr, playerRatingCallback.getRetVal());
