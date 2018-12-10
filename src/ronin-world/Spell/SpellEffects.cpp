@@ -492,7 +492,18 @@ void SpellEffectClass::SpellEffectBind(uint32 i, WorldObject *target, int32 amou
 {
     if(!target->IsPlayer())
         return;
-    castPtr<Player>(target)->SetBindPoint(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetMapId(), target->GetZoneId());
+    Player *plrTarget = castPtr<Player>(target);
+
+    plrTarget->SetBindPoint(target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), target->GetMapId(), target->GetZoneId());
+
+    WorldPacket data(SMSG_BINDPOINTUPDATE, 16);
+    data << plrTarget->GetBindPositionX() << plrTarget->GetBindPositionY() << plrTarget->GetBindPositionZ() << plrTarget->GetBindMapId() << plrTarget->GetBindZoneId();
+    plrTarget->PushPacket( &data );
+
+    data.Initialize(SMSG_PLAYERBOUND);
+    data << m_casterGuid << plrTarget->GetBindZoneId();
+    plrTarget->PushPacket(&data);
+
 }
 
 void SpellEffectClass::SpellEffectQuestComplete(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Quest Complete

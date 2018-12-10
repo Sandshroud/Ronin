@@ -107,6 +107,12 @@ uint8 SpellTargetClass::_DidHit(Unit* target, float *resistOut, uint8 *reflectou
     }
 
     /************************************************************************/
+    /* Check if the spell is a triggered event spell                        */
+    /************************************************************************/
+    if(m_triggeredSpell && !m_spellInfo->isSpellDamagingEffect())
+        return SPELL_DID_HIT_SUCCESS;
+
+    /************************************************************************/
     /* Check if the spell is a melee attack and if it was missed/parried    */
     /************************************************************************/
     uint32 meleeResult = 0;
@@ -384,7 +390,7 @@ bool SpellTargetClass::AddTarget(uint32 i, uint32 TargetType, WorldObject* obj)
     if(obj->IsItem() && !(TargetType & SPELL_TARGET_REQUIRE_ITEM) && !m_triggeredSpell)
         return false;
 
-    if(_unitCaster->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IGNORE_PC) && (obj->IsPlayer() || _unitCaster->IsPlayer()))
+    if(_unitCaster->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IGNORE_PC) && (obj->IsPlayer() || _unitCaster->IsPlayer()) && !m_triggeredSpell)
         return false;
 
     if(TargetType & SPELL_TARGET_REQUIRE_FRIENDLY && !sFactionSystem.isFriendly(_unitCaster, obj))

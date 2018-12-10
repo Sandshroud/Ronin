@@ -1155,18 +1155,19 @@ void Player::UpdatePlayerRatings()
 
 void Player::UpdatePlayerDamageDoneMods()
 {
-    uint32 itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER), spellPowerOverride = itemBonus;
+    uint32 statBonus = 0, itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER), spellPowerOverride = itemBonus;
     if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))
         spellPowerOverride = float2int32((((float)CalculateAttackPower())*m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))/100.f);
-
+    if(GetMaxPowerFieldForType(POWER_TYPE_MANA) != UNIT_END)
+        statBonus += std::max<int32>(0, ((int32)GetStat(STAT_INTELLECT)) - 10);
     int32 negative = 0;
     for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
     {
-        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, itemBonus+GetDamageDoneMod(school, true, &negative)));
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, statBonus+itemBonus+GetDamageDoneMod(school, true, &negative)));
         SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school, negative);
     }
 
-    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, itemBonus+GetHealingDoneMod(true, &negative)));
+    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, statBonus+itemBonus+GetHealingDoneMod(true, &negative)));
     SetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT, GetHealingDonePctMod(true));
 }
 

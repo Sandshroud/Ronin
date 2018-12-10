@@ -826,7 +826,7 @@ void ObjectMgr::LoadTrainers()
 {
     mTrainerData.clear();
     std::set<uint32> handledEntries;
-    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM creature_trainerdata "))
+    if(QueryResult *result = WorldDatabase.Query("SELECT entry, category, subcategory, trainerstep, reqskill, reqkillvalue, trainertitle FROM creature_trainerdata "))
     {
         do
         {
@@ -836,9 +836,10 @@ void ObjectMgr::LoadTrainers()
             TrainerData &data = mTrainerData[entry];
             data.category = fields[1].GetUInt8();
             data.subCategory = fields[2].GetUInt8();
-            data.reqSkill = fields[3].GetUInt32();
-            data.reqSkillValue = fields[4].GetUInt32();
-            data.trainerTitle = fields[5].GetString();
+            data.step = fields[3].GetUInt8();
+            data.reqSkill = fields[4].GetUInt32();
+            data.reqSkillValue = fields[5].GetUInt32();
+            data.trainerTitle = fields[6].GetString();
             handledEntries.insert(entry);
         }while( result->NextRow() );
         delete result;

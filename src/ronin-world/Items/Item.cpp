@@ -368,43 +368,9 @@ void Item::RemoveEnchantment( uint32 Slot )
         m_owner->ApplyItemMods(this, invSlot, true);
 }
 
-void Item::EventRemoveEnchantment( uint32 Slot )
-{
-    // Remove the enchantment.
-    RemoveEnchantment( Slot );
-}
-
-int32 Item::FindFreeEnchantSlot( SpellItemEnchantEntry* Enchantment, uint32 random_type )
-{
-    uint32 GemSlotsReserve = 3;
-    if( GetProto()->SocketBonus )
-        GemSlotsReserve++;
-
-    if( random_type == 1 )      // random prop
-    {
-        for( uint32 Slot = 8; Slot < 11; ++Slot )
-            if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_DATA + Slot * 3] == 0 )
-                return Slot;
-    }
-    else if( random_type == 2 ) // random suffix
-    {
-        for( uint32 Slot = 6; Slot < 11; ++Slot )
-            if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_DATA + Slot * 3] == 0 )
-                return Slot;
-    }
-
-    for( uint32 Slot = GemSlotsReserve + 2; Slot < 11; Slot++ )
-    {
-        if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_DATA + Slot * 3] == 0 )
-            return Slot;
-    }
-
-    return -1;
-}
-
 int32 Item::HasEnchantment( uint32 Id )
 {
-    for( uint32 Slot = 0; Slot < 11; Slot++ )
+    for( uint32 Slot = 0; Slot < MAX_ENCHANTMENT_SLOT; Slot++ )
     {
         if( m_uint32Values[ITEM_FIELD_ENCHANTMENT_DATA + Slot * 3] == Id )
             return Slot;

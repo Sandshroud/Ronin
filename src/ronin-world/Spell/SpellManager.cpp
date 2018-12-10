@@ -672,7 +672,7 @@ std::map<uint8, uint32> Spell::m_implicitTargetFlags;
 
 void SpellManager::SetupSpellTargets()
 {
-    Spell::m_implicitTargetFlags.insert(std::make_pair(0, (SPELL_TARGET_REQUIRE_ITEM | SPELL_TARGET_REQUIRE_GAMEOBJECT)));
+    Spell::m_implicitTargetFlags.insert(std::make_pair(0, SPELL_TARGET_USE_INFO));
     Spell::m_implicitTargetFlags.insert(std::make_pair(1, SPELL_TARGET_OBJECT_SELF));
     Spell::m_implicitTargetFlags.insert(std::make_pair(3, SPELL_TARGET_REQUIRE_FRIENDLY));
     Spell::m_implicitTargetFlags.insert(std::make_pair(4, (SPELL_TARGET_AREA_SELF | SPELL_TARGET_REQUIRE_FRIENDLY)));

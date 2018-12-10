@@ -356,19 +356,17 @@ void WorldSession::HandleBinderActivateOpcode( WorldPacket & recv_data )
     uint64 guid;
     recv_data >> guid;
 
-    Creature* pC = _player->GetMapInstance()->GetCreature(guid);
-    if(!pC)
-        return;
-
-    SendInnkeeperBind(pC);
-    _player->bHasBindDialogOpen = false;
+    if(Creature* pC = _player->GetMapInstance()->GetCreature(guid))
+    {
+        SendInnkeeperBind(pC);
+        _player->bHasBindDialogOpen = false;
+    }
 }
 
 void WorldSession::SendInnkeeperBind(Creature* pCreature)
 {
     CHECK_INWORLD_RETURN();
-    WorldPacket data(SMSG_GOSSIP_COMPLETE, 0);
-    SendPacket(&data);
+    OutPacket(SMSG_GOSSIP_COMPLETE);
 
     static SpellEntry *updateBind = dbcSpell.LookupEntry(3286);
     if(updateBind == NULL)
@@ -376,7 +374,7 @@ void WorldSession::SendInnkeeperBind(Creature* pCreature)
 
     if(!_player->bHasBindDialogOpen)
     {
-        data.Initialize(SMSG_BINDER_CONFIRM);
+        WorldPacket data(SMSG_BINDER_CONFIRM, 12);
         data << pCreature->GetGUID() << pCreature->GetZoneId();
         SendPacket(&data);
 
@@ -386,12 +384,9 @@ void WorldSession::SendInnkeeperBind(Creature* pCreature)
 
     pCreature->GetSpellInterface()->TriggerSpell(updateBind, _player);
 
-    data.Initialize(SMSG_BINDPOINTUPDATE);
-    data << _player->GetBindPositionX() << _player->GetBindPositionY() << _player->GetBindPositionZ() << _player->GetBindMapId() << _player->GetBindZoneId();
-    SendPacket( &data );
-
-    data.Initialize(SMSG_PLAYERBOUND);
-    data << pCreature->GetGUID() << _player->GetBindZoneId();
+    // Send a surrogate packet
+    WorldPacket data(SMSG_TRAINER_BUY_SUCCEEDED, 12);
+    data << pCreature->GetGUID() << updateBind->Id;
     SendPacket(&data);
 }
 

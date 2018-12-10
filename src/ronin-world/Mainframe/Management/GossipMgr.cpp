@@ -96,6 +96,7 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
         //plr->GetSession()->SendBattlegGroundList(guid, bgTypeId);
         break;
     case GOSSIP_OPT_INNKEEPER:
+        plr->GetSession()->SendInnkeeperBind(ctrObj);
         break;
     case GOSSIP_OPT_TRAINER:
         {

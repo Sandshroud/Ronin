@@ -54,6 +54,7 @@ struct TrainerData
 {
     uint8 category;
     uint8 subCategory;
+    uint8 step;
     uint32 reqSkill;
     uint32 reqSkillValue;
     std::string trainerTitle;

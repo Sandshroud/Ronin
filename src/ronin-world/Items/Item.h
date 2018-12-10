@@ -204,17 +204,11 @@ public:
     //! Removes all enchantment bonuses (use on dequip)
     void RemoveEnchantmentBonuses();
 
-    //! Event to remove an enchantment.
-    void EventRemoveEnchantment( uint32 Slot );
-
     //! Check if we have an enchantment of this id?
     int32 HasEnchantment( uint32 Id );
 
     //! Modify the time of an existing enchantment.
     void ModifyEnchantmentTime( uint32 Slot, uint32 Duration );
-
-    //! Find free enchantment slot.
-    int32 FindFreeEnchantSlot( SpellItemEnchantEntry* Enchantment, uint32 random_type );
 
     //! Removes all enchantments.
     void RemoveAllEnchantments( bool OnlyTemporary );

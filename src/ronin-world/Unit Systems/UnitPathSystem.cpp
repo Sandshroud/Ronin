@@ -376,10 +376,15 @@ void UnitPathSystem::OnSpeedChange(MovementSpeedTypes speedType)
     // If we have no path data but are broadcasting, check validity of last update point
     if(lastUpdatePoint.pos.x == fInfinite || lastUpdatePoint.pos.y == fInfinite)
         startPoint = *m_Unit->GetPositionV();
+    lastUpdatePoint.timeStamp = timeWalked;
+    lastUpdatePoint.pos.x = startPoint.x;
+    lastUpdatePoint.pos.y = startPoint.y;
+    lastUpdatePoint.pos.z = startPoint.z;
 
     uint32 oldPathLength = m_pathLength-timeWalked;
     float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->CalcDistanceSq(startPoint.x, startPoint.y, startPoint.z, _currDestX, _currDestY, _currDestZ));
     m_pathLength = (dist/speed)*1000.f;
+    float timeRatio = ((float(m_pathLength))/((float)oldPathLength));
 
     m_lastMSTimeUpdate = m_pathStartTime = msTimer;
     for(size_t i = 0, t = 0; i < m_movementPoints.size(); ++i)
@@ -390,7 +395,7 @@ void UnitPathSystem::OnSpeedChange(MovementSpeedTypes speedType)
             continue;
         }
 
-        m_movementPoints.at(i)->timeStamp = (((float)(++t))*500.f * ((float(m_pathLength))/((float)oldPathLength)));
+        m_movementPoints.at(i)->timeStamp = float2int32(((float)(++t))*500.f * timeRatio);
     }
 
     BroadcastMovementPacket();

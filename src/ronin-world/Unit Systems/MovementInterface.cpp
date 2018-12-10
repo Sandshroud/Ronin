@@ -523,7 +523,6 @@ void MovementInterface::SetMoveSpeed(MovementSpeedTypes speedType, float speed)
         WorldPacket data(movementSpeedToOpcode[speedType][1], 50);
         WriteFromServer(movementSpeedToOpcode[speedType][1], &data, m_Unit->GetGUID(), speed);
         castPtr<Player>(m_Unit)->PushPacket(&data);
-        m_path.OnSpeedChange(speedType);
     }
     else
     {
