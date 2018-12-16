@@ -427,7 +427,7 @@ uint32 Creature::GetRequiredLootSkill()
     else if(GetCreatureData()->flags & CREATURE_FLAGS1_MININGLOOT)
         return SKILL_MINING;        // mining
     else if(GetCreatureData()->flags & CREATURE_FLAGS1_ENGINEERLOOT)
-        return SKILL_ENGINERING;
+        return SKILL_ENGINEERING;
     return SKILL_SKINNING;      // skinning
 }
 
@@ -623,6 +623,13 @@ void Creature::BuildTrainerData(WorldPacket *data, Player *plr)
         size_t dataPos = data->wpos();
         uint32 count = 0;
         *data << uint32(count);
+
+        uint32 canTeachSkill = 0xFFFF;
+        if(m_trainerData->category == TRAINER_CATEGORY_TRADESKILLS && m_trainerData->step)
+            canTeachSkill = m_trainerData->step * 75;
+
+        //TODO
+        bool canLearnProfession = true;
         if(ObjectMgr::TrainerSpellMap *trainerSpells = objmgr.GetTrainerSpells(m_trainerData->category, m_trainerData->subCategory))
         {
             for(ObjectMgr::TrainerSpellMap::iterator itr = trainerSpells->begin(); itr != trainerSpells->end(); itr++)
@@ -630,6 +637,8 @@ void Creature::BuildTrainerData(WorldPacket *data, Player *plr)
                 TrainerSpell spell = itr->second;
                 // Creatures below 10 can only teach spells at or below their level
                 if(getLevel() < 10 && spell.requiredLevel > getLevel())
+                    continue;
+                if(canTeachSkill != 0xFFFF && spell.reqSkillValue > canTeachSkill)
                     continue;
 
                 *data << uint32(spell.entry->Id);
@@ -642,13 +651,16 @@ void Creature::BuildTrainerData(WorldPacket *data, Player *plr)
                 *data << uint32(0);
                 *data << uint32(0);
                 // Profession
-                *data << uint32(0);
-                *data << uint32(0);
+                *data << uint32(false ? true && canLearnProfession : 0);
+                *data << uint32(false ? true : 0);
                 count++;
             }
         }
         data->put<uint32>(dataPos, count);
-        *data << m_trainerData->trainerTitle;
+
+        std::string trainerTitle = m_trainerData->trainerType;
+        trainerTitle.append(" Trainer");
+        *data << trainerTitle;
     } else *data << uint32(0) << uint8(0);
 }
 
@@ -880,7 +892,7 @@ void Creature::SendInventoryList(Player *plr)
             bitFlags.push_back(true);
 
             dataBuff << item->proto->ItemId << uint32(1);
-            dataBuff << uint32(sItemMgr.CalculateBuyPrice(item->proto->ItemId, 1, plr, this, extended));
+            dataBuff << uint32(sItemMgr.CalculateBuyPrice(item->proto->ItemId, item->proto->BuyCount, plr, this, extended));
             dataBuff << uint32(item->proto->DisplayInfoID) << availableAmount;
             dataBuff << uint32(item->proto->BuyCount);
             plr->AddVendorIndex(counter, slot);
@@ -984,7 +996,7 @@ void Creature::Load(uint32 mapId, float x, float y, float z, float o, uint32 mod
     if(CreatureDisplayInfoEntry *displayEntry = dbcCreatureDisplayInfo.LookupEntry(model))
     {
         if(CreatureDisplayInfoExtraEntry *extraInfo = dbcCreatureDisplayInfoExtra.LookupEntry(displayEntry->ExtraDisplayInfoEntry))
-            race = extraInfo->Race;
+            race = sStatSystem.GetViableOptionForRace(extraInfo->Race);
 
         if(displayEntry->sizeClass >= 5)
             m_zoneVisibleSpawn = true;

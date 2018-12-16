@@ -609,10 +609,10 @@ void WorldSession::HandleCorpseReclaimOpcode(WorldPacket& recv_data)
 
     sLog.outDebug("WORLD: Received CMSG_RECLAIM_CORPSE");
 
-    uint64 guid;
+    WoWGuid guid;
     recv_data >> guid;
 
-    Corpse* pCorpse = objmgr.GetCorpse( guid );
+    Corpse* pCorpse = guid.empty() ? objmgr.GetCorpseByOwner(_player->GetLowGUID()) : objmgr.GetCorpse(guid.raw());
 
     if( pCorpse == NULL )
     {
@@ -676,6 +676,23 @@ void WorldSession::HandleResurrectResponseOpcode(WorldPacket & recv_data)
     _player->m_resurrectHealth = 0;
     _player->m_resurrectMana = 0;
 
+}
+
+void WorldSession::HandleReturnToGraveyardOpcode(WorldPacket & recv_data)
+{
+    CHECK_INWORLD_RETURN();
+    if(_player->isAlive() || !_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))
+        return;
+
+    uint32 mapId = _player->GetMapId();
+    float x = _player->GetPositionX(), y = _player->GetPositionY(), z = _player->GetPositionZ();
+    if(Corpse *corpse = _player->getMyCorpse())
+    {
+        corpse->GetPosition(x, y, z);
+        mapId = corpse->GetMapId();
+    }
+
+    _player->RepopAtGraveyard(x, y, z, mapId);
 }
 
 void WorldSession::HandleUpdateAccountData(WorldPacket& recv_data)
@@ -870,7 +887,12 @@ void WorldSession::HandleSetSheathedOpcode( WorldPacket & recv_data )
 
 void WorldSession::HandlePlayedTimeOpcode( WorldPacket & recv_data )
 {
+    uint8 unk = recv_data.read<uint8>();
+    _player->UpdatePlayedTime(UNIXTIME);
 
+    WorldPacket data(SMSG_PLAYED_TIME, 10);
+    data << uint32(_player->GetTotalTimePlayed()) << uint32(_player->GetLevelTimePlayed()) << unk;
+    _player->PushPacket(&data);
 }
 
 void WorldSession::HandleInspectOpcode( WorldPacket & recv_data )

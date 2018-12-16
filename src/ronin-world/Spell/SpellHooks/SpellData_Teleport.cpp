@@ -404,6 +404,72 @@ bool TeleportDeepholm(SpellEffectClass *spell, uint32 effIndex, WorldObject *tar
     return true;
 }
 
+bool TeleportTwilightHighlands(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    mapId = 0;
+    X = -4032.79f;
+    Y = -6318.53f;
+    Z = 38.6954f;
+    O = 4.57901f;
+    return true;
+}
+
+bool TeleportToMaelstrom(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    mapId = 730;
+    X = 851.307f;
+    Y = 1067.76f;
+    Z = -10.0183f;
+    O = 4.50656f;
+    return true;
+}
+
+bool TeleportStormwindCataclysm(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    mapId = 0;
+    X = -8209.8f;
+    Y = 454.12f;
+    Z = 117.5f;
+    O = 5.f;
+    return true;
+}
+
+bool PortalToStormwindHyjal(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
+{
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_ALLIANCE)
+        return false;
+
+    static SpellEntry *teleport = dbcSpell.LookupEntry(89157);
+    if(teleport == NULL)
+        return false;
+
+    castPtr<Player>(target)->GetSpellInterface()->LaunchSpellFromSpell(teleport, NULL, spell->GetSpellProto());
+    return true;
+}
+
+bool TeleportOrgrimmarCataclysm(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    mapId = 1;
+    X = 2048.11f;
+    Y = -4377.03f;
+    Z = 98.9161f;
+    O = 4.41825f;
+    return true;
+}
+
+bool PortalToOrgrimmarHyjal(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
+{
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
+        return false;
+
+    static SpellEntry *teleport = dbcSpell.LookupEntry(89158);
+    if(teleport == NULL)
+        return false;
+
+    castPtr<Player>(target)->GetSpellInterface()->LaunchSpellFromSpell(teleport, NULL, spell->GetSpellProto());
+    return true;
+}
+
 bool TeleportTolBarad(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {
     mapId = 732;
@@ -424,23 +490,44 @@ bool TeleportTolBarad2(SpellEffectClass *spell, uint32 effIndex, WorldObject *ta
     return true;
 }
 
-bool TeleportStormwindCataclysm(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+bool PortalToVashjIr(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
-    mapId = 0;
-    X = -8209.8f;
-    Y = 454.12f;
-    Z = 117.5f;
-    O = 5.f;
+    if(!target->IsPlayer() || castPtr<Player>(target)->GetTeam() != TEAM_HORDE)
+        return false;
+
+    castPtr<Player>(target)->EventAttackStop();
+    castPtr<Player>(target)->SetSelection(NULL);
+    castPtr<Player>(target)->SafeTeleport(0, 0, -6561.97f, 6140.03f, -671.06f, 1.14835f);
     return true;
 }
 
-bool TeleportOrgrimmarCataclysm(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+bool TeleportToVashjIr(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {
     mapId = 1;
-    X = 2048.11f;
-    Y = -4377.03f;
-    Z = 98.9161f;
-    O = 4.41825f;
+    X = 5534.08f;
+    Y = -3624.69f;
+    Z = 1567.04f;
+    O = 5.20932f;
+    return true;
+}
+
+bool TeleportToUldum(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    mapId = 1;
+    X = -9443.31f;
+    Y = -958.365f;
+    Z = 111.012f;
+    O = 5.22428f;
+    return true;
+}
+
+bool TeleportToHyjal(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
+{
+    mapId = 1;
+    X = 5534.08f;
+    Y = -3624.69f;
+    Z = 1567.04f;
+    O = 5.20932f;
     return true;
 }
 
@@ -525,13 +612,32 @@ void SpellManager::_RegisterTeleportData()
     _RegisterTeleportData(71436, SP_EFF_INDEX_0, &TeleportBootyBay);
 
     _RegisterTeleportData(80256, SP_EFF_INDEX_0, &TeleportDeepholm);
+    _RegisterTeleportData(84513, SP_EFF_INDEX_0, &TeleportDeepholm);
+
+    _RegisterTeleportData(82621, SP_EFF_INDEX_0, &TeleportTwilightHighlands);
+
+    _RegisterTeleportData(84464, SP_EFF_INDEX_0, &TeleportToMaelstrom);
 
     _RegisterTeleportData(88342, SP_EFF_INDEX_0, &TeleportTolBarad);
     _RegisterTeleportData(88344, SP_EFF_INDEX_0, &TeleportTolBarad2);
 
     _RegisterTeleportData(89157, SP_EFF_INDEX_0, &TeleportStormwindCataclysm);
+
+    _CreateScriptedEffectSpell(84505);
+    _RegisterScriptedEffect(84505, SP_EFF_INDEX_0, &PortalToStormwindHyjal);
+
     _RegisterTeleportData(89158, SP_EFF_INDEX_0, &TeleportOrgrimmarCataclysm);
+
+    _CreateScriptedEffectSpell(84506);
+    _RegisterScriptedEffect(84506, SP_EFF_INDEX_0, &PortalToOrgrimmarHyjal);
 
     _RegisterTeleportData(89597, SP_EFF_INDEX_0, &TeleportTolBarad);
     _RegisterTeleportData(89598, SP_EFF_INDEX_0, &TeleportTolBarad2);
+
+    _CreateScriptedEffectSpell(90244);
+    _RegisterScriptedEffect(90244, SP_EFF_INDEX_0, &PortalToVashjIr);
+
+    _RegisterTeleportData(94564, SP_EFF_INDEX_0, &TeleportToUldum);
+    _RegisterTeleportData(94565, SP_EFF_INDEX_0, &TeleportToHyjal);
+
 }

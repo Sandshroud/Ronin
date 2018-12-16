@@ -152,13 +152,7 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
 
                 if((flags & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF)) && pCreature->CanTrainPlayer(plr))
                 {
-                    std::string trainingType = "";
-                    if(pCreature->IsProfessionTrainer())
-                        trainingType = pCreature->GetName();
-                    else if(pCreature->IsClassTrainer())
-                        trainingType = plr->getClassName();
-                    else if(pCreature->IsPetTrainer())
-                        trainingType = "pet";
+                    std::string trainingType = pCreature->GetTrainerType();
 
                     // If our training type is not empty, append a space
                     if(trainingType.empty() == false)

@@ -106,10 +106,11 @@ void Unit::Init()
     // Required regeneration flag
     SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_REGENERATE_POWER );
 
+    // Set cast speed to 1.f
+    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
+
     SetFloatValue(UNIT_FIELD_BOUNDINGRADIUS, M_PI );
     SetFloatValue(UNIT_FIELD_COMBATREACH, 5.f );
-    SetFloatValue(UNIT_MOD_CAST_SPEED, 1.f);
-    SetFloatValue(UNIT_MOD_CAST_HASTE, 1.f);
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, 0.001f);
 }
 
@@ -245,6 +246,10 @@ void Unit::OnAuraModChanged(uint32 modType)
         pendingIndex.push_back(UF_UTYPE_HOVER);
         pendingIndex.push_back(UF_UTYPE_MOVEMENT);
         break;
+    case SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK:
+    case SPELL_AURA_HASTE_SPELLS:
+        pendingIndex.push_back(UF_UTYPE_CASTMOD);
+        break;
         // Player opcode handling
     case SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT:
     case SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
@@ -341,6 +346,7 @@ void Unit::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32> modMap)
     case UF_UTYPE_ATTACKDAMAGE: UpdateAttackDamageValues(); break;
     case UF_UTYPE_POWERCOST: UpdatePowerCostValues(modMap); break;
     case UF_UTYPE_HOVER: UpdateHoverValues(); break;
+    case UF_UTYPE_CASTMOD: UpdateCastModValues(); break;
     case UF_UTYPE_PLAYERDAMAGEMODS: castPtr<Player>(this)->UpdatePlayerDamageDoneMods(); break;
     case UF_UTYPE_PLAYERRATINGS: castPtr<Player>(this)->UpdatePlayerRatings(); break;
     case UF_UTYPE_MOVEMENT: m_movementInterface.ProcessModUpdate(modUpdateType, modMap); break;
@@ -414,18 +420,19 @@ public:
 
     void Init(Unit *unit, UnitBaseStats *stats, uint32 level, bool strClass, float ctrMod)
     {
+        static float levelScaling[MAX_STAT] = { 3.5f, 2.5f, 2.f, 3.5f, 2.2f };
         for(uint8 s = 0; s < MAX_STAT; s++)
         {
             statPos[s] = statNeg[s] = 0;
             modPos[s] = modNeg[s] = modTPos[s] = modTNeg[s] = 0.f;
 
-            statBase[s] = stats ? stats->baseStat[s] : level*25;
+            statBase[s] = stats ? stats->baseStat[s] : float2int32(ceil(level * levelScaling[s]));
             if(stats && stats->level < level)
-                statBase[s] += (level-stats->level)*15;
+                statBase[s] += (level-stats->level)*levelScaling[s];
             if(unit->IsCreature() && s == STAT_STRENGTH)
-                statBase[s] *= float2int32(ctrMod * (strClass ? 1.f : 0.5f));
+                statBase[s] *= float2int32(ctrMod * (strClass ? 0.75f : 0.5f));
             else if(unit->IsCreature() && s == STAT_AGILITY)
-                statBase[s] *= float2int32(ctrMod * (strClass ? 0.5f : 1.0f));
+                statBase[s] *= float2int32(ctrMod * (strClass ? 0.75f : 1.0f));
             statBase[s] += unit->GetBonusStat(s);
         }
     }
@@ -863,13 +870,7 @@ void Unit::UpdateAttackDamageValues()
         float apBonus = ((float)GetUInt32Value(UNIT_FIELD_BASEATTACKTIME+i))/1000.f * ((float)(i == RANGED ? rangedAttackPower/14.f : attackPower/14.f));
         float baseMinDamage = GetBaseMinDamage(i), baseMaxDamage = GetBaseMaxDamage(i);
         if(IsCreature())
-        {   // Creature damage is AP times healthmod, with 1.5+rank times being the max damage
-            CreatureData *data = castPtr<Creature>(this)->GetCreatureData();
-            uint32 levelMod = sStatSystem.GetXPackModifierForLevel(getLevel(), data->rank > 0 ? 3 : 0);
-            baseMaxDamage = std::max<float>(2.f, apBonus * (1.f + (((float)data->rank) * 0.5f)) * (levelMod ? ((float)(levelMod+1)) : 1.f));
-            baseMaxDamage = ceil(baseMaxDamage * data->damageMod);
-            baseMinDamage = std::max<float>(1.f, floor(baseMaxDamage * ((6.5f + ((float)data->rank+1) + data->damageRangeMod)/10.f)));
-        }
+            sCreatureDataMgr.CalculateMinMaxDamage(castPtr<Creature>(this)->GetCreatureData(), baseMinDamage, baseMaxDamage, getLevel(), apBonus);
         else if(IsInFeralForm())
         {
             Item *currentWeapon = NULL;
@@ -1249,6 +1250,45 @@ void Unit::UpdatePowerCostValues(std::vector<uint32> modMap)
 void Unit::UpdateHoverValues()
 {
     SetFloatValue(UNIT_FIELD_HOVERHEIGHT, (0.002f + ((float)m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_HOVER)))/2.f);
+}
+
+class CastModUpdateCallback : public AuraInterface::ModCallback
+{
+public:
+    virtual void operator()(Modifier *mod)
+    {
+        switch(mod->m_type)
+        {
+        case SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK:
+            {
+                if(notStackHaste < mod->m_amount)
+                    notStackHaste = mod->m_amount;
+            }break;
+        case SPELL_AURA_HASTE_SPELLS:
+            {
+                stackingHaste += mod->m_amount;
+            }break;
+        }
+    }
+
+    void Init(float hasteCRating) { calcResult = hasteCRating; }
+
+    float GetCastSpeedMod() { return ((100.f - (calcResult + std::max(notStackHaste, stackingHaste)))/100.f); }
+    float GetCastHasteMod() { return calcResult + std::max(notStackHaste, stackingHaste); }
+
+    float calcResult = 0.f, notStackHaste = 0.f, stackingHaste = 0.f;
+};
+
+void Unit::UpdateCastModValues()
+{
+    CastModUpdateCallback castModCallback;
+    castModCallback.Init(IsPlayer() ? castPtr<Player>(this)->GetSpellHastePct() : 0.f);
+
+    m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_CASTING_SPEED_NOT_STACK, &castModCallback);
+    m_AuraInterface.TraverseModMap(SPELL_AURA_HASTE_SPELLS, &castModCallback);
+
+    SetFloatValue(UNIT_MOD_CAST_SPEED, castModCallback.GetCastSpeedMod());
+    SetFloatValue(UNIT_MOD_CAST_HASTE, castModCallback.GetCastHasteMod());
 }
 
 class DamageDoneModCallback : public AuraInterface::ModCallback

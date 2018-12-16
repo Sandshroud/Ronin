@@ -529,6 +529,7 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[MSG_CORPSE_QUERY].handler                           = &WorldSession::HandleCorpseQueryOpcode;
     WorldPacketHandlers[CMSG_RECLAIM_CORPSE].handler                        = &WorldSession::HandleCorpseReclaimOpcode;
     WorldPacketHandlers[CMSG_RESURRECT_RESPONSE].handler                    = &WorldSession::HandleResurrectResponseOpcode;
+    WorldPacketHandlers[CMSG_RETURN_TO_GRAVEYARD].handler                   = &WorldSession::HandleReturnToGraveyardOpcode;
 
     // Movement
     WorldPacketHandlers[MSG_MOVE_HEARTBEAT].handler                         = &WorldSession::HandleMovementOpcodes;

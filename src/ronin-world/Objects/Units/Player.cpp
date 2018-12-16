@@ -301,6 +301,10 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     CastTimeCheat = false;
     PowerCheat = false;
 
+    m_lastPlayTimeUpdate            = UNIXTIME;
+    m_playTimeTotal                 = 0;
+    m_playTimeLevel                 = 0;
+
     m_completedQuests.clear();
     m_completedDailyQuests.clear();
     quest_spells.clear();
@@ -842,6 +846,14 @@ void Player::_UpdateComboPoints()
     PushPacket(&data, false);
 }
 
+void Player::UpdatePlayedTime(time_t currTime)
+{
+    time_t diff = currTime - m_lastPlayTimeUpdate;
+    m_playTimeLevel += diff;
+    m_playTimeTotal += diff;
+    m_lastPlayTimeUpdate = currTime;
+}
+
 void Player::ProcessImmediateItemUpdate(Item *item)
 {
     if(!IsInWorld())
@@ -1044,9 +1056,6 @@ void Player::UpdateCombatRating(uint8 combatRating, float value)
     case 18:
         SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, value);
         break;
-    case 19:
-        SetFloatValue(UNIT_MOD_CAST_HASTE, value);
-        break;
     case 23:
         SetUInt32Value(PLAYER_EXPERTISE, floor(value));
         SetUInt32Value(PLAYER_OFFHAND_EXPERTISE, floor(value));
@@ -1151,6 +1160,9 @@ void Player::UpdatePlayerRatings()
         // Need to trigger an attack time update when melee or ranged haste changes
         if((index == PLAYER_RATING_MODIFIER_MELEE_HASTE || index == PLAYER_RATING_MODIFIER_RANGED_HASTE) && oldVal != val)
             TriggerModUpdate(UF_UTYPE_ATTACKTIME);
+        // Trigger our castmod update when spell haste is changed
+        if(index == PLAYER_RATING_MODIFIER_SPELL_HASTE && oldVal != val)
+            TriggerModUpdate(UF_UTYPE_CASTMOD);
         // Now that we have the calculated value, set it for player
         SetUInt32Value(index, std::max<int32>(0, val));
         // Multiply the overall rating with the set ratio
@@ -1174,6 +1186,11 @@ void Player::UpdatePlayerDamageDoneMods()
 
     SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, statBonus+itemBonus+GetHealingDoneMod(true, &negative)));
     SetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT, GetHealingDonePctMod(true));
+}
+
+float Player::GetSpellHastePct()
+{
+    return ((float)GetUInt32Value(PLAYER_RATING_MODIFIER_SPELL_HASTE)) * GetRatioForCombatRating(19);
 }
 
 static uint32 statToModBonus[MAX_STAT] = 
@@ -1275,6 +1292,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
     m_playerInfo->lastZone = m_zoneId;
     GetPosition(m_playerInfo->lastPositionX, m_playerInfo->lastPositionY, m_playerInfo->lastPositionZ, m_playerInfo->lastOrientation);
     m_playerInfo->lastOnline = UNIXTIME;
+    UpdatePlayedTime(UNIXTIME);
 
     std::stringstream ss;
     ss << "REPLACE INTO character_data VALUES ("
@@ -1336,7 +1354,7 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
 
     // Misc player data
     ss << uint32(iInstanceType) << ", " << uint32(iRaidType) << ", " << uint32(m_restData.isResting) << ", " << uint32(m_restData.restState) << ", " << uint32(m_restData.restAmount) << ", " << uint32(m_restData.areaTriggerId);
-    ss << ", " << uint64(sWorld.GetWeekStart()) << ", " << uint64(UNIXTIME) << ", 0, 0);"; // Reset for position and talents
+    ss << ", " << m_playTimeLevel << ", " << m_playTimeTotal << ", " << uint64(sWorld.GetWeekStart()) << ", " << uint64(UNIXTIME) << ", 0, 0);"; // Reset for position and talents
 
     if(buf)
         buf->AddQueryStr(ss.str());
@@ -1457,7 +1475,7 @@ bool Player::LoadFromDB()
         taxiPath, taxiMoveTime, taxiTravelTime, taxiMountId, \
         transportGuid, transportX, transportY, transportZ, \
         entryPointMapId, entryPointX, entryPointY, entryPointZ, entryOrientation, \
-        instanceDifficulty, raidDifficulty, isResting, restState, restTime, restAreaTrigger, \
+        instanceDifficulty, raidDifficulty, isResting, restState, restTime, restAreaTrigger, playedTimeLevel, playedTimeTotal, \
         lastWeekResetTime, lastSaveTime, needPositionReset, needTalentReset FROM character_data WHERE guid='%u'", m_objGuid.getLow());
 
     q->AddQuery("SELECT * FROM character_actions WHERE guid = '%u'", m_objGuid.getLow());
@@ -1526,6 +1544,10 @@ void Player::LoadFromDBProc(QueryResultVector & results)
     SetUInt32Value(PLAYER_CHARACTER_POINTS, fields[PLAYERLOAD_FIELD_AVAILABLE_PROF_POINTS].GetUInt32());
     SetUInt32Value(PLAYER_CHOSEN_TITLE, fields[PLAYERLOAD_FIELD_SELECTED_TITLE].GetUInt32());
     SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, fields[PLAYERLOAD_FIELD_WATCHED_FACTION_INDEX].GetUInt32());
+
+    m_lastPlayTimeUpdate = UNIXTIME;
+    m_playTimeLevel = fields[PLAYERLOAD_FIELD_PLAYED_TIME_LEVEL].GetUInt32();
+    m_playTimeTotal = fields[PLAYERLOAD_FIELD_PLAYED_TIME_TOTAL].GetUInt32();
 
     // After player info creation, load all extra data
     m_talentInterface.SetTalentData(fields[PLAYERLOAD_FIELD_TALENT_ACTIVE_SPEC].GetUInt32(), fields[PLAYERLOAD_FIELD_TALENT_SPEC_COUNT].GetUInt32(),
@@ -2153,9 +2175,7 @@ void Player::_LoadSpells(QueryResult *result)
 
     guildmgr.AddGuildPerks(this);
 
-    if(m_session->CanUseCommand('c'))
-        _AddLanguages(true);
-    else _AddLanguages(sWorld.cross_faction_world);
+    _AddLanguages(m_session->CanUseCommand('c'), sWorld.cross_faction_world);
 }
 
 void Player::_SaveSpells(QueryBuffer * buf)
@@ -2359,6 +2379,9 @@ void Player::setLevel(uint32 level)
     m_inventory.ModifyLevelBasedItemBonuses(true);
     if(prevLevel != level)
     {
+        UpdatePlayedTime(UNIXTIME);
+        m_playTimeLevel = 0;
+
         UpdateFieldValues();
         _UpdateMaxSkillCounts();
         if (m_playerInfo)
@@ -3309,6 +3332,8 @@ void Player::SetDeathState(DeathState s)
     if(s == JUST_DIED)
     {
         // stuff
+        if(IsRooted() && !m_session->IsLoggingOut())
+            m_movementInterface.setRooted(false);
     }
 }
 
@@ -6073,19 +6098,22 @@ void Player::_UpdateMaxSkillCounts()
 
 }
 
-void Player::_AddLanguages(bool All)
+void Player::_AddLanguages(bool all, bool crossFaction)
 {
     std::vector<uint32> langToAdd;
     uint8 race = std::min<uint8>(RACE_COUNT, getRace());
     uint32 teamLang = language_skills[GetTeam()];
     langToAdd.push_back(teamLang);
-    if(language_skills[race] != teamLang)
-        langToAdd.push_back(language_skills[race]);
-    if(All)
+    if(language_skills[race-1] != teamLang)
+        langToAdd.push_back(language_skills[race-1]);
+
+    if(crossFaction) // Cross faction is only basic languages
+        langToAdd.push_back(language_skills[race ? 0 : 1]);
+
+    if(all)
     {
-        for(uint8 i = 0; i < RACE_MAX; i++)
-            if(uint32 skillId = language_skills[i])
-                langToAdd.push_back(skillId);
+        for(uint8 i = 0; language_skills[i] != NULL; i++)
+            langToAdd.push_back(language_skills[i]);
     }
 
     while(!langToAdd.empty())

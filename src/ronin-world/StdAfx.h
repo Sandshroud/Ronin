@@ -129,6 +129,7 @@ extern size_t __line__;
 #include "Opcodes.h"
 #include "WorldStates.h"
 
+#include "Skill.h"
 #include "SpellNameHashes.h"
 #include "SpellDefines.h"
 #include "SpellManager.h"
@@ -161,7 +162,6 @@ extern size_t __line__;
 #include "Group.h"
 #include "ItemDefines.h"
 #include "ItemManager.h"
-#include "Skill.h"
 #include "Item.h"
 #include "Container.h"
 #include "AuctionHouse.h"

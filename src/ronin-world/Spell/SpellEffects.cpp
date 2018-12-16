@@ -1028,7 +1028,7 @@ void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32
         ptarget->addSpell( 9058 );//Handstitched Leather Cloak
         ptarget->addSpell( 9059 );//Handstitched Leather Bracers
         break;
-    case SKILL_ENGINERING:
+    case SKILL_ENGINEERING:
         ptarget->addSpell( 3918 );//Rough Blasting Powder
         ptarget->addSpell( 3919 );//Rough Dynamite
         ptarget->addSpell( 3920 );//Crafted Light Shot

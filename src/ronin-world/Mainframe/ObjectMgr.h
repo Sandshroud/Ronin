@@ -154,7 +154,7 @@ public:
     typedef std::map<uint32, SkillLineAbilityEntry*>             SLMap;
     typedef std::map<uint32, std::vector<VendorItem> >           VendorMap;
     typedef std::map<uint32, TrainerData >                       TrainerDataMap;
-    typedef std::map<std::pair<uint8, uint8>, TrainerSpellMap>   TrainerSpellStorage;
+    typedef std::map<std::pair<uint8, uint16>, TrainerSpellMap>  TrainerSpellStorage;
     typedef std::map<uint32, Corpse* >                           CorpseMap;
     typedef std::map<uint32, Group*>                             GroupMap;
 
@@ -263,7 +263,7 @@ public:
 
     // Trainers
     TrainerData *GetTrainerData(uint32 entry);
-    TrainerSpellMap *GetTrainerSpells(uint8 category, uint8 subcategory);
+    TrainerSpellMap *GetTrainerSpells(uint8 category, uint16 subcategory);
 
     uint32 GenerateArenaTeamId()
     {

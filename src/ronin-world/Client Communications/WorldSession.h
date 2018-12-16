@@ -299,6 +299,7 @@ protected:
     void HandleCorpseQueryOpcode( WorldPacket& recvPacket );
     void HandleCorpseReclaimOpcode( WorldPacket& recvPacket );
     void HandleResurrectResponseOpcode(WorldPacket& recvPacket);
+    void HandleReturnToGraveyardOpcode(WorldPacket& recvPacket);
 
     /// Opcodes implemented in MovementHandler.cpp
     void HandleMovementOpcodes( WorldPacket& recv_data );

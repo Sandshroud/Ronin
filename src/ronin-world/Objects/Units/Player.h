@@ -527,6 +527,8 @@ enum PlayerLoadFields
     PLAYERLOAD_FIELD_RESTSTATE,
     PLAYERLOAD_FIELD_RESTTIME,
     PLAYERLOAD_FIELD_RESTAREATRIGGER,
+    PLAYERLOAD_FIELD_PLAYED_TIME_LEVEL,
+    PLAYERLOAD_FIELD_PLAYED_TIME_TOTAL,
     PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME,
     PLAYERLOAD_FIELD_LAST_SAVE_TIME,
     PLAYERLOAD_FIELD_NEEDS_POSITION_RESET,
@@ -642,6 +644,11 @@ public:
 
     void _UpdateComboPoints();
 
+    // Player time played
+    void UpdatePlayedTime(time_t currTime);
+    uint32 GetTotalTimePlayed() { return m_playTimeTotal; }
+    uint32 GetLevelTimePlayed() { return m_playTimeLevel; }
+
 public: /// Interface Interaction Functions
     RONIN_INLINE PlayerInventory *GetInventory() { return &m_inventory; }
     RONIN_INLINE PlayerCurrency *GetCurrency() { return &m_currency; }
@@ -737,6 +744,8 @@ public: /// Stat Calculation
     void UpdatePlayerRatings();
     void UpdatePlayerDamageDoneMods();
 
+    float GetSpellHastePct();
+
 protected:
     float GetPowerMod() { return 1.f; }
     float GetHealthMod() { return 1.f; }
@@ -793,7 +802,7 @@ public: /// Player field based functions
     void _UpdateMaxSkillCounts();
     void RemoveSpellsFromLine(uint16 skill_line);
 
-    void _AddLanguages(bool All);
+    void _AddLanguages(bool all, bool crossFaction);
     void _AdvanceAllSkills(uint16 count, bool skipprof = false, uint16 max = 0);
 
     // Get mount capability based on mount skill
@@ -1335,6 +1344,10 @@ private:
     // Player::Update data
     // Used in player exploration functions
     uint32 m_oldZone, m_oldArea;
+
+    // Player online time
+    time_t m_lastPlayTimeUpdate;
+    uint32 m_playTimeLevel, m_playTimeTotal;
 
     // Player Reputation
     FactionInterface m_factionInterface;

@@ -116,24 +116,6 @@ enum ClassMasks
     | CLASSMASK_SHAMAN | CLASSMASK_MAGE | CLASSMASK_WARLOCK | CLASSMASK_DRUID
 };
 
-enum Races
-{
-    RACE_HUMAN = 1,
-    RACE_ORC = 2,
-    RACE_DWARF = 3,
-    RACE_NIGHTELF = 4,
-    RACE_UNDEAD = 5,
-    RACE_TAUREN = 6,
-    RACE_GNOME = 7,
-    RACE_TROLL = 8,
-    RACE_GOBLIN = 9,
-    RACE_BLOODELF = 10,
-    RACE_DRAENEI = 11,
-    RACE_WORGEN = 22,
-    RACE_MAX = 23,
-    RACE_COUNT = 12
-};
-
 enum RaceMasks
 {
     RACEMASK_HUMAN      = 0x000001,
@@ -369,6 +351,7 @@ enum UnitFieldUpdateType
     UF_UTYPE_ATTACKDAMAGE,
     UF_UTYPE_POWERCOST,
     UF_UTYPE_HOVER,
+    UF_UTYPE_CASTMOD,
     UF_UTYPE_PLAYERDAMAGEMODS,
     UF_UTYPE_PLAYERRATINGS,
     UF_UTYPE_MOVEMENT,
@@ -410,6 +393,7 @@ public:
     void UpdateRangedAttackPowerValues(std::vector<uint32> modMap);
     void UpdatePowerCostValues(std::vector<uint32> modMap);
     void UpdateHoverValues();
+    void UpdateCastModValues();
 
     virtual float GetPowerMod() = 0;
     virtual float GetHealthMod() = 0;

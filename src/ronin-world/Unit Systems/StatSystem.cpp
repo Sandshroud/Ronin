@@ -374,6 +374,33 @@ uint32 StatSystem::CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapo
     return 0;
 }
 
+uint8 StatSystem::GetViableOptionForRace(uint8 race)
+{
+    switch(race)
+    {
+    case RACE_FELORC:
+        return RACE_ORC;
+    case RACE_NAGA:
+        return RACE_NIGHTELF;
+    case RACE_BROKEN:
+        return RACE_DRAENEI;
+    case RACE_VRYKUL:
+        return RACE_HUMAN;
+    case RACE_SKELETON:
+    case RACE_NORTHREND_SKELETON:
+        return RACE_UNDEAD;
+    case RACE_FORESTTROLL:
+    case RACE_ICE_TROLL:
+        return RACE_TROLL;
+    case RACE_TAUNKA:
+        return RACE_TAUREN;
+    case RACE_SUBHUMAN:
+        return RACE_WORGEN;
+    }
+
+    return race;
+}
+
 uint32 getGrayLevel(uint16 unitLevel)
 {
     if (unitLevel > 5 && unitLevel <= 39)

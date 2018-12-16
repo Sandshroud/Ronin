@@ -25,7 +25,7 @@ enum TrainerCategory : uint8
     TRAINER_CATEGORY_GENERAL        = 0,
     TRAINER_CATEGORY_TALENTS        = 1,
     TRAINER_CATEGORY_TRADESKILLS    = 2,
-    TRAINER_CATEGORY_PET            = 3
+    TRAINER_CATEGORY_SECONDARY      = 3
 };
 #define NUM_TRAINER_TYPES             4
 
@@ -169,6 +169,8 @@ public:
             return m_creatureData.at(entry);
         return NULL;
     }
+
+    void CalculateMinMaxDamage(CreatureData *data, float &minDamage, float &maxDamage, uint32 level, float apBonus);
 
 private:
     std::map<uint32, CreatureData*> m_creatureData;

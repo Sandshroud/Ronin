@@ -826,7 +826,7 @@ void ObjectMgr::LoadTrainers()
 {
     mTrainerData.clear();
     std::set<uint32> handledEntries;
-    if(QueryResult *result = WorldDatabase.Query("SELECT entry, category, subcategory, trainerstep, reqskill, reqkillvalue, trainertitle FROM creature_trainerdata "))
+    if(QueryResult *result = WorldDatabase.Query("SELECT entry, category, subcategory, trainerstep, reqskill, reqkillvalue FROM creature_trainerdata "))
     {
         do
         {
@@ -839,7 +839,7 @@ void ObjectMgr::LoadTrainers()
             data.step = fields[3].GetUInt8();
             data.reqSkill = fields[4].GetUInt32();
             data.reqSkillValue = fields[5].GetUInt32();
-            data.trainerTitle = fields[6].GetString();
+            data.trainerType = classNames[data.subCategory-1];
             handledEntries.insert(entry);
         }while( result->NextRow() );
         delete result;
@@ -851,6 +851,8 @@ void ObjectMgr::LoadTrainers()
     {
         CreatureData *data = (*itr)->second;
         if((data->NPCFLags & (UNIT_NPC_FLAG_TRAINER|UNIT_NPC_FLAG_TRAINER_PROF)) == 0)
+            continue;
+        if(mTrainerData.find(data->entry) != mTrainerData.end())
             continue;
 
         for(uint8 i = WARRIOR; i < CLASS_MAX; i++)
@@ -866,7 +868,45 @@ void ObjectMgr::LoadTrainers()
             tdata.category = 0x01;
             tdata.subCategory = i;
             tdata.reqSkill = tdata.reqSkillValue = 0;
-            tdata.trainerTitle = className.c_str();
+            tdata.trainerType = classNames[i-1];
+            ++count;
+            break;
+        }
+
+        if(mTrainerData.find(data->entry) != mTrainerData.end())
+            continue;
+
+        for(uint8 i = 0; profession_skills[i] != NULL; i++)
+        {
+            std::string className = profession_names[i];
+            className.append(" Trainer");
+            if(strcmp(className.c_str(), data->subName.c_str()))
+                continue;
+
+            TrainerData &tdata = mTrainerData[data->entry];
+            tdata.category = 0x02;
+            tdata.subCategory = profession_skills[i];
+            tdata.reqSkill = tdata.reqSkillValue = 0;
+            tdata.trainerType = profession_names[i];
+            ++count;
+            break;
+        }
+
+        if(mTrainerData.find(data->entry) != mTrainerData.end())
+            continue;
+
+        for(uint8 i = 0; secondary_skills[i] != NULL; i++)
+        {
+            std::string className = secondary_names[i];
+            className.append(" Trainer");
+            if(strcmp(className.c_str(), data->subName.c_str()))
+                continue;
+
+            TrainerData &tdata = mTrainerData[data->entry];
+            tdata.category = 0x03;
+            tdata.subCategory = secondary_skills[i];
+            tdata.reqSkill = tdata.reqSkillValue = 0;
+            tdata.trainerType = secondary_names[i];
             ++count;
             break;
         }
@@ -880,8 +920,8 @@ void ObjectMgr::LoadTrainers()
         {
             Field* fields = result->Fetch();
             uint8 category = fields[0].GetUInt8();
-            uint8 subCategory = fields[1].GetUInt8();
-            std::pair<uint8, uint8> catPair = std::make_pair(category, subCategory);
+            uint16 subCategory = fields[1].GetUInt16();
+            std::pair<uint8, uint16> catPair = std::make_pair(category, subCategory);
 
             SpellEntry *sp;
             if((sp = dbcSpell.LookupEntry(fields[2].GetUInt32())) == NULL)
@@ -915,7 +955,7 @@ void ObjectMgr::LoadTrainers()
         if((sp = dbcSpell.LookupEntry(spellId)) == NULL)
             continue;
 
-        std::pair<uint8, uint8> catPair = std::make_pair(0x01, i);
+        std::pair<uint8, uint16> catPair = std::make_pair(0x01, i);
         ObjectMgr::TrainerSpellMap *map = &mTrainerSpellStorage[catPair];
         if(map->find(spellId) != map->end())
             continue;
@@ -929,7 +969,8 @@ void ObjectMgr::LoadTrainers()
     }
 
 #ifdef HANDLE_TRANSFERS
-    if(QueryResult *result = WorldDatabase.Query("SELECT * FROM transfer_trainerdata "))
+    std::map<std::pair<uint8, uint16>, std::set<uint32>> handledInputs;
+    if(QueryResult *result = WorldDatabase.Query("SELECT entry, spell, spellcost, reqskill, reqskillvalue, reqlevel FROM transfer_trainerdata "))
     {
         do
         {
@@ -944,17 +985,41 @@ void ObjectMgr::LoadTrainers()
             {
                 switch(sklse->categoryId)
                 {
-                case SKILL_TYPE_CLASS:
+                case SKILL_TYPE_CLASS: break;
                     if(uint8 classId = sSpellMgr.GetClassForSkillLine(sp->SpellSkillLine))
                     {
-                        WorldDatabase.Execute("INSERT INTO creature_trainerdata VALUES('%u', '1', '%u', '0', '0', '0', '%s Trainer');", entry, classId, classNames[classId-1]);
+                        WorldDatabase.Execute("REPLACE INTO creature_trainerdata VALUES('%u', '1', '%u', '0', '0', '0', '%s Trainer');", entry, classId, classNames[classId-1]);
                         handledEntries.insert(entry);
                     }
 
                     break;
-                case SKILL_TYPE_PROFESSION:
-                    sLog.printf("");
-                    break;
+                default:
+                    {
+                        for(uint8 i = 0; profession_skills[i] != NULL; i++)
+                        {
+                            if(profession_skills[i] != sp->SpellSkillLine)
+                                continue;
+                            std::pair<uint8, uint16> catPair = std::make_pair(0x02, sp->SpellSkillLine);
+                            if(handledInputs[catPair].find(sp->Id) != handledInputs[catPair].end())
+                                continue;
+
+                            WorldDatabase.Execute("REPLACE INTO trainer_spells VALUES('2', '%u', '%u', '%u', '%u', '%u', '%u');", sp->SpellSkillLine, sp->Id, fields[2].GetUInt32(), fields[5].GetUInt32(), fields[3].GetUInt32(), fields[4].GetUInt32());
+                            handledInputs[catPair].insert(sp->Id);
+                            break;
+                        }
+
+                        for(uint8 i = 0; secondary_skills[i] != NULL; i++)
+                        {
+                            if(secondary_skills[i] != sp->SpellSkillLine)
+                                continue;
+                            std::pair<uint8, uint16> catPair = std::make_pair(0x03, sp->SpellSkillLine);
+                            if(handledInputs[catPair].find(sp->Id) != handledInputs[catPair].end())
+                                continue;
+
+                            WorldDatabase.Execute("REPLACE INTO trainer_spells VALUES('3', '%u', '%u', '%u', '%u', '%u', '%u');", sp->SpellSkillLine, sp->Id, fields[2].GetUInt32(), fields[5].GetUInt32(), fields[3].GetUInt32(), fields[4].GetUInt32());
+                            handledInputs[catPair].insert(sp->Id);
+                        }
+                    }break;
                 }
             }
         }while( result->NextRow() );
@@ -1079,9 +1144,9 @@ TrainerData *ObjectMgr::GetTrainerData(uint32 entry)
     return NULL;
 }
 
-ObjectMgr::TrainerSpellMap *ObjectMgr::GetTrainerSpells(uint8 category, uint8 subCategory)
+ObjectMgr::TrainerSpellMap *ObjectMgr::GetTrainerSpells(uint8 category, uint16 subCategory)
 {
-    std::pair<uint8, uint8> catPair = std::make_pair(category, subCategory);
+    std::pair<uint8, uint16> catPair = std::make_pair(category, subCategory);
     if(mTrainerSpellStorage.find(catPair) != mTrainerSpellStorage.end())
         return &mTrainerSpellStorage.at(catPair);
     return NULL;

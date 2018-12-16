@@ -28,6 +28,35 @@
 //Crow: SQRT is a resource heavy function, so we calculate it at startup
 static float fMaxLevelSqrt = sqrt<uint32>(MAXIMUM_ATTAINABLE_LEVEL);
 
+enum Races : uint8
+{
+    RACE_HUMAN = 1,
+    RACE_ORC = 2,
+    RACE_DWARF = 3,
+    RACE_NIGHTELF = 4,
+    RACE_UNDEAD = 5,
+    RACE_TAUREN = 6,
+    RACE_GNOME = 7,
+    RACE_TROLL = 8,
+    RACE_GOBLIN = 9,
+    RACE_BLOODELF = 10,
+    RACE_DRAENEI = 11,
+    RACE_FELORC = 12,
+    RACE_NAGA = 13,
+    RACE_BROKEN = 14,
+    RACE_SKELETON = 15,
+    RACE_VRYKUL = 16,
+    RACE_TUSKARR = 17,
+    RACE_FORESTTROLL = 18,
+    RACE_TAUNKA = 19,
+    RACE_NORTHREND_SKELETON = 20,
+    RACE_ICE_TROLL = 21,
+    RACE_WORGEN = 22,
+    RACE_SUBHUMAN = 23,
+    RACE_MAX = 24,
+    RACE_COUNT = 12
+};
+
 enum Stats : uint8
 {
     STAT_STRENGTH=0,
@@ -94,6 +123,9 @@ public:
     uint32 GetXPackModifierForLevel(uint32 level, uint32 mod);
     uint32 CalculateDamage( Unit* pAttacker, Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability);
     std::vector<uint8> *GetUnitPowersForClass(uint8 _class) { if(m_unitPowersForClass.find(_class) == m_unitPowersForClass.end()) return NULL; return &m_unitPowersForClass.at(_class); }
+
+    // Race substitute
+    uint8 GetViableOptionForRace(uint8 race);
 
     // Talent data acquisition
     typedef std::multimap<std::pair<uint8, uint8>, uint32> TalentSpellStorage;

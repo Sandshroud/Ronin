@@ -1251,7 +1251,7 @@ bool ChatHandler::HandleResetSkillsCommand(const char* args, WorldSession * m_se
 
     //Chances depend on stats must be in this order!
     plr->_UpdateMaxSkillCounts();
-    plr->_AddLanguages(false);
+    plr->_AddLanguages(false, sWorld.cross_faction_world);
     BlueSystemMessage(m_session, "Reset skills to default.");
     sWorld.LogGM(m_session, "reset skills of %s to default", plr->GetName());
     return true;

@@ -64,7 +64,7 @@ void SpellManager::ParseSpellDBC()
                             if(skillLineAbility->classMask)
                             {
                                 uint8 _class = 0;
-                                for(uint8 i = 1; i < CLASS_MAX; ++i)
+                                for(uint8 i = WARRIOR; i < CLASS_MAX; ++i)
                                 {
                                     if(skillLineAbility->classMask & (1<<(i-1)))
                                     {

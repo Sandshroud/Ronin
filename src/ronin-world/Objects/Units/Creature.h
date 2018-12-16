@@ -53,11 +53,11 @@ struct TrainerSpell
 struct TrainerData
 {
     uint8 category;
-    uint8 subCategory;
+    uint16 subCategory;
     uint8 step;
     uint32 reqSkill;
     uint32 reqSkillValue;
-    std::string trainerTitle;
+    std::string trainerType;
 };
 
 #pragma pack(PRAGMA_PACK)
@@ -281,11 +281,12 @@ public:
     void BuildTrainerData(WorldPacket *data, Player *plr);
     bool CanTrainPlayer(Player *plr);
 
+    const char* GetTrainerType() { return m_trainerData ? m_trainerData->trainerType.c_str() : ""; }
     uint8 GetTrainerCategory() { return m_trainerData ? m_trainerData->category : 0; }
     uint8 GetTrainerSubCategory() { return m_trainerData ? m_trainerData->subCategory : 0; }
-    bool IsProfessionTrainer() { return m_trainerData && m_trainerData->category == TRAINER_CATEGORY_TRADESKILLS; }
     bool IsClassTrainer() { return m_trainerData && m_trainerData->category == TRAINER_CATEGORY_TALENTS; }
-    bool IsPetTrainer() { return m_trainerData && m_trainerData->category == TRAINER_CATEGORY_PET; }
+    bool IsProfessionTrainer() { return m_trainerData && m_trainerData->category == TRAINER_CATEGORY_TRADESKILLS; }
+    bool IsPetTrainer() { return m_trainerData && m_trainerData->category == TRAINER_CATEGORY_SECONDARY && m_trainerData->subCategory == SKILL_PET_TALENTS; }
 
     virtual void UpdateAreaInfo(MapInstance *instance = NULL);
 

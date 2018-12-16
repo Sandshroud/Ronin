@@ -1515,7 +1515,7 @@ void AuraInterface::_RecalculateModAmountByType(Modifier *mod)
     switch(mod->m_type)
     {
     case SPELL_AURA_MOD_CD_FROM_HASTE:
-        mod->m_amount = -100.f + (((float)mod->m_baseAmount) * castPtr<Player>(m_Unit)->GetFloatValue(PLAYER_FIELD_MOD_HASTE));
+        mod->m_amount = (((float)mod->m_baseAmount) * castPtr<Player>(m_Unit)->GetFloatValue(PLAYER_FIELD_MOD_HASTE))/-100.f;
         break;
     }
 }
@@ -1585,7 +1585,7 @@ void AuraInterface::UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool si
             continue;
         }
 
-        if( ( 1 << bit%32 ) & mod->m_spellInfo->EffectSpellClassMask[mod->i][intbit] )
+        if( ( ((unsigned int)1) << (bit%32) ) & mod->m_spellInfo->EffectSpellClassMask[mod->i][intbit] )
         {
             if(apply) groupModMap[bit] += mod->m_amount;
             else groupModMap[bit] -= mod->m_amount;

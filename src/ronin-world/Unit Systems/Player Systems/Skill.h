@@ -81,7 +81,7 @@
 #define SKILL_PET_IMP                   188
 #define SKILL_PET_FELHUNTER             189
 #define SKILL_TAILORING                 197
-#define SKILL_ENGINERING                202
+#define SKILL_ENGINEERING               202
 #define SKILL_PET_SPIDER                203
 #define SKILL_PET_VOIDWALKER            204
 #define SKILL_PET_SUCCUBUS              205
@@ -190,8 +190,17 @@
 #define SKILL_LANG_GOBLIN               792
 #define SKILL_PARRY                     3127
 
-static uint32 language_skills[RACE_COUNT] = { SKILL_LANG_COMMON, SKILL_LANG_ORCISH, SKILL_LANG_DWARVEN, SKILL_LANG_DARNASSIAN, SKILL_LANG_GUTTERSPEAK, SKILL_LANG_TAURAHE, SKILL_LANG_GNOMISH,
-    SKILL_LANG_TROLL, SKILL_LANG_GOBLIN, SKILL_LANG_THALASSIAN, SKILL_LANG_DRAENEI, SKILL_LANG_WORGEN };
+// NULL terminating
+static uint32 language_skills[] = { SKILL_LANG_COMMON, SKILL_LANG_ORCISH, SKILL_LANG_DWARVEN, SKILL_LANG_DARNASSIAN, SKILL_LANG_GUTTERSPEAK, SKILL_LANG_TAURAHE, SKILL_LANG_GNOMISH,
+    SKILL_LANG_TROLL, SKILL_LANG_GOBLIN, SKILL_LANG_THALASSIAN, SKILL_LANG_DRAENEI, SKILL_LANG_WORGEN, NULL };
+// NULL terminating
+static uint32 profession_skills[] = { SKILL_BLACKSMITHING, SKILL_LEATHERWORKING, SKILL_ALCHEMY, SKILL_TAILORING, SKILL_ENGINEERING, SKILL_ENCHANTING, SKILL_INSCRIPTION, SKILL_HERBALISM, SKILL_MINING, SKILL_SKINNING, NULL };
+// NULL terminating
+static char *profession_names[] = { "Blacksmithing", "Leatherworking", "Alchemy", "Tailoring", "Engineering", "Enchanting", "Inscription", "Herbalism", "Mining", "Skinning", NULL };
+// NULL terminating
+static uint32 secondary_skills[] = { SKILL_RIDING, SKILL_FIRST_AID, SKILL_COOKING, SKILL_FISHING, SKILL_LOCKPICKING, SKILL_RUNEFORGING, SKILL_PET_TALENTS, SKILL_ARCANE, NULL };
+// NULL terminating
+static char *secondary_names[] = { "Riding", "First Aid", "Cooking", "Fishing", "Lockpicking", "Runeforging", "Pet", "Portal", NULL };
 
 #define SKILL_TYPE_ATTRIBUTES           5
 #define SKILL_TYPE_WEAPON               6

@@ -161,6 +161,13 @@ void CreatureDataManager::Reload()
 
 }
 
+void CreatureDataManager::CalculateMinMaxDamage(CreatureData *data, float &minDamage, float &maxDamage, uint32 level, float apBonus)
+{
+    maxDamage = std::max(2.f, ceil(apBonus * (1.f + (((float)sStatSystem.GetXPackModifierForLevel(level, (data->rank > 0) ? 3 : 0))*0.1f)) * data->damageMod));
+
+    minDamage = std::max<float>(1.f, floor(maxDamage * ((6.5f + ((float)data->rank+1) + data->damageRangeMod)/10.f)));
+}
+
 // Helps with culling down inrange processing
 bool checkFodderStatus(uint32 entry)
 {
