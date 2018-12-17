@@ -1658,7 +1658,7 @@ void AuraInterface::SM_FIValue( uint32 modifier, int32* v, uint32* group )
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
-        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->first, groupOffset));
         if(flag & group[groupOffset]) (*v) += itr->second;
     }
 }
@@ -1676,7 +1676,7 @@ void AuraInterface::SM_FFValue( uint32 modifier, float* v, uint32* group )
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
-        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->first, groupOffset));
         if(flag & group[groupOffset]) (*v) += itr->second;
     }
 }
@@ -1694,7 +1694,7 @@ void AuraInterface::SM_PIValue( uint32 modifier, int32* v, uint32* group )
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
-        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->first, groupOffset));
         if(flag & group[groupOffset]) (*v) += float2int32(floor((float(*v)*float(itr->second))/100.f));
     }
 }
@@ -1712,7 +1712,7 @@ void AuraInterface::SM_PFValue( uint32 modifier, float* v, uint32* group )
     Loki::AssocVector<uint8, int32> &groupModMap = m_spellGroupModifiers[index];
     for(Loki::AssocVector<uint8, int32>::iterator itr = groupModMap.begin(); itr != groupModMap.end(); itr++)
     {
-        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->second, groupOffset));
+        flag = (uint32(1)<<get32BitOffsetAndGroup(itr->first, groupOffset));
         if(flag & group[groupOffset]) (*v) += ((*v)*float(itr->second))/100.f;
     }
 }
