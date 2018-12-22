@@ -884,7 +884,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
         {
             if(int(szName[x]) || (int(szName[x]) > 90 && int(szName[x]) < 97) || int(szName[x]) > 122)
             {
-                data << uint8(0x32);
+                data << uint8(CHAR_CREATE_NAME_IN_USE);
                 data << guid << name;
                 SendPacket(&data);
                 return;
@@ -897,7 +897,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
             if(result2->Fetch()[0].GetUInt32() > 0)
             {
                 // That name is banned!
-                data << uint8(0x31);
+                data << uint8(CHAR_CREATE_FAILED);
                 data << guid << name;
                 SendPacket(&data);
                 return;
@@ -908,7 +908,7 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
         // Check if name is in use.
         if(objmgr.GetPlayerInfoByName(name.c_str()) != 0)
         {
-            data << uint8(0x32);
+            data << uint8(CHAR_CREATE_NAME_IN_USE);
             data << guid << name;
             SendPacket(&data);
             return;
@@ -939,6 +939,91 @@ void WorldSession::HandleCharCustomizeOpcode(WorldPacket & recv_data)
     data << uint8(hairStyle);
     data << uint8(hairColor);
     data << uint8(facialHair);
+    SendPacket(&data);
+}
+
+void WorldSession::HandleCharRaceChangeOpcode(WorldPacket &recvData)
+{
+    WorldPacket data(SMSG_CHARACTER_FACTION_CHANGE, recvData.size() + 1);
+    WoWGuid guid;
+    std::string name;
+    recvData >> guid >> name;
+
+    uint8 gender, skin, hairColor, hairStyle, facialHair, face, race;
+    recvData >> gender >> skin >> hairColor >> hairStyle >> facialHair >> face >> race;
+
+    PlayerInfo* pi = objmgr.GetPlayerInfo(guid);
+    if (pi == NULL)
+        return;
+
+    QueryResult* result = CharacterDatabase.Query("SELECT appearance2 FROM character_data WHERE guid = '%u'", guid.getLow());
+    if (!result)
+        return;
+
+    if (name != pi->charName)
+    {
+        // Check name for rule violation.
+        const char * szName = name.c_str();
+        for (uint32 x = 0; x < strlen(szName); ++x)
+        {
+            if (int(szName[x]) || (int(szName[x]) > 90 && int(szName[x]) < 97) || int(szName[x]) > 122)
+            {
+                data << uint8(CHAR_CREATE_NAME_IN_USE);
+                data << guid << name;
+                SendPacket(&data);
+                return;
+            }
+        }
+
+        QueryResult * result2 = CharacterDatabase.Query("SELECT COUNT(*) FROM banned_names WHERE name = '%s'", CharacterDatabase.EscapeString(name).c_str());
+        if (result2)
+        {
+            if (result2->Fetch()[0].GetUInt32() > 0)
+            {
+                // That name is banned!
+                data << uint8(CHAR_CREATE_FAILED);
+                data << guid << name;
+                SendPacket(&data);
+                return;
+            }
+            delete result2;
+        }
+
+        // Check if name is in use.
+        if (objmgr.GetPlayerInfoByName(name.c_str()) != 0)
+        {
+            data << uint8(CHAR_CREATE_NAME_IN_USE);
+            data << guid << name;
+            SendPacket(&data);
+            return;
+        }
+
+        // correct capitalization
+        CapitalizeString(name);
+        objmgr.RenamePlayerInfo(pi, pi->charName.c_str(), name.c_str());
+        pi->charName = name;
+
+        CharacterDatabase.Execute("UPDATE character_data SET name = '%s' WHERE guid = '%u'", CharacterDatabase.EscapeString(name).c_str(), guid.getLow());
+    }
+
+    Field* fields = result->Fetch();
+    uint32 player_bytes2 = fields[0].GetUInt32();
+    player_bytes2 &= ~0xFF;
+    player_bytes2 |= facialHair;
+    CharacterDatabase.Execute("UPDATE character_data SET race = '%u', appearance3 = '%u', appearance = '%u', appearance2 = '%u', customizeFlags = '0', lastSaveTime = '%llu' WHERE guid = '%u'", race, gender, skin | (face << 8) | (hairStyle << 16) | (hairColor << 24), player_bytes2, uint64(UNIXTIME), guid.getLow());
+    delete result;
+
+    //WorldPacket data(SMSG_CHARACTER_FACTION_CHANGE, recv_data.size() + 1);
+    data << uint8(0);
+    data << guid;
+    data << name;
+    data << uint8(gender);
+    data << uint8(skin);
+    data << uint8(face);
+    data << uint8(hairStyle);
+    data << uint8(hairColor);
+    data << uint8(facialHair);
+    data << uint8(race);
     SendPacket(&data);
 }
 

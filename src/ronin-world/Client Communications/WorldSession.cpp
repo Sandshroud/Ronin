@@ -495,6 +495,9 @@ void WorldSession::InitPacketHandlerTable()
     WorldPacketHandlers[CMSG_CHARACTER_CUSTOMIZE].handler                   = &WorldSession::HandleCharCustomizeOpcode;
     WorldPacketHandlers[CMSG_CHARACTER_CUSTOMIZE].status                    = STATUS_AUTHED;
 
+    WorldPacketHandlers[CMSG_CHARACTER_RACE_CHANGE].handler                 = &WorldSession::HandleCharRaceChangeOpcode;
+    WorldPacketHandlers[CMSG_CHARACTER_RACE_CHANGE].status                  = STATUS_AUTHED;
+
     WorldPacketHandlers[CMSG_RANDOMIZE_CHAR_NAME].handler                   = &WorldSession::HandleRandomizeCharNameOpcode;
     WorldPacketHandlers[CMSG_RANDOMIZE_CHAR_NAME].status                    = STATUS_AUTHED;
 

@@ -689,7 +689,7 @@ void Unit::UpdateRegenValues()
         float spirit_regen = sqrt(GetStat(STAT_INTELLECT));
 
         uint32 level = std::min(getLevel(), uint32(MAXIMUM_ATTAINABLE_LEVEL));
-        if(gtFloat *ratio = dbcManaRegenBase.LookupEntry((getClass()-1)*100+level-1))
+        if(gtFloat *ratio = dbcManaRegenBase.LookupEntry((getClass()-1)*MAXIMUM_ATTAINABLE_LEVEL +level-1))
             spirit_regen *= GetStat(STAT_SPIRIT)*ratio->val;
 
         regenCallback.Init(POWER_TYPE_MANA, base_regen, spirit_regen, 1);
@@ -1480,9 +1480,9 @@ public:
         }
     }
 
-    void Init(uint8 school) { expectedSchool = school; retVal = 1.f; }
+    void Init(uint8 school) { expectedSchool = school; retVal = 100.f; }
 
-    float getRetVal() { return retVal; }
+    float getRetVal() { return retVal/100.f; }
 
     uint8 expectedSchool;
     float retVal;

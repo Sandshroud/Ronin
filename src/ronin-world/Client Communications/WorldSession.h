@@ -276,6 +276,7 @@ protected:
     void HandleCharDeleteOpcode(WorldPacket& recvPacket);
     void HandleCharCreateOpcode(WorldPacket& recvPacket);
     void HandleCharCustomizeOpcode(WorldPacket& recvPacket);
+    void HandleCharRaceChangeOpcode(WorldPacket& recvPacket);
     void HandleRandomizeCharNameOpcode(WorldPacket& recvPacket);
     void HandlePlayerLoginOpcode(WorldPacket& recvPacket);
     void HandleWorldLoginOpcode(WorldPacket& recvPacket);

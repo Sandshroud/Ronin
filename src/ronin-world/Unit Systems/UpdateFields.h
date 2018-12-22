@@ -198,7 +198,7 @@ enum EPlayerFields
     PLAYER_FIELD_COINAGE                             = UNIT_END + 0x0418, // Size: 2, Type: LONG, Flags: PRIVATE
     PLAYER_FIELD_MOD_DAMAGE_DONE_POS                 = UNIT_END + 0x041A, // Size: 7, Type: INT, Flags: PRIVATE
     PLAYER_FIELD_MOD_DAMAGE_DONE_NEG                 = UNIT_END + 0x0421, // Size: 7, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_DAMAGE_DONE_PCT                 = UNIT_END + 0x0428, // Size: 7, Type: INT, Flags: PRIVATE
+    PLAYER_FIELD_MOD_DAMAGE_DONE_PCT                 = UNIT_END + 0x0428, // Size: 7, Type: FLOAT, Flags: PRIVATE
     PLAYER_FIELD_MOD_HEALING_DONE_POS                = UNIT_END + 0x042F, // Size: 1, Type: INT, Flags: PRIVATE
     PLAYER_FIELD_MOD_HEALING_PCT                     = UNIT_END + 0x0430, // Size: 1, Type: FLOAT, Flags: PRIVATE
     PLAYER_FIELD_MOD_HEALING_DONE_PCT                = UNIT_END + 0x0431, // Size: 1, Type: FLOAT, Flags: PRIVATE

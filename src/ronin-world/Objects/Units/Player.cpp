@@ -1178,8 +1178,9 @@ void Player::UpdatePlayerDamageDoneMods()
     if(GetMaxPowerFieldForType(POWER_TYPE_MANA) != UNIT_END)
         statBonus += std::max<int32>(0, ((int32)GetStat(STAT_INTELLECT)) - 10);
     int32 negative = 0;
-    for(uint8 school = SCHOOL_HOLY; school < SCHOOL_SPELL; school++)
+    for(uint8 school = SCHOOL_NORMAL; school < SCHOOL_SPELL; school++)
     {
+        SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+school, GetDamageDonePctMod(school, true));
         SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, statBonus+itemBonus+GetDamageDoneMod(school, true, &negative)));
         SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school, negative);
     }
