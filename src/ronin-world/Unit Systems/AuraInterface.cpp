@@ -1535,13 +1535,14 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
             modHolder = new ModifierHolder(auraSlot, aur->GetSpellProto());
             m_modifierHolders.insert(std::make_pair(auraSlot, modHolder));
         }
-        if(modHolder == NULL || modHolder->mod[index] == mod)
-            return;
 
-        // Do a quick recalc if we need it
-        _RecalculateModAmountByType(mod);
-        m_modifiersByModType[mod->m_type].insert(std::make_pair(mod_index, mod));
-        modHolder->mod[index] = mod;
+        ASSERT(modHolder);
+        if (modHolder->mod[index] != mod)
+        {   // Do a quick recalc if we need it
+            _RecalculateModAmountByType(mod);
+            m_modifiersByModType[mod->m_type].insert(std::make_pair(mod_index, mod));
+            modHolder->mod[index] = mod;
+        }
     }
     else if((itr = m_modifierHolders.find(auraSlot)) != m_modifierHolders.end())
     {
@@ -1549,11 +1550,21 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
 
         ModifierHolder *modHolder = itr->second;
         modHolder->mod[index] = NULL;
-        for(uint8 i=0;i<3;i++)
-            if(modHolder->mod[i])
-                return;
-        m_modifierHolders.erase(auraSlot);
-        delete modHolder;
+        bool auraClear = true;
+        for (uint8 i = 0; i < 3; i++)
+        {
+            if (modHolder->mod[i])
+            {
+                auraClear = false;
+                break;
+            }
+        }
+
+        if (auraClear)
+        {
+            m_modifierHolders.erase(auraSlot);
+            delete modHolder;
+        }
     }
 
     if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER || mod->m_type == SPELL_AURA_MOD_CD_FROM_HASTE)

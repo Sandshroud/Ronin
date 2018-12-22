@@ -688,7 +688,7 @@ void Unit::UpdateRegenValues()
     {
         float spirit_regen = sqrt(GetStat(STAT_INTELLECT));
 
-        uint32 level = std::min(getLevel(), uint32(100));
+        uint32 level = std::min(getLevel(), uint32(MAXIMUM_ATTAINABLE_LEVEL));
         if(gtFloat *ratio = dbcManaRegenBase.LookupEntry((getClass()-1)*100+level-1))
             spirit_regen *= GetStat(STAT_SPIRIT)*ratio->val;
 
@@ -703,15 +703,18 @@ void Unit::UpdateRegenValues()
 
     if(uint8 powerType = getPowerType())
     {
-        if(base_regen = baseRegenValues[powerType])
+        uint32 powerOffset = GetPowerFieldForType(powerType);
+        if((powerOffset != UNIT_END) && (base_regen = baseRegenValues[powerType]))
         {
+            powerOffset -= UNIT_FIELD_POWERS;
+
             regenCallback.Init(powerType, base_regen, 0.f, 1);
             m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_REGEN, &regenCallback);
             m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_POWER_REGEN_PERCENT, &regenCallback);
             m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_MANA_REGEN_INTERRUPT, &regenCallback);
 
-            SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER+powerType, regenCallback.getRegenValue()+regenCallback.getBaseRegen() + 0.001f);
-            SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER+powerType, regenCallback.getRegenValue()+float2int32(floor(regenCallback.getBaseRegen() * (regenCallback.getInterruptMod() / 100.f))));
+            SetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER + powerOffset, regenCallback.getRegenValue()+regenCallback.getBaseRegen() + 0.001f);
+            SetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER + powerOffset, regenCallback.getRegenValue()+float2int32(floor(regenCallback.getBaseRegen() * (regenCallback.getInterruptMod() / 100.f))));
         }
     }
 }

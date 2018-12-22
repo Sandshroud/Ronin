@@ -230,7 +230,7 @@ void Aura::Update(uint32 diff)
         return;
 
     bool forceInitialTick = false;
-    if((m_spellProto->isPeriodicAtApplication() || m_spellProto->AppliesAura(SPELL_AURA_PERIODIC_DUMMY)) && _periodicData->m_lifeTimer == 0)
+    if(m_spellProto->isPeriodicAtApplication() && _periodicData->m_lifeTimer == 0)
         forceInitialTick = true;
 
     _periodicData->m_lifeTimer += diff;
@@ -269,6 +269,8 @@ void Aura::Update(uint32 diff)
 void Aura::UpdatePreApplication()
 {
     CalculateDuration();
+    if (m_spellProto->NameHash == SPELL_HASH_DRINK)
+        EventPeriodicDrinkDummy(1, m_modList[1].m_amount);
 }
 
 void Aura::TriggerPeriodic(uint32 i)
