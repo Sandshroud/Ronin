@@ -261,17 +261,18 @@ public:
     QuestStorageMap::iterator GetQuestStorageEnd() { return QuestStorage.end(); };
 
     uint32 PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck, bool skipprevquestcheck);
+    static bool PlayerCanComplete(Player *plr, Quest *qst, QuestLogEntry *questLog);
 
     uint32 CalcStatus(Object* quest_giver, Player* plr);
     uint32 CalcQuestStatus(Player* plr, QuestRelation* qst);
-    uint32 CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck = false, bool skipPrevQuestCheck = false);
+    uint32 CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool interaction, bool skiplevelcheck = false, bool skipPrevQuestCheck = false);
     uint32 ActiveQuestsCount(Object* quest_giver, Player* plr);
 
     //Packet Forging...
     void BuildGossipQuest(WorldPacket *data, Quest *qst, uint32 qst_status, Player *plr);
     void BuildOfferReward(WorldPacket* data,Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
     void BuildQuestDetails(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 menutype, Player* plr);
-    void BuildRequestItems(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 status);
+    void BuildRequestItems(WorldPacket* data, Quest* qst, Object* qst_giver, uint32 status, Player *plr);
     void BuildQuestComplete(Player* , Quest* qst);
     void BuildQuestList(WorldPacket* data, Object* qst_giver, Player* plr);
     bool OnActivateQuestGiver(Object* qst_giver, Player* plr);

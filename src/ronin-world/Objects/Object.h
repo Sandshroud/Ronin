@@ -497,6 +497,7 @@ public:
 
     //use it to check if a object is in range of another
     bool isInRange(WorldObject* target, float range);
+    bool isInRange(float x, float y, float z, float range);
 
     // Use it to Check if a object is in front of another one
     bool isTargetInFront(WorldObject* target);
@@ -509,8 +510,8 @@ public:
     bool isInArc(WorldObject* target , float degrees);
 
     /* Calculates the angle between two Positions */
-    float calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y );
-    float calcRadAngle( float Position1X, float Position1Y, float Position2X, float Position2Y );
+    static float calcAngle( float Position1X, float Position1Y, float Position2X, float Position2Y );
+    static float calcRadAngle( float Position1X, float Position1Y, float Position2X, float Position2Y );
 
     /* converts to 360 > x > 0 */
     float getEasyAngle( float angle );

@@ -648,7 +648,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
     // Targeted Location Checks (AoE spells)
     if( targets.m_targetMask == TARGET_FLAG_DEST_LOCATION )
     {
-        if( !IsInrange( targets.m_dest.x, targets.m_dest.y, targets.m_dest.z, m_Unit, ( maxRange * maxRange ) ) )
+        if( !m_Unit->isInRange( targets.m_dest.x, targets.m_dest.y, targets.m_dest.z, maxRange) )
         {
             errorOut =SPELL_FAILED_OUT_OF_RANGE;
             return false;
@@ -666,8 +666,8 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
     {
         // Partha: +2.52yds to max range, this matches the range the client is calculating.
         // see extra/supalosa_range_research.txt for more info
-        float targetRange = maxRange + unitTarget->GetSize() + m_Unit->GetSize() + 2.52f;
-        if( !IsInrange(m_Unit, unitTarget, targetRange * targetRange ) )
+        float targetRange = maxRange + m_Unit->GetSize() + (unitTarget->GetBoundingRadius()*unitTarget->GetSize());
+        if( !m_Unit->isInRange(unitTarget, targetRange) )
         {
             errorOut =SPELL_FAILED_OUT_OF_RANGE;
             return false;

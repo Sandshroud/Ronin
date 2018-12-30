@@ -23,26 +23,31 @@
 
 extern float fInfinite;
 
+struct MovementPoint;
+class UnitPathSystem;
+
 class SERVER_DECL SmartBounding
 {
 protected:
     struct VectPoint { float x, y, z; };
 
 public:
-    SmartBounding() {}
-    ~SmartBounding() {}
+    SmartBounding();
+    ~SmartBounding();
 
-    void UpdatePosition(uint32 startTime, float sX, float sY, float sZ, uint32 timeDistance, float eX, float eY, float eZ) {}
+    void UpdatePosition(uint32 startTime, uint32 currentTime, float sX, float sY, float sZ, uint32 timeDest, float eX, float eY, float eZ);
     void Finalize(float x, float y, float z)
     {
 
     }
 
-    void GetPosition(uint32 msTime, LocationVector *output) {}
+    void UpdateMovementPoint(uint32 msTime, UnitPathSystem *path, MovementPoint *point);
+    void GetPosition(uint32 msTime, LocationVector *output);
+
     bool IsInRange(uint32 msTime, LocationVector source, float range, uint32 tolerance) { return true; }
 
 private:
-    uint32 lastUpdateMS, timeToTarget;
+    uint32 msStartTime, moveTime, timeToTarget;
     // Planned implementation is a different bound in all directions
     //float _boundX, _boundY, _boundZ; // However we only have a bound radius stored
     float _boundRadius; // Used in calculating if bound is in range

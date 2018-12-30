@@ -37,7 +37,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
     {
         if(fromMovement && hasDestination()) // Update our current position to our previously calculated update point
         {   // Note that only movement cares what our return value is
-            m_Unit->GetMovementInterface()->MoveClientPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z, lastUpdatePoint.orientationOverride);
+            m_Unit->GetMovementInterface()->MoveClientPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z, lastUpdatePoint.orientation);
             return false;
         }
         return true;
@@ -68,7 +68,7 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
         if(msTime <= m_pathStartTime)
             return false;
 
-        while(m_movementPoints.HasItems() && m_movementPoints.at(0).get()->timeStamp < timeWalked)
+        while(m_movementPoints.size() == 1 || (m_movementPoints.size() >= 2 && m_movementPoints.at(1).get()->timeStamp < timeWalked))
             m_movementPoints.pop_front();
 
         if(timeWalked >= m_pathLength || !m_movementPoints.HasItems())
@@ -89,14 +89,11 @@ bool UnitPathSystem::Update(uint32 msTime, uint32 uiDiff, bool fromMovement)
             if(m_movementPoints.size() >= 2)
             {
                 MovementPoint *point = m_movementPoints.at(0).get(), *target = m_movementPoints.at(1).get();
-                m_Unit->GetBoundBox()->UpdatePosition(msTime-(timeWalked-point->timeStamp), point->pos.x, point->pos.y, point->pos.z, target->timeStamp-point->timeStamp, target->pos.x, target->pos.y, target->pos.z);
-                lastUpdatePoint.orientationOverride = point->orientationOverride;
-                lastUpdatePoint.timeStamp = point->timeStamp;
-                lastUpdatePoint.pos.x = point->pos.x;
-                lastUpdatePoint.pos.y = point->pos.y;
-                lastUpdatePoint.pos.z = point->pos.z;
+                m_Unit->GetBoundBox()->UpdatePosition(m_pathStartTime, point->timeStamp, point->pos.x, point->pos.y, point->pos.z, target->timeStamp, target->pos.x, target->pos.y, target->pos.z);
+                m_Unit->GetBoundBox()->UpdateMovementPoint(msTime, this, &lastUpdatePoint);
                 return false;
             }
+
             return true;
         }
     }
@@ -198,6 +195,13 @@ bool UnitPathSystem::GetDestination(float &x, float &y, float *z)
     return true;
 }
 
+bool UnitPathSystem::CheckFinalOrientation(float o)
+{
+    if (!hasDestination())
+        return RONIN_UTIL::fuzzyEq(m_Unit->GetOrientation(), o);
+    return RONIN_UTIL::fuzzyEq(_destO, o);
+}
+
 bool UnitPathSystem::closeToDestination(uint32 msTime)
 {   // Creatures update every 400ms, should be changed to be within the 500ms block creation
     if(((msTime-m_pathStartTime) + 400) >= m_pathLength)
@@ -212,10 +216,10 @@ void UnitPathSystem::SetSpeed(MovementSpeedTypes speedType)
 
 void UnitPathSystem::_CleanupPath()
 {
-    _destX = _destY = fInfinite;
+    _currDestX = _destX = _currDestY = _destY = _currDestZ = _destZ = fInfinite;
     m_movementPoints.Clear();
 
-    lastUpdatePoint.timeStamp = 0; // Clean up our last update point
+    m_pathLength = lastUpdatePoint.timeStamp = 0; // Clean up our last update point
     lastUpdatePoint.pos.x = lastUpdatePoint.pos.y = lastUpdatePoint.pos.z = fInfinite;
 }
 
@@ -251,6 +255,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     m_Unit->GetPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
 
     _currDestX = _destX = x, _currDestY = _destY = y, _currDestZ = _destZ = z, _destO = o;
+    m_Unit->SetOrientation(m_Unit->calcAngle(srcPoint.pos.x, srcPoint.pos.y, x, y) * M_PI / 180.f);
 
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y))
         sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, _currDestX, _currDestY, _currDestZ, true);
@@ -259,6 +264,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
         MapInstance *instance = m_Unit->GetMapInstance();
         float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
         m_pathLength = (dist/speed)*1000.f;
+        m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(0, srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, -1.f))));
 
         if(m_pathLength > 1200)
         {
@@ -274,7 +280,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
             else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/((float)stepTiming)));
 
             float lastCalcPoint = srcPoint.pos.z;// Path calculation
-            uint32 timeToMove = stepTiming;
+            uint32 timeToMove = 0;
             while((m_pathLength-timeToMove) > stepTiming)
             {
                 timeToMove += stepTiming;
@@ -285,11 +291,11 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
                 if(ignoreTerrainHeight && lastCalcPoint > targetZ)
                     targetZ = lastCalcPoint;
 
-                m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, px, py, targetZ))));
+                m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, px, py, targetZ, -1.f))));
             }
         } else m_forcedSendFlags |= MOVEBCFLAG_UNCOMP;
 
-        m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ))));
+        m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ, -1.f))));
     }
 
     BroadcastMovementPacket();
@@ -303,6 +309,10 @@ void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
         SetOrientation(angle);
         return;
     }
+
+    // No need to broadcast an update if we already have the same destination orientation
+    if (_destO == angle)
+        return;
 
     _destO = angle;
 
@@ -390,10 +400,7 @@ void UnitPathSystem::OnSpeedChange(MovementSpeedTypes speedType)
     for(size_t i = 0, t = 0; i < m_movementPoints.size(); ++i)
     {
         if(m_movementPoints.at(i)->timeStamp <= lastUpdatePoint.timeStamp)
-        {
-            m_movementPoints.at(i)->timeStamp = 0;
             continue;
-        }
 
         m_movementPoints.at(i)->timeStamp = float2int32(((float)(++t))*500.f * timeRatio);
     }
@@ -403,6 +410,12 @@ void UnitPathSystem::OnSpeedChange(MovementSpeedTypes speedType)
 
 void UnitPathSystem::StopMoving()
 {
+    if (hasDestination())
+    {   // If we're moving update our current position first
+        m_Unit->GetBoundBox()->UpdateMovementPoint(RONIN_UTIL::ThreadTimer::getThreadTime(), this, &lastUpdatePoint);
+        m_Unit->GetMovementInterface()->MoveClientPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z, lastUpdatePoint.orientation);
+    }
+
     // Cleanup path will set our destinations to infinite
     _CleanupPath();
     // Broadcast an empty path

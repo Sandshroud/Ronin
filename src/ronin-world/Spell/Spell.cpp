@@ -494,6 +494,11 @@ bool Spell::updatePosition(float x, float y, float z)
     return true;
 }
 
+void Spell::resetCastPosition()
+{   // Just pull our current position into our cast position storage
+    _unitCaster->GetPosition(m_castPositionX, m_castPositionY, m_castPositionZ);
+}
+
 void Spell::_UpdateChanneledSpell(uint32 timeLeft)
 {
     while(m_channelRunTime >= m_channelTriggerTime)
@@ -1079,43 +1084,6 @@ bool IsHealingSpell(SpellEntry *sp)
         return true;
 
     return false;
-}
-
-bool IsInrange(LocationVector & location, WorldObject* o, float square_r, float square_min)
-{
-    float r = o->GetDistanceSq(location);
-    if(square_min && r < square_min)
-        return false;
-    return ( r<=square_r);
-}
-
-bool IsInrange(float x1,float y1, float z1, WorldObject* o,float square_r, float square_min)
-{
-    float r = o->GetDistanceSq(x1, y1, z1);
-    if(square_min && r < square_min)
-        return false;
-    return ( r<=square_r);
-}
-
-bool IsInrange(float x1,float y1, float z1,float x2,float y2, float z2,float square_r, float square_min)
-{
-    float t;
-    float r;
-    t=x1-x2;
-    r=t*t;
-    t=y1-y2;
-    r+=t*t;
-    t=z1-z2;
-    r+=t*t;
-    if(square_min && r < square_min)
-        return false;
-    return ( r<=square_r);
-}
-
-bool IsInrange(WorldObject* o1,WorldObject* o2,float square_r, float square_min)
-{
-    return IsInrange(o1->GetPositionX(),o1->GetPositionY(),o1->GetPositionZ(),
-        o2->GetPositionX(),o2->GetPositionY(),o2->GetPositionZ(),square_r,square_min);
 }
 
 bool TargetTypeCheck(WorldObject* obj,uint32 ReqCreatureTypeMask)

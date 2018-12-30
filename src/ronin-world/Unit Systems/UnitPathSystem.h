@@ -25,11 +25,11 @@ enum MovementSpeedTypes : uint8;
 
 struct MovementPoint
 {
-    MovementPoint() : pos(0.f, 0.f, 0.f), timeStamp(0) {}
-    MovementPoint(uint32 time, float x, float y, float z) : pos(x, y, z), timeStamp(time) {}
+    MovementPoint() : pos(0.f, 0.f, 0.f), timeStamp(0), orientation(-1.f) {}
+    MovementPoint(uint32 time, float x, float y, float z, float o) : pos(x, y, z), timeStamp(time), orientation(o) {}
     Position pos;
     uint32 timeStamp;
-    float orientationOverride;
+    float orientation;
 };
 
 enum PacketBroadcastFlags
@@ -72,6 +72,7 @@ public: // Class functions
     bool closeToDestination(uint32 msTime);
 
     bool GetDestination(float &x, float &y, float *z = NULL);
+    bool CheckFinalOrientation(float o);
 
     void SetSpeed(MovementSpeedTypes speedType);
 

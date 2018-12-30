@@ -368,7 +368,7 @@ void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
             {
                 if(spell->prepare(&targets, false) == SPELL_CANCAST_OK)
                 {
-                    m_aiInterface.OnStartCast(cSpell->spellEntry);
+                    m_aiInterface.OnStartCast(spell);
                     // Cancel auto attack if we have to cast
                     if(cSpell->spellEntry->CastingTimeIndex)
                         return;

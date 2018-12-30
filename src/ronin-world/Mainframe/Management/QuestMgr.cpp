@@ -407,7 +407,7 @@ void QuestMgr::AppendQuestList(Object *obj, Player *plr, uint32 &count, WorldPac
 
 uint32 QuestMgr::CalcQuestStatus(Player* plr, QuestRelation* qst)
 {
-    return CalcQuestStatus(plr, qst->qst, qst->type);
+    return CalcQuestStatus(plr, qst->qst, qst->type, false);
 }
 
 // Crow: ALL NOT AVAILABLES MUST GO FIRST!
@@ -484,9 +484,48 @@ uint32 QuestMgr::PlayerMeetsReqs(Player* plr, Quest* qst, bool skiplevelcheck, b
     return status;
 }
 
-uint32 QuestMgr::CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool skiplevelcheck, bool skipPrevQuestCheck)
+bool QuestMgr::PlayerCanComplete(Player *plr, Quest *qst, QuestLogEntry *questLog)
+{
+    if (qst->qst_is_repeatable == 2 && plr->GetFinishedDailiesCount() >= 25)
+        return false;
+
+    for (uint8 i = 0; i < 4; i++)
+    {
+        bool required = false;
+        if (qst->required_spell[i] || qst->required_mob[i])
+            required = true;
+
+        if (required && (questLog == NULL || (qst->required_mobcount[i] > questLog->m_objectiveCount[i])))
+            return false;
+    }
+
+    for (uint8 i = 0; i < 6; i++)
+        if (qst->required_item[i] && plr->GetInventory()->GetItemCount(qst->required_item[i]) < qst->required_itemcount[i])
+            return false;
+
+    //Check for Gold & AreaTrigger Requirement
+    for (uint8 i = 0; i < 4; i++)
+    {
+        if (qst->required_money && (plr->GetUInt32Value(PLAYER_FIELD_COINAGE) < qst->required_money))
+            return false;
+
+        if (qst->required_areatriggers[i] && (questLog == NULL || (questLog->m_areaTriggerFlags & (1 << i)) == 0))
+            return false;
+    }
+
+    if (qst->required_player_kills && (questLog == NULL || qst->required_player_kills != questLog->m_players_slain))
+        return false;
+    if (qst->required_timelimit && (questLog == NULL || questLog->isExpired()))
+        return false;
+    return true;
+}
+
+uint32 QuestMgr::CalcQuestStatus(Player* plr, Quest* qst, uint8 type, bool interaction, bool skiplevelcheck, bool skipPrevQuestCheck)
 {
     QuestLogEntry* qle = plr->GetQuestLogForEntry(qst->id);
+    if (interaction && (qst->qst_is_repeatable && qst->qst_flags & QUEST_FLAG_REPUTATION) && QuestMgr::PlayerCanComplete(plr, qst, plr->GetQuestLogForEntry(qst->id)))
+        return QMGR_QUEST_FINISHED;
+
     if (!qle)
     {
         if (type & QUESTGIVER_QUEST_START)
@@ -789,7 +828,7 @@ void QuestMgr::BuildQuestDetails(WorldPacket *data, Quest* qst, Object* qst_give
     *data << uint32(0);                         // Emote delay/player emote
 }
 
-void QuestMgr::BuildRequestItems(WorldPacket *data, Quest* qst, Object* qst_giver, uint32 status)
+void QuestMgr::BuildRequestItems(WorldPacket *data, Quest* qst, Object* qst_giver, uint32 status, Player *plr)
 {
     ItemPrototype * it;
     data->SetOpcode( SMSG_QUESTGIVER_REQUEST_ITEMS );
@@ -824,7 +863,9 @@ void QuestMgr::BuildRequestItems(WorldPacket *data, Quest* qst, Object* qst_give
     *data << uint32(0); // counter, uint64 for each
 
     uint32 canFinish = 0;
-    if(qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE || status == QMGR_QUEST_FINISHED)
+    if ((qst->qst_is_repeatable && qst->qst_flags & QUEST_FLAG_REPUTATION) && PlayerCanComplete(plr, qst, plr->GetQuestLogForEntry(qst->id)))
+        canFinish = 0x02;
+    else if(qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE || status == QMGR_QUEST_FINISHED)
         canFinish = 0x02;
 
     *data << canFinish; //incomplete button
@@ -1362,61 +1403,52 @@ void QuestMgr::GiveQuestTitleReward(Player* plr, Quest* qst)
 
 void QuestMgr::OnQuestFinished(Player* plr, Quest* qst, Object* qst_giver, uint32 reward_slot)
 {
-    if(qst->qst_flags & QUEST_FLAG_AUTOCOMPLETE)
-        BuildQuestComplete(plr, qst);
-    else
+    BuildQuestComplete(plr, qst);
+
+    // Remove any marked quest mobs
+    for (uint8 x = 0; x < 4; x++)
+        if (qst->required_mob[x] != 0 && plr->HasQuestMob(qst->required_mob[x]))
+            plr->RemoveQuestMob(qst->required_mob[x]);
+
+    // Remove any received items
+    for (uint8 x = 0; x < 4; x++)
     {
-        QuestLogEntry *qle = plr->GetQuestLogForEntry(qst->id);
-        if(!qle)
-            return;
+        if (qst->receive_itemcount[x] == 0)
+            continue;
+        plr->GetInventory()->RemoveItemAmt(qst->receive_items[x], qst->receive_itemcount[x]);
+    }
+
+    // Remove any required quest items
+    for (uint8 x = 0; x < 6; x++)
+    {
+        if (qst->required_itemcount[x] == 0)
+            continue;
+        plr->GetInventory()->RemoveItemAmt(qst->required_item[x], qst->required_itemcount[x]);
+    }
+
+    if (QuestLogEntry *qle = plr->GetQuestLogForEntry(qst->id))
+    {
         BuildQuestComplete(plr, qst);
         TRIGGER_QUEST_EVENT(qst->id, OnQuestComplete)(plr, qle);
 
         if (plr->HasQuestSpell(qle->GetRequiredSpell()))
             plr->RemoveQuestSpell(qle->GetRequiredSpell());
-        for (uint32 x=0;x<4;x++)
-        {
-            if (qst->required_mob[x]!=0)
-            {
-                if (plr->HasQuestMob(qst->required_mob[x]))
-                    plr->RemoveQuestMob(qst->required_mob[x]);
-            }
-        }
+
         qle->ClearAffectedUnits();
 
         // Cleanup aquired/required spells, items and kills.
-        for( uint32 x=0;x<4;x++)
+        for(uint8 x = 0; x < 4; x++)
         {
             if( IsQuestRepeatable(qst) || IsQuestDaily(qst) ) //reset kill-counter in case of repeatable's
             {
                 if( qst->required_mob[x] && plr->HasQuestMob(qst->required_mob[x]) )
                     qle->SetObjectiveCount(x,0);
             }
-            else
-            {
-                //Remove Killed npc's
-                if( qst->required_mob[x] && plr->HasQuestMob(qst->required_mob[x]) )
-                    plr->RemoveQuestMob(qst->required_mob[x]);
-            }
         }
 
         //Remove aquired spells
         if( qst->required_spell && plr->HasQuestSpell(qle->GetRequiredSpell()) )
             plr->RemoveQuestSpell(qle->GetRequiredSpell());
-
-        for (uint32 x=0;x<4;x++)
-        {
-            if(qst->receive_itemcount[x] == 0)
-                continue;
-            plr->GetInventory()->RemoveItemAmt(qst->receive_items[x], qst->receive_itemcount[x]);
-        }
-
-        for (uint32 x=0;x<6;x++)
-        {
-            if(qst->required_itemcount[x] == 0)
-                continue;
-            plr->GetInventory()->RemoveItemAmt(qst->required_item[x], qst->required_itemcount[x]);
-        }
 
         qle->Finish();
     }
@@ -1633,8 +1665,7 @@ uint32 QuestMgr::GenerateRewardMoney( Player* pl, Quest * qst )
 
     if ( pl && pl->getLevel() >= pl->GetUInt32Value(PLAYER_FIELD_MAX_LEVEL) && qst->qst_is_repeatable == 0 )
         return float2int32(qst->reward_maxlvlmoney*sWorld.getRate(RATE_QUESTMONEY));
-    else
-        return float2int32(qst->reward_money*sWorld.getRate(RATE_QUESTMONEY));
+    return float2int32(qst->reward_money*sWorld.getRate(RATE_QUESTMONEY));
 }
 
 uint32 QuestMgr::GenerateQuestXP(Player* plr, Quest *qst)
@@ -1778,7 +1809,7 @@ bool QuestMgr::OnActivateQuestGiver(Object* qst_giver, Player* plr)
         }
         else if (status == QMGR_QUEST_NOT_FINISHED)
         {
-            sQuestMgr.BuildRequestItems(&data, (*itr)->qst, qst_giver, status);
+            sQuestMgr.BuildRequestItems(&data, (*itr)->qst, qst_giver, status, plr);
             plr->PushPacket(&data);
             sLog.Debug( "WORLD"," Sent SMSG_QUESTGIVER_REQUEST_ITEMS." );
         }

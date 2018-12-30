@@ -23,8 +23,12 @@
 
 #define TRIGGER_QUEST_EVENT(id, func)
 
+class Quest;
+class QuestMgr;
+
 class SERVER_DECL QuestLogEntry
 {
+    friend class QuestMgr;
 public:
     QuestLogEntry();
     ~QuestLogEntry();

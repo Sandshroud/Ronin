@@ -108,10 +108,15 @@ void AIInterface::OnPathChange()
 
 }
 
-void AIInterface::OnStartCast(SpellEntry *sp)
+void AIInterface::OnStartCast(Spell *newSpell)
 {
-    if((sp->CastingTimeIndex || sp->isSpellInterruptOnMovement()) && m_path->hasDestination())
+    SpellEntry *sp = newSpell->GetSpellProto();
+    if ((sp->CastingTimeIndex || sp->isSpellInterruptOnMovement()) && m_path->hasDestination())
+    {
         m_path->StopMoving();
+        // Since we were moving, update our cast position
+        newSpell->resetCastPosition();
+    }
 }
 
 void AIInterface::OnTakeDamage(uint32 msTime, Unit *attacker, uint32 damage)
@@ -221,25 +226,34 @@ void AIInterface::_HandleCombatAI(uint32 msTime)
         }
     }
 
-    if(!m_path->IsMovementLocked())
+    SpellEntry *sp = NULL;
+    float attackRange = 0.f, minRange = 0.f, x, y, z, o, dist = unitTarget->GetDistance2dSq(m_Creature->GetPositionX(), m_Creature->GetPositionY());
+    if (!m_path->IsMovementLocked() && m_Creature->calculateAttackRange(m_Creature->GetPreferredAttackType(&sp), minRange, attackRange, sp) && (dist > (attackRange*attackRange*0.9f)))
     {
-        SpellEntry *sp = NULL;
-        float attackRange = 0.f, minRange = 0.f, x, y, z, o;
-        if (m_Creature->calculateAttackRange(m_Creature->GetPreferredAttackType(&sp), minRange, attackRange, sp))
-            attackRange *= 0.8f; // Cut our attack range down slightly to prevent range issues
+        bool forceRecalcPath = false;
 
-        m_Creature->GetPosition(x, y, z);
-        m_path->GetDestination(x, y);
-        if (unitTarget->GetDistance2dSq(x, y) >= attackRange*attackRange)
+        // Grab our current position for our xyz pos
+        if (m_path->hasDestination())
         {
-            unitTarget->GetPosition(x, y, z);
+            m_path->GetDestination(x, y);
+            float destDiff = m_Creature->GetDistance2dSq(x, y);
+            // Recalculate movement path if our target has moved closer
+            forceRecalcPath = dist < destDiff && (RONIN_UTIL::Diff(dist, destDiff) > attackRange*0.2f);
+        } else m_Creature->GetPosition(x, y, z);
+
+        float dist2 = unitTarget->GetDistance2dSq(x, y);
+        unitTarget->GetPosition(x, y, z);
+
+        // Check to see if our current destination is in reach of our target
+        if (forceRecalcPath || ((dist2 > (attackRange*attackRange*1.2f)) && (dist >= attackRange * attackRange)))
+        {
             o = m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f;
-            x -= attackRange * cosf(o);
-            y -= attackRange * sinf(o);
+            x -= attackRange * 0.8f * cosf(o);
+            y -= attackRange * 0.8f * sinf(o);
 
             m_path->SetSpeed(MOVE_SPEED_RUN);//unitTarget->GetCombatMovement());
             m_path->MoveToPoint(x, y, z, o);
-        } else if(!m_Creature->isTargetInFront(unitTarget) && !m_path->IsOrientationLocked())
+        } else if (!m_path->IsOrientationLocked() && !m_path->CheckFinalOrientation(m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f))
             m_path->UpdateOrientation(unitTarget);
 
         if(!m_Creature->checkAttackTarget(m_targetGuid))

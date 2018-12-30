@@ -238,52 +238,7 @@ void QuestLogEntry::ClearAffectedUnits()
 
 bool QuestLogEntry::CanBeFinished()
 {
-    if(m_quest->qst_is_repeatable == 2 && m_Player->GetFinishedDailiesCount() >= 25)
-        return false;
-
-    for(uint8 i = 0; i < 4; i++)
-    {
-        bool required = false;
-        if(m_isCastQuest)
-        {
-            if(m_quest->required_spell || m_quest->required_mob[i])
-                required = true;
-        }
-        else
-        {
-            if(m_quest->required_mob[i])
-                required = true;
-        }
-
-        if(required)
-            if(m_quest->required_mobcount[i] > m_objectiveCount[i])
-                return false;
-    }
-
-    for(uint8 i = 0; i < 6; i++)
-        if(m_quest->required_item[i])
-            if(m_Player->GetInventory()->GetItemCount(m_quest->required_item[i]) < m_quest->required_itemcount[i])
-                return false;
-
-    //Check for Gold & AreaTrigger Requirement s
-    for(uint8 i = 0; i < 4; i++)
-    {
-        if(m_quest->required_money && (m_Player->GetUInt32Value(PLAYER_FIELD_COINAGE) < m_quest->required_money))
-            return false;
-
-        if(m_quest->required_areatriggers[i])
-        {
-            if((m_areaTriggerFlags & (1<<i)) == 0)
-                return false;
-        }
-    }
-
-    if(m_quest->required_player_kills != m_players_slain)
-        return false;
-
-    if(m_quest->required_timelimit && isExpired())
-        return false;
-    return true;
+    return QuestMgr::PlayerCanComplete(m_Player, m_quest, this);
 }
 
 void QuestLogEntry::SetPlayerSlainCount(uint32 count)

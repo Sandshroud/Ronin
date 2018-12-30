@@ -1228,10 +1228,8 @@ bool WorldObject::IsInBox(float centerX, float centerY, float centerZ, float BLe
     float playerBoxDistY = GetPositionY() - centerY;
     float rotationPlayerX = (float)(centerX + playerBoxDistX * cosVal - playerBoxDistY*sinVal);
     float rotationPlayerY = (float)(centerY + playerBoxDistY * cosVal + playerBoxDistX*sinVal);
-    float dx = rotationPlayerX - centerX;
-    float dy = rotationPlayerY - centerY;
-    float dz = GetPositionZ() - centerZ;
-    if(!((fabs(dx) > BLength/2 + delta) || (fabs(dy) > BWidth/2 + delta) || (fabs(dz) > BHeight/2 + delta)))
+    float dx = fabs(rotationPlayerX - centerX), dy = fabs(rotationPlayerY - centerY), dz = fabs(GetPositionZ() - centerZ);
+    if(!((dx > BLength/2 + delta) || (dy > BWidth/2 + delta) || (dz > BHeight/2 + delta)))
         return true;
     return false;
 }
@@ -1352,7 +1350,7 @@ bool WorldObject::isTargetInFront(WorldObject* target)
         return true;
 
     // move arc to range 0.. 2*pi
-    float arc = float(M_PI)/2.f;
+    float arc = NormAngle(M_PI/1.2f);
 
     float angle = GetAngle(GetPositionX(), GetPositionY(), target->GetPositionX(), target->GetPositionY());
     angle -= m_position.o;
@@ -1360,11 +1358,11 @@ bool WorldObject::isTargetInFront(WorldObject* target)
     // move angle to range -pi +pi
     angle = NormAngle(angle);
     if(angle > M_PI)
-        angle -= 2.0f*M_PI;
+        angle -= 2.f*M_PI;
 
-    float lborder =  -1 * (arc/2.0f);               // in range -pi..0
-    float rborder = (arc/2.0f);                     // in range 0..pi
-    return ((angle >= lborder) && (angle <= rborder));
+    float lborder =  -1 * (arc/2.f);               // in range -pi..0
+    float rborder = (arc/2.f);                     // in range 0..pi
+    return (RONIN_UTIL::fuzzyGt(angle, lborder) && RONIN_UTIL::fuzzyLt(angle, rborder));
 }
 
 bool WorldObject::isInArc(WorldObject* target , float angle) // angle in degrees
@@ -1374,7 +1372,12 @@ bool WorldObject::isInArc(WorldObject* target , float angle) // angle in degrees
 
 bool WorldObject::isInRange(WorldObject* target, float range)
 {
-    return GetDistanceSq(target) <= range*range;
+    return RONIN_UTIL::fuzzyLt(GetDistanceSq(target), range*range);
+}
+
+bool WorldObject::isInRange(float x, float y, float z, float range)
+{
+    return RONIN_UTIL::fuzzyLt(GetDistanceSq(x, y, z), range*range);
 }
 
 void WorldObject::SetFactionTemplate(uint32 templateId)

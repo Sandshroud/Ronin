@@ -57,6 +57,8 @@ public:
     void Update(uint32 difftime);
     // Checks against the cast position and cancels if we've moved
     bool updatePosition(float x, float y, float z);
+    // Resets our cast position to our current unit position
+    void resetCastPosition();
     // Updates our channel based data for triggers etc
     void _UpdateChanneledSpell(uint32 difftime);
     // Updates delayed targets, calls finish() as well

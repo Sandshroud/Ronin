@@ -3573,7 +3573,7 @@ int32 Player::GetOpenQuestSlot()
 
 uint32 Player::GetQuestStatusForQuest(uint32 questid, uint8 type, bool skiplevelcheck)
 {
-    return sQuestMgr.CalcQuestStatus(this, GetQuestLogForEntry(questid)->GetQuest(), type, skiplevelcheck);
+    return sQuestMgr.CalcQuestStatus(this, GetQuestLogForEntry(questid)->GetQuest(), type, false, skiplevelcheck);
 }
 
 void Player::AddToCompletedQuests(uint32 quest_id, bool quickSave)
@@ -6274,6 +6274,7 @@ bool Player::HasQuestSpell(uint32 spellid) //Only for Cast Quests
         return true;
     return false;
 }
+
 void Player::RemoveQuestSpell(uint32 spellid) //Only for Cast Quests
 {
     if (quest_spells.size()>0)
@@ -6286,6 +6287,7 @@ bool Player::HasQuestMob(uint32 entry) //Only for Kill Quests
         return true;
     return false;
 }
+
 void Player::RemoveQuestMob(uint32 entry) //Only for Kill Quests
 {
     if (quest_mobs.size()>0)

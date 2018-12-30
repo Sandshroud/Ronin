@@ -2037,7 +2037,7 @@ bool Unit::calculateAttackRange(WeaponDamageType type, float &minRange, float &m
     {
         // Min range for our ranged attack spell
         minRange = sp->minRange[0];
-        minRange *= minRange;
+
         // Calculate max range
         maxRange -= (type == RANGED_AUTOSHOT ? 0.f : selfReach);
         float spellRange = sp->maxRange[0];
@@ -2095,7 +2095,8 @@ bool Unit::canReachWithAttack(WeaponDamageType attackType, Unit* pVictim, uint32
             maxRange += move->GetMoveSpeed(MOVE_SPEED_RUN) * 0.001f * lat;
         }
     }
-    return (distance > (minRange*minRange)) && (distance <= (maxRange*maxRange));
+
+    return RONIN_UTIL::fuzzyGt(distance, (minRange*minRange)) && RONIN_UTIL::fuzzyLt(distance, (maxRange*maxRange));
 }
 
 void Unit::resetAttackTimer(uint8 attackType)
