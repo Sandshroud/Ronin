@@ -182,6 +182,8 @@ void WorldSocket::OutPacket(uint16 opcode, size_t len, const void* data, bool co
     }
 }
 
+extern void recordPacketStruct(uint16 opcode, size_t len, const void *data);
+
 OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* data, bool compressed)
 {
     bool rv;
@@ -193,6 +195,7 @@ OUTPACKET_RESULT WorldSocket::_OutPacket(uint16 opcode, size_t len, const void* 
     if(newOpcode == MSG_NULL_ACTION)
         return OUTPACKET_RESULT_PACKET_ERROR;
     if(compressed) newOpcode |= OPCODE_COMPRESSION_MASK;
+    else recordPacketStruct(opcode, len, data);
     LockWriteBuffer();
 
     //sLog.printf("Sending opcode %s%s (0x%.4X)\n", compressed ? "COMPRESSED_" : "", sOpcodeMgr.GetOpcodeName(opcode), opcode);

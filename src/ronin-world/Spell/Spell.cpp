@@ -47,7 +47,7 @@ Spell::Spell(Unit* Caster, SpellEntry *info, uint8 castNumber, WoWGuid itemGuid,
 
     m_usesMana = false;
 
-    m_canCastResult = SPELL_CANCAST_OK;
+    m_canCastResult = SPELL_FAILED_SUCCESS;
     m_Delayed = false;
     m_ForceConsumption = false;
     m_cancelled = false;
@@ -135,7 +135,7 @@ bool Spell::IsAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
 
 uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 {
-    uint8 ccr = SPELL_CANCAST_OK;
+    uint8 ccr = SPELL_PREPARE_SUCCESS;
     if( _unitCaster->IsPlayer() && (m_spellInfo->Id == 51514 || m_spellInfo->NameHash == SPELL_HASH_ARCANE_SHOT || m_spellInfo->NameHash == SPELL_HASH_MIND_FLAY))
     {
         targets->m_unitTarget = 0;
@@ -151,7 +151,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     // Handle triggered spells here that aren't channeled spells
     if( m_triggeredSpell && !m_spellInfo->IsSpellChannelSpell())
     {
-        cast( false );
+        ccr = (cast(false) == SPELL_STATE_FINISHED) ? SPELL_PREPARE_FINISHED : SPELL_FAILED_UNKNOWN;
         return ccr;
     }
 
@@ -193,8 +193,8 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     // instant cast(or triggered) and not channeling
     if( ( m_castTime > 0 || m_spellInfo->IsSpellChannelSpell() ) && !m_triggeredSpell  )
         _unitCaster->GetSpellInterface()->ProcessSpell( this );
-    else cast( false );
-
+    else if(cast(false) == SPELL_STATE_FINISHED)
+        ccr = SPELL_PREPARE_FINISHED;
     return ccr;
 }
 
@@ -277,7 +277,7 @@ void Spell::AddStartCooldown()
     castPtr<Player>(_unitCaster)->Cooldown_AddStart( m_spellInfo );
 }
 
-void Spell::cast(bool check)
+uint8 Spell::cast(bool check)
 {
     sLog.Debug("Spell","Cast %u, Unit: %u", m_spellInfo->Id, _unitCaster->GetLowGUID());
 
@@ -294,7 +294,7 @@ void Spell::cast(bool check)
             SendInterrupted(SPELL_FAILED_NO_POWER);
             SendCastResult(SPELL_FAILED_NO_POWER);
             finish();
-            return;
+            return SPELL_STATE_FINISHED;
         }
 
         // Trigger our spell cooldown here, and not at trigger
@@ -305,7 +305,7 @@ void Spell::cast(bool check)
         if(!m_triggeredByAura) _unitCaster->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
 
         _unitCaster->GetSpellInterface()->ProcessNextMeleeSpell(this);
-        return;
+        return SPELL_STATE_FINISHED;
     }
 
     // Only take power if we're not a triggered spell, or we're a triggered next melee attack
@@ -314,7 +314,7 @@ void Spell::cast(bool check)
         SendInterrupted(SPELL_FAILED_NO_POWER);
         SendCastResult(SPELL_FAILED_NO_POWER);
         finish();
-        return;
+        return SPELL_STATE_FINISHED;
     }
 
     FillTargetMap(false);
@@ -345,7 +345,7 @@ void Spell::cast(bool check)
         if(!m_delayTargets.empty() || m_isDelayedAOEMissile)
             _unitCaster->GetMapInstance()->AddProjectile(this);
         finish();
-        return;
+        return SPELL_STATE_FINISHED;
     }
 
     std::set<WoWGuid> unitTargets;
@@ -383,10 +383,11 @@ void Spell::cast(bool check)
     // we're much better to remove this here, because otherwise spells that change powers etc, don't get applied.
     _unitCaster->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip(AURA_INTERRUPT_ON_CAST_SPELL, m_spellInfo->Id);
     if(m_spellState == SPELL_STATE_CASTING)
-        return;
+        return SPELL_STATE_CASTING;
 
     m_isCasting = false;
     finish();
+    return SPELL_STATE_FINISHED;
 }
 
 void Spell::AddTime(uint32 type)
@@ -659,7 +660,7 @@ void Spell::finish()
 
         castPtr<Player>(_unitCaster)->ClearComboPoints(false, m_spellInfo, m_castNumber);
 
-        if( m_ForceConsumption || ( m_canCastResult == SPELL_CANCAST_OK ) )
+        if( m_ForceConsumption || ( m_canCastResult >= SPELL_PREPARE_SUCCESS) )
             RemoveItems();
     }
 
@@ -772,7 +773,7 @@ bool Spell::IsBinary(SpellEntry * sp)
 uint8 Spell::CanCast(bool tolerate)
 {
     // no problems found, so we must be ok
-    return SPELL_CANCAST_OK;
+    return SPELL_PREPARE_SUCCESS;
 }
 
 void Spell::RemoveItems()

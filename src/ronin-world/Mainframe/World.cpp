@@ -184,7 +184,32 @@ void World::CharEnumDisplayData(QueryResultVector& results, uint32 AccountId)
         s->CharEnumDisplayData(results);
 }
 
-bool World::CompressPacketData(z_stream *stream, Mutex *streamLock, const void *data, uint32 len, ByteBuffer *output)
+void recordPacketStruct(uint16 opcode, size_t len, const void *data)
+{
+#ifdef RECORD_PACKET_STRUCT
+    bool log = true;
+    switch (opcode)
+    {
+
+    }
+    if (log == false)
+        return;
+
+    FILE *codeLog = NULL;
+    fopen_s(&codeLog, "loggedPackets.txt", "a+b");
+    if (codeLog)
+    {
+        fprintf(codeLog, "Recording packet %s(%u) with size %zu\r\n", sOpcodeMgr.GetOpcodeName(opcode), opcode, len);
+        WorldPacket packet(opcode, len);
+        packet.append((uint8*)data, len);
+        packet.hexlike(codeLog);
+        fclose(codeLog);
+    }
+#endif
+    return;
+}
+
+bool World::CompressPacketData(z_stream *stream, Mutex *streamLock, uint16 opcode, const void *data, uint32 len, ByteBuffer *output)
 {
     ByteBuffer *buff = NULL;
     // Spend as little time in the lock as possible
@@ -218,6 +243,7 @@ bool World::CompressPacketData(z_stream *stream, Mutex *streamLock, const void *
         {
             res = true;
             destSize -= stream->avail_out;
+            recordPacketStruct(opcode, len, data);
             output->append(buff->contents(), destSize);
         } else sLog.outDebug("deflate failed: did not end stream");
     } else sLog.outDebug("deflate failed.");

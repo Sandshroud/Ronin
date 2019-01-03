@@ -459,7 +459,7 @@ enum AURAIMMUNE_FLAG
                                     AURAIMMUNE_TRANSFORM, //1023
 };
 
-enum SpellCastError
+enum SpellCastError : uint8
 {
     SPELL_FAILED_SUCCESS                                = 0,
     SPELL_FAILED_AFFECTING_COMBAT                       = 1,
@@ -665,8 +665,9 @@ enum SpellCastError
     SPELL_FAILED_EXCEEDED_WEEKLY_USAGE                  = 201,
     SPELL_FAILED_NOT_IN_LFG_DUNGEON                     = 202,
     // Following are custom
-    SPELL_FAILED_UNKNOWN                                = 254,
-    SPELL_CANCAST_OK,
+    SPELL_FAILED_UNKNOWN                                = 250,
+    SPELL_PREPARE_SUCCESS,
+    SPELL_PREPARE_FINISHED,
 };
 
 //wooohooo, there are 19 spells that actually require to add a proccounter for these

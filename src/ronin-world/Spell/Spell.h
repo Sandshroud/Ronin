@@ -50,6 +50,8 @@ public:
     }
 
     // Prepares the spell thats going to cast to targets
+    // Returns SPELL_CANCAST_OK if processed via casting
+    // Returns SPELL_FAILED_SUCCESS if processed instantly
     uint8 prepare(SpellCastTargets *targets, bool triggered);
     // Cancels the current spell
     void cancel();
@@ -64,7 +66,7 @@ public:
     // Updates delayed targets, calls finish() as well
     bool UpdateDelayedTargetEffects(MapInstance *instance, uint32 diffTime);
     // Casts the spell
-    void cast(bool);
+    uint8 cast(bool);
     // Finishes the casted spell
     void finish();
     // Take Power from the caster based on spell power usage

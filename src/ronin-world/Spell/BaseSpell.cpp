@@ -445,7 +445,7 @@ void BaseSpell::SendProjectileUpdate()
 
 void BaseSpell::SendCastResult(uint8 result)
 {
-    if(result == SPELL_CANCAST_OK)
+    if(result >= SPELL_PREPARE_SUCCESS)
         return;
 
     if(!_unitCaster->IsInWorld())
@@ -603,7 +603,7 @@ bool BaseSpell::Reflect(Unit* refunit)
     if(Spell* spell = new Spell(refunit, m_spellInfo))
     {
         spell->m_reflectedParent = this;
-        if(spell->prepare(&targets, true) == SPELL_CANCAST_OK)
+        if(spell->prepare(&targets, true) >= SPELL_PREPARE_SUCCESS)
             return true;
     }
     return false;

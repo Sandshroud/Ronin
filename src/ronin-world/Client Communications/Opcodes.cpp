@@ -40,7 +40,7 @@ bool OpcodeManager::IsValidOpcodeForInput(uint32 opcode)
 
 bool OpcodeManager::IsValidOpcodeForOutput(uint32 opcode)
 {
-    if(inputMap.find(opcode) == inputMap.end())
+    if(outputMap.find(opcode) == outputMap.end())
         return false;
     return true;
 }

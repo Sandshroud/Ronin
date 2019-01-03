@@ -366,12 +366,16 @@ void Creature::EventUpdateCombat(uint32 msTime, uint32 uiDiff)
             cSpell->castTimer = cSpell->cooldownTimer;
             if(Spell *spell = new Spell(this, cSpell->spellEntry))
             {
-                if(spell->prepare(&targets, false) == SPELL_CANCAST_OK)
-                {
-                    m_aiInterface.OnStartCast(spell);
-                    // Cancel auto attack if we have to cast
-                    if(cSpell->spellEntry->CastingTimeIndex)
-                        return;
+                uint8 castResult;
+                if((castResult = spell->prepare(&targets, false)) >= SPELL_PREPARE_SUCCESS)
+                {   // We've succeeded in cast preparation, if we are not instant cast then push interrupts
+                    if (castResult == SPELL_PREPARE_SUCCESS)
+                    {
+                        m_aiInterface.OnStartCast(spell);
+                        // Cancel auto attack if we have to cast
+                        if (cSpell->spellEntry->CastingTimeIndex)
+                            return;
+                    }
                     break;
                 }
             }

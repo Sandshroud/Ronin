@@ -1020,7 +1020,7 @@ void WorldSession::SendPacket(WorldPacket* packet)
     {
         ByteBuffer buff;
         buff << uint32(packet->size());
-        bool compressResult = sWorld.CompressPacketData(_zlibStream, &zlibLock, packet->contents(), packet->size(), &buff);
+        bool compressResult = sWorld.CompressPacketData(_zlibStream, &zlibLock, packet->GetOpcode(), packet->contents(), packet->size(), &buff);
         // Because compression is not always immediate, we need to check socket status after returning
         if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
             return;
@@ -1044,7 +1044,7 @@ void WorldSession::OutPacket(uint16 opcode, uint16 len, const void* data)
     {
         ByteBuffer buff;
         buff << uint32(len);
-        bool compressResult = sWorld.CompressPacketData(_zlibStream, &zlibLock, data, len, &buff);
+        bool compressResult = sWorld.CompressPacketData(_zlibStream, &zlibLock, opcode, data, len, &buff);
         // Because compression is not always immediate, we need to check socket status after returning
         if(bServerShutdown || _socket == NULL || !_socket->IsConnected())
             return;
