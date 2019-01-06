@@ -1253,8 +1253,8 @@ void MovementInterface::HandlePendingMoveData(bool fromLanding)
             WriteFromServer(data.GetOpcode(), &data);
             castPtr<Player>(m_Unit)->PushPacket(&data);
             break;
-        case MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE:
-            data.Initialize(SMSG_SPLINE_MOVE_GRAVITY_ENABLE, 200);
+        case MOVEMENT_CODE_GRAVITY_ENABLE:
+            data.Initialize(SMSG_MOVE_GRAVITY_ENABLE, 200);
             WriteFromServer(data.GetOpcode(), &data);
             castPtr<Player>(m_Unit)->PushPacket(&data);
             break;
@@ -1325,7 +1325,7 @@ void MovementInterface::OnPushToWorld(uint32 msTime)
         // Disable player root from login/map transfer
         m_pendingMoveData.add(MOVEMENT_CODE_UNROOT);
         // Send a spline gravity enable since we don't have the regular packet parsed yet
-        m_pendingMoveData.add(MOVEMENT_CODE_SPLINE_GRAVITY_ENABLE);
+        m_pendingMoveData.add(MOVEMENT_CODE_GRAVITY_ENABLE);
         // Send a time sync request
         SendTimeSyncReq();
     } else m_path.InitializeAutoPath();
