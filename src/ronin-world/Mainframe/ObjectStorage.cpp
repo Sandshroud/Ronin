@@ -35,7 +35,6 @@ const char * gAchievementRewardFormat                   = "uuuubuss";
 const char * gCreatureVehicleData                       = "ubuuuuuuuuubbubbubbubbubbubbubbubb";
 const char * gCreatureInfoExtra                         = "uuuhubbfbfuisbb";
 const char * gGameObjectNameFormat                      = "uuusssfuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuiu";
-const char * gGraveyardFormat                           = "uffffuuuux";
 const char * gItemPageFormat                            = "usu";
 const char * gNpcTextFormat                             = "ussssssssssssssssfuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuu";
 const char * gTeleportCoordFormat                       = "uxuffff";
@@ -46,7 +45,6 @@ const char * gWorldMapInfoFormat                        = "usXuuuufffiuuuuuuuu";
 SERVER_DECL SQLStorage<CreatureVehicleData, HashMapStorageContainer<CreatureVehicleData> >      CreatureVehicleDataStorage;
 SERVER_DECL SQLStorage<CreatureInfoExtra, HashMapStorageContainer<CreatureInfoExtra> >          CreatureInfoExtraStorage;
 SERVER_DECL SQLStorage<GameObjectInfo, HashMapStorageContainer<GameObjectInfo> >                GameObjectNameStorage;
-SERVER_DECL SQLStorage<GraveyardTeleport, HashMapStorageContainer<GraveyardTeleport> >          GraveyardStorage;
 SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >                            ItemPageStorage;
 SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                        NpcTextStorage;
 SERVER_DECL SQLStorage<TeleportCoords, HashMapStorageContainer<TeleportCoords> >                TeleportCoordStorage;
@@ -190,7 +188,6 @@ void Storage_FillTaskList(TaskList & tl)
     make_task(GameObjectNameStorage, GameObjectInfo, HashMapStorageContainer, "gameobject_names", gGameObjectNameFormat);
     make_task(CreatureVehicleDataStorage, CreatureVehicleData, HashMapStorageContainer, "creature_proto_vehicle", gCreatureVehicleData);
     make_task(ItemPageStorage, ItemPage, HashMapStorageContainer, "item_pages", gItemPageFormat);
-    make_task(GraveyardStorage, GraveyardTeleport, HashMapStorageContainer, "graveyards", gGraveyardFormat);
     make_task(TeleportCoordStorage, TeleportCoords, HashMapStorageContainer, "teleport_coords", gTeleportCoordFormat);
     make_task(NpcTextStorage, GossipText, HashMapStorageContainer, "npc_text", gNpcTextFormat);
 }
@@ -201,7 +198,6 @@ void Storage_Cleanup()
     CreatureVehicleDataStorage.Cleanup();
     CreatureInfoExtraStorage.Cleanup();
     ItemPageStorage.Cleanup();
-    GraveyardStorage.Cleanup();
     TeleportCoordStorage.Cleanup();
     NpcTextStorage.Cleanup();
 }
@@ -228,8 +224,6 @@ bool Storage_ReloadTable(const char * TableName)
         NpcTextStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "teleport_coords"))     // Teleport coords
         TeleportCoordStorage.Reload(&WorldDatabase);
-    else if(!stricmp(TableName, "graveyards"))          // Graveyards
-        GraveyardStorage.Reload(&WorldDatabase);
     else if(!stricmp(TableName, "vendors"))
         objmgr.ReloadVendors();
     else if(!stricmp(TableName, "command_overrides"))   // Command Overrides

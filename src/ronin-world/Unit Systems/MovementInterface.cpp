@@ -958,7 +958,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
                     plr->SendEnvironmentalDamageLog( plr->GetGUID(), DAMAGE_DROWNING, damage );
                     plr->DealDamage( plr, damage, 0, 0, 0 );
                 } else if (plr->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))    // Teleport ghost to graveyard
-                    plr->RepopAtGraveyard(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId());
+                    plr->RepopAtGraveyard(plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetMapId(), plr->GetZoneId());
             } else if (!(m_LastUnderwaterState & UNDERWATERSTATE_FATIGUE))
                 plr->SendMirrorTimer(FATIGUE_TIMER, 60000, m_MirrorTimer[FATIGUE_TIMER], -1);
         }
@@ -1059,7 +1059,7 @@ void MovementInterface::HandleMovementFlags2(bool read, ByteBuffer *buffer)
 
 void MovementInterface::TeleportToPosition(LocationVector destination)
 {
-    m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z);
+    m_teleportLocation.ChangeCoords(destination.x, destination.y, destination.z, NormAngle(destination.o));
 
     WorldPacket data(SMSG_MOVE_UPDATE_TELEPORT, 38);
     WriteFromServer(SMSG_MOVE_UPDATE_TELEPORT, &data, m_extra.ex_guid, m_extra.ex_float, m_extra.ex_byte);
@@ -1107,14 +1107,14 @@ void MovementInterface::TeleportToPosition(LocationVector destination)
         data2.WriteByteSeq(m_moverGuid[2]);
         data2.WriteByteSeq(m_moverGuid[3]);
         data2.WriteByteSeq(m_moverGuid[5]);
-        data2 << float(destination.x);
+        data2 << float(m_teleportLocation.x);
         data2.WriteByteSeq(m_moverGuid[4]);
-        data2 << float(destination.o);
+        data2 << float(m_teleportLocation.o);
         data2.WriteByteSeq(m_moverGuid[7]);
-        data2 << float(destination.z);
+        data2 << float(m_teleportLocation.z);
         data2.WriteByteSeq(m_moverGuid[0]);
         data2.WriteByteSeq(m_moverGuid[6]);
-        data2 << float(destination.y);
+        data2 << float(m_teleportLocation.y);
         plr->PushPacket(&data2, !plr->IsInWorld());
     } else m_Unit->SetPosition(destination);
 

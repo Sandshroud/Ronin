@@ -66,6 +66,13 @@ public:
       */
     ~TerrainMgr();
 
+    /* Loads the tile information if it has not already been loaded.
+       Parameter 1: The x co-ordinate of the tile that's gone active.
+       Parameter 2: The y co-ordinate of the tile that's gone active.
+       No return value.
+      */
+    void CellGoneActive(uint32 x, uint32 y);
+
     /* If we're a non-instanced map, we'll unload the tile information as it's
        not needed.
        Parameter 1: The x co-ordinate of the tile that's gone idle.
@@ -73,13 +80,6 @@ public:
        No return value.
       */
     void CellGoneIdle(uint32 x, uint32 y);
-
-    /* Loads the tile information if it has not already been loaded.
-       Parameter 1: The x co-ordinate of the tile that's gone active.
-       Parameter 2: The y co-ordinate of the tile that's gone active.
-       No return value.
-      */
-    void CellGoneActive(uint32 x, uint32 y);
 
     /* Loads all tile information
        No return value.

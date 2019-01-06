@@ -316,3 +316,22 @@ void VMapInterface::UnLoadGameobjectModel(uint64 Guid, uint32 instanceId, uint32
     // release write lock
     m_mapLocks[mapId]->m_lock.Release();
 }
+
+void VMapInterface::GrabWMOAreaId(uint32 mapId, float x, float y, float z, uint32 &areaId)
+{
+    if (vMapMgr == NULL || m_mapLocks.find(mapId) == m_mapLocks.end())
+        return;
+
+    // get read lock
+    m_mapLocks[mapId]->m_lock.Acquire();
+
+    uint32 flags = 0;
+    WMOAreaTableEntry *WMOEntry;
+    int32 adtId = 0, rootId = 0, groupId = 0;
+    // We precached our WMO table data, so grab that from our manager
+    if(vMapMgr->getAreaInfo(mapId, x, y, z, flags, adtId, rootId, groupId) && (WMOEntry = objmgr.GetWMOAreaTable(adtId, rootId, groupId)))
+        areaId = WMOEntry->areaId;
+
+    // release write lock
+    m_mapLocks[mapId]->m_lock.Release();
+}

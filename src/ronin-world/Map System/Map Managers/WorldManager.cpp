@@ -55,8 +55,9 @@ void WorldManager::Destruct()
     delete this;
 }
 
-void WorldManager::ParseMapDBC()
+void WorldManager::ParseMapDBCFiles()
 {
+    sLog.Notice("WorldManager", "Processing %u map entries...", dbcMap.GetNumRows());
     for(uint32 i = 0; i < dbcMap.GetNumRows(); i++)
     {
         MapEntry *map = dbcMap.LookupRow(i);
@@ -68,6 +69,34 @@ void WorldManager::ParseMapDBC()
             continue;
 
         m_loadedMaps.insert(std::make_pair(map->MapID, map));
+    }
+
+    std::map<std::string, AreaTableEntry *> areaTableByName;
+    sLog.Notice("WorldManager", "Processing %u area table entries...", dbcAreaTable.GetNumRows());
+    for (uint32 i = 0; i < dbcAreaTable.GetNumRows(); i++)
+    {
+        AreaTableEntry *areaEntry = dbcAreaTable.LookupRow(i);
+
+        if (!sWorld.IsSanctuaryArea(areaEntry->AreaId) && (areaEntry->category == AREAC_SANCTUARY || areaEntry->AreaFlags & AREA_SANCTUARY))
+            sWorld.SetSanctuaryArea(areaEntry->AreaId);
+
+        if (sWorld.GetRestedAreaInfo(areaEntry->AreaId) == NULL && (areaEntry->AreaFlags & AREA_CITY_AREA || areaEntry->AreaFlags & AREA_CITY || areaEntry->AreaFlags & AREA_CAPITAL_SUB || areaEntry->AreaFlags & AREA_CAPITAL))
+        {
+            int8 team = -1;
+            if (areaEntry->category == AREAC_ALLIANCE_TERRITORY)
+                team = TEAM_ALLIANCE;
+            if (areaEntry->category == AREAC_HORDE_TERRITORY)
+                team = TEAM_HORDE;
+            sWorld.SetRestedArea(areaEntry->AreaId, team);
+        }
+
+        areaTableByName.insert(std::make_pair(areaEntry->name, areaEntry));
+
+        uint32 mapId = areaEntry->mapId;
+        if (m_mapAreaIds[mapId].find(areaEntry->AreaId) == m_mapAreaIds[mapId].end())
+            m_mapAreaIds[mapId].insert(areaEntry->AreaId);
+        if (areaEntry->AreaId && areaEntry->ZoneId == 0 && m_mapZoneIds[mapId].find(areaEntry->AreaId) == m_mapZoneIds[mapId].end())
+            m_mapZoneIds[mapId].insert(areaEntry->AreaId);
     }
 }
 
@@ -374,6 +403,22 @@ void WorldManager::_CreateMap(MapEntry *mapEntry)
     else { m_mapLock.Acquire(); m_maps.erase(mapEntry->MapID); delete map; m_mapLock.Release(); }
 }
 
+void WorldManager::_ProcessMapData(Map *map)
+{
+    map->ProcessInputData();
+}
+
+void WorldManager::FillMapSafeLocations()
+{
+    Map* map;
+    WorldSafeLocsEntry *safeLocation;
+    for (uint32 i = 0; i < dbcWorldSafeLocs.GetNumRows(); ++i)
+        if ((safeLocation = dbcWorldSafeLocs.LookupRow(i)) && (map = GetMap(safeLocation->map_id)))
+            map->AddSafeLocation(safeLocation);
+
+    sLog.Notice("WorldManager", "Finished processing %u world locations...", dbcWorldSafeLocs.GetNumRows());
+}
+
 void WorldManager::ContinentUnloaded(uint32 mapId)
 {
     mapLoadLock.Acquire();
@@ -411,6 +456,15 @@ void WorldManager::Load(TaskList * l)
     // create maps for any we don't have yet.
     for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
         l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, itr->second)));
+
+    l->wait();
+
+    // Push our world safe locations to our map storage
+    FillMapSafeLocations();
+
+    // Queue our maps for processing
+    for(std::map<uint32, Map*>::iterator itr = m_maps.begin(); itr != m_maps.end(); itr++)
+        l->AddTask(new Task(new CallbackP1<WorldManager, Map*>(this, &WorldManager::_ProcessMapData, itr->second)));
 
     l->wait();
 

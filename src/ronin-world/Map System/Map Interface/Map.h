@@ -73,6 +73,25 @@ typedef std::vector<GameObjectSpawn*>   GameObjectSpawnArray;
 
 typedef struct
 {
+    uint32 dbcId;
+    uint8 flags;
+    float x, y, z, o;
+    uint32 zoneId;
+    std::string name;
+}WorldSafeLocation;
+
+enum SafeLocationFlags : uint8
+{
+    SAFE_LOCFLAG_NONE       = 0x00,
+    SAFE_LOCFLAG_ALLIANCE   = 0x01,
+    SAFE_LOCFLAG_HORDE      = 0x02,
+    SAFE_LOCFLAG_GRAVEYARD  = 0x04
+};
+
+typedef std::map<uint32, WorldSafeLocation*> SafeLocationStorage;
+
+typedef struct
+{
     CreatureSpawnArray CreatureSpawns;
     GameObjectSpawnArray GameObjectSpawns;
 }CellSpawns;
@@ -87,8 +106,9 @@ public:
 
     void PreloadTerrain(bool continent) { _InitializeTerrain(continent); }
     void Initialize(CellSpawns *mapSpawns, bool continent);
+    void ProcessInputData();
 
-protected: // Do not let anyone else access this
+protected:
     void _InitializeTerrain(bool continent);
 
 public:
@@ -132,6 +152,12 @@ public:
     RONIN_INLINE void CellLoaded(uint32 x, uint32 y) { _terrain->CellGoneActive(x,y); }
     RONIN_INLINE void CellUnloaded(uint32 x,uint32 y) { _terrain->CellGoneIdle(x,y); }
 
+    // Grab our 
+    void GetClosestGraveyard(uint8 team, uint32 mapId, float x, float y, float z, uint32 zoneId, LocationVector &output);
+
+    // Safe location data
+    void AddSafeLocation(WorldSafeLocsEntry *safeLocation);
+
 private:
     uint32 _mapId;
     std::string mapName;
@@ -139,4 +165,7 @@ private:
     TerrainMgr *_terrain;
     SpawnsMap m_spawns;
     MapEntry *_entry;
+
+    SafeLocationStorage _safeLoc, _safeLocGraveyards;
+    std::map<uint32, std::vector<WorldSafeLocation*>> _safeLocByZone;
 };

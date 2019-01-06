@@ -1740,9 +1740,7 @@ struct WorldSafeLocsEntry
     float  x;                                            // 2
     float  y;                                            // 3
     float  z;                                            // 4
-    //char Name;                                         // 5
-    //char name[7]                                       // 6-12 name, unused
-                                                         // 13 name flags, unused
+    char  *locationName;                                 // 5
 };
 
 struct gtFloat

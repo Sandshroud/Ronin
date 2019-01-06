@@ -170,6 +170,8 @@ public:
         return NULL;
     }
 
+    bool IsSpiritHealer(CreatureData *data);
+
     void CalculateMinMaxDamage(CreatureData *data, float &minDamage, float &maxDamage, uint32 level, float apBonus);
 
 private:

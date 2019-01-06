@@ -337,7 +337,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldMapAreaOverlayEntry, dbcWorldAreaOverlay);
 static const char *worldareaoverlayFormat="iinsffffixxxxx";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(WorldSafeLocsEntry, dbcWorldSafeLocs);
-static const char *worldsafeLocationsFormat="iifffx";
+static const char *worldsafeLocationsFormat="iifffs";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcCombatRating);
 DECLARE_CLASS_INTERNAL_DBC_MACRO(gtFloat, dbcBarberShopPrices);

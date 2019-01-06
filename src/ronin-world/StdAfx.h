@@ -171,7 +171,6 @@ extern size_t __line__;
 #include "MailSystem.h"
 #include "MapCell.h"
 #include "FactionSystem.h"
-#include "MiscHandler.h"
 #include "NPCHandler.h"
 #include "Summons.h"
 #include "WorldSocket.h"

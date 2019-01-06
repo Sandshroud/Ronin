@@ -239,6 +239,7 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_duelStorage                   = NULL;
     m_lootGuid                      = 0;
     m_banned                        = 0;
+    ReclaimCount                    = 0;
     //Bind possition
     m_timeLogoff                    = 0;
     m_restData.isResting            = false;
@@ -3283,7 +3284,7 @@ Corpse* Player::RepopRequestedPlayer()
     if( myCorpse != NULL )
         myCorpse->ResetDeathClock();
 
-    RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId() );
+    RepopAtGraveyard( GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId(), GetZoneId() );
     return ret;
 }
 
@@ -3333,8 +3334,6 @@ void Player::SetDeathState(DeathState s)
     if(s == JUST_DIED)
     {
         // stuff
-        if(IsRooted() && !m_session->IsLoggingOut())
-            m_movementInterface.setRooted(false);
     }
 }
 
@@ -3475,41 +3474,15 @@ void Player::DeathDurabilityLoss(double percent)
     }
 }
 
-void Player::RepopAtGraveyard(float ox, float oy, float oz, uint32 mapid)
+void Player::RepopAtGraveyard(float ox, float oy, float oz, uint32 mapid, uint32 zoneId)
 {
-    bool first = true;
-    //float closestX = 0, closestY = 0, closestZ = 0, closestO = 0;
-    StorageContainerIterator<GraveyardTeleport> * itr;
+    if (!IsInWorld())
+        return;
 
-    LocationVector src(ox, oy, oz);
-    LocationVector dest(0, 0, 0, 0);
-    LocationVector temp;
-    float closest_dist = 999999.0f;
-    float dist;
-
-    itr = GraveyardStorage.MakeIterator();
-    while(!itr->AtEnd())
-    {
-        GraveyardTeleport *pGrave = itr->Get();
-        if(pGrave->MapId == mapid && (pGrave->FactionID == GetTeam() || pGrave->FactionID == 3))
-        {
-            temp.ChangeCoords(pGrave->X, pGrave->Y, pGrave->Z, pGrave->O);
-            dist = src.DistanceSq(temp);
-            if( first || dist < closest_dist )
-            {
-                first = false;
-                closest_dist = dist;
-                dest = temp;
-            }
-        }
-
-        if(!itr->Inc())
-            break;
-    }
-    itr->Destruct();
-
-    if(dest.x != 0 && dest.y != 0 && dest.z != 0)
-        SafeTeleport(mapid, 0, dest);
+    LocationVector destination(0.f, 0.f, 0.f, 0.f);
+    m_mapInstance->GetClosestGraveyard(GetTeam(), mapid, ox, oy, oz, zoneId, destination);
+    if(destination.x != 0 && destination.y != 0 && destination.z != 0)
+        SafeTeleport(mapid, 0, destination);
 }
 
 void Player::JoinedChannel(Channel *c)

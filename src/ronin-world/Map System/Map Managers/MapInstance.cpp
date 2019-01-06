@@ -2098,6 +2098,11 @@ void MapInstance::SetGameObjState(WoWGuid guid, uint8 state)
     }
 }
 
+void MapInstance::GetClosestGraveyard(uint8 team, uint32 mapId, float x, float y, float z, uint32 zoneId, LocationVector &output)
+{
+    _map->GetClosestGraveyard(team, mapId, x, y, z, zoneId, output);
+}
+
 bool MapInstance::CheckCombatStatus(Unit *unit)
 {
     Guard guard(m_combatLock);

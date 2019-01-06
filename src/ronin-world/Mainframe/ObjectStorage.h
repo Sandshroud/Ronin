@@ -26,7 +26,6 @@ extern SERVER_DECL SQLStorage<CreatureVehicleData, HashMapStorageContainer<Creat
 extern SERVER_DECL SQLStorage<CreatureInfoExtra, HashMapStorageContainer<CreatureInfoExtra> >       CreatureInfoExtraStorage;
 extern SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >                         ItemPageStorage;
 extern SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                     NpcTextStorage;
-extern SERVER_DECL SQLStorage<GraveyardTeleport, HashMapStorageContainer<GraveyardTeleport> >       GraveyardStorage;
 extern SERVER_DECL SQLStorage<TeleportCoords, HashMapStorageContainer<TeleportCoords> >             TeleportCoordStorage;
 
 void Storage_FillTaskList(TaskList & tl);

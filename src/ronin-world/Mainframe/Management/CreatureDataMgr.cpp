@@ -161,6 +161,20 @@ void CreatureDataManager::Reload()
 
 }
 
+bool CreatureDataManager::IsSpiritHealer(CreatureData *data)
+{
+    if (data->NPCFLags & UNIT_NPC_FLAG_SPIRITHEALER)
+        return true;
+    switch (data->entry)
+    {
+    case 6491:
+    case 32537:
+        return true;
+    }
+
+    return false;
+}
+
 void CreatureDataManager::CalculateMinMaxDamage(CreatureData *data, float &minDamage, float &maxDamage, uint32 level, float apBonus)
 {
     maxDamage = std::max(2.f, ceil(apBonus * (1.f + (((float)sStatSystem.GetXPackModifierForLevel(level, (data->rank > 0) ? 3 : 0))*0.1f)) * data->damageMod));

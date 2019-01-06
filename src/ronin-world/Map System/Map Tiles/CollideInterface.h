@@ -66,6 +66,8 @@ public:
     void UpdateObjectModel(uint64 Guid, uint32 mapId, uint32 instanceId, uint32 displayID);
     void UnLoadGameobjectModel(uint64 Guid, uint32 mapId, uint32 instanceId);
 
+    // Used for preload WMO info so doesn't need accuracy
+    void GrabWMOAreaId(uint32 mapId, float x, float y, float z, uint32 &areaId);
     void LoadCallback(VMAP::VMapManagerExt *mgr) { vMapMgr = mgr; };
 };
 

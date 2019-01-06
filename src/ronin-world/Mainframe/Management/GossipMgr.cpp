@@ -132,7 +132,7 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
                 if(flags & UNIT_NPC_FLAG_BANKER)
                     _AddMenuItem(packet, result, GOSSIP_OPT_BANKER, GOSSIP_ICON_GOSSIP_COIN, "I would like to check my deposit box.");
 
-                if(flags & UNIT_NPC_FLAG_SPIRITHEALER || (pCreature->GetEntry() == 6491 || pCreature->GetEntry() == 32537))
+                if(flags & UNIT_NPC_FLAG_SPIRITHEALER || sCreatureDataMgr.IsSpiritHealer(pCreature->GetCreatureData()))
                     _AddMenuItem(packet, result, GOSSIP_OPT_SPIRITHEALER, GOSSIP_ICON_GOSSIP_NORMAL, "Bring me back to life.");
 
                 if(flags & UNIT_NPC_FLAG_ARENACHARTER)

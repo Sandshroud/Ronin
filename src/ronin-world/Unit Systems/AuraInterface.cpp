@@ -181,6 +181,24 @@ void AuraInterface::OnSetShapeShift(uint8 ss)
     m_aurasToRemove.clear();
 }
 
+void AuraInterface::OnDeath()
+{
+    std::set<uint8> m_aurasToRemove;
+    for (uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+    {
+        if (Aura *aur = m_auras[x])
+        {
+            if (aur->GetSpellProto()->isDeathPersistentAura())
+                continue;
+            m_aurasToRemove.insert(x);
+        }
+    }
+
+    for (std::set<uint8>::iterator itr = m_aurasToRemove.begin(); itr != m_aurasToRemove.end(); itr++)
+        RemoveAuraBySlot(*itr);
+    m_aurasToRemove.clear();
+}
+
 bool AuraInterface::IsDazed()
 {
     for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))

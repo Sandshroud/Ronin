@@ -586,6 +586,8 @@ public:
     void SetUnitState(WoWGuid guid, uint8 state);
     void SetGameObjState(WoWGuid guid, uint8 state);
 
+    void GetClosestGraveyard(uint8 team, uint32 mapId, float x, float y, float z, uint32 zoneId, LocationVector &output);
+
 public:
     // Combat functions
     bool CheckCombatStatus(Unit *unit = NULL);

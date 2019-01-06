@@ -684,15 +684,16 @@ void WorldSession::HandleReturnToGraveyardOpcode(WorldPacket & recv_data)
     if(_player->isAlive() || !_player->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_DEATH_WORLD_ENABLE))
         return;
 
-    uint32 mapId = _player->GetMapId();
+    uint32 mapId = _player->GetMapId(), zoneId = _player->GetZoneId();
     float x = _player->GetPositionX(), y = _player->GetPositionY(), z = _player->GetPositionZ();
     if(Corpse *corpse = _player->getMyCorpse())
     {
         corpse->GetPosition(x, y, z);
+        zoneId = corpse->GetZoneId();
         mapId = corpse->GetMapId();
     }
 
-    _player->RepopAtGraveyard(x, y, z, mapId);
+    _player->RepopAtGraveyard(x, y, z, mapId, zoneId);
 }
 
 void WorldSession::HandleUpdateAccountData(WorldPacket& recv_data)

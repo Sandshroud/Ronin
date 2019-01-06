@@ -113,15 +113,18 @@ public:
 
     RONIN_INLINE Map* GetMap(uint32 mapid)
     {
-        if(mapid > NUM_MAPS)
-            return NULL;
-        return m_maps[mapid];
+        std::map<uint32, Map*>::iterator itr;
+        if (mapid <= NUM_MAPS && ((itr = m_maps.find(mapid)) != m_maps.end()))
+            return itr->second;
+        return NULL;
     }
 
-    void ParseMapDBC();
+    void ParseMapDBCFiles();
     void LoadSpawnData();
     void LoadMapTileData(TaskList & tl);
     void _CreateMap(MapEntry *map);
+    void _ProcessMapData(Map *map);
+    void FillMapSafeLocations();
 
     void ContinentUnloaded(uint32 mapId);
     bool ContinentManagerExists(uint32 mapId) { return m_continentManagement.find(mapId) != m_continentManagement.end(); }
@@ -300,6 +303,8 @@ private:
     CellSpawns m_spawnStorage_Kalimdor;
 
     std::map<uint32, uint32> m_loadingMaps;
+
+    std::map<uint32, std::set<uint32>> m_mapAreaIds, m_mapZoneIds;
 };
 
 #define sWorldMgr WorldManager::getSingleton()

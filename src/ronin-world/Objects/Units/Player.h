@@ -1057,7 +1057,7 @@ public:
     void EventRepopRequestedPlayer() { RepopRequestedPlayer(); }
 
     void DeathDurabilityLoss(double percent);
-    void RepopAtGraveyard(float ox, float oy, float oz, uint32 mapid);
+    void RepopAtGraveyard(float ox, float oy, float oz, uint32 mapid, uint32 zoneId);
 
     /************************************************************************/
     /* Channel stuff                                                        */

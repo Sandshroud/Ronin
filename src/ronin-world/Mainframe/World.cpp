@@ -672,10 +672,12 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, LoadAreaTriggerData);
     MAKE_TASK(FactionSystem, LoadFactionInteractionData);
     MAKE_TASK(SpellManager, ParseSpellDBC);
-    MAKE_TASK(WorldManager, ParseMapDBC);
     MAKE_TASK(GroupFinderMgr, Initialize);
+    MAKE_TASK(ObjectMgr, HashWMOAreaTables);
+    MAKE_TASK(ObjectMgr, SetHighestGuids);
 
     tl.wait(); // Load all the storage first
+    MAKE_TASK(WorldManager, ParseMapDBCFiles);
     MAKE_TASK(SpellManager, PoolSpellData);
     sWorldMgr.LoadMapTileData(tl);
 
@@ -703,9 +705,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, LoadTrainers);
     MAKE_TASK(TicketMgr, Load);
     MAKE_TASK(AddonMgr,  LoadFromDB);
-    MAKE_TASK(ObjectMgr, SetHighestGuids);
     MAKE_TASK(ObjectMgr, ListGuidAmounts);
-    MAKE_TASK(ObjectMgr, HashWMOAreaTables);
     MAKE_TASK(WeatherMgr,LoadFromDB);
     MAKE_TASK(ObjectMgr, LoadGroups);
     MAKE_TASK(Tracker,   LoadFromDB);
@@ -801,30 +801,6 @@ bool World::SetInitialWorldSettings()
             // Set our secondary max capacity to be less than or equal to our regular max capacity
             if(mountType->maxCapability[1] > mountType->maxCapability[0])
                 mountType->maxCapability[1] = mountType->maxCapability[0];
-        }
-    }
-
-    sLog.Notice("World", "Processing %u area table entries...", dbcAreaTable.GetNumRows());
-    for(uint32 i = 0; i < dbcAreaTable.GetNumRows(); i++)
-    {
-        AreaTableEntry *areaentry = dbcAreaTable.LookupRow(i);
-        if(m_sanctuaries.find(areaentry->AreaId) == m_sanctuaries.end())
-        {
-            if(areaentry->category == AREAC_SANCTUARY || areaentry->AreaFlags & AREA_SANCTUARY)
-                m_sanctuaries.insert(areaentry->AreaId);
-        }
-
-        if(m_sanctuaries.find(areaentry->AreaId) == m_sanctuaries.end())
-        {
-            if(areaentry->AreaFlags & AREA_CITY_AREA || areaentry->AreaFlags & AREA_CITY || areaentry->AreaFlags & AREA_CAPITAL_SUB || areaentry->AreaFlags & AREA_CAPITAL)
-            {
-                int8 team = -1;
-                if(areaentry->category == AREAC_ALLIANCE_TERRITORY)
-                    team = TEAM_ALLIANCE;
-                if(areaentry->category == AREAC_HORDE_TERRITORY)
-                    team = TEAM_HORDE;
-                SetRestedArea(areaentry->AreaId, team);
-            }
         }
     }
 

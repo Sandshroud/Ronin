@@ -343,7 +343,7 @@ void TaxiMgr::GetNearestTaxiNodes( uint32 mapid, float x, float y, float z, uint
     if(taxiNodeOut == NULL)
         return;
 
-    float distance[2];
+    float distance[2] = { 9999999.f, 9999999.f };
     taxiNodeOut[0] = taxiNodeOut[1] = 0;
     for (uint32 i = 0; i < dbcTaxiNode.GetNumRows(); i++)
     {
@@ -354,6 +354,7 @@ void TaxiMgr::GetNearestTaxiNodes( uint32 mapid, float x, float y, float z, uint
         // skip not taxi network nodes
         if(!m_taxiMasks.GetBit(node->id))
             continue;
+
         float delta_x = fabs(node->x - x), delta_y = fabs(node->y - y), delta_z = fabs(node->z - z), dist = (delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
         if(node->mountIdHorde && node->mountIdAlliance)
         {

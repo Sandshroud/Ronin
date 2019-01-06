@@ -65,6 +65,7 @@ public:
     uint8 GetFreeSlot(bool ispositive);
     void OnAuraRemove(Aura* aura, uint8 aura_slot);
     void OnSetShapeShift(uint8 ss);
+    void OnDeath();
 
     bool IsDazed();
     bool IsPoisoned();

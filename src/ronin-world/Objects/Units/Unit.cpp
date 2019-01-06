@@ -4144,6 +4144,8 @@ void Unit::SetDeathState(DeathState s)
         GetCellManager()->OnUnitDeath(m_mapInstance);
         // Remove combat flag at death
         RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_COMBAT);
+        // Update aura interface with deathstate
+        m_AuraInterface.OnDeath();
     } else if(s != DEAD)
         clearStateFlag(UF_CORPSE);
 }

@@ -71,7 +71,7 @@ enum DeathState
     JUST_DIED   // Unit has JUST died
 };
 
-enum UnitTeam
+enum UnitTeam : uint8
 {
     TEAM_ALLIANCE = 0,
     TEAM_HORDE = 1,
