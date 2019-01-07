@@ -2051,10 +2051,14 @@ void Player::_LoadSkills(QueryResult *result)
             continue;
 
         m_skillIndexes.insert(std::make_pair(skillId, skillPos));
+
+        uint16 step = fields[3].GetUInt16(), rank = fields[4].GetUInt16(), maxRank = fields[5].GetUInt16();
+        sSpellMgr.ValidateSkillLineValues(skillId, step, rank, maxRank);
+
         SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, skillId);
-        SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, fields[3].GetUInt16());
-        SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, fields[4].GetUInt16());
-        SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, fields[5].GetUInt16());
+        SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, step);
+        SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, rank);
+        SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, maxRank);
         SetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset, 0);
         SetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset, 0);
     }while(result->NextRow());
@@ -2166,8 +2170,6 @@ void Player::_LoadSpells(QueryResult *result)
                 for(uint8 i = 0; i < 3; i++)
                     if(uint8 effect = sp->Effect[i])
                         m_spellsByEffect[effect].insert(sp->Id);
-                if(sp->Category)
-                    m_spellCategories[sp->Category]++;
                 if(sp->SpellSkillLine && (skill = dbcSkillLine.LookupEntry(sp->SpellSkillLine)))
                     m_spellsBySkill[sp->SpellSkillLine].insert(sp->Id);
             }
@@ -2681,8 +2683,6 @@ void Player::addSpell(uint32 spell_id, uint32 forget)
             m_spellsByEffect[effect].insert(spell_id);
     if(spell->SpellSkillLine)
         m_spellsBySkill[spell->SpellSkillLine].insert(spell_id);
-    if(spell->Category)
-        m_spellCategories[spell->Category]++;
 
     // Check if we're logging in.
     if(!IsInWorld())
@@ -4280,8 +4280,6 @@ void Player::removeSpellByNameHash(uint32 hash)
                     m_spellsByEffect[effect].erase(e->Id);
             if(e->SpellSkillLine)
                 m_spellsBySkill[e->SpellSkillLine].erase(e->Id);
-            if(e->Category)
-                m_spellCategories[e->Category]--;
         }
     }
 }
@@ -6293,13 +6291,6 @@ PlayerInfo::~PlayerInfo()
 {
     if(m_Group)
         m_Group->RemovePlayer(this);
-}
-
-void Player::FillMapWithSpellCategories(std::map<uint32, int32> *map)
-{
-    for(auto itr = m_spellCategories.begin(); itr != m_spellCategories.end(); itr++)
-        if(itr->second > 0)
-            (*map)[itr->first] = 0;
 }
 
 // COOLDOWNS

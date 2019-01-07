@@ -72,6 +72,10 @@ public:
 
     // Grab our class for supplied skill line
     uint8 GetClassForSkillLine(uint32 skillLine);
+    // Calculate our skill max based on input
+    void getSkillLineValues(Player *target, SkillLineEntry *skillLineEntry, int32 amount, uint16 &skillMax, uint16 &skillCurrent);
+    // Validate on unit load
+    void ValidateSkillLineValues(uint16 skillId, uint16 skillStep, uint16 &skillCurrent, uint16 &skillMax);
 
 private:    // Spell fixes, start with class then continue to zones, items, quests
     void _RegisterWarriorFixes();

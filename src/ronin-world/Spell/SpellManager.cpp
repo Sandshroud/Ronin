@@ -668,6 +668,54 @@ uint8 SpellManager::GetClassForSkillLine(uint32 skillLine)
     return 0;
 }
 
+void SpellManager::getSkillLineValues(Player *target, SkillLineEntry *skillLineEntry, int32 amount, uint16 &skillMax, uint16 &skillCurrent)
+{
+    switch (skillLineEntry->categoryId)
+    {
+    case SKILL_TYPE_ATTRIBUTES:
+    case SKILL_TYPE_WEAPON:
+        {
+            if (skillCurrent == 0)
+            {
+                if (true) // Cataclysm
+                    skillCurrent = target->getLevel() * 5;
+                else if (uint32 startLevel = (std::max<uint32>(target->getClass() == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel) - 1))
+                    skillCurrent = (startLevel + 1) * 5; // Wotlk and previous
+            }
+            skillMax = target->getLevel() * 5;
+        }break;
+    case SKILL_TYPE_CLASS:
+    case SKILL_TYPE_ARMOR:
+    case SKILL_TYPE_LANGUAGE:
+        skillCurrent = skillMax = MAXIMUM_ATTAINABLE_LEVEL * 5;
+        break;
+    case SKILL_TYPE_PROFESSION:
+    case SKILL_TYPE_SECONDARY:
+        skillMax = amount * 75;
+        if (skillLineEntry->id == SKILL_RIDING)
+            skillCurrent = skillMax;
+        break;
+    default:
+        skillCurrent = skillMax = 1;
+        break;
+    }
+}
+
+void SpellManager::ValidateSkillLineValues(uint16 skillId, uint16 skillStep, uint16 &skillCurrent, uint16 &skillMax)
+{
+    if (SkillLineEntry *skillLineEntry = dbcSkillLine.LookupEntry(skillId))
+    {
+        switch (skillLineEntry->categoryId)
+        {
+        case SKILL_TYPE_SECONDARY:
+            {   // If our mount skill value is not set right, we cannot use mounts properly
+                if (skillLineEntry->id == SKILL_RIDING)
+                    skillCurrent = skillMax;
+            }break;
+        }
+    }
+}
+
 std::map<uint8, uint32> Spell::m_implicitTargetFlags;
 
 void SpellManager::SetupSpellTargets()

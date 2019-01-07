@@ -1686,7 +1686,7 @@ void MovementInterface::WriteObjectUpdate(ByteBuffer *bits, ByteBuffer *bytes)
     DO_BIT(bits, m_moverGuid[3]);
     DO_BIT(bits, m_moverGuid[2]);
     if (hasMovementFlags) HandleMovementFlags(false, bits);
-    DO_BIT(bits, false);
+    DO_BIT(bits, hasSpline && m_Unit->IsPlayer());
     DO_BIT(bits, !hasPitch);
     DO_BIT(bits, hasSpline);
     DO_BIT(bits, hasFallData);

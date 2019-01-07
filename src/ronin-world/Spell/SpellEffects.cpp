@@ -963,28 +963,13 @@ void SpellEffectClass::SpellEffectSkillStep(uint32 i, WorldObject *target, int32
     if( sk == NULL )
         return;
 
-    uint32 max = 1;
-    switch( sk->categoryId )
-    {
-    case SKILL_TYPE_PROFESSION:
-    case SKILL_TYPE_SECONDARY:
-        max = amount * 75;
-        break;
-    case SKILL_TYPE_WEAPON:
-        max = 5 * target->getLevel();
-        break;
-    case SKILL_TYPE_CLASS:
-    case SKILL_TYPE_ARMOR:
-        if( skill == SKILL_LOCKPICKING )
-            max = amount * 75;
-        break;
-    default: //u cant learn other types in game
-        return;
-    };
+    Player *plr = castPtr<Player>(_unitCaster);
+    uint16 current = plr->getSkillLineVal(skill, false), skillMax = std::max<uint16>(1, amount * 75);
+    sSpellMgr.getSkillLineValues(plr, sk, amount, skillMax, current);
 
-    if( ptarget->HasSkillLine( skill ) )
-        ptarget->UpdateSkillLine( skill, amount, max );
-    else ptarget->AddSkillLine( skill, amount, max, skill == SKILL_RIDING ? max : 1 );
+    if( ptarget->HasSkillLine(skill) )
+        ptarget->UpdateSkillLine(skill, amount, skillMax);
+    else ptarget->AddSkillLine(skill, amount, skillMax, current);
 
     //professions fix, for unknow reason when u learn profession it
     //does not teach find herbs for herbalism etc. moreover there is no spell
@@ -1894,23 +1879,8 @@ void SpellEffectClass::SpellEffectSkill(uint32 i, WorldObject *target, int32 amo
         return;
 
     Player *plr = castPtr<Player>(_unitCaster);
-    uint16 current = 1, skillMax = std::max<uint16>(1, amount * 75);
-    switch(skillLineEntry->categoryId)
-    {
-    case SKILL_TYPE_ATTRIBUTES:
-    case SKILL_TYPE_WEAPON:
-        if(true) // Cataclysm
-            current = plr->getLevel()*5;
-        else if(uint32 startLevel = (std::max<uint32>(plr->getClass() == DEATHKNIGHT ? 55 : 1, sWorld.StartLevel)-1))
-            current = (startLevel+1)*5; // Wotlk and previous
-        skillMax = plr->getLevel()*5;
-        break;
-    case SKILL_TYPE_CLASS:
-    case SKILL_TYPE_ARMOR:
-    case SKILL_TYPE_LANGUAGE:
-        current = skillMax = MAXIMUM_ATTAINABLE_LEVEL*5;
-        break;
-    }
+    uint16 current = plr->getSkillLineVal(skillLine, false), skillMax = std::max<uint16>(1, amount * 75);
+    sSpellMgr.getSkillLineValues(plr, skillLineEntry, amount, skillMax, current);
 
     if(!plr->HasSkillLine(skillLine))
         plr->AddSkillLine(skillLine, amount, skillMax, current);

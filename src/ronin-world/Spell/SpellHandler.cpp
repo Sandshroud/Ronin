@@ -266,30 +266,28 @@ public:
         switch(mod->m_type)
         {
         case SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN:
-            (*categoryMap)[mod->m_miscValue[0]] += mod->m_amount;
+            std::map<uint32, int32>::iterator itr;
+            if ((itr = categoryMap.find(mod->m_miscValue[0])) != categoryMap.end())
+                itr->second -= mod->m_amount;
+            else categoryMap.insert(std::make_pair(mod->m_miscValue[0], -mod->m_amount));
             break;
         }
     }
 
-    void Init(std::map<uint32, int32> *mapToFill) { categoryMap = mapToFill; }
-
-    std::map<uint32, int32> *categoryMap;
+    std::map<uint32, int32> categoryMap;
 };
 
 void WorldSession::HandleRequestSpellCategoryCooldownOpcode(WorldPacket &recv_data)
 {
     CHECK_INWORLD_RETURN();
 
-    std::map<uint32, int32> categoryModifiers;
-    _player->FillMapWithSpellCategories(&categoryModifiers);
     SpellCategoryCooldownModCallback spellCategoryCooldownCallback;
-    spellCategoryCooldownCallback.Init(&categoryModifiers);
     _player->m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN, &spellCategoryCooldownCallback);
 
     WorldPacket data(SMSG_SPELL_CATEGORY_COOLDOWN, 20);
-    data.WriteBits(categoryModifiers.size(), 23);
+    data.WriteBits(spellCategoryCooldownCallback.categoryMap.size(), 23);
     data.FlushBits();
-    for(auto itr = categoryModifiers.begin(); itr != categoryModifiers.end(); itr++)
+    for(auto itr = spellCategoryCooldownCallback.categoryMap.begin(); itr != spellCategoryCooldownCallback.categoryMap.end(); itr++)
         data << uint32(itr->first) << int32(-itr->second);
     SendPacket(&data);
 }
