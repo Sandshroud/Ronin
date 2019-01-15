@@ -21,8 +21,6 @@
 
 #pragma once
 
-extern float fInfinite;
-
 struct MovementPoint;
 class UnitPathSystem;
 
@@ -38,16 +36,20 @@ public:
     void UpdatePosition(uint32 startTime, uint32 currentTime, float sX, float sY, float sZ, uint32 timeDest, float eX, float eY, float eZ);
     void Finalize(float x, float y, float z)
     {
-
+        msStartTime = moveTime = timeToTarget = lastUpdateTime = 0;
+        lastPointX = endX = x;
+        lastPointY = endY = y;
+        lastPointZ = endZ = z;
     }
 
-    void UpdateMovementPoint(uint32 msTime, UnitPathSystem *path, MovementPoint *point);
+    bool HasTravelData();
+    bool UpdateMovementPoint(uint32 msTime, UnitPathSystem *path, MovementPoint *point);
     void GetPosition(uint32 msTime, LocationVector *output);
 
     bool IsInRange(uint32 msTime, LocationVector source, float range, uint32 tolerance) { return true; }
 
 private:
-    uint32 msStartTime, moveTime, timeToTarget;
+    uint32 msStartTime, moveTime, timeToTarget, lastUpdateTime;
     // Planned implementation is a different bound in all directions
     //float _boundX, _boundY, _boundZ; // However we only have a bound radius stored
     float _boundRadius; // Used in calculating if bound is in range

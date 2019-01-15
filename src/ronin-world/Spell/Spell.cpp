@@ -679,6 +679,10 @@ bool Spell::HasPower()
         return true;
     }
 
+    // Creatures that have hidden power flags can cast any power type without power checks
+    if(m_spellInfo->powerType != POWER_TYPE_MANA && _unitCaster->IsCreature() && (castPtr<Creature>(_unitCaster)->GetCreatureData()->flags & UNIT_FLAG_PLUS_MOB) == 0)
+        return true;
+
     if(m_spellInfo->powerType == POWER_TYPE_RUNE)
         return _unitCaster->IsPlayer() && castPtr<Player>(_unitCaster)->UseRunes(m_spellInfo->runeCost, true) != 0xFF;
 
@@ -701,6 +705,10 @@ bool Spell::TakePower()
         m_usesMana = false; // no mana regen interruption for free spells
         return true;
     }
+
+    // Creatures that have hidden power flags can cast any power type without power checks
+    if(m_spellInfo->powerType != POWER_TYPE_MANA && _unitCaster->IsCreature() && (castPtr<Creature>(_unitCaster)->GetCreatureData()->flags & UNIT_FLAG_PLUS_MOB) == 0)
+        return true;
 
     if(m_spellInfo->powerType == POWER_TYPE_RUNE)
     {

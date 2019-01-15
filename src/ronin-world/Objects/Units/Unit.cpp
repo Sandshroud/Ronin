@@ -598,7 +598,8 @@ public:
                 intellect = intellect <= baseIntellect ? 0 : intellect-baseIntellect;
                 basePower += baseMana + unit->GetBonusMana() + baseIntellect + intellect*15.f*unit->GetPowerMod();
                 hasMana = true;
-            }
+            } else if(unit->IsCreature())
+                sCreatureDataMgr.CalcBasePower(castPtr<Creature>(unit)->GetCreatureData(), *itr, basePower);
 
             _basePowers.insert(std::make_pair(*itr, basePower));
             _bonusPowers.insert(std::make_pair(*itr, 0));
@@ -617,7 +618,9 @@ void Unit::UpdatePowerValues()
 {
     PowerUpdateCallback powerCallback;
     std::vector<uint8> *classPower = sStatSystem.GetUnitPowersForClass(getClass());
-    if(classPower->size() == 1 && POWER_TYPE_MANA != *classPower->begin())
+
+    // If we have only one power and it ain't mana, switch to it
+    if(getPowerType() == POWER_TYPE_MANA && (classPower->size() == 1 && POWER_TYPE_MANA != *classPower->begin()))
         SetPowerType(*classPower->begin());
 
     bool hasMana = powerCallback.Init(this, baseStats, classPower, basePowerValues);

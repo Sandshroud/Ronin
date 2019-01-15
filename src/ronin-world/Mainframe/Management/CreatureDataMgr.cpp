@@ -175,6 +175,20 @@ bool CreatureDataManager::IsSpiritHealer(CreatureData *data)
     return false;
 }
 
+void CreatureDataManager::CalcBasePower(CreatureData *data, uint8 powerType, uint32 &basePower)
+{
+    bool foundSpellForType = false;
+    for(auto itr = data->combatSpells.begin(); itr != data->combatSpells.end(); ++itr)
+        if(SpellEntry *sp = dbcSpell.LookupEntry(*itr))
+            if(sp->powerType == powerType)
+                foundSpellForType = true;
+    if(foundSpellForType == false)
+        basePower = 0;
+    else if((data->flags2 &UNIT_FLAG_PLUS_MOB) == 0)
+        basePower = 0; // Hide our power information
+    return;
+}
+
 void CreatureDataManager::CalculateMinMaxDamage(CreatureData *data, float &minDamage, float &maxDamage, uint32 level, float apBonus)
 {
     maxDamage = std::max(2.f, ceil(apBonus * (1.f + (((float)sStatSystem.GetXPackModifierForLevel(level, (data->rank > 0) ? 3 : 0))*0.1f)) * data->damageMod));

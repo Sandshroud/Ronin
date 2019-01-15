@@ -172,6 +172,7 @@ public:
 
     bool IsSpiritHealer(CreatureData *data);
 
+    void CalcBasePower(CreatureData *data, uint8 powerType, uint32 &basePower);
     void CalculateMinMaxDamage(CreatureData *data, float &minDamage, float &maxDamage, uint32 level, float apBonus);
 
 private:

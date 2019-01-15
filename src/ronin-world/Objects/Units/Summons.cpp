@@ -186,12 +186,12 @@ void TotemSummon::Load(Unit* owner, LocationVector & position, uint32 spellid, i
     }
 
     // Set up the creature.
+    m_summon->SetPowerType(POWER_TYPE_FOCUS);
     m_summon->SetMaxPower(POWER_TYPE_FOCUS, owner->getLevel() * 30);
     m_summon->SetPower(POWER_TYPE_FOCUS, owner->getLevel() * 30);
     m_summon->setLevel(owner->getLevel());
     m_summon->setRace(0);
     m_summon->setClass(1);
-    m_summon->SetPowerType(1);
     m_summon->SetBoundingRadius(1.0f);
     m_summon->SetCombatReach(1.0f);
     m_summon->SetDisplayId(displayID);

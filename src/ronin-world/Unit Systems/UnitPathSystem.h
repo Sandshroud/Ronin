@@ -36,6 +36,8 @@ enum PacketBroadcastFlags
 {
     MOVEBCFLAG_NONE     = 0x00,
     MOVEBCFLAG_UNCOMP   = 0x01,
+    MOVEBCFLAG_SPACED   = 0x02,
+    MOVEBCFLAG_DIRECT   = 0x04,
 
     MOVEBCFLAG_DELAYED  = 0x08,
 };
