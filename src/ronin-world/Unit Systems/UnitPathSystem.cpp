@@ -176,6 +176,10 @@ void UnitPathSystem::InitializeAutoPath()
             break;
     }
 
+    // If we have no point selected, just start at the beginning
+    if(point == NULL)
+        point = (waypathIterator = _waypointPath->begin())->second;
+
     switch(point->moveType)
     {
     case 0: SetSpeed(MOVE_SPEED_WALK); break;
