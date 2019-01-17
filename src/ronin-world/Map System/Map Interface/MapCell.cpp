@@ -150,8 +150,12 @@ WorldObject *MapCell::FindObject(WoWGuid guid, bool searchDeactivated)
     return NULL;
 }
 
-void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, const std::vector<uint16> *phaseSet, uint32 objectMask)
+bool MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, const std::vector<uint16> *phaseSet, uint32 objectMask)
 {
+    // Don't process object sets when the cell data is being modified
+    if(_modifyingCellData)
+        return false;
+
     RWGuard guard(_objLock, false);
 
     WorldObject *curObj;
@@ -215,6 +219,8 @@ void MapCell::ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callbac
             (*callback)(obj, curObj);
         }
     }
+
+    return true;
 }
 
 void MapCell::SetActivity(bool state)
@@ -241,6 +247,8 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
     if(sp == NULL)
         return 0;
 
+    // start loading cell data
+    _modifyingCellData = true;
     _instance->StartCellLoading(_x, _y);
     uint32 loadCount = 0, mapId = _instance->GetMapId();
     uint32 msTime = RONIN_UTIL::ThreadTimer::getThreadTime();
@@ -329,6 +337,8 @@ uint32 MapCell::LoadCellData(CellSpawns * sp)
         _instance->mGameObjectPool.AddPool(_gameobjectStack, stackSize);
     }
     _instance->FinishCellLoading(_x, _y);
+    // We've finished loading our cell data
+    _modifyingCellData = false;
     return loadCount;
 }
 
@@ -339,7 +349,8 @@ void MapCell::UnloadCellData(bool preDestruction)
 
     _loaded = false;
     RWGuard guard(_objLock, true);
-
+    // We've started modifying cell data
+    _modifyingCellData = true;
     for(auto it = m_ctrIndex.begin(); it != m_ctrIndex.end(); ++it)
     {
         if(_creatureStack[it->first].IsInWorld())
@@ -376,6 +387,8 @@ void MapCell::UnloadCellData(bool preDestruction)
 
     // Start calldown for cell map unloading
     _mapData->CellUnloaded(_x, _y);
+    // We're finished modifying our cell data
+    _modifyingCellData = false;
 }
 
 void MapCell::QueueUnloadPending()

@@ -730,8 +730,7 @@ bool MapInstance::UpdateCellData(WorldObject *obj, uint32 cellX, uint32 cellY, b
         return false;
 
     _processCallback.SetCell(cellX, cellY);
-    objCell->ProcessObjectSets(obj, &_processCallback, NULL, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
-    return true;
+    return objCell->ProcessObjectSets(obj, &_processCallback, NULL, playerObj ? 0x00 : TYPEMASK_TYPE_PLAYER);
 }
 
 void MapInstanceObjectRemovalCallback::operator()(WorldObject *obj, WorldObject *curObj)

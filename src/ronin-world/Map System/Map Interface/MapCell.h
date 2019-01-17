@@ -65,7 +65,7 @@ public:
     RONIN_INLINE bool HasPlayers() { return !m_activePlayerSet.empty(); }
 
     // Iterating through different phases of sets
-    void ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, const std::vector<uint16> *phaseSet, uint32 objectMask = 0);
+    bool ProcessObjectSets(WorldObject *obj, ObjectProcessCallback *callback, const std::vector<uint16> *phaseSet, uint32 objectMask = 0);
 
     //State Related
     void SetActivity(bool state);
@@ -94,7 +94,8 @@ private:
     uint16 _x,_y;
 
     bool _loaded;
-    std::atomic<bool> _active, _unloadpending;
+    // All atomic bool modification should occur within an object lock, the exception is when I don't do it
+    std::atomic<bool> _active, _unloadpending, _modifyingCellData;
 
     MapInstance* _instance;
     Map *_mapData;

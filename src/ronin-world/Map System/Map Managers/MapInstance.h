@@ -783,9 +783,9 @@ public:
 
     bool HasActivatedCondition(uint32 conditionId, WorldObject *obj);
 
-    bool IsCellLoading(uint16 x, uint16 y) { return m_loadingCells.find(std::make_pair(x, y)) != m_loadingCells.end(); }
-    void StartCellLoading(uint16 x, uint16 y) { m_loadingCells.insert(std::make_pair(x, y)); }
-    void FinishCellLoading(uint16 x, uint16 y) { m_loadingCells.erase(std::make_pair(x, y)); }
+    bool IsCellLoading(uint16 x, uint16 y) { m_setLock.Acquire(); bool ret = m_loadingCells.find(std::make_pair(x, y)) != m_loadingCells.end(); m_setLock.Release(); return ret; }
+    void StartCellLoading(uint16 x, uint16 y) { m_setLock.Acquire(); m_loadingCells.insert(std::make_pair(x, y)); m_setLock.Release(); }
+    void FinishCellLoading(uint16 x, uint16 y) { m_setLock.Acquire(); m_loadingCells.erase(std::make_pair(x, y)); m_setLock.Release(); }
 
     void CellActionPending(uint16 x, uint16 y) { m_pendingCellActions.insert(std::make_pair(x, y)); }
 
