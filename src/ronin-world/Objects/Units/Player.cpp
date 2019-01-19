@@ -668,10 +668,12 @@ void Player::EventExploration(MapInstance *instance)
                 SetUInt32Value(offset, (uint32)(currFields | val));
 
                 uint32 explore_xp = at->level * 10 * sWorld.getRate(RATE_XP);
+                if(!GiveXP(explore_xp, 0, false, false))
+                    explore_xp = 0;
+
                 WorldPacket data(SMSG_EXPLORATION_EXPERIENCE, 8);
                 data << at->AreaId << explore_xp;
                 PushPacket(&data);
-                GiveXP(explore_xp, 0, false, false);
             }
         }
 
@@ -1173,21 +1175,33 @@ void Player::UpdatePlayerRatings()
 
 void Player::UpdatePlayerDamageDoneMods()
 {
-    uint32 statBonus = 0, itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER), spellPowerOverride = itemBonus;
+    uint32 baseBonus = 0, itemBonus = GetBonusesFromItems(ITEM_STAT_SPELL_POWER), spellPowerOverride = itemBonus;
     if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))
         spellPowerOverride = float2int32((((float)CalculateAttackPower())*m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT))/100.f);
     if(GetMaxPowerFieldForType(POWER_TYPE_MANA) != UNIT_END)
-        statBonus += std::max<int32>(0, ((int32)GetStat(STAT_INTELLECT)) - 10);
+        baseBonus += std::max<int32>(0, ((int32)GetStat(STAT_INTELLECT)) - 10);
+    // Add our item bonus for calcs
+    baseBonus += itemBonus;
+
+    float flatPctModifier = 100.f + m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_INCREASE_SPELL_POWER_PCT);
     int32 negative = 0;
     for(uint8 school = SCHOOL_NORMAL; school < SCHOOL_SPELL; school++)
     {
         SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+school, GetDamageDonePctMod(school, true));
-        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, std::max<uint32>(spellPowerOverride, statBonus+itemBonus+GetDamageDoneMod(school, true, &negative)));
-        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school, negative);
+
+        float damageDoneMod = std::max<uint32>(spellPowerOverride, baseBonus+GetDamageDoneMod(school, true, &negative));
+        damageDoneMod *= flatPctModifier;
+        damageDoneMod /= 100.f;
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, float2int32(damageDoneMod));
+        SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school, -negative);
     }
 
-    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, std::max<uint32>(spellPowerOverride, statBonus+itemBonus+GetHealingDoneMod(true, &negative)));
     SetFloatValue(PLAYER_FIELD_MOD_HEALING_PCT, GetHealingDonePctMod(true));
+
+    float healingDoneMod = std::max<uint32>(spellPowerOverride, baseBonus+GetHealingDoneMod(true, &negative));
+    healingDoneMod *= flatPctModifier;
+    healingDoneMod /= 100.f;
+    SetUInt32Value(PLAYER_FIELD_MOD_HEALING_DONE_POS, float2int32(healingDoneMod));
 }
 
 float Player::GetSpellHastePct()
@@ -2477,17 +2491,17 @@ void Player::EventDeath()
 
 ///  This function sends the message displaying the purple XP gain for the char
 ///  It assumes you will send out an UpdateObject packet at a later time.
-void Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
+bool Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
 {
     if ( xp < 1 || m_XPoff )
-        return;
+        return false;
 
     bool maxLevel = getLevel() >= GetUInt32Value(PLAYER_FIELD_MAX_LEVEL);
     if(maxLevel)
     {
         if(allowGuildXP) // Even at max level, Increase guild XP if we can
             guildmgr.GuildGainXP(this, xp);
-        return;
+        return false;
     }
 
     uint32 restxp = 0; //add reststate bonus
@@ -2541,6 +2555,7 @@ void Player::GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP)
 
     if(allowGuildXP) // Increase guild XP if we can
         guildmgr.GuildGainXP(this, xp);
+    return true;
 }
 
 void Player::smsg_InitialSpells()

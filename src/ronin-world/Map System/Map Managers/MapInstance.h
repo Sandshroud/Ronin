@@ -787,7 +787,7 @@ public:
     void StartCellLoading(uint16 x, uint16 y) { m_setLock.Acquire(); m_loadingCells.insert(std::make_pair(x, y)); m_setLock.Release(); }
     void FinishCellLoading(uint16 x, uint16 y) { m_setLock.Acquire(); m_loadingCells.erase(std::make_pair(x, y)); m_setLock.Release(); }
 
-    void CellActionPending(uint16 x, uint16 y) { m_pendingCellActions.insert(std::make_pair(x, y)); }
+    void CellActionPending(uint16 x, uint16 y) { m_setLock.Acquire(); m_pendingCellActions.insert(std::make_pair(x, y)); m_setLock.Release(); }
 
 protected:
     /* Map Information */

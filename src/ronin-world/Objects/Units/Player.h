@@ -853,7 +853,7 @@ public:
     RONIN_INLINE std::string* GetNameString() { return &m_name; }
 
     //void KilledMonster(uint32 entry, const uint64 &guid);
-    void GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP);
+    bool GiveXP(uint32 xp, WoWGuid guid, bool allowbonus, bool allowGuildXP);
     void ModifyBonuses(bool apply, WoWGuid guid, uint32 slot, uint32 type, int32 val, int32 randSuffixAmt = 0, int32 suffixSeed = 0);
 
     int32 GetBonusesFromItems(uint32 statType);

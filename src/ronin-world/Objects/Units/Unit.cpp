@@ -251,6 +251,7 @@ void Unit::OnAuraModChanged(uint32 modType)
         pendingIndex.push_back(UF_UTYPE_CASTMOD);
         break;
         // Player opcode handling
+    case SPELL_AURA_MOD_INCREASE_SPELL_POWER_PCT:
     case SPELL_AURA_OVERRIDE_SPELL_POWER_BY_AP_PCT:
     case SPELL_AURA_MOD_SPELL_DAMAGE_OF_STAT_PERCENT:
     case SPELL_AURA_MOD_SPELL_DAMAGE_OF_ATTACK_POWER:

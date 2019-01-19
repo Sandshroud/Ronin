@@ -274,6 +274,17 @@ public:
         }
     }
 
+    void Validate()
+    {
+        std::set<uint32> categoriesToRemove;
+        for(auto itr = categoryMap.begin(); itr != categoryMap.end(); itr++)
+            if(itr->second == 0)
+                categoriesToRemove.insert(itr->first);
+        for(auto itr = categoriesToRemove.begin(); itr != categoriesToRemove.end(); itr++)
+            categoriesToRemove.erase(*itr);
+    }
+
+
     std::map<uint32, int32> categoryMap;
 };
 
@@ -283,6 +294,7 @@ void WorldSession::HandleRequestSpellCategoryCooldownOpcode(WorldPacket &recv_da
 
     SpellCategoryCooldownModCallback spellCategoryCooldownCallback;
     _player->m_AuraInterface.TraverseModMap(SPELL_AURA_MOD_SPELL_CATEGORY_COOLDOWN, &spellCategoryCooldownCallback);
+    spellCategoryCooldownCallback.Validate();
 
     WorldPacket data(SMSG_SPELL_CATEGORY_COOLDOWN, 20);
     data.WriteBits(spellCategoryCooldownCallback.categoryMap.size(), 23);

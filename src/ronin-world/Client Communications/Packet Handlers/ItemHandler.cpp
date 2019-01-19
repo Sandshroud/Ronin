@@ -1630,8 +1630,10 @@ void WorldSession::HandleTransmogrifyItemsOpcode( WorldPacket& recv_data )
                 hasTransmogError = true;
             else
             {
-
-                cost += 100000;//targetItem->CalculateTransmogCost();
+                if(targetItem->GetProto()->SellPrice)
+                    cost += targetItem->GetProto()->SellPrice;
+                else cost += 100000;
+                //cost += targetItem->CalculateTransmogCost();
             }
         }
     }

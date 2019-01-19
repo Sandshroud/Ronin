@@ -221,7 +221,7 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
     if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
     {
         //ASSERT(m_pItems[slot] == NULL);
-        if(GetInventoryItem(slot) != NULL || (slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->HasSkillLine(118)))
+        if(GetInventoryItem(slot) != NULL || (item->GetProto()->InventoryType != INVTYPE_HOLDABLE && slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->HasSkillLine(SKILL_DUAL_WIELD)))
         {
             result = FindFreeInventorySlot(item->GetProto());
 

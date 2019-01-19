@@ -155,47 +155,56 @@ void PlayerCurrency::AddCurrency(uint32 currency, uint32 amount, bool silent)
     CurrencyTypeEntry *entry = dbcCurrencyType.LookupEntry(currency);
     if(entry == NULL)
         return;
-    // Set amount to never exceed total cap
-    if(entry->TotalCap && amount > entry->TotalCap)
-        amount = entry->TotalCap;
-    // If weekly cap, set amount to never exceed weekly cap
+
+    amount *= (entry->Flags&0x08) ? 100 : 1;
+    // If weekly cap, set adding amount to never exceed weekly cap
     if(entry->WeekCap && amount > entry->WeekCap)
         amount = entry->WeekCap;
 
-    // See if we already have currency data, if not insert new data
-    if(m_currencies.find(currency) == m_currencies.end())
-        m_currencies.insert(std::make_pair(currency, CurrencyData(amount, entry->WeekCap > 0)));
-    else
-    {   // We have data already, just need to modify it
-        uint32 previous = m_currencies.at(currency).count;
-        if(entry->TotalCap)
-        {   // We have a total cap, we need to fit inside restraints
-            if(previous == entry->TotalCap)
-                return; // Return if we already broke total cap
-            // Check and get the distance from total cap if we're going to break it
-            if(previous+amount > entry->TotalCap)
-                amount = entry->TotalCap-previous;
+    uint32 tAmount = amount, pAmount = 0;
+    std::map<uint32, CurrencyData>::iterator itr;
+    // See if we already have currency data and add it to total
+    if((itr = m_currencies.find(currency)) != m_currencies.end())
+    {
+        // Check if we've capped out our currency gains for this week
+        if(entry->WeekCap && itr->second.weekCount == entry->WeekCap)
+            return;
+        // Add up our total
+        tAmount += (pAmount = itr->second.count);
+    }
+    // Set amount to never exceed total cap
+    if(entry->TotalCap && tAmount > entry->TotalCap)
+        tAmount = entry->TotalCap;
+    // We were capped before so we return here
+    if(pAmount == tAmount)
+        return;
+    // We've already set our amount to match our weekly cap, but if we're adding to existing, check our limits there as well
+    if(entry->WeekCap && itr != m_currencies.end())
+    {   // Check and get the distance from weekly cap if we're going to break it
+        if((itr->second.weekCount+amount) > entry->WeekCap)
+        {
+            amount = entry->WeekCap-itr->second.weekCount;
+            tAmount = pAmount + amount;
         }
 
-        if(entry->WeekCap)
-        {   // We have a weekly cap, we need to fit inside restraints
-            uint32 currentWeek = m_currencies.at(currency).weekCount;
-            if(currentWeek == entry->WeekCap)
-                return; // Return if we already broke weekly cap
-            // Check and get the distance from weekly cap if we're going to break it
-            if((currentWeek+amount) > entry->WeekCap)
-                amount = entry->WeekCap-currentWeek;
-            // Update weekly amount since we have a weekly cap
-            m_currencies.at(currency).weekCount += amount;
-        }
-        // Current count needs to be updated
-        m_currencies.at(currency).count += amount;
+        // Update weekly amount since we have a weekly cap
+        itr->second.weekCount += amount;
+    }
+
+    if(m_currencies.find(currency) == m_currencies.end())
+    {   // We need to insert currency data then allign our iterator
+        m_currencies.insert(std::make_pair(currency, CurrencyData(amount, entry->WeekCap > 0)));
+        ASSERT((itr = m_currencies.find(currency)) != m_currencies.end());
+    }
+    else
+    {   // Current count needs to be updated
+        itr->second.count = tAmount;
         // Total count is overall tracker, so update when we add new amount
-        m_currencies.at(currency).totalCount += amount;
+        itr->second.totalCount += amount;
     }
 
     // Send a packet containing the new currency value
-    _SendCurrencyUpdate(entry, &m_currencies.at(currency), silent);
+    _SendCurrencyUpdate(entry, &itr->second, silent);
 }
 
 void PlayerCurrency::RemoveCurrency(uint32 currency, uint32 amount)
