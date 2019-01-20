@@ -541,6 +541,7 @@ public:
     bool canWalk();
     bool canSwim();
     bool canFly();
+    bool CheckFlightStatus(float groundDist = 10.f);
 
     uint32 GetSpellDidHitResult( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability );
     uint32 GetSpellDidHitResult( Unit* pVictim, BaseSpell* pSpell, float *resistOut, uint8 *reflectout);

@@ -196,7 +196,7 @@ void AIInterface::_HandleCombatAI(uint32 msTime)
     }
 
     if (unitTarget == NULL || unitTarget->isDead() || (tooFarFromSpawn = (unitTarget->GetDistance2dSq(m_Creature->GetSpawnX(), m_Creature->GetSpawnY()) > MAX_COMBAT_MOVEMENT_DIST))
-        || !sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
+        || (tooFarFromSpawn = (unitTarget->CheckFlightStatus() && !m_Creature->canFly())) || !sFactionSystem.CanEitherUnitAttack(m_Creature, unitTarget))
     {
         // If we already have a target but he doesn't qualify back us out of combat
         if(unitTarget)

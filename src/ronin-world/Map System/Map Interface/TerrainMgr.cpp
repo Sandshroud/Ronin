@@ -358,7 +358,9 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                                     for(uint8 cy = 0; cy <= 8; cy++)
                                     {
                                         int j = y*9 + cy;
-                                        tile->L9[i][j] = liqMult*float(uint8L9[cx*9+cy]);
+                                        if(uint8L9[cx*9+cy] == 255)
+                                            tile->L9[i][j] = NO_WATER_HEIGHT;
+                                        else tile->L9[i][j] = liqMult*float(uint8L9[cx*9+cy]);
                                     }
                                 }
                                 break;
@@ -372,7 +374,9 @@ bool TerrainMgr::LoadTileInformation(uint32 x, uint32 y, FILE *input)
                                     for(uint8 cy = 0; cy <= 8; cy++)
                                     {
                                         int j = y*9 + cy;
-                                        tile->L9[i][j] = liqMult*float(uint16L9[cx*9+cy]);
+                                        if(uint16L9[cx*9+cy] == 65535)
+                                            tile->L9[i][j] = NO_WATER_HEIGHT;
+                                        else tile->L9[i][j] = liqMult*float(uint16L9[cx*9+cy]);
                                     }
                                 }
                                 break;

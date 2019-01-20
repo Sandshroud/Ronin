@@ -1062,6 +1062,9 @@ void MapInstanceInRangeTargetCallback::operator()(WorldObject *obj, WorldObject 
     float distance = obj->GetDistanceSq(unitTarget);
     if(_result && _resultDist <= distance)
         return;
+    // Can't aggro on flying targets
+    if(unitTarget->CheckFlightStatus(4.5f) && !castPtr<Creature>(obj)->canFly())
+        return;
 
     uint32 latency = 0;
     // Visibility and interaction checking

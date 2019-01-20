@@ -1968,7 +1968,7 @@ bool Unit::canWalk()
     if(IsCreature())
     {
         Creature* ctr = castPtr<Creature>(this);
-        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
+        if(ctr->GetCanMove() == LIMIT_ANYWHERE)
             return true;
         if(ctr->GetCanMove() & LIMIT_GROUND)
             return true;
@@ -1982,7 +1982,7 @@ bool Unit::canSwim()
     if(IsCreature())
     {
         Creature* ctr = castPtr<Creature>(this);
-        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
+        if(ctr->GetCanMove() == LIMIT_ANYWHERE)
             return true;
         if(ctr->GetCanMove() & LIMIT_WATER)
             return true;
@@ -1998,18 +1998,31 @@ bool Unit::canFly()
     else if(IsCreature())
     {
         Creature* ctr = castPtr<Creature>(this);
-        if(ctr->GetCanMove() & LIMIT_ANYWHERE)
+        if(ctr->GetCanMove() == LIMIT_ANYWHERE)
             return true;
         if(ctr->GetCanMove() & LIMIT_AIR)
             return true;
     }
 
+    if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
+        return true;
     if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
         return true;
     if(m_AuraInterface.HasFlightAura())
         return true;
 
     return false;
+}
+
+bool Unit::CheckFlightStatus(float groundDist)
+{
+    if(canFly() == false)
+        return false;
+    if(!m_movementInterface.hasFlag(MOVEMENTFLAG_FLYING))
+        return false;
+    if(!(GetPositionZ() > m_groundHeight && RONIN_UTIL::Diff(m_groundHeight, GetPositionZ()) > groundDist))
+        return false;
+    return true;
 }
 
 WeaponDamageType Unit::GetPreferredAttackType(SpellEntry **sp)
