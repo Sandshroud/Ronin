@@ -1189,9 +1189,15 @@ void Player::UpdatePlayerDamageDoneMods()
     {
         SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT+school, GetDamageDonePctMod(school, true));
 
-        float damageDoneMod = std::max<uint32>(spellPowerOverride, baseBonus+GetDamageDoneMod(school, true, &negative));
-        damageDoneMod *= flatPctModifier;
-        damageDoneMod /= 100.f;
+        float damageDoneMod = 0.f;
+        if(school == SCHOOL_NORMAL)
+            damageDoneMod = GetDamageDoneMod(school, true, &negative);
+        else
+        {
+            damageDoneMod = std::max<uint32>(spellPowerOverride, baseBonus+GetDamageDoneMod(school, true, &negative));
+            damageDoneMod *= flatPctModifier;
+            damageDoneMod /= 100.f;
+        }
         SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS+school, float2int32(damageDoneMod));
         SetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+school, -negative);
     }

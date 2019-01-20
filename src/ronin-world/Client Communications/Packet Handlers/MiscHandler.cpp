@@ -1714,82 +1714,95 @@ void WorldSession::_HandleAreaTriggerOpcode(uint32 id)
 
     // Either set our clear our rested areatrigger
     _player->SetRestedAreaTrigger(data->type == ObjectMgr::AREATRIGGER_TYPE_INN ? id : 0);
-
-    if(data->type == ObjectMgr::AREATRIGGER_TYPE_DUNGEON && _player->GetPlayerStatus() != TRANSFER_PENDING) //only ports if player is out of pendings
+    switch(data->type)
     {
-        MapEntry* map = dbcMap.LookupEntry(data->destination->mapId);
-        if(map == NULL)
-            return;
-
-        //do we meet the map requirements?
-        uint8 reason = CheckTeleportPrerequisites(this, _player, data->destination->mapId);
-        /*if(reason != AREA_TRIGGER_FAILURE_OK)
+    case ObjectMgr::AREATRIGGER_TYPE_TELEPORT:
         {
-            const char * pReason = AreaTriggerFailureMessages[reason];
-            char msg[200];
-            WorldPacket data(SMSG_AREA_TRIGGER_MESSAGE, 50);
-            data << uint32(0);
+            MapEntry* map = dbcMap.LookupEntry(data->destination->mapId);
+            if(map == NULL || !(map->IsContinent() || map->MapID == _player->GetMapId()))
+                return;
+            // Just push us through to our destination
+            _player->SafeTeleport(data->destination->mapId, 0, LocationVector(data->destination->x, data->destination->y, data->destination->z, data->destination->o));
+        }break;
+    case ObjectMgr::AREATRIGGER_TYPE_DUNGEON:
+        {
+            if(_player->GetPlayerStatus() == TRANSFER_PENDING) //only ports if player is out of pendings
+                return;
 
-            switch (reason)
-            {
-            case AREA_TRIGGER_FAILURE_LEVEL:
-            {
-                snprintf(msg,200,pReason,pAreaTrigger->required_level);
-                data << msg;
-            }break;
-            case AREA_TRIGGER_FAILURE_NO_ATTUNE_I:
-            {
-                ItemPrototype * pItem = ItemPrototypeStorage.LookupEntry(pMi->required_item);
-                snprintf(msg, 200, pReason, pItem ? pItem->Name1 : "UNKNOWN");
-                data << msg;
-            }break;
-            case AREA_TRIGGER_FAILURE_NO_ATTUNE_Q:
-            {
-                Quest * pQuest = sQuestMgr.GetQuestPointer(pMi->required_quest);
-                snprintf(msg, 200, pReason, pQuest ? pQuest->qst_title : "UNKNOWN");
+            MapEntry* map = dbcMap.LookupEntry(data->destination->mapId);
+            if(map == NULL)
+                return;
 
-                data << msg;
-            }break;
-            case AREA_TRIGGER_FAILURE_NO_KEY:
+            //do we meet the map requirements?
+            uint8 reason = CheckTeleportPrerequisites(this, _player, data->destination->mapId);
+            /*if(reason != AREA_TRIGGER_FAILURE_OK)
             {
-                string temp_msg[2];
-                string tmp_msg;
-                for(uint32 i = 0; i < 2; i++)
+                const char * pReason = AreaTriggerFailureMessages[reason];
+                char msg[200];
+                WorldPacket data(SMSG_AREA_TRIGGER_MESSAGE, 50);
+                data << uint32(0);
+
+                switch (reason)
                 {
-                    if (pMi->heroic_key[i] && _player->GetItemInterface()->GetItemCount(pMi->heroic_key[i], false)==0)
+                case AREA_TRIGGER_FAILURE_LEVEL:
+                {
+                    snprintf(msg,200,pReason,pAreaTrigger->required_level);
+                    data << msg;
+                }break;
+                case AREA_TRIGGER_FAILURE_NO_ATTUNE_I:
+                {
+                    ItemPrototype * pItem = ItemPrototypeStorage.LookupEntry(pMi->required_item);
+                    snprintf(msg, 200, pReason, pItem ? pItem->Name1 : "UNKNOWN");
+                    data << msg;
+                }break;
+                case AREA_TRIGGER_FAILURE_NO_ATTUNE_Q:
+                {
+                    Quest * pQuest = sQuestMgr.GetQuestPointer(pMi->required_quest);
+                    snprintf(msg, 200, pReason, pQuest ? pQuest->qst_title : "UNKNOWN");
+
+                    data << msg;
+                }break;
+                case AREA_TRIGGER_FAILURE_NO_KEY:
+                {
+                    string temp_msg[2];
+                    string tmp_msg;
+                    for(uint32 i = 0; i < 2; i++)
                     {
-                        ItemPrototype * pKey = ItemPrototypeStorage.LookupEntry(pMi->heroic_key[i]);
-                        if(pKey)
-                            temp_msg[i] += pKey->Name1;
-                        else
-                            temp_msg[i] += "UNKNOWN";
+                        if (pMi->heroic_key[i] && _player->GetItemInterface()->GetItemCount(pMi->heroic_key[i], false)==0)
+                        {
+                            ItemPrototype * pKey = ItemPrototypeStorage.LookupEntry(pMi->heroic_key[i]);
+                            if(pKey)
+                                temp_msg[i] += pKey->Name1;
+                            else
+                                temp_msg[i] += "UNKNOWN";
+                        }
                     }
+                    tmp_msg += temp_msg[0];
+                    if(temp_msg[0].size() && temp_msg[1].size())
+                        tmp_msg += "\" and \"";
+                    tmp_msg += temp_msg[1];
+
+                    snprintf(msg, 200, pReason, tmp_msg.c_str());
+                    data << msg;
+                }break;
+                case AREA_TRIGGER_FAILURE_LEVEL_HEROIC:
+                {
+                    snprintf(msg, 200, pReason, pMi->HasFlag(WMI_INSTANCE_XPACK_02) ? 80 : 70);
+                    data << msg;
+                }break;
+                default:
+                {
+                    data << pReason;
+                }break;
                 }
-                tmp_msg += temp_msg[0];
-                if(temp_msg[0].size() && temp_msg[1].size())
-                    tmp_msg += "\" and \"";
-                tmp_msg += temp_msg[1];
 
-                snprintf(msg, 200, pReason, tmp_msg.c_str());
-                data << msg;
-            }break;
-            case AREA_TRIGGER_FAILURE_LEVEL_HEROIC:
-            {
-                snprintf(msg, 200, pReason, pMi->HasFlag(WMI_INSTANCE_XPACK_02) ? 80 : 70);
-                data << msg;
-            }break;
-            default:
-            {
-                data << pReason;
-            }break;
-            }
+                data << uint8(0);
+                SendPacket(&data);
+                return;
+            }*/
 
-            data << uint8(0);
-            SendPacket(&data);
-            return;
-        }*/
-
-        // teleport to our instance
-        _player->SafeTeleport(data->destination->mapId, 0, LocationVector(data->destination->x, data->destination->y, data->destination->z, data->destination->o));
+            // teleport to our instance
+            _player->SafeTeleport(data->destination->mapId, 0, LocationVector(data->destination->x, data->destination->y, data->destination->z, data->destination->o));
+        }break;
     }
 }

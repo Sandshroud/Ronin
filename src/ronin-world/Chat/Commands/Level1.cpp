@@ -411,7 +411,7 @@ bool ChatHandler::HandleTeleportCommand(const char* args, WorldSession *m_sessio
 
     Player *plr = m_session->GetPlayer();
     std::stringstream ss;
-    ss << "SELECT MapId, positionX, positionY, positionZ, name FROM recall WHERE `name` LIKE '%" << args << "%'";
+    ss << "SELECT MapId, positionX, positionY, positionZ, name FROM recall WHERE `name` LIKE '%" << WorldDatabase.EscapeString(args).c_str() << "%'";
     // Queries using LIKE have to pass through NA to avoid VAlist breaking them
     if(QueryResult *result = WorldDatabase.QueryNA(ss.str().c_str()))
     {

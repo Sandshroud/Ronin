@@ -24,7 +24,7 @@
 typedef struct
 {
     uint16 areaInfo[16][16];
-    float mapHeight[16][16], V8[128][128], V9[129][129];
+    float V8[128][128], V9[129][129];
 
     uint16 liquidType[16][16];
     float liquidHeight[16][16], L9[144][144];
