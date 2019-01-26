@@ -161,17 +161,33 @@ void AuraInterface::OnAuraRemove(Aura* aura, uint8 aura_slot)
         m_shapeShiftAuras.erase(aura_slot);
 }
 
-void AuraInterface::OnSetShapeShift(uint8 ss)
+void AuraInterface::OnSetShapeShift(uint8 SS, uint8 oldSS)
 {
+    SpellEntry *proto = NULL;
     std::set<uint8> m_aurasToRemove;
     for(uint8 x = 0; x < m_maxPosAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
     {
         if(Aura *aur = m_auras[x])
         {
-            if(aur->GetSpellProto()->AppliesAura(SPELL_AURA_MOD_SHAPESHIFT))
+            if((proto = aur->GetSpellProto())->AppliesAura(SPELL_AURA_MOD_SHAPESHIFT))
+            {
+                bool isOldSS = false;
+                for(uint8 i = 0; i < 3; ++i)
+                {
+                    if(proto->EffectApplyAuraName[i] == SPELL_AURA_MOD_SHAPESHIFT)
+                    {
+                        isOldSS = proto->EffectMiscValue[i] != SS;
+                        break;
+                    }
+                }
+
+                if(isOldSS == true)
+                    m_aurasToRemove.insert(x);
                 continue;
+            }
+
             // Check if it's a shapeshift required aura and if we're either a 0 ss or if we don't meet the requirement
-            if((m_shapeShiftAuras.find(x) != m_shapeShiftAuras.end()) && (ss == NULL || ((aur->GetSpellProto()->RequiredShapeShift & (uint32)1 << (ss-1)) == 0)))
+            if((m_shapeShiftAuras.find(x) != m_shapeShiftAuras.end()) && (SS == NULL || ((aur->GetSpellProto()->RequiredShapeShift & (uint32)1 << (SS-1)) == 0)))
                 m_aurasToRemove.insert(x);
         }
     }

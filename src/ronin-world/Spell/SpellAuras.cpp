@@ -380,6 +380,7 @@ void Aura::Remove()
 
     m_target = NULL;
     m_casterGuid = 0;
+    m_modcount = 0;
 
     delete this;
 }
@@ -1122,13 +1123,12 @@ void Aura::SpellAuraModShapeshift(bool apply)
 {
     if( !m_target->IsPlayer())
         return;
+    uint8 shapeShift = m_target->GetShapeShift();
+    if(apply == false && shapeShift == mod->m_miscValue[0])
+        shapeShift = 0;
+    else shapeShift = mod->m_miscValue[0];
 
-    Player *p = castPtr<Player>(m_target);
-    p->SetShapeShift( apply ? mod->m_miscValue[0] : 0 );
-    /*switch(mod->m_miscValue[0])
-    {
-
-    }*/
+    castPtr<Player>(m_target)->SetShapeShift( shapeShift );
 }
 
 void Aura::SpellAuraModEffectImmunity(bool apply)

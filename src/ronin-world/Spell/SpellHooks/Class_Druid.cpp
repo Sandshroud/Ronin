@@ -8,3 +8,8 @@ void SpellManager::_RegisterDruidFixes()
 {
 
 }
+
+void SpellProcManager::_RegisterDruidProcs()
+{
+
+}

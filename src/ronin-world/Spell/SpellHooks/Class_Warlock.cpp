@@ -8,3 +8,8 @@ void SpellManager::_RegisterWarlockFixes()
 {
 
 }
+
+void SpellProcManager::_RegisterWarlockProcs()
+{
+
+}

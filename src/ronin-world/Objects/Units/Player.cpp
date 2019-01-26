@@ -1183,6 +1183,7 @@ void Player::UpdatePlayerDamageDoneMods()
     // Add our item bonus for calcs
     baseBonus += itemBonus;
 
+    // Flat pct modifier aura is represented in character sheet as a raw flat increase, so we put it in damage done pos not damage done pct
     float flatPctModifier = 100.f + m_AuraInterface.getModMapAccumulatedValue(SPELL_AURA_MOD_INCREASE_SPELL_POWER_PCT);
     int32 negative = 0;
     for(uint8 school = SCHOOL_NORMAL; school < SCHOOL_SPELL; school++)
@@ -5463,7 +5464,7 @@ void Player::SoftLoadPlayer()
         }
 
         // We have no shapeshift aura, set our shapeshift.
-        if(getClass() == WARRIOR && shapeShift && !(HasAura(21156) || HasAura(7376) || HasAura(7381)))
+        if(getClass() == WARRIOR && shapeShift && GetShapeShift() == 0)
             GetSpellInterface()->TriggerSpell(shapeShift, this);
 
         // Honorless target at 1st entering world.
@@ -5785,6 +5786,9 @@ bool Player::CanSignCharter(Charter * charter, Player* requester)
 void Player::SetShapeShift(uint8 ss)
 {   // First update our shapeshift bytes
     uint8 old_ss = GetByte( UNIT_FIELD_BYTES_2, 3 );
+    if(old_ss == ss)
+        return;
+
     SetByte( UNIT_FIELD_BYTES_2, 3, ss );
 
     // Now look up our form for model generation
@@ -5798,7 +5802,7 @@ void Player::SetShapeShift(uint8 ss)
     SetPowerType(form ? form->forcedPowerType : myClass->powerType);
 
     // Trigger shape shift application or removal
-    m_AuraInterface.OnSetShapeShift(ss);
+    m_AuraInterface.OnSetShapeShift(ss, old_ss);
 
     // Trigger a set of mod type updates(Aura update also does this)
     for(uint8 i = UF_UTYPE_STATS; i <= UF_UTYPE_MOVEMENT; i++)

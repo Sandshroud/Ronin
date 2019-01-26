@@ -8,9 +8,10 @@ class Creature;
 class ItemPrototype;
 class SpellEffectClass;
 class SpellCastTargets;
+class SpellTarget;
 
 typedef bool(*tSpellAmountModifier)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
-typedef bool(*tSpellDummyEffect)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+typedef bool(*tSpellDummyEffect)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount);
 typedef bool(*tSpellScriptedEffect)(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount);
 typedef bool(*tSpellTeleportData)(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O);
 
@@ -44,7 +45,7 @@ public:
     bool HandleTakePower(SpellEffectClass *spell, Unit *unitCaster, int32 powerField, int32 &cost, bool &result);
     // Modifiers for effect amounts and dummy effect handlers
     bool ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
-    bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
+    bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount);
     bool TriggerScriptedEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt);
     bool FetchSpellCoordinates(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt, uint32 &mapId, float &X, float &Y, float &Z, float &O);
 

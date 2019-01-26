@@ -401,7 +401,8 @@ void SpellEffectClass::SpellEffectSchoolDMG(uint32 i, WorldObject *target, int32
 
 void SpellEffectClass::SpellEffectDummy(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Dummy(Scripted events)
 {
-    if(sSpellMgr.HandleDummyEffect(this, i, _unitCaster, target, amount))
+    SpellTarget *spTarget = GetSpellTarget(target->GetGUID());
+    if(sSpellMgr.HandleDummyEffect(this, i, _unitCaster, target, spTarget, amount))
         return;
 
     // Heal: 47633, 47632
@@ -1577,32 +1578,30 @@ void SpellEffectClass::SpellEffectCharge(uint32 i, WorldObject *target, int32 am
     if (_unitCaster->IsStunned() || _unitCaster->IsRooted() || _unitCaster->IsPacified() || _unitCaster->IsFeared())
         return;
 
-    float dx,dy;
-
-    float x, y, z;
+    float tX, tY, tZ, tO;
     if (m_targets.m_targetMask & TARGET_FLAG_DEST_LOCATION)
     {
         if(m_targets.m_dest.x == 0.0f || m_targets.m_dest.y == 0.0f)
             return;
-        x = m_targets.m_dest.x;
-        y = m_targets.m_dest.y;
-        z = m_targets.m_dest.z;
+        tX = m_targets.m_dest.x;
+        tY = m_targets.m_dest.y;
+        tZ = m_targets.m_dest.z;
     }
     else
     {
-        x = unitTarget->GetPositionX();
-        y = unitTarget->GetPositionY();
-        z = unitTarget->GetPositionZ();
+        tX = unitTarget->GetPositionX();
+        tY = unitTarget->GetPositionY();
+        tZ = unitTarget->GetPositionZ();
     }
 
-    dx = x-_unitCaster->GetPositionX();
-    dy = y-_unitCaster->GetPositionY();
-    if(dx == 0.0f || dy == 0.0f)
+    float destX, destY, minRange, maxRange;
+    if(!_unitCaster->calculateAttackRange(MELEE, minRange, maxRange))
         return;
+    tO = _unitCaster->calcAngle(_unitCaster->GetPositionX(), _unitCaster->GetPositionY(), tX, tY) * M_PI / 180.f;
+    destX = tX - (maxRange*0.5f*cosf(tO));
+    destY = tY - (maxRange*0.5f*sinf(tO));
 
-    uint32 time = uint32( (sqrtf(_unitCaster->GetDistanceSq(x,y,z)) / ((_unitCaster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5) * 0.001f)) + 0.5);
-    _unitCaster->SetPosition(x,y,z,0.0f);
-
+    _unitCaster->GetMovementInterface()->MoveWithSpeedTo(_unitCaster->GetMovementInterface()->GetMoveSpeed(MOVE_SPEED_RUN) * 3.5f, destX, destY, tZ+0.5f, tO);
     _unitCaster->addStateFlag(UF_ATTACKING);
     if(WoWGuid guid = unitTarget->GetGUID())
         _unitCaster->EventAttackStart(guid);

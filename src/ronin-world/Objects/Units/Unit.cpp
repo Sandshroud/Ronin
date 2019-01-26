@@ -2714,6 +2714,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 //--------------------------------miss------------------------------------------------------
     case 0:
         hit_status |= HITSTATUS_MISS;
+        procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_MISS));
         break;
 //--------------------------------dodge-----------------------------------------------------
     case 1:
@@ -2722,6 +2723,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         targetEvent = 1;
         vstate = DODGE;
         pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
+        procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_MISS));
         break;
 //--------------------------------parry-----------------------------------------------------
     case 2:
@@ -2730,6 +2732,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         targetEvent = 3;
         vstate = PARRY;
         pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
+        procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_MISS));
         break;
 //--------------------------------not miss,dodge or parry-----------------------------------
     default:
@@ -2811,6 +2814,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                     if(damage_reduction > 0)
                         dmg.full_damage = float2int32(damage_reduction * float(dmg.full_damage));
                     hit_status |= HITSTATUS_GLANCING;
+                    procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_NON_DIRECT_HIT));
                 }break;
 //--------------------------------block-----------------------------------------------------
             case 4:
@@ -2841,6 +2845,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
                             pVictim->SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK);  //SB@L: Enables spells requiring dodge
+                        procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_NON_DIRECT_HIT));
                     }
                 }break;
 //--------------------------------critical hit----------------------------------------------
@@ -2877,14 +2882,18 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
                     TRIGGER_AI_EVENT(pVictim, OnTargetCritHit)(castPtr<Unit>(this), float(dmg.full_damage));
                     TRIGGER_AI_EVENT(castPtr<Unit>(this), OnCritHit)(pVictim, float(dmg.full_damage));
+
+                    procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_DIRECT_HIT));
                 } break;
 //--------------------------------crushing blow---------------------------------------------
             case 6:
                 hit_status |= HITSTATUS_CRUSHINGBLOW;
                 dmg.full_damage = (dmg.full_damage * 3) >> 1;
+                procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_DIRECT_HIT));
                 break;
 //--------------------------------regular hit-----------------------------------------------
             default:
+                procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_DIRECT_HIT));
                 break;
             }
 

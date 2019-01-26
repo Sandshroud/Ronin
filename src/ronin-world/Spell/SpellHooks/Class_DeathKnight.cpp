@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-bool DeathKnightDeathCoilTrigger(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool DeathKnightDeathCoilTrigger(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     static SpellEntry *attackSpell = dbcSpell.LookupEntry(47632), *healSpell = dbcSpell.LookupEntry(47633);
     if(attackSpell == NULL || healSpell == NULL)
@@ -57,4 +57,9 @@ void SpellManager::_RegisterDeathKnightFixes()
 
     // Modify the amount of damage our Unholy spells do
     _RegisterAmountModifier(47632, SP_EFF_INDEX_0, DeathKnightUnholyAmountModifier); // Death Coil
+}
+
+void SpellProcManager::_RegisterDeathKnightProcs()
+{
+
 }

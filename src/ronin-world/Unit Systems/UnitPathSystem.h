@@ -85,6 +85,7 @@ private:
 public:
     void SetFollowTarget(Unit *target, float distance);
     void MoveToPoint(float x, float y, float z, float o = fInfinite);
+    void MoveWithSpeedToPoint(float speed, float x, float y, float z, float o = fInfinite);
     void UpdateOrientation(Unit *unitTarget);
     void SetOrientation(float orientation);
     void OnSpeedChange(MovementSpeedTypes speedType);
@@ -113,6 +114,7 @@ private:
     MovementPoint srcPoint, lastUpdatePoint;
     float _currDestX, _currDestY, _currDestZ;
     float _destX, _destY, _destZ, _destO;
+    float _tempMoveSpeed;
 
     FastQueue<std::shared_ptr<MovementPoint>, Mutex> m_movementPoints;
 

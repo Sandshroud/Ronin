@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-bool PaladinBlessingApplicator(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinBlessingApplicator(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     Group *grp = NULL;
     SpellEntry *triggerSpell = dbcSpell.LookupEntry(spell->GetSpellProto()->Id == 19740 ? 79101 : 79062);
@@ -22,7 +22,7 @@ bool PaladinBlessingApplicator(SpellEffectClass *spell, uint32 effIndex, Unit *c
     return true;
 }
 
-bool PaladinJudgementDummyHandler(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool PaladinJudgementDummyHandler(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL, *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
@@ -107,4 +107,9 @@ void SpellManager::_RegisterPaladinFixes()
 
     // Register the damage increase for templar's verdict based off holy power available
     _RegisterAmountModifier(85256, SP_EFF_INDEX_0, PaladinTemplarsVerdictAmountModifier);
+}
+
+void SpellProcManager::_RegisterPaladinProcs()
+{
+
 }

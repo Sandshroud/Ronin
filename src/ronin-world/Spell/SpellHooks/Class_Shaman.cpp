@@ -8,3 +8,8 @@ void SpellManager::_RegisterShamanFixes()
 {
 
 }
+
+void SpellProcManager::_RegisterShamanProcs()
+{
+
+}

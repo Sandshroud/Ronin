@@ -1020,6 +1020,10 @@ void SpellInterface::RemoveProcData(SpellProcData *procData)
 
 bool SpellInterface::CanTriggerProc(SpellProcData *procData, time_t triggerTime, uint32 msTime)
 {
+    if(float procChance = procData->GetSpellProto()->procChance)
+        if(!Rand(procChance))
+            return false;
+
     return true;
 }
 
@@ -1039,7 +1043,14 @@ void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
         case SPELL_AURA_PROC_TRIGGER_SPELL_2:
             {
                 if(SpellEntry *triggeredSpell = dbcSpell.LookupEntry(proto->EffectTriggerSpell[j]))
+                {
+                    // Push our spell to our trigger function
                     TriggerSpell(triggeredSpell, ((target == NULL || triggeredSpell->isSpellSelfCastOnly()) ? m_Unit : target));
+                    // Check if we have a proc charge to remove from our triggering aura
+                    Aura *triggerAura = NULL;
+                    if((triggerAura = m_Unit->m_AuraInterface.FindAura(proto->Id)) && triggerAura->getProcCharges())
+                        triggerAura->RemoveProcCharges(1);
+                }
             }break;
         }
     }

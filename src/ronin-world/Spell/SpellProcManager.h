@@ -19,8 +19,8 @@ public:
 
     SpellEntry *GetSpellProto() { return spellProto; }
 
-    virtual bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods) = 0;
-    virtual bool canProc(uint8 procIdentifier, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs) = 0;
+    virtual bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods) = 0;
+    virtual bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType) = 0;
     virtual bool endsDummycheck() { return false; }
 
 private:
@@ -52,8 +52,13 @@ enum SpellProcMods : uint16
     PROC_ON_KILL_CREATURE                   = 0x0002,
     PROC_ON_KILL_GRANTS_XP                  = 0x0004,
     // Strike modifiers
+    PROC_ON_STRIKE_NONE                     = 0x0000,
     PROC_ON_STRIKE_NON_DIRECT_HIT           = 0x0001,
-    PROC_ON_STRIKE_CRITICAL_HIT             = 0x0002,
+    PROC_ON_STRIKE_DIRECT_HIT               = 0x0002,
+    PROC_ON_STRIKE_CRITICAL_HIT             = 0x0004,
+    PROC_ON_STRIKE_MISS                     = 0x0008,
+    PROC_ON_STRIKE_CAT_FORM                 = 0x0010,
+    PROC_ON_STRIKE_BEAR_FORM                = 0x0020,
     // Spell hit
     PROC_ON_SPELL_LAND_RESIST               = 0x0001,
     PROC_ON_SPELL_LAND_RESIST_PARTIAL       = 0x0002,
@@ -87,6 +92,18 @@ public:
 
     // Returns proc data for spell entry pointer
     SpellProcData *GetSpellProcData(SpellEntry *sp);
+
+private:    // Spell proc overrides for different classes
+    void _RegisterWarriorProcs();
+    void _RegisterPaladinProcs();
+    void _RegisterHunterProcs();
+    void _RegisterRogueProcs();
+    void _RegisterPriestProcs();
+    void _RegisterDeathKnightProcs();
+    void _RegisterShamanProcs();
+    void _RegisterMageProcs();
+    void _RegisterWarlockProcs();
+    void _RegisterDruidProcs();
 
 private:
 

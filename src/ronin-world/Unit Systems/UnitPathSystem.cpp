@@ -5,7 +5,7 @@ float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
 UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_orientationLock(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
 m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_forcedSendFlags(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
-srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), _currDestX(fInfinite), _currDestY(fInfinite), _currDestZ(fInfinite)
+srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), _currDestX(fInfinite), _currDestY(fInfinite), _currDestZ(fInfinite), _tempMoveSpeed(fInfinite)
 {
 
 }
@@ -278,7 +278,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     else
     {
         MapInstance *instance = m_Unit->GetMapInstance();
-        float speed = m_Unit->GetMoveSpeed(_moveSpeed), dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
+        float speed = _tempMoveSpeed == fInfinite ? m_Unit->GetMoveSpeed(_moveSpeed) : _tempMoveSpeed, dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
         m_pathLength = (dist/speed)*1000.f;
         m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(0, srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, -1.f))));
 
@@ -318,6 +318,13 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     }
 
     BroadcastMovementPacket();
+}
+
+void UnitPathSystem::MoveWithSpeedToPoint(float speed, float x, float y, float z, float o)
+{
+    _tempMoveSpeed = speed;
+    MoveToPoint(x, y, z, o);
+    _tempMoveSpeed = fInfinite;
 }
 
 void UnitPathSystem::UpdateOrientation(Unit *unitTarget)
@@ -505,7 +512,7 @@ void UnitPathSystem::BroadcastMovementPacket(uint8 packetSendFlags)
         data.put<uint32>(counterPos, counter);
     }
 
-    m_Unit->SendMessageToSet( &data, false );
+    m_Unit->SendMessageToSet( &data, true );
 }
 
 void UnitPathSystem::SendMovementPacket(Player *plr, uint8 packetSendFlags)

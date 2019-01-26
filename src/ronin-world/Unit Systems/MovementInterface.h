@@ -319,6 +319,7 @@ public:
 
     void SetFacing(float orientation);
     void MoveTo(float x, float y, float z, float o) { m_path.MoveToPoint(x, y, z, o); };
+    void MoveWithSpeedTo(float speed, float x, float y, float z, float o) { m_path.MoveWithSpeedToPoint(speed, x, y, z, o); };
     void MoveClientPosition(float x, float y, float z, float o);
     void SetSelfTempData(bool enable);
 

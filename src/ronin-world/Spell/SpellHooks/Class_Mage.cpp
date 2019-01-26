@@ -4,7 +4,7 @@
 
 #include "StdAfx.h"
 
-bool MageArcaneBrillianceApplicator(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool MageArcaneBrillianceApplicator(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     Group *grp = NULL;
     SpellEntry *triggerSpell = dbcSpell.LookupEntry(79058);
@@ -26,4 +26,9 @@ void SpellManager::_RegisterMageFixes()
 {
     // Arcane Brilliance applicator call
     _RegisterDummyEffect(1459, SP_EFF_INDEX_0, MageArcaneBrillianceApplicator);
+}
+
+void SpellProcManager::_RegisterMageProcs()
+{
+
 }

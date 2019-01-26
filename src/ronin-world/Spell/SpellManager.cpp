@@ -589,12 +589,12 @@ bool SpellManager::ModifyEffectAmount(SpellEffectClass *spell, uint32 effIndex, 
     return false;
 }
 
-bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+bool SpellManager::HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     SpellEntry *sp = spell->GetSpellProto();
     std::pair<uint32, uint32> spEff = std::make_pair(sp->Id, effIndex);
     if(m_dummyEffectHandlers.find(spEff) != m_dummyEffectHandlers.end())
-        return (*m_dummyEffectHandlers.at(spEff))(spell, effIndex, caster, target, amount);
+        return (*m_dummyEffectHandlers.at(spEff))(spell, effIndex, caster, target, spTarget, amount);
     return false;
 }
 
