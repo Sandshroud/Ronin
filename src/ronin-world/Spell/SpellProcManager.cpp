@@ -39,7 +39,7 @@ void SpellProcManager::QuickProcessProcs(Unit *caster, uint8 procType, uint16 pr
     time_t current = UNIXTIME;
     uint32 msTime = RONIN_UTIL::ThreadTimer::getThreadTime();
     for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, caster, caster, NULL, procType, procMods) && caster->GetSpellInterface()->CanTriggerProc(*itr, current, msTime))
+        if((*itr)->canProc(PROCD_CASTER, caster, caster, NULL, procType, procMods) && caster->GetSpellInterface()->CanTriggerProc(*itr, NULL, current, msTime))
             caster->GetSpellInterface()->TriggerProc(*itr, NULL);
 }
 
@@ -50,11 +50,11 @@ uint32 SpellProcManager::ProcessProcFlags(Unit *caster, Unit *target, std::map<u
     std::vector<SpellProcData*> casterProcs, victimProcs;
     // Process procs for our caster that effect our target
     for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, caster, target, fromAbility, procPairs, weaponDamageType) && caster->GetSpellInterface()->CanTriggerProc(*itr, current, msTime))
+        if((*itr)->canProc(PROCD_CASTER, caster, target, fromAbility, procPairs, weaponDamageType) && caster->GetSpellInterface()->CanTriggerProc(*itr, fromAbility, current, msTime))
             casterProcs.push_back(*itr);
     // Now we process our targets affects: TODO should be procD victim but needs more testing
     for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, target, caster, fromAbility, vProcPairs, weaponDamageType) && target->GetSpellInterface()->CanTriggerProc(*itr, current, msTime))
+        if((*itr)->canProc(PROCD_CASTER, target, caster, fromAbility, vProcPairs, weaponDamageType) && target->GetSpellInterface()->CanTriggerProc(*itr, fromAbility, current, msTime))
             victimProcs.push_back(*itr);
 
     for(std::vector<SpellProcData*>::iterator itr = casterProcs.begin(); itr != casterProcs.end(); ++itr)
@@ -117,9 +117,9 @@ bool SpellProcManager::ProcDataMatches(SpellEntry *sp, uint8 inputType, uint8 in
         }break;
     case PROC_ON_STRIKE:
         {
-            uint8 expectedStrike = expectedModifier & 0x000F;
-            if(expectedStrike == PROC_ON_STRIKE_CRITICAL_HIT && inputModifier != PROC_ON_STRIKE_CRITICAL_HIT)
+            if((expectedModifier&PROC_ON_STRIKE_CRITICAL_HIT) && (inputModifier&PROC_ON_STRIKE_CRITICAL_HIT) == 0)
                 return false;
+
             if(expectedModifier & (PROC_ON_STRIKE_CAT_FORM|PROC_ON_STRIKE_BEAR_FORM))
             {
                 if((expectedModifier&(PROC_ON_STRIKE_CAT_FORM|PROC_ON_STRIKE_BEAR_FORM)) == (PROC_ON_STRIKE_CAT_FORM|PROC_ON_STRIKE_BEAR_FORM))
@@ -252,7 +252,7 @@ public:
             || strstr( desc, "gives your melee") || strstr( desc, "granting each melee")))
         {
             // Determine strike type
-            uint8 procMod = PROC_ON_STRIKE_DIRECT_HIT;
+            uint8 procMod = PROC_ON_STRIKE_MELEE_HIT;
             if(strstr( desc, "critical"))
                 procMod = PROC_ON_STRIKE_CRITICAL_HIT;
             // Any additive flags

@@ -337,6 +337,18 @@ void Aura::CalculateDuration()
     } else m_expirationTime = 0;
 }
 
+void Aura::Refresh(bool freshStack)
+{
+    // Recalc duration instead of just resetting
+    CalculateDuration();
+    // If we're a fresh stack then we have a stacksize
+    if(freshStack)
+        AddStackSize(1);
+    else if(m_spellProto->procCharges)
+        SetProcCharges(GetMaxProcCharges(GetUnitCaster()));
+    BuildAuraUpdate();
+}
+
 void Aura::Remove()
 {
     if( m_deleted )

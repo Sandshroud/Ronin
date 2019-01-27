@@ -62,7 +62,7 @@ protected: // Proc related functions
     void AddProcData(SpellProcData *procData);
     void RemoveProcData(SpellProcData *procData);
 
-    bool CanTriggerProc(SpellProcData *procData, time_t triggerTime, uint32 msTime);
+    bool CanTriggerProc(SpellProcData *procData, SpellEntry *fromAbility, time_t triggerTime, uint32 msTime);
     void TriggerProc(SpellProcData *procData, Unit *target);
 
     std::set<SpellProcData*>::iterator beginProcData() { return m_spellProcData.begin(); }

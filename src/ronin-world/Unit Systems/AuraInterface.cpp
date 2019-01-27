@@ -1012,6 +1012,14 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
     }
 }
 
+void AuraInterface::RefreshAura(SpellEntry *sp, WoWGuid casterguid, bool freshStack)
+{
+    Aura *aur = NULL;
+    for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false) )
+        if((aur = m_auras[x]) && aur->GetSpellProto()->NameHash == sp->NameHash && (casterguid.empty() || aur->GetCasterGUID() == casterguid))
+            aur->Refresh(freshStack);
+}
+
 void AuraInterface::RemoveAura(Aura* aur)
 {
     if(aur == NULL)

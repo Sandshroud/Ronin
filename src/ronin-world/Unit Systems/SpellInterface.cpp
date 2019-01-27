@@ -1018,8 +1018,13 @@ void SpellInterface::RemoveProcData(SpellProcData *procData)
     m_spellProcData.erase(procData);
 }
 
-bool SpellInterface::CanTriggerProc(SpellProcData *procData, time_t triggerTime, uint32 msTime)
+bool SpellInterface::CanTriggerProc(SpellProcData *procData, SpellEntry *fromAbility, time_t triggerTime, uint32 msTime)
 {
+    // Don't let us trigger ourself
+    if(fromAbility && procData->GetSpellProto()->NameHash == fromAbility->NameHash)
+        return false;
+
+    // Check proc chance
     if(float procChance = procData->GetSpellProto()->procChance)
         if(!Rand(procChance))
             return false;

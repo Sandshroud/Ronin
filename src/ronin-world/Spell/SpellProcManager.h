@@ -53,9 +53,9 @@ enum SpellProcMods : uint16
     PROC_ON_KILL_GRANTS_XP                  = 0x0004,
     // Strike modifiers
     PROC_ON_STRIKE_NONE                     = 0x0000,
-    PROC_ON_STRIKE_NON_DIRECT_HIT           = 0x0001,
-    PROC_ON_STRIKE_DIRECT_HIT               = 0x0002,
-    PROC_ON_STRIKE_CRITICAL_HIT             = 0x0004,
+    PROC_ON_STRIKE_MELEE_HIT                = 0x0001,
+    PROC_ON_STRIKE_CRITICAL_HIT             = 0x0002,
+    PROC_ON_STRIKE_MELEE_SPELL_HIT          = 0x0004,
     PROC_ON_STRIKE_MISS                     = 0x0008,
     PROC_ON_STRIKE_CAT_FORM                 = 0x0010,
     PROC_ON_STRIKE_BEAR_FORM                = 0x0020,

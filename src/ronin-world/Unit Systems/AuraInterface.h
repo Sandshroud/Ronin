@@ -113,6 +113,7 @@ public:
     ************ Add *************
     ******************************/
     void AddAura(Aura* aur, uint8 slot = 0xFF);
+    void RefreshAura(SpellEntry *sp, WoWGuid guid, bool freshStack = false);
 //  uint32 AddAuraVisual(uint32 SpellId, uint32 count, bool positive);
 
     /*****************************

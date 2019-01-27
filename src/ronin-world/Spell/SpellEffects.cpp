@@ -709,7 +709,6 @@ void SpellEffectClass::SpellEffectEnergize(uint32 i, WorldObject *target, int32 
     Unit *unitTarget = target->IsUnit() ? castPtr<Unit>(target) : NULL;
     if( unitTarget == NULL || !unitTarget->isAlive())
         return;
-
     _unitCaster->Energize(unitTarget, m_spellInfo->Id, amount, m_spellInfo->EffectMiscValue[i]);
 }
 

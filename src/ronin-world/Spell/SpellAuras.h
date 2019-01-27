@@ -31,6 +31,8 @@ public:
     typedef void(Aura::*pSpellAura)(bool apply);
     static std::map<uint16, pSpellAura> m_auraHandlerMap;
 
+    void Refresh(bool freshStack);
+
     void Remove();
     void Update(uint32 diff);
     void UpdatePreApplication();

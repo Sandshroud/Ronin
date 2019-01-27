@@ -2787,6 +2787,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 dmg.full_damage += float2int32(dmg.full_damage * ( ( GetDummyAura(SPELL_HASH_REND_AND_TEAR)->RankNumber * 4 ) / 100.f ) );
             }
 
+            uint16 strikeProcFlags = PROC_ON_STRIKE_MELEE_HIT;
+
             if(dmg.full_damage < 0)
                 dmg.full_damage = 0;
 //--------------------------------check for special hits------------------------------------
@@ -2814,7 +2816,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                     if(damage_reduction > 0)
                         dmg.full_damage = float2int32(damage_reduction * float(dmg.full_damage));
                     hit_status |= HITSTATUS_GLANCING;
-                    procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_NON_DIRECT_HIT));
                 }break;
 //--------------------------------block-----------------------------------------------------
             case 4:
@@ -2845,13 +2846,14 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
                         if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
                             pVictim->SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK);  //SB@L: Enables spells requiring dodge
-                        procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_NON_DIRECT_HIT));
                     }
                 }break;
 //--------------------------------critical hit----------------------------------------------
             case 5:
                 {
                     hit_status |= HITSTATUS_CRICTICAL;
+                    strikeProcFlags |= PROC_ON_STRIKE_CRITICAL_HIT;
+
                     float dmg_bonus_pct = 100.0f;
                     if(ability && ability->SpellGroupType)
                         SM_PFValue(SMT_CRITICAL_DAMAGE,&dmg_bonus_pct,ability->SpellGroupType);
@@ -2882,20 +2884,19 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
 
                     TRIGGER_AI_EVENT(pVictim, OnTargetCritHit)(castPtr<Unit>(this), float(dmg.full_damage));
                     TRIGGER_AI_EVENT(castPtr<Unit>(this), OnCritHit)(pVictim, float(dmg.full_damage));
-
-                    procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_DIRECT_HIT));
                 } break;
 //--------------------------------crushing blow---------------------------------------------
             case 6:
                 hit_status |= HITSTATUS_CRUSHINGBLOW;
                 dmg.full_damage = (dmg.full_damage * 3) >> 1;
-                procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_DIRECT_HIT));
                 break;
 //--------------------------------regular hit-----------------------------------------------
             default:
-                procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_DIRECT_HIT));
                 break;
             }
+
+            if(ability) strikeProcFlags |= PROC_ON_STRIKE_MELEE_SPELL_HIT;
+            procPairs.insert(std::make_pair(PROC_ON_STRIKE, strikeProcFlags));
 
 //==========================================================================================
 //==============================Post Roll Damage Processing=================================
