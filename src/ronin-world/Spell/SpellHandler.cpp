@@ -85,6 +85,13 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         return;
     }
 
+    uint8 errorOut = 0;
+    if(!_player->GetSpellInterface()->checkCast(spellInfo, targets, errorOut))
+    {
+        _player->SendCastResult(spellInfo->Id, errorOut, castCount, 0);
+        return;
+    }
+
     if (spellInfo->AuraInterruptFlags & AURA_INTERRUPT_ON_STAND_UP)
     {
         if (_player->IsInCombat())
@@ -133,18 +140,6 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
     if(itemProto->AllowableClass && !(_player->getClassMask() & itemProto->AllowableClass) || itemProto->AllowableRace && !(_player->getRaceMask() & itemProto->AllowableRace))
     {
         _player->GetInventory()->BuildInventoryChangeError(tmpItem, NULL, INV_ERR_CANT_EQUIP_EVER);
-        return;
-    }
-
-    if( !_player->Cooldown_CanCast( itemProto, x ) )
-    {
-        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_NOT_READY, castCount, 0);
-        return;
-    }
-
-    if(_player->isCasting())
-    {
-        _player->SendCastResult(spellInfo->Id, SPELL_FAILED_SPELL_IN_PROGRESS, castCount, 0);
         return;
     }
 

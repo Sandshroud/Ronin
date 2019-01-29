@@ -46,6 +46,7 @@ public:
     void PreventSchoolCast(uint32 school, uint32 duration);
 
 protected:
+    friend class WorldSession;
     bool checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 &errorOut);
 
 private:

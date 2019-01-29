@@ -634,7 +634,7 @@ void WorldSession::HandleBuyBackOpcode( WorldPacket & recv_data )
         uint32 amount = it->GetUInt32Value(ITEM_FIELD_STACK_COUNT);
         uint32 itemid = it->GetUInt32Value(OBJECT_FIELD_ENTRY);
 
-        add = _player->GetInventory()->FindItemLessMax(itemid,amount, false);
+        add = _player->GetInventory()->FindItemLessThanMax(itemid,amount, false);
 
         uint32 FreeSlots = _player->GetInventory()->CalculateFreeSlots(it->GetProto());
         if ((FreeSlots == 0) && (!add))
@@ -855,7 +855,7 @@ void WorldSession::HandleBuyItemOpcode( WorldPacket & recv_data ) // right-click
     SlotResult slotresult;
     // Find free slot and break if inv full
     Item *add = NULL;
-    if ((add = _player->GetInventory()->FindItemLessMax(itemid, count, false)) == NULL)
+    if ((add = _player->GetInventory()->FindItemLessThanMax(itemid, count, false)) == NULL)
         slotresult = _player->GetInventory()->FindFreeInventorySlot(it);
     if (!slotresult.Result && add == NULL)
     {

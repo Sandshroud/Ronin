@@ -204,8 +204,10 @@ protected:
     WoWGuid m_casterGuid;
 
     SpellEntry *m_spellInfo, *m_spellParent;
-    WoWGuid m_itemCaster;
     uint8 m_castNumber;
+
+    WoWGuid m_itemCaster;
+    uint32 m_itemCastIndex;
 
     int32  m_duration;
     float  m_radius[2][3];

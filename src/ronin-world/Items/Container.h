@@ -37,7 +37,7 @@ public:
     bool AddItem(uint8 slot, Item* item);
     bool AddItemToFreeSlot(Item* pItem, uint8 *r_slot);
 
-    Item* GetItem(WoWGuid guid);
+    Item* GetItem(WoWGuid guid, uint8 *slotOut = NULL);
     Item* GetItem(uint8 slot) { ASSERT(slot < GetSlotCount()); return m_itemSlots[slot]; }
 
     int16 FindFreeSlot(int16 ourSlot, std::set<std::pair<int16, int16>> *ignoreSlots = NULL);

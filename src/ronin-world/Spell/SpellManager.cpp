@@ -417,8 +417,12 @@ void SpellManager::PoolSpellData()
         {
             for(uint8 c = 0; c < 8; ++c)
             {
-                spellInfo->Reagent[c] = sReagent->Reagent[c];
-                spellInfo->ReagentCount[c] = sReagent->ReagentCount[c];
+                if(sReagent->ReagentCount[c] == 0)
+                    continue;
+
+                spellInfo->Reagent[spellInfo->reagentIndexCount] = sReagent->Reagent[c];
+                spellInfo->ReagentCount[spellInfo->reagentIndexCount] = sReagent->ReagentCount[c];
+                ++spellInfo->reagentIndexCount;
             }
         }
 
@@ -934,6 +938,7 @@ void SpellManager::SetSingleSpellDefaults(SpellEntry *sp)
     sp->ManaCostPercentage = 0;
     sp->ManaPerSecond = 0;
     // SpellReagentsEntry
+    sp->reagentIndexCount = 0;
     for(uint8 i = 0; i < 8; i++)
     {
         sp->Reagent[i] = 0;

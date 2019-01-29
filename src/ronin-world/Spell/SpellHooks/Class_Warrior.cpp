@@ -4,6 +4,20 @@
 
 #include "StdAfx.h"
 
+bool HeroicStrikeDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
+{
+    ASSERT(target->IsUnit());
+    // Damage calc is spell effect index's amount as a percentage of attack power
+    spTarget->accumAmount += float2int32(((float)spTarget->effectAmount[effIndex])*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
+bool HeroicStrikeAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{   // Description says 60/100
+    amount = 60;
+    return true;
+}
+
 bool ChargeDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     // Trigger our energize spell
@@ -26,10 +40,22 @@ bool ChargeEnergizeAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit
     return true;
 }
 
+bool ThunderClapAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{
+    amount += float2int32(12.f*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
+bool RevengeAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{
+    amount += float2int32(31.f*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
 bool ConcussionBlowDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     ASSERT(target->IsUnit());
-    // Damage calc is spell effect index 0's amount as a percentage of attack power
+    // Damage calc is spell effect index's amount as a percentage of attack power
     int32 damage = spTarget->effectAmount[effIndex];
     damage = float2int32(((float)damage)*((float)caster->CalculateAttackPower())/100.f);
     // Bonus damage check
@@ -58,6 +84,12 @@ bool DeepWoundsAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *ca
     return true;
 }
 
+bool InterceptAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{
+    amount += float2int32(12.f*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
 bool BloodthirstDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     ASSERT(target->IsUnit());
@@ -81,11 +113,39 @@ bool BloodthirstHealAmountModifier(SpellEffectClass *spell, uint32 effIndex, Uni
     return true;
 }
 
+bool HeroicLeapAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{
+    amount += float2int32(50.f*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
+bool HeroicThrowAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{
+    amount += float2int32(50.f*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
+bool ShatteringThrowAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
+{
+    amount += float2int32(50.f*((float)caster->CalculateAttackPower())/100.f);
+    return true;
+}
+
 void SpellManager::_RegisterWarriorFixes()
 {
+    // Scale heroic strike on weapon damage
+    _RegisterDummyEffect(78, SP_EFF_INDEX_1, HeroicStrikeDummyEffect);
+    _RegisterAmountModifier(78, SP_EFF_INDEX_1, HeroicStrikeAmountModifier);
+
     // Need to trigger rage increase
     _RegisterDummyEffect(100, SP_EFF_INDEX_1, ChargeDummyEffect);
     _RegisterAmountModifier(34846, SP_EFF_INDEX_0, ChargeEnergizeAmountModifier);
+
+    // Scale thunderclap damage based on AP
+    _RegisterAmountModifier(6343, SP_EFF_INDEX_0, ThunderClapAmountModifier);
+
+    // Scale Revenge Damage based on AP
+    _RegisterAmountModifier(6572, SP_EFF_INDEX_0, RevengeAmountModifier);
 
     // Need to scale concussion blow to AP
     _RegisterDummyEffect(12809, SP_EFF_INDEX_2, ConcussionBlowDummyEffect);
@@ -96,9 +156,20 @@ void SpellManager::_RegisterWarriorFixes()
     _RegisterDummyEffect(12868, SP_EFF_INDEX_1, DeepWoundsTriggerDummyEffect);
     _RegisterAmountModifier(12721, SP_EFF_INDEX_0, DeepWoundsAmountModifier);
 
+    // Intercept attack power scaling
+    _RegisterAmountModifier(20253, SP_EFF_INDEX_1, InterceptAmountModifier);
+
     // Blood thirst triggers a healing spell that regens every successful melee
     _RegisterDummyEffect(23881, SP_EFF_INDEX_1, BloodthirstDummyEffect);
     _RegisterAmountModifier(23880, SP_EFF_INDEX_0, BloodthirstHealAmountModifier);
+
+    // Heroic Leap AP power scaling
+    _RegisterAmountModifier(52174, SP_EFF_INDEX_0, HeroicLeapAmountModifier);
+    // Heroic Throw AP power scaling
+    _RegisterAmountModifier(57755, SP_EFF_INDEX_0, HeroicThrowAmountModifier);
+    // Shattering Throw AP power scaling
+    _RegisterAmountModifier(64382, SP_EFF_INDEX_1, ShatteringThrowAmountModifier);
+
 }
 
 class FuriousAttacksProcData : public SpellProcData

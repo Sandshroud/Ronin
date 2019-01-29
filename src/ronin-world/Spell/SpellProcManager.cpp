@@ -53,8 +53,8 @@ uint32 SpellProcManager::ProcessProcFlags(Unit *caster, Unit *target, std::map<u
         if((*itr)->canProc(PROCD_CASTER, caster, target, fromAbility, procPairs, weaponDamageType) && caster->GetSpellInterface()->CanTriggerProc(*itr, fromAbility, current, msTime))
             casterProcs.push_back(*itr);
     // Now we process our targets affects: TODO should be procD victim but needs more testing
-    for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
-        if((*itr)->canProc(PROCD_CASTER, target, caster, fromAbility, vProcPairs, weaponDamageType) && target->GetSpellInterface()->CanTriggerProc(*itr, fromAbility, current, msTime))
+    for(std::set<SpellProcData*>::iterator itr = target->GetSpellInterface()->beginProcData(); itr != target->GetSpellInterface()->endProcData(); ++itr)
+        if((*itr)->canProc(PROCD_VICTIM, target, caster, fromAbility, vProcPairs, weaponDamageType) && target->GetSpellInterface()->CanTriggerProc(*itr, fromAbility, current, msTime))
             victimProcs.push_back(*itr);
 
     for(std::vector<SpellProcData*>::iterator itr = casterProcs.begin(); itr != casterProcs.end(); ++itr)
@@ -254,7 +254,7 @@ public:
             // Determine strike type
             uint8 procMod = PROC_ON_STRIKE_MELEE_HIT;
             if(strstr( desc, "critical"))
-                procMod = PROC_ON_STRIKE_CRITICAL_HIT;
+                procMod |= PROC_ON_STRIKE_CRITICAL_HIT;
             // Any additive flags
             if(strstr( desc, "cat form"))
                 procMod |= PROC_ON_STRIKE_CAT_FORM;
@@ -264,7 +264,7 @@ public:
             expectedTypes[PROCD_CASTER].insert(std::make_pair(PROC_ON_STRIKE, procMod));
         }
 
-        if((procFlags & PROC_FLAG_TAKEN_MELEE_HIT) == 0 && (strstr( desc,"attackers when hit") || strstr( desc,"strike you with a melee attack")
+        if((procFlags & PROC_FLAG_TAKEN_MELEE_HIT) || (strstr( desc,"attackers when hit") || strstr( desc,"strike you with a melee attack")
             || strstr( desc,"enemy strikes the caster") || strstr( desc,"strikes you with a melee attack")
             || strstr( desc,"enemy that strikes you in melee") || strstr( desc,"the next melee attack on the caster")
             || strstr( desc,"when struck in melee combat") ||  strstr( desc,"the next melee attack against the caster")
@@ -276,7 +276,21 @@ public:
             || strstr( desc,"ranged and melee attacks to deal") || strstr( desc,"striking melee or ranged attackers")
             || strstr( desc,"damage to attackers when hit") || strstr( desc,"striking melee attackers")
             || strstr( desc,"striking melee attackers")))
-            procFlags |= PROC_FLAG_TAKEN_MELEE_HIT;
+        {
+            // Determine strike type
+            uint8 procMod = PROC_ON_STRIKEVICTIM_HIT;
+            if(strstr( desc, "critical"))
+                procMod |= PROC_ON_STRIKEVICTIM_CRITICAL;
+            // Any additive flags
+            if(strstr( desc, "dodge"))
+                procMod |= PROC_ON_STRIKEVICTIM_DODGE;
+            if(strstr( desc, "parry"))
+                procMod |= PROC_ON_STRIKEVICTIM_PARRY;
+            if(strstr( desc, "block"))
+                procMod |= PROC_ON_STRIKEVICTIM_BLOCK;
+            // Done processing strike checks
+            expectedTypes[PROCD_VICTIM].insert(std::make_pair(PROC_ON_STRIKE_VICTIM, procMod));
+        }
 
         /*if((procFlags & PROC_ON_CAST_SPELL) == 0 && (strstr( desc,"target casts a spell") || strstr( desc,"your harmful spells land")
             || strstr( desc, "any damage spell hits a target") || strstr( desc,"gives your finishing moves")
@@ -361,6 +375,11 @@ public:
             procFlags |= PROC_ON_CRIT_ATTACK;
         else if((procFlags & PROC_ON_CAST_SPELL) == 0 && (strstr( desc, "chance to add an additional combo")))
             procFlags |= PROC_ON_CAST_SPELL;*/
+
+        if(procFlags & PROC_FLAG_KILLED)
+        {
+
+        }
 
         if(procFlags & PROC_FLAG_KILL)
         {

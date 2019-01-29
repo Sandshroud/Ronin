@@ -251,7 +251,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         return false;
     }
 
-    if(m_currentSpell && m_currentSpell->getState() != SPELL_STATE_CASTING)
+    if(m_currentSpell && m_currentSpell->getState() == SPELL_STATE_CASTING)
     {
         errorOut = SPELL_FAILED_SPELL_IN_PROGRESS;
         return false;
@@ -360,6 +360,15 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
                     return false;
                 }
                 break;
+            }
+        }
+
+        for(uint8 i = 0; i < sp->reagentIndexCount; ++i)
+        {
+            if(p_caster->GetInventory()->GetItemCount(sp->Reagent[i]) < sp->ReagentCount[i])
+            {
+                errorOut = SPELL_FAILED_REAGENTS;
+                return false;
             }
         }
 

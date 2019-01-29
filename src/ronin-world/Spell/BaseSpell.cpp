@@ -122,6 +122,20 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
     m_channelRunTime = 0;
     // Spell holds combo points during preparation, but for now we set to null
     m_spellComboPoints = 0;
+
+    m_itemCastIndex = 0;
+    Item *castItem = NULL;
+    if(!itemGuid.empty() && caster->IsPlayer() && (castItem = castPtr<Player>(caster)->GetInventory()->GetItemByGUID(itemGuid)) != NULL)
+    {
+        for(uint8 i = 0; i < 5; ++i)
+        {
+            if(castItem->GetProto()->Spells[i].Id == info->Id)
+            {
+                m_itemCastIndex = i;
+                break;
+            }
+        }
+    }
 }
 
 BaseSpell::~BaseSpell()
@@ -197,6 +211,7 @@ void BaseSpell::Destruct()
     m_effectTargetMaps[0].clear();
     m_effectTargetMaps[1].clear();
     m_effectTargetMaps[2].clear();
+
     while(!m_fullTargetMap.empty())
     {
         SpellTarget *tgt = m_fullTargetMap.begin()->second;
@@ -204,10 +219,12 @@ void BaseSpell::Destruct()
         if(tgt->aura) delete tgt->aura;
         delete tgt;
     }
+
     m_fullTargetMap.clear();
     m_delayTargets.clear();
     m_spellMisses.clear();
 
+    m_itemCaster.Clean();
     _unitCaster = NULL;
     m_spellInfo = NULL;
 

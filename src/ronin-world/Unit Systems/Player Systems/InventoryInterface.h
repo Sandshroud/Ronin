@@ -118,11 +118,11 @@ public:
     \param IncBank Should this search the player's bank as well?
     \return An Item* to a stack of itemid which can contain cnt more items
     */
-    Item* FindItemLessMax(uint32 itemid, uint32 cnt, bool IncBank);
+    Item* FindItemLessThanMax(uint32 itemid, uint32 cnt, bool IncBank);
     uint32 GetItemCount(uint32 itemid, bool IncBank = false, Item* exclude = NULL, uint32 counttoexclude = 0);
-    uint32 RemoveItemAmt(uint32 id, uint32 amt);
+    uint32 RemoveItemAmt(uint32 id, uint32 amt, WoWGuid itemToIgnore = 0);
     uint32 RemoveItemAmt_ProtectPointer(uint32 id, uint32 amt, Item** pointer);
-    uint32 RemoveItemAmtByGuid(uint64 guid, uint32 amt);
+    uint32 RemoveItemAmtByGuid(WoWGuid guid, uint32 amt);
     void RemoveAllConjured();
     void BuyItem(ItemPrototype *item, uint32 total_amount, Creature* pVendor, ItemExtendedCostEntry *ec);
 

@@ -1661,7 +1661,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
             if(plr->getLevel() <= (pVictim->getLevel() + 8) && plr->getClass() == WARRIOR)
             {   // currently only warriors seem to use it (Victory Rush)
                 plr->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_VICTORIOUS );
-                m_eventHandler.AddEvent<Player, uint32>(plr, &Player::EventAurastateExpire, AURASTATE_FLAG_VICTORIOUS, 20000U);
+                m_eventHandler.AddEvent<Unit, uint32>(plr, &Unit::EventAurastateExpire, AURASTATE_FLAG_VICTORIOUS, 20000U);
             }
 
             AchieveMgr.UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE, honorOrXPGain ? 1 : 0, pVictim->GetTypeId(), pVictim->IsCreature() ? castPtr<Creature>(pVictim)->GetCreatureType() : 0);

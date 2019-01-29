@@ -226,12 +226,18 @@ bool Container::AddItemToFreeSlot(Item* pItem, uint8 *r_slot)
     return false;
 }
 
-Item *Container::GetItem(WoWGuid guid)
+Item *Container::GetItem(WoWGuid guid, uint8 *slotOut)
 {
     uint8 slotCount = GetSlotCount();
     for(uint8 i = 0; i < slotCount; i++)
+    {
         if(m_itemSlots[i] && m_itemSlots[i]->GetGUID() == guid)
+        {
+            if(slotOut)
+                *slotOut = i;
             return m_itemSlots[i];
+        }
+    }
     return NULL;
 }
 

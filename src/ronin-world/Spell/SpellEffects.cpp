@@ -575,7 +575,14 @@ void SpellEffectClass::SpellEffectCreateItem(uint32 i, WorldObject *target, int3
         return;
     }
 
-    if(inventory->AddItemById(proto->ItemId, count, proto->RandomPropId, ADDITEM_FLAG_CREATED, playerTarget))
+    Item *castItem = m_itemCaster.empty() ? NULL : inventory->GetItemByGUID(m_itemCaster);
+
+    Player *creator = NULL;
+    // Check if item has a creator field set when added to our target
+    if (proto->Class >= ITEM_CLASS_CONSUMABLE && proto->Class <= ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_QUIVER || proto->Class == ITEM_CLASS_GLYPHS)
+        creator = playerTarget;
+
+    if(inventory->AddItemById(proto->ItemId, count, proto->RandomPropId, ADDITEM_FLAG_CREATED, creator))
     {
         SendCastResult(SPELL_FAILED_TRY_AGAIN);
         return;
@@ -2114,7 +2121,6 @@ void SpellEffectClass::SpellEffectJump(uint32 i, WorldObject *target, int32 amou
     else if(m_spellInfo->EffectMiscValueB[i])
         arc = m_spellInfo->EffectMiscValueB[i]/10;
     else arc = 10.0f;
-
 }
 
 void SpellEffectClass::SpellEffectTeleportToCaster(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

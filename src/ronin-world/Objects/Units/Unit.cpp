@@ -2715,24 +2715,39 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     case 0:
         hit_status |= HITSTATUS_MISS;
         procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_MISS));
+        vProcPairs.insert(std::make_pair(PROC_ON_STRIKE_VICTIM, PROC_ON_STRIKEVICTIM_NONE));
         break;
 //--------------------------------dodge-----------------------------------------------------
     case 1:
         TRIGGER_AI_EVENT(pVictim, OnTargetDodged)(castPtr<Unit>(this));
         TRIGGER_AI_EVENT(castPtr<Unit>(this), OnDodged)(castPtr<Unit>(this));
+
         targetEvent = 1;
         vstate = DODGE;
-        pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
+        pVictim->Emote(EMOTE_ONESHOT_DODGE);         // Animation
+
+        // Trigger victim's aurastate
+        pVictim->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_DODGE_BLOCK );
+        m_eventHandler.AddEvent<Unit, uint32>(pVictim, &Unit::EventAurastateExpire, AURASTATE_FLAG_DODGE_BLOCK, 5000U);
+
         procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_MISS));
+        vProcPairs.insert(std::make_pair(PROC_ON_STRIKE_VICTIM, PROC_ON_STRIKEVICTIM_DODGE));
         break;
 //--------------------------------parry-----------------------------------------------------
     case 2:
         TRIGGER_AI_EVENT(pVictim, OnTargetParried)(castPtr<Unit>(this));
         TRIGGER_AI_EVENT(castPtr<Unit>(this), OnParried)(castPtr<Unit>(this));
+
         targetEvent = 3;
         vstate = PARRY;
         pVictim->Emote(EMOTE_ONESHOT_PARRY_UNARMED);         // Animation
+
+        // Trigger victim's aurastate
+        pVictim->SetFlag( UNIT_FIELD_AURASTATE, pVictim->getClass() == HUNTER ? AURASTATE_FLAG_PARRY : AURASTATE_FLAG_DODGE_BLOCK );
+        m_eventHandler.AddEvent<Unit, uint32>(pVictim, &Unit::EventAurastateExpire, (pVictim->getClass() == HUNTER ? AURASTATE_FLAG_PARRY : AURASTATE_FLAG_DODGE_BLOCK), 5000U);
+
         procPairs.insert(std::make_pair(PROC_ON_STRIKE, PROC_ON_STRIKE_MISS));
+        vProcPairs.insert(std::make_pair(PROC_ON_STRIKE_VICTIM, PROC_ON_STRIKEVICTIM_PARRY));
         break;
 //--------------------------------not miss,dodge or parry-----------------------------------
     default:
@@ -2788,6 +2803,12 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
             }
 
             uint16 strikeProcFlags = PROC_ON_STRIKE_MELEE_HIT;
+            uint16 strikeVictimProcFlags = PROC_ON_STRIKEVICTIM_HIT;
+            if(ability)
+            {
+                strikeProcFlags |= PROC_ON_STRIKE_MELEE_SPELL_HIT;
+                strikeVictimProcFlags |= PROC_ON_STRIKEVICTIM_SPELL_HIT;
+            }
 
             if(dmg.full_damage < 0)
                 dmg.full_damage = 0;
@@ -2827,6 +2848,13 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                         blocked_damage = 0;
                         pVictim->Emote(EMOTE_ONESHOT_PARRY_SHIELD);// Animation
 
+                        // Trigger victim's aurastate
+                        pVictim->SetFlag( UNIT_FIELD_AURASTATE, AURASTATE_FLAG_DODGE_BLOCK );
+                        m_eventHandler.AddEvent<Unit, uint32>(pVictim, &Unit::EventAurastateExpire, AURASTATE_FLAG_DODGE_BLOCK, 5000U);
+
+                        strikeProcFlags |= PROC_ON_STRIKE_BLOCKED;
+                        strikeVictimProcFlags |= PROC_ON_STRIKEVICTIM_BLOCK;
+
                         if( shield->GetProto()->InventoryType == INVTYPE_SHIELD )
                         {
                             float block_multiplier = 1.f;
@@ -2843,9 +2871,6 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                             TRIGGER_AI_EVENT(castPtr<Unit>(this), OnBlocked)(pVictim, blocked_damage);
                             vstate = BLOCK;
                         }
-
-                        if( pVictim->IsPlayer() )//not necessary now but we'll have blocking mobs in future
-                            pVictim->SetFlag(UNIT_FIELD_AURASTATE,AURASTATE_FLAG_DODGE_BLOCK);  //SB@L: Enables spells requiring dodge
                     }
                 }break;
 //--------------------------------critical hit----------------------------------------------
@@ -2853,6 +2878,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 {
                     hit_status |= HITSTATUS_CRICTICAL;
                     strikeProcFlags |= PROC_ON_STRIKE_CRITICAL_HIT;
+                    strikeVictimProcFlags |= PROC_ON_STRIKEVICTIM_CRITICAL;
 
                     float dmg_bonus_pct = 100.0f;
                     if(ability && ability->SpellGroupType)
@@ -2895,8 +2921,8 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
                 break;
             }
 
-            if(ability) strikeProcFlags |= PROC_ON_STRIKE_MELEE_SPELL_HIT;
             procPairs.insert(std::make_pair(PROC_ON_STRIKE, strikeProcFlags));
+            vProcPairs.insert(std::make_pair(PROC_ON_STRIKE_VICTIM, strikeVictimProcFlags));
 
 //==========================================================================================
 //==============================Post Roll Damage Processing=================================

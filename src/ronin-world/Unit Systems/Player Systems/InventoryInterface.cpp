@@ -572,9 +572,7 @@ bool PlayerInventory::SafeFullRemoveItemFromSlot(int16 ContainerSlot, int16 slot
     {
         Item* pContainer = GetInventoryItem(ContainerSlot);
         if(pContainer && pContainer->IsContainer())
-        {
-            castPtr<Container>(pContainer)->SafeFullRemoveItemFromSlot(slot);
-        }
+            return castPtr<Container>(pContainer)->SafeFullRemoveItemFromSlot(slot);
     }
     return true;
 }
@@ -715,7 +713,7 @@ Item* PlayerInventory::GetInventoryItem(int16 ContainerSlot, int16 slot)
 //-------------------------------------------------------------------//
 //Description: checks for stacks that didnt reached max capacity
 //-------------------------------------------------------------------//
-Item* PlayerInventory::FindItemLessMax(uint32 itemid, uint32 cnt, bool IncBank)
+Item* PlayerInventory::FindItemLessThanMax(uint32 itemid, uint32 cnt, bool IncBank)
 {
     uint32 i = 0;
     for(i = INVENTORY_SLOT_ITEM_START; i < INVENTORY_SLOT_ITEM_END; i++)
@@ -903,7 +901,7 @@ uint32 PlayerInventory::GetItemCount(uint32 itemid, bool IncBank, Item* exclude,
 //-------------------------------------------------------------------//
 //Description: Removes a ammount of items from inventory
 //-------------------------------------------------------------------//
-uint32 PlayerInventory::RemoveItemAmt(uint32 id, uint32 amt)
+uint32 PlayerInventory::RemoveItemAmt(uint32 id, uint32 amt, WoWGuid itemToIgnore)
 {
     //this code returns shit return value is fucked
     if (GetItemCount(id) < amt)
@@ -915,7 +913,7 @@ uint32 PlayerInventory::RemoveItemAmt(uint32 id, uint32 amt)
     for(i = EQUIPMENT_SLOT_START; i < INVENTORY_SLOT_ITEM_END; i++)
     {
         Item* item = GetInventoryItem(i);
-        if (item)
+        if (item && item->GetGUID() != itemToIgnore)
         {
             if(item->GetEntry() == id)
             {
@@ -961,7 +959,7 @@ uint32 PlayerInventory::RemoveItemAmt(uint32 id, uint32 amt)
             for (int32 j =0; j < item->GetProto()->ContainerSlots;j++)
             {
                 Item* item2 = castPtr<Container>(item)->GetItem(j);
-                if (item2)
+                if (item2 && item2->GetGUID() != itemToIgnore)
                 {
                     if (item2->GetProto()->ItemId == id)
                     {
@@ -1102,6 +1100,77 @@ uint32 PlayerInventory::RemoveItemAmt_ProtectPointer(uint32 id, uint32 amt, Item
     }
 
     return 0;
+}
+
+uint32 PlayerInventory::RemoveItemAmtByGuid(WoWGuid guid, uint32 amt)
+{
+    uint32 i ;
+
+    //EQUIPMENT
+    for(i=EQUIPMENT_SLOT_START;i<EQUIPMENT_SLOT_END;++i)
+    {
+        if(m_pItems[i] && m_pItems[i]->GetGUID() == guid)
+        {
+            uint32 stackCount = 0;
+            if((stackCount = m_pItems[i]->GetStackCount()) <= amt)
+            {
+                if(SafeFullRemoveItemFromSlot(INVENTORY_SLOT_NOT_SET, i))
+                    return stackCount;
+                return 0;
+            } else m_pItems[i]->SetStackCount(stackCount-amt);
+            return amt;
+        }
+    }
+
+    //INVENTORY BAGS
+    for(i=INVENTORY_SLOT_BAG_START;i<INVENTORY_SLOT_BAG_END;++i)
+    {
+        if(Item *container = m_pItems[i])
+        {
+            if(container->GetGUID() == guid)
+            {
+                uint32 stackCount = 0;
+                if((stackCount = container->GetStackCount()) <= amt)
+                {
+                    if(SafeFullRemoveItemFromSlot(INVENTORY_SLOT_NOT_SET, i))
+                        return stackCount;
+                    return 0;
+                } else container->SetStackCount(stackCount-amt);
+                return amt;
+            }
+
+            uint8 itemSlot;
+            if(Item* item = castPtr<Container>(container)->GetItem(guid, &itemSlot))
+            {
+                uint32 stackCount = 0;
+                if((stackCount = item->GetStackCount()) <= amt)
+                {
+                    if(SafeFullRemoveItemFromSlot(i, itemSlot))
+                        return stackCount;
+                    return 0;
+                } else item->SetStackCount(stackCount-amt);
+                return amt;
+            }
+        }
+    }
+
+    //INVENTORY
+    for(i=INVENTORY_SLOT_ITEM_START;i<INVENTORY_SLOT_ITEM_END;++i)
+    {
+        if(m_pItems[i] && m_pItems[i]->GetGUID() == guid)
+        {
+            uint32 stackCount = 0;
+            if((stackCount = m_pItems[i]->GetStackCount()) <= amt)
+            {
+                if(SafeFullRemoveItemFromSlot(INVENTORY_SLOT_NOT_SET, i))
+                    return stackCount;
+                return 0;
+            } else m_pItems[i]->SetStackCount(stackCount-amt);
+            return amt;
+        }
+    }
+
+    return NULL;
 }
 
 void PlayerInventory::RemoveAllConjured()
@@ -2873,7 +2942,7 @@ bool PlayerInventory::BuildItemDestinations(AddItemDestination *concurrentAdds, 
             if( added < maxStack )
             {
                 // find existing item with free stack
-                if(Item *free_stack_item = FindItemLessMax( itemId, added, false ))
+                if(Item *free_stack_item = FindItemLessThanMax( itemId, added, false ))
                 {
                     toadd = added;
                     uint8 inventorySlot = 0xFF;
@@ -2983,7 +3052,7 @@ uint32 PlayerInventory::AddItemById( uint32 itemid, uint32 count, int32 randompr
         if( added < maxStack )
         {
             // find existing item with free stack
-            Item* free_stack_item = FindItemLessMax( itemid, added, false );
+            Item* free_stack_item = FindItemLessThanMax( itemid, added, false );
             if( free_stack_item != NULL )
             {
                 // increase stack by new amount

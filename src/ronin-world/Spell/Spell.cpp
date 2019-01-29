@@ -135,7 +135,6 @@ bool Spell::IsAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
 
 uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 {
-    uint8 ccr = SPELL_PREPARE_SUCCESS;
     if( _unitCaster->IsPlayer() && (m_spellInfo->Id == 51514 || m_spellInfo->NameHash == SPELL_HASH_ARCANE_SHOT || m_spellInfo->NameHash == SPELL_HASH_MIND_FLAY))
     {
         targets->m_unitTarget = 0;
@@ -151,8 +150,8 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     // Handle triggered spells here that aren't channeled spells
     if( m_triggeredSpell && !m_spellInfo->IsSpellChannelSpell())
     {
-        ccr = (cast(false) == SPELL_STATE_FINISHED) ? SPELL_PREPARE_FINISHED : SPELL_FAILED_UNKNOWN;
-        return ccr;
+        m_canCastResult = (cast(false) == SPELL_STATE_FINISHED) ? SPELL_PREPARE_FINISHED : SPELL_FAILED_UNKNOWN;
+        return m_canCastResult;
     }
 
     SendSpellStart();
@@ -172,7 +171,7 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     // Triggered channel spells can ignore power checks
     if( m_triggeredSpell == false && !HasPower() )
     {
-        SendCastResult(SPELL_FAILED_NO_POWER);
+        SendCastResult(m_canCastResult = SPELL_FAILED_NO_POWER);
         finish();
         return SPELL_FAILED_NO_POWER;
     }
@@ -188,14 +187,15 @@ uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
     if( m_spellInfo->CasterAuraState && m_spellInfo->CasterAuraState != AURASTATE_FLAG_JUDGEMENT )
         _unitCaster->RemoveFlag( UNIT_FIELD_AURASTATE, m_spellInfo->CasterAuraState );
 
+    m_canCastResult = SPELL_PREPARE_FINISHED;
     m_spellState = SPELL_STATE_PREPARING;
 
     // instant cast(or triggered) and not channeling
     if( ( m_castTime > 0 || m_spellInfo->IsSpellChannelSpell() ) && !m_triggeredSpell  )
         _unitCaster->GetSpellInterface()->ProcessSpell( this );
     else if(cast(false) == SPELL_STATE_FINISHED)
-        ccr = SPELL_PREPARE_FINISHED;
-    return ccr;
+        m_canCastResult = SPELL_PREPARE_FINISHED;
+    return m_canCastResult;
 }
 
 void Spell::cancel()
@@ -786,7 +786,51 @@ uint8 Spell::CanCast(bool tolerate)
 
 void Spell::RemoveItems()
 {
+    bool destructCastItem = false;
+    WoWGuid itemGuid = m_itemCaster;
+    uint32 castItemStackToRemove = 1;
 
+    Item *castItem = NULL;
+    if(!itemGuid.empty() && _unitCaster->IsPlayer() && (castItem = castPtr<Player>(_unitCaster)->GetInventory()->GetItemByGUID(itemGuid)) != NULL)
+    {
+        uint32 chargesLeft = castItem->GetChargesLeft();
+        if(castItem->GetProto()->Spells[m_itemCastIndex].Charges < 0 && chargesLeft <= 1)
+        {
+            destructCastItem = true;
+            m_itemCaster.Clean();
+        }
+    }
+
+    if(m_spellInfo->reagentIndexCount)
+    {
+        for(uint8 i = 0; i < m_spellInfo->reagentIndexCount; ++i)
+        {
+            uint32 removeAmt = m_spellInfo->ReagentCount[i];
+            if(castItem && castItem->GetEntry() == m_spellInfo->Reagent[i])
+            {
+                // Add caster remove amount
+                ++removeAmt;
+
+                uint32 stackSize = 0;
+                if((stackSize = castItem->GetStackCount()) >= removeAmt)
+                {
+                    castItemStackToRemove = removeAmt;
+                    continue;
+                }
+
+                castItemStackToRemove = stackSize;
+                removeAmt -= stackSize;
+            }
+
+            if(removeAmt == 0)
+                continue;
+
+            castPtr<Player>(_unitCaster)->GetInventory()->RemoveItemAmt(m_spellInfo->Reagent[i], removeAmt, itemGuid);
+        }
+    }
+
+    if(destructCastItem)
+        castPtr<Player>(_unitCaster)->GetInventory()->RemoveItemAmtByGuid(itemGuid, castItemStackToRemove);
 }
 
 void Spell::CreateItem(uint32 itemId)

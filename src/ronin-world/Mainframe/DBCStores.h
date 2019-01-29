@@ -926,6 +926,7 @@ struct SpellEntry
     //uint32 unk2; // 4.3.x
 
     // SpellReagentsEntry
+    uint32 reagentIndexCount;
     int32 Reagent[8];
     uint32 ReagentCount[8];
 
