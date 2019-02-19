@@ -639,7 +639,7 @@ void Unit::UpdatePowerValues()
         SetMaxPower(powerType, power);
     }
 
-    if(hasMana) TriggerModUpdate(UF_UTYPE_REGEN);
+    TriggerModUpdate(UF_UTYPE_REGEN);
 }
 
 class RegenUpdateCallback : public AuraInterface::ModCallback
@@ -3082,11 +3082,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         if( hit_status & HITSTATUS_CRICTICAL )
             f *= 2.0f;
 
-        float s = 1.0f;
-        if( weapon_damage_type == OFFHAND )
-            s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME + 1 ) / 1000.0f;
-        else s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME ) / 1000.0f;
-
+        float s = GetUInt32Value( UNIT_FIELD_BASEATTACKTIME + weapon_damage_type ) / 1000.0f;
         float val = ( 7.5f * dmg.full_damage / c + f * s ) / 2.0f;;
         val *= ( 1 + ( 100.f / 100.0f ) );
         val *= 10;
@@ -3098,13 +3094,12 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     // I am receiving damage!
     if( dmg.full_damage && pVictim->getPowerType() == POWER_TYPE_RAGE && pVictim->IsInCombat() )
     {
-        float val;
         float level = (float)getLevel();
 
         // Conversion Value
         float c = 0.0091107836f * level * level + 3.225598133f * level + 4.2652911f;
 
-        val = 2.5f * dmg.full_damage / c;
+        float val = 2.5f * dmg.full_damage / c;
         val *= 10;
 
         pVictim->ModPower(POWER_TYPE_RAGE, (int32)val );
@@ -3114,7 +3109,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
     m_AuraInterface.RemoveAllAurasByInterruptFlag(AURA_INTERRUPT_ON_START_ATTACK);
 
 //--------------------------extra strikes processing----------------------------------------
-    if(!m_extraAttacks.empty())
+    if(!m_extraAttacks.empty() && proc_extrastrike == false)
     {
         std::vector<uint32> attacks(m_extraAttacks.begin(), m_extraAttacks.end());
         m_extraAttacks.clear();
@@ -3123,7 +3118,7 @@ void Unit::Strike( Unit* pVictim, uint32 weapon_damage_type, SpellEntry* ability
         {
             if(SpellEntry *sp = dbcSpell.LookupEntry(*attacks.begin()))
             {
-                Strike(pVictim, weapon_damage_type, NULL, 0, 0, true, false);
+                Strike(pVictim, weapon_damage_type, NULL, 0, 0, true, false, true);
             }
             attacks.erase(attacks.begin());
         }

@@ -255,12 +255,11 @@ void AIInterface::_HandleCombatAI(uint32 msTime)
             m_path->MoveToPoint(x, y, z, o);
         } else if (!m_path->IsOrientationLocked() && !m_path->CheckFinalOrientation(m_Creature->calcAngle(m_Creature->GetPositionX(), m_Creature->GetPositionY(), x, y) * M_PI / 180.f))
             m_path->UpdateOrientation(unitTarget);
-
-        if(!m_Creature->checkAttackTarget(m_targetGuid))
-            m_Creature->EventAttackStart(m_targetGuid);
     } else if(!m_Creature->isTargetInFront(unitTarget) && !m_path->IsOrientationLocked())
         m_path->UpdateOrientation(unitTarget);
 
+    if(!m_Creature->checkAttackTarget(m_targetGuid))
+        m_Creature->EventAttackStart(m_targetGuid);
     m_Creature->GetMapInstance()->TriggerCombatTimer(m_Creature->GetGUID(), unitTarget->GetGUID(), 5000);
 }
 

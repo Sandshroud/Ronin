@@ -366,7 +366,7 @@ void SpellTargetClass::HandleTargetNoObject(uint32 i, float r)
     {
         newx += cosf(_unitCaster->GetOrientation()) * dist;
         newy += sinf(_unitCaster->GetOrientation()) * dist;
-        newz = _unitCaster->GetMapInstance()->GetWalkableHeight(_unitCaster, newx, newy, srcZ);
+        newz = _unitCaster->GetMapInstance()->GetWalkableHeight(_unitCaster, newx, newy, srcZ, srcZ);
         //if not in line of sight, or too far away we summon inside caster
         if(fabs(newz - srcZ) > 10 || !sVMapInterface.CheckLOS(_unitCaster->GetMapId(), _unitCaster->GetInstanceID(), _unitCaster->GetPhaseMask(), srcX, srcY, srcZ, newx, newy, newz + 2))
             newx = srcX, newy = srcY, newz = srcZ;
@@ -567,7 +567,7 @@ bool SpellTargetClass::GenerateTargets(SpellCastTargets *t)
                 float ang = RandomFloat(M_PI * 2);
                 t->m_dest.x = _unitCaster->GetPositionX() + (cosf(ang) * r);
                 t->m_dest.y = _unitCaster->GetPositionY() + (sinf(ang) * r);
-                t->m_dest.z = _unitCaster->GetMapInstance()->GetWalkableHeight(_unitCaster, t->m_dest.x, t->m_dest.y, _unitCaster->GetPositionZ() + 2.0f);
+                t->m_dest.z = _unitCaster->GetMapInstance()->GetWalkableHeight(_unitCaster, t->m_dest.x, t->m_dest.y, _unitCaster->GetPositionZ() + 2.0f, _unitCaster->GetPositionZ());
                 t->m_targetMask = TARGET_FLAG_DEST_LOCATION;
             }
             while(sWorld.Collision && !sVMapInterface.CheckLOS(_unitCaster->GetMapId(), _unitCaster->GetInstanceID(), _unitCaster->GetPhaseMask(), _unitCaster->GetPositionX(), _unitCaster->GetPositionY(), _unitCaster->GetPositionZ(), t->m_dest.x, t->m_dest.y, t->m_dest.z));

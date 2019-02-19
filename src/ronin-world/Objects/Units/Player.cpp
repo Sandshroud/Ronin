@@ -362,9 +362,6 @@ bool Player::Initialize()
     SetUInt32Value(PLAYER_NEXT_LEVEL_XP, sStatSystem.GetXPToNextLevel(m_playerInfo->lastLevel));
 
     // Values based off of player information initialized
-
-    SetFloatValue(PLAYER_FIELD_MOD_HASTE, 1.f);
-    SetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, 1.f);
     SetFloatValue(PLAYER_FIELD_MOD_PET_HASTE, 1.f);
     SetFloatValue(PLAYER_FIELD_MOD_HASTE_REGEN, 1.f);
 
@@ -4683,15 +4680,15 @@ void Player::RegeneratePower(bool is_interrupted)
         case POWER_TYPE_RAGE:
             {
                 if (!isInCombat && !is_interrupted)
-                    addvalue = ((-1.25f * 10.f)/GetFloatValue(PLAYER_FIELD_MOD_HASTE));
+                    addvalue = ((-1.25f * 10.f)/(1.f+(GetFloatValue(PLAYER_FIELD_MOD_HASTE)/100.f)));
             }break;
         case POWER_TYPE_FOCUS:
             {
-                addvalue += (3.f + flatModifier) + (0.03f*GetFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE));
+                addvalue += flatModifier + (2.5f/GetFloatValue(PLAYER_FIELD_MOD_HASTE_REGEN));
             }break;
         case POWER_TYPE_ENERGY:
             {
-                addvalue += (10.f + flatModifier) + (0.0001f*GetFloatValue(PLAYER_FIELD_MOD_HASTE));
+                addvalue += flatModifier + (5.f/GetFloatValue(PLAYER_FIELD_MOD_HASTE_REGEN));
             }break;
         case POWER_TYPE_RUNIC:
             {

@@ -674,7 +674,7 @@ void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amou
 
         if( sVMapInterface.GetFirstPoint(p_caster->GetMapId(), p_caster->GetInstanceID(), p_caster->GetPhaseMask(), p_caster->GetPositionX(), p_caster->GetPositionY(), p_caster->GetPositionZ() + Player::NoseHeight(p_caster->getRace(), p_caster->getGender()), posX, posY, p_caster->GetPositionZ(), posX, posY, posZ, -1.5f) )
         {
-            posZ = p_caster->GetMapInstance()->GetWalkableHeight(p_caster, posX, posY, posZ);
+            posZ = p_caster->GetMapInstance()->GetWalkableHeight(p_caster, posX, posY, posZ, posZ);
             float diff = fabs(fabs(posZ) - fabs(_unitCaster->GetPositionZ()));
             if( diff <= 10.0f)
             {
@@ -686,7 +686,7 @@ void SpellEffectClass::SpellEffectLeap(uint32 i, WorldObject *target, int32 amou
         else
         {
             // either no objects in the way, or no wmo height
-            posZ = p_caster->GetMapInstance()->GetWalkableHeight(p_caster, posX, posY, posZ);
+            posZ = p_caster->GetMapInstance()->GetWalkableHeight(p_caster, posX, posY, posZ, posZ);
             float diff = fabs(fabs(posZ) - fabs(_unitCaster->GetPositionZ()));
             if( diff <= 10.0f)
             {

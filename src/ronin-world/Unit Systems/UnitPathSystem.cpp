@@ -293,7 +293,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
             bool ignoreTerrainHeight = m_Unit->canFly();
             float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
-            float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance ? instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ) : _destZ, posToAdd = 0.f;
+            float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance ? instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ, _destZ) : _destZ, posToAdd = 0.f;
             if(ignoreTerrainHeight)
                 posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/((float)stepTiming)));
             else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/((float)stepTiming)));
@@ -306,7 +306,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
                 lastCalcPoint += posToAdd;
 
                 float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
-                float targetZ = instance ? instance->GetWalkableHeight(m_Unit, px, py, maxZ) : maxZ;
+                float targetZ = instance ? instance->GetWalkableHeight(m_Unit, px, py, maxZ, _destZ) : maxZ;
                 if(ignoreTerrainHeight && lastCalcPoint > targetZ)
                     targetZ = lastCalcPoint;
 

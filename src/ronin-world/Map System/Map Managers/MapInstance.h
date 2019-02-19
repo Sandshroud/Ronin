@@ -671,7 +671,7 @@ public:
     void UpdateCellActivity(uint32 x, uint32 y, int radius);
 
     // Calc functions
-    float GetWalkableHeight(WorldObject *obj, float x, float y, float z);
+    float GetWalkableHeight(WorldObject *obj, float x, float y, float z, float destZ);
 
     // Terrain Functions
     uint16 GetADTAreaId(float x, float y);

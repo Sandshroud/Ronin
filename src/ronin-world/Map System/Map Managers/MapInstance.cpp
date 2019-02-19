@@ -937,7 +937,7 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
     }
 }
 
-float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z)
+float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z, float destZ)
 {
     uint32 wmoID;
     float groundHeight = NO_WMO_HEIGHT, liquidHeight = NO_WATER_HEIGHT;
@@ -950,7 +950,13 @@ float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z
     // Grab our wmo height values
     sVMapInterface.GetWalkableHeight(this, _mapId, x, y, z, wmoID, groundHeight, liquidHeight);
     // Ground height, works pretty well
-    if(groundHeight == NO_WMO_HEIGHT || (wmoID == 0 && groundHeight < ADTHeight))
+    if(groundHeight == NO_WMO_HEIGHT)
+    {
+        groundHeight = ADTHeight - 5.f;
+        if(groundHeight > z && groundHeight > destZ)
+            groundHeight = std::max<float>(z, destZ);
+    }
+    else if(groundHeight > destZ && ADTHeight < groundHeight && ADTHeight < destZ)
         groundHeight = ADTHeight;
 
     // Liquid heights, needs more work | Don't use ADT height at holes or when under ADT height | TODO: Buildings underwater that cut off ADT liquid
