@@ -251,7 +251,7 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
         return false;
     }
 
-    if(m_currentSpell && m_currentSpell->getState() == SPELL_STATE_CASTING)
+    if(m_currentSpell && m_currentSpell->getState() <= SPELL_STATE_FINISHED)
     {
         errorOut = SPELL_FAILED_SPELL_IN_PROGRESS;
         return false;
