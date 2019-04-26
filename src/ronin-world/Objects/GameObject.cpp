@@ -1263,12 +1263,12 @@ void GameObject::SetStatusDestroyed()
 
 void GameObject::Use(Player *p)
 {
+    uint32 type = GetType();
     SpellEntry *spellInfo = NULL;
     GameObjectInfo *goinfo = GetInfo();
-    if (!goinfo)
+    if (goinfo == NULL)
         return;
 
-    uint32 type = GetType();
     TRIGGER_GO_EVENT(this, OnActivate);
     TRIGGER_INSTANCE_EVENT( p->GetMapInstance(), OnGameObjectActivate )( this, p );
 
@@ -1539,6 +1539,19 @@ void GameObject::Use(Player *p)
         {
             if(SpellEntry * sp = dbcSpell.LookupEntry(goinfo->GetSpellID()))
                 p->GetSpellInterface()->LaunchSpell(sp, p);
+
+            if(uint32 pageId = goinfo->data.goober.pageId)
+            {
+                WorldPacket data(SMSG_GAMEOBJECT_PAGETEXT, 8);
+                data << GetGUID();
+                p->PushPacket(&data);
+            }
+            else if(goinfo->data.goober.gossipID)
+            {
+                WorldPacket data(SMSG_GOSSIP_MESSAGE, 50);
+                sGossipMgr.BuildGossipMessage(&data, p, this);
+                p->PushPacket(&data);
+            }
 
         }break;
     case GAMEOBJECT_TYPE_CAMERA://eye of azora

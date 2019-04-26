@@ -185,18 +185,18 @@ void WorldSession::HandleCorpseQueryOpcode(WorldPacket &recv_data)
 
 void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
 {
+    WoWGuid objGuid;
     uint32 pageid = 0;
-    uint64 itemguid;
-    recv_data >> pageid;
-    recv_data >> itemguid;
+    recv_data >> pageid >> objGuid;
 
-    WorldPacket data(SMSG_PAGE_TEXT_QUERY_RESPONSE, 300);
+    WorldPacket data;
     while(pageid)
     {
         ItemPage *page = ItemPageStorage.LookupEntry(pageid);
-        data.clear();
+
+        data.Initialize(SMSG_PAGE_TEXT_QUERY_RESPONSE, 255);
         data << pageid;
-        data << (page ? page->text : "Item page missing.");
+        data << (page ? page->text : "Page text missing.");
         pageid = page ? page->next_page : 0;
         data << uint32(pageid);
         SendPacket(&data);

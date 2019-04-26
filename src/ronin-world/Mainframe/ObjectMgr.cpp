@@ -549,18 +549,6 @@ void ObjectMgr::SetHighestGuids()
         delete result;
     }
 
-    if(result = WorldDatabase.Query("SELECT MAX(id) FROM creature_spawns"))
-    {
-        m_hiCreatureSpawnId = result->Fetch()[0].GetUInt32();
-        delete result;
-    }
-
-    if(result = WorldDatabase.Query("SELECT MAX(id) FROM gameobject_spawns"))
-    {
-        m_hiGameObjectSpawnId = result->Fetch()[0].GetUInt32();
-        delete result;
-    }
-
     if(result = CharacterDatabase.Query("SELECT MAX(group_id) FROM groups"))
     {
         m_hiGroupId = result->Fetch()[0].GetUInt32();
@@ -577,8 +565,6 @@ void ObjectMgr::SetHighestGuids()
 
     sLog.Notice("ObjectMgr", "HighGuid(CORPSE) = %u", m_hiCorpseGuid);
     sLog.Notice("ObjectMgr", "HighGuid(PLAYER) = %u", m_hiPlayerGuid);
-    sLog.Notice("ObjectMgr", "HighGuid(GAMEOBJ) = %u", m_hiGameObjectSpawnId);
-    sLog.Notice("ObjectMgr", "HighGuid(UNIT) = %u", m_hiCreatureSpawnId);
     sLog.Notice("ObjectMgr", "HighGuid(ITEM) = %u", m_hiItemGuid);
     sLog.Notice("ObjectMgr", "HighGuid(GROUP) = %u", m_hiGroupId);
     sLog.Notice("ObjectMgr", "HighGuid(EQSETS) = %u", m_equipmentSetGuid);
@@ -587,8 +573,8 @@ void ObjectMgr::SetHighestGuids()
 void ObjectMgr::ListGuidAmounts()
 {
     QueryResult *result;
-    uint32 amount[7] = { 0, 0, 0, 0, 0, 0, 0 };
-    std::string name[7] = {"Characters", "Player Items", "Corpses", "Groups", "GM Tickets", "Creatures", "Gameobjects"};
+    uint32 amount[5] = { 0, 0, 0, 0, 0 };
+    std::string name[5] = {"Characters", "Player Items", "Corpses", "Groups", "GM Tickets"};
 
     if(result = CharacterDatabase.Query("SELECT guid FROM character_data"))
     {
@@ -620,19 +606,7 @@ void ObjectMgr::ListGuidAmounts()
         delete result;
     }
 
-    if(result = WorldDatabase.Query("SELECT id FROM creature_spawns"))
-    {
-        amount[5] = result->GetRowCount();
-        delete result;
-    }
-
-    if(result = WorldDatabase.Query("SELECT id FROM gameobject_spawns"))
-    {
-        amount[6] = result->GetRowCount();
-        delete result;
-    }
-
-    for(int i = 0; i < 7; i++)
+    for(int i = 0; i < 5; i++)
         sLog.Notice("ObjectMgr", "Load Amount(%s) = %u", name[i].c_str(), amount[i] ? amount[i] : 0);
 }
 

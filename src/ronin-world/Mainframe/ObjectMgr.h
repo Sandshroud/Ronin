@@ -313,22 +313,6 @@ public:
 
     QueryResult* SQLCheckExists(const char* tablename, const char* columnname, uint64 columnvalue);
 
-    uint32 GenerateCreatureSpawnID()
-    {
-        m_CreatureSpawnIdMutex.Acquire();
-        uint32 r = ++m_hiCreatureSpawnId;
-        m_CreatureSpawnIdMutex.Release();
-        return r;
-    }
-
-    uint32 GenerateGameObjectSpawnID()
-    {
-        m_GOSpawnIdMutex.Acquire();
-        uint32 r = ++m_hiGameObjectSpawnId;
-        m_GOSpawnIdMutex.Release();
-        return r;
-    }
-
     std::map<uint32, uint32> ItemsInSets;
 
     void HashWMOAreaTables();
@@ -346,13 +330,6 @@ protected:
 
     std::map<WoWGuid,PlayerInfo*> m_playersinfo;
     PlayerNameStringIndexMap m_playersInfoByName;
-
-    uint32 m_hiCreatureSpawnId;
-
-    Mutex m_CreatureSpawnIdMutex;
-    Mutex m_GOSpawnIdMutex;
-
-    uint32 m_hiGameObjectSpawnId;
 
     ///// WorldObject Tables ////
     // These tables are modified as creatures are created and destroyed in the world

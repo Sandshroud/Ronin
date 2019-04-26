@@ -163,8 +163,8 @@ void QuestMgr::LoadQuests()
 
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_objectives"))
     {
-        if(result->GetFieldCount() != 40)
-            sLog.Error("QuestMgr", "Incorrect column count in quest_rewards(%u/40)", result->GetFieldCount());
+        if(result->GetFieldCount() != 37)
+            sLog.Error("QuestMgr", "Incorrect column count in quest_rewards(%u/37)", result->GetFieldCount());
         else do
         {
             uint8 f = 0;
@@ -185,8 +185,7 @@ void QuestMgr::LoadQuests()
                 if(quest->required_mob[i] = fields[f++].GetUInt32())
                     quest->count_required_mob++;
 
-            for(uint8 i = 0; i < 4; i++)
-                quest->required_mobtype[i] = fields[f++].GetUInt8();
+            quest->requiredMobFlags = fields[f++].GetUInt8();
             for(uint8 i = 0; i < 4; i++)
                 quest->required_mobcount[i] = fields[f++].GetUInt16();
             for(uint8 i = 0; i < 4; i++)
@@ -1019,11 +1018,14 @@ bool QuestMgr::OnGameObjectActivate(Player* plr, GameObject* go)
             // dont waste time on quests without mobs
             if( qle->GetQuest()->count_required_mob == 0 )
                 continue;
+            // Skip quests that do not require gameobjects
+            if(qle->GetQuest()->requiredMobFlags == 0)
+                continue;
 
             for( uint8 j = 0; j < 4; ++j )
             {
                 if( qle->GetQuest()->required_mob[j] == entry &&
-                    qle->GetQuest()->required_mobtype[j] == QUEST_MOB_TYPE_GAMEOBJECT &&
+                    (qle->GetQuest()->requiredMobFlags & (1<<j)) == QUEST_MOB_TYPE_GAMEOBJECT &&
                     qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] )
                 {
                     // add another kill.
@@ -1072,7 +1074,7 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                 for( j = 0; j < 4; ++j )
                 {
                     if( qle->GetQuest()->required_mob[j] == creature_entry &&
-                        qle->GetQuest()->required_mobtype[j] == QUEST_MOB_TYPE_CREATURE &&
+                        (qle->GetQuest()->requiredMobFlags & (1<<j)) == QUEST_MOB_TYPE_CREATURE &&
                         qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] )
                     {
                         // don't update killcount for these questlog entries
@@ -1119,7 +1121,7 @@ void QuestMgr::_OnPlayerKill(Player* plr, uint32 creature_entry)
                                 for( j = 0; j < 4; ++j )
                                 {
                                     if( qle->GetQuest()->required_mob[j] == creature_entry &&
-                                        qle->GetQuest()->required_mobtype[j] == QUEST_MOB_TYPE_CREATURE &&
+                                        (qle->GetQuest()->requiredMobFlags & (1<<j)) == QUEST_MOB_TYPE_CREATURE &&
                                         qle->GetObjectiveCount(j) < qle->GetQuest()->required_mobcount[j] )
                                     {
                                         // don't update killcount for these quest log entries

@@ -180,8 +180,8 @@ struct Quest
     uint32 required_item[6];
     uint16 required_itemcount[6];
 
+    uint8 requiredMobFlags;
     uint32 required_mob[4];
-    uint8 required_mobtype[4];
     uint16 required_mobcount[4];
     uint32 required_areatriggers[4];
 

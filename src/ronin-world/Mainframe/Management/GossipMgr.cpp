@@ -182,6 +182,20 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
                 }
             }
         }break;
+    case TYPEID_GAMEOBJECT:
+        {
+            if(GameObject *gObj = castPtr<GameObject>(obj))
+            {
+                switch(gObj->GetType())
+                {
+                case GAMEOBJECT_TYPE_GOOBER:
+                    {
+                        if(uint32 gossipId = gObj->GetInfo()->data.goober.gossipID)
+                            textId = gossipId;
+                    }break;
+                }
+            }
+        }break;
     }
 
     return result;
