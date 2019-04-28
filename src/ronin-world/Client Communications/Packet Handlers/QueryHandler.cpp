@@ -196,7 +196,7 @@ void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
 
         data.Initialize(SMSG_PAGE_TEXT_QUERY_RESPONSE, 255);
         data << pageid;
-        data << (page ? page->text : "Page text missing.");
+        data << (page ? page->text.c_str() : "Page text missing.");
         pageid = page ? page->next_page : 0;
         data << uint32(pageid);
         SendPacket(&data);

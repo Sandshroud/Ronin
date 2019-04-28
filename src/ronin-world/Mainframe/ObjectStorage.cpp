@@ -35,7 +35,7 @@ const char * gAchievementRewardFormat                   = "uuuubuss";
 const char * gCreatureInfoExtra                         = "uuuhubbfbfuisbb";
 const char * gGameObjectNameFormat                      = "uuusssfuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuiu";
 const char * gNpcTextFormat                             = "ussssssssssssssssfuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuu";
-const char * gPageTextFormat                            = "usu";
+const char * gPageTextFormat                            = "uSu";
 const char * gWorldMapInfoFormat                        = "usXuuuufffiuuuuuuuu";
 
 /** SQLStorage symbols
