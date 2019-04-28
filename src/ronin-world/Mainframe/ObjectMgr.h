@@ -54,7 +54,7 @@ struct VendorItem
     bool IsDependent;
 };
 
-struct ItemPage
+struct PageText
 {
     uint32 id;
     std::string text;

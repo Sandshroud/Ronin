@@ -1,18 +1,28 @@
 /*
 MySQL Data Transfer
-Source Host: logon.sandshroud.us
+Source Host: 10.0.0.0
 Source Database: dummy_logon
-Target Host: logon.sandshroud.us
+Target Host: 10.0.0.0
 Target Database: dummy_logon
-Date: 2/18/2013 10:06:06 PM
+Date: 4/27/2019 11:03:00 PM
 */
 
 SET FOREIGN_KEY_CHECKS=0;
 -- ----------------------------
+-- Table structure for account_characters
+-- ----------------------------
+CREATE TABLE `account_characters` (
+  `accountId` int(11) unsigned NOT NULL DEFAULT '0',
+  `charGuid` int(11) unsigned NOT NULL DEFAULT '0',
+  `orderId` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`charGuid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
 -- Table structure for account_data
 -- ----------------------------
 CREATE TABLE `account_data` (
-  `acct` int(30) NOT NULL,
+  `accountid` int(10) unsigned NOT NULL DEFAULT '0',
   `uiconfig0` blob,
   `uiconfig1` blob,
   `uiconfig2` blob,
@@ -22,8 +32,8 @@ CREATE TABLE `account_data` (
   `uiconfig6` blob,
   `uiconfig7` blob,
   `uiconfig8` blob,
-  PRIMARY KEY (`acct`),
-  UNIQUE KEY `a` (`acct`)
+  PRIMARY KEY (`accountid`),
+  UNIQUE KEY `a` (`accountid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
@@ -36,17 +46,21 @@ CREATE TABLE `account_forced_permissions` (
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- ----------------------------
--- Table structure for achievements
+-- Table structure for account_tutorials
 -- ----------------------------
-CREATE TABLE `achievements` (
-  `player` int(11) NOT NULL,
-  `achievementid` int(11) NOT NULL DEFAULT '0',
-  `progress` text COLLATE utf8_unicode_ci NOT NULL,
-  `completed` int(11) NOT NULL DEFAULT '0',
-  `groupid` int(11) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`player`,`achievementid`),
-  UNIQUE KEY `Unique` (`player`,`achievementid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+CREATE TABLE `account_tutorials` (
+  `acct` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut0` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut1` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut2` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut3` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut4` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut5` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut6` int(11) unsigned NOT NULL DEFAULT '0',
+  `tut7` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`acct`),
+  UNIQUE KEY `a` (`acct`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
 -- Table structure for arenateams
@@ -96,6 +110,16 @@ CREATE TABLE `auctions` (
 ) ENGINE=MyISAM AUTO_INCREMENT=7 DEFAULT CHARSET=latin1;
 
 -- ----------------------------
+-- Table structure for banned_characters
+-- ----------------------------
+CREATE TABLE `banned_characters` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `banTimeExpiration` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `banReason` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`guid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
 -- Table structure for banned_names
 -- ----------------------------
 CREATE TABLE `banned_names` (
@@ -104,98 +128,370 @@ CREATE TABLE `banned_names` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
--- Table structure for characters
+-- Table structure for character_achievements
 -- ----------------------------
-CREATE TABLE `characters` (
+CREATE TABLE `character_achievements` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `achievementId` int(10) unsigned NOT NULL DEFAULT '0',
+  `timestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`achievementId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_actions
+-- ----------------------------
+CREATE TABLE `character_actions` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `spec` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `actionoffset` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `actionvalue` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`spec`,`actionoffset`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_auras
+-- ----------------------------
+CREATE TABLE `character_auras` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `auraslot` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `spellid` int(10) unsigned NOT NULL DEFAULT '0',
+  `auraflags` int(10) unsigned NOT NULL DEFAULT '0',
+  `auralevel` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `aurastackorcharges` smallint(6) NOT NULL DEFAULT '0',
+  `casterguid` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `durationtimestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `modamount1` int(10) NOT NULL DEFAULT '0',
+  `modamount2` int(10) NOT NULL DEFAULT '0',
+  `modamount3` int(10) NOT NULL DEFAULT '0',
+  `modbonus1` int(10) unsigned NOT NULL DEFAULT '0',
+  `modbonus2` int(10) unsigned NOT NULL DEFAULT '0',
+  `modbonus3` int(10) unsigned NOT NULL DEFAULT '0',
+  `modfixed1` int(10) NOT NULL DEFAULT '0',
+  `modfixed2` int(10) NOT NULL DEFAULT '0',
+  `modfixed3` int(10) NOT NULL DEFAULT '0',
+  `modfixedfloat1` float(10,4) NOT NULL DEFAULT '0.0000',
+  `modfixedfloat2` float(10,4) NOT NULL DEFAULT '0.0000',
+  `modfixedfloat3` float(10,4) NOT NULL DEFAULT '0.0000',
+  PRIMARY KEY (`guid`,`auraslot`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_bans
+-- ----------------------------
+CREATE TABLE `character_bans` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `bantime` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `banreason` varchar(255) NOT NULL DEFAULT '',
+  PRIMARY KEY (`guid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_cooldowns
+-- ----------------------------
+CREATE TABLE `character_cooldowns` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `spellid` int(10) unsigned NOT NULL DEFAULT '0',
+  `type` smallint(6) unsigned NOT NULL DEFAULT '0',
+  `category` int(10) unsigned NOT NULL DEFAULT '0',
+  `expiretimestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `itemid` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`spellid`,`type`,`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_criteria_data
+-- ----------------------------
+CREATE TABLE `character_criteria_data` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `criteriaid` int(10) unsigned NOT NULL DEFAULT '0',
+  `criteriacounter` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `startDate` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `lastDate` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`criteriaid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_currency
+-- ----------------------------
+CREATE TABLE `character_currency` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `currency` mediumint(6) unsigned NOT NULL DEFAULT '0',
+  `amount` int(10) unsigned NOT NULL DEFAULT '0',
+  `weekAmount` int(10) unsigned NOT NULL DEFAULT '0',
+  `totalAmount` int(10) unsigned NOT NULL DEFAULT '0',
+  `flags` mediumint(6) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`currency`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_data
+-- ----------------------------
+CREATE TABLE `character_data` (
   `guid` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `acct` int(10) unsigned NOT NULL,
-  `name` varchar(120) NOT NULL DEFAULT '',
-  `race` tinyint(3) unsigned NOT NULL,
-  `class` tinyint(3) unsigned NOT NULL,
-  `gender` tinyint(3) unsigned NOT NULL,
-  `customizable` int(3) NOT NULL DEFAULT '0',
-  `custom_faction` int(10) unsigned NOT NULL DEFAULT '0',
-  `level` tinyint(3) unsigned NOT NULL,
-  `xp_off` int(3) NOT NULL DEFAULT '0',
-  `xp` int(10) unsigned NOT NULL,
-  `exploration_data` longtext NOT NULL,
-  `skills` longtext NOT NULL,
-  `watched_faction_index` bigint(30) NOT NULL DEFAULT '0',
-  `selected_pvp_title` int(10) unsigned NOT NULL DEFAULT '0',
-  `available_pvp_titles1` bigint(30) unsigned NOT NULL DEFAULT '0',
-  `available_pvp_titles2` bigint(30) unsigned NOT NULL DEFAULT '0',
-  `available_pvp_titles3` bigint(30) unsigned NOT NULL DEFAULT '0',
-  `gold` int(10) unsigned NOT NULL DEFAULT '0',
-  `ammo_id` int(10) unsigned NOT NULL DEFAULT '0',
-  `available_prof_points` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `total_talent_points` int(30) NOT NULL,
-  `current_hp` int(10) unsigned NOT NULL DEFAULT '0',
-  `current_power` int(10) unsigned NOT NULL DEFAULT '0',
-  `pvprank` int(10) unsigned NOT NULL DEFAULT '0',
-  `bytes` int(10) unsigned NOT NULL DEFAULT '0',
-  `bytes2` int(10) unsigned NOT NULL DEFAULT '0',
-  `player_flags` int(10) unsigned NOT NULL DEFAULT '0',
-  `player_bytes` int(10) unsigned NOT NULL DEFAULT '0',
+  `name` varchar(25) CHARACTER SET latin1 NOT NULL DEFAULT '',
+  `race` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `class` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `team` tinyint(3) unsigned NOT NULL DEFAULT '4',
+  `appearance` int(10) unsigned NOT NULL DEFAULT '0',
+  `appearance2` int(10) unsigned NOT NULL DEFAULT '0',
+  `appearance3` int(10) unsigned NOT NULL DEFAULT '0',
+  `customizeFlags` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `deathState` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `level` tinyint(3) unsigned NOT NULL DEFAULT '1',
+  `mapId` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `instanceId` int(10) unsigned NOT NULL DEFAULT '0',
   `positionX` float NOT NULL DEFAULT '0',
   `positionY` float NOT NULL DEFAULT '0',
   `positionZ` float NOT NULL DEFAULT '0',
   `orientation` float NOT NULL DEFAULT '0',
-  `mapId` int(10) unsigned NOT NULL DEFAULT '0',
-  `zoneId` int(10) unsigned NOT NULL DEFAULT '0',
-  `taximask` longtext NOT NULL,
-  `banned` int(40) NOT NULL,
-  `banReason` varchar(50) NOT NULL,
-  `timestamp` int(10) unsigned NOT NULL DEFAULT '0',
-  `online` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `zoneId` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `load_data` int(10) unsigned NOT NULL DEFAULT '655370000',
+  `load_data2` int(10) unsigned NOT NULL DEFAULT '0',
+  `playerBytes` int(10) unsigned NOT NULL DEFAULT '0',
+  `playerBytes2` int(10) unsigned NOT NULL DEFAULT '0',
+  `experience` int(10) unsigned NOT NULL DEFAULT '0',
+  `gold` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `availableProfPoints` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `selectedTitle` int(10) unsigned NOT NULL DEFAULT '0',
+  `watchedFaction` int(11) unsigned NOT NULL DEFAULT '0',
+  `talentActivespec` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `talentSpecCount` tinyint(3) unsigned NOT NULL DEFAULT '1',
+  `talentResetCounter` int(10) unsigned NOT NULL DEFAULT '0',
+  `talentBonusPoints` int(10) NOT NULL DEFAULT '0',
+  `talentStack` int(10) unsigned NOT NULL DEFAULT '0',
+  `bindmapId` smallint(5) unsigned NOT NULL DEFAULT '0',
   `bindpositionX` float NOT NULL DEFAULT '0',
   `bindpositionY` float NOT NULL DEFAULT '0',
   `bindpositionZ` float NOT NULL DEFAULT '0',
-  `bindmapId` int(10) unsigned NOT NULL DEFAULT '0',
-  `bindzoneId` int(10) unsigned NOT NULL DEFAULT '0',
-  `isResting` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `restState` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `bindzoneId` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `taxiPath` int(10) unsigned NOT NULL DEFAULT '0',
+  `taxiMoveTime` int(10) unsigned NOT NULL DEFAULT '0',
+  `taxiTravelTime` int(10) unsigned NOT NULL DEFAULT '0',
+  `taxiMountId` int(10) unsigned NOT NULL DEFAULT '0',
+  `transportGuid` int(10) unsigned NOT NULL DEFAULT '0',
+  `transportX` float NOT NULL DEFAULT '0',
+  `transportY` float NOT NULL DEFAULT '0',
+  `transportZ` float NOT NULL DEFAULT '0',
+  `entryPointMapId` int(10) unsigned NOT NULL DEFAULT '0',
+  `entryPointX` float NOT NULL DEFAULT '0',
+  `entryPointY` float NOT NULL DEFAULT '0',
+  `entryPointZ` float NOT NULL DEFAULT '0',
+  `entryOrientation` float NOT NULL DEFAULT '0',
+  `instanceDifficulty` int(10) unsigned NOT NULL DEFAULT '0',
+  `raidDifficulty` int(10) unsigned NOT NULL DEFAULT '0',
+  `isResting` tinyint(1) unsigned NOT NULL DEFAULT '0',
+  `restState` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `restTime` int(10) unsigned NOT NULL DEFAULT '0',
-  `playedtime` longtext NOT NULL,
-  `deathstate` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `TalentResetTimes` int(10) unsigned NOT NULL DEFAULT '0',
-  `first_login` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `forced_rename_pending` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `arenaPoints` int(10) unsigned NOT NULL DEFAULT '0',
-  `totalstableslots` int(10) unsigned NOT NULL DEFAULT '0',
-  `instance_id` int(10) unsigned NOT NULL DEFAULT '0',
-  `entrypointmap` int(10) unsigned NOT NULL DEFAULT '0',
-  `entrypointx` float NOT NULL DEFAULT '0',
-  `entrypointy` float NOT NULL DEFAULT '0',
-  `entrypointz` float NOT NULL DEFAULT '0',
-  `entrypointo` float NOT NULL DEFAULT '0',
-  `entrypointinstance` int(10) unsigned NOT NULL DEFAULT '0',
-  `taxi_path` int(10) unsigned NOT NULL DEFAULT '0',
-  `taxi_lastnode` int(10) unsigned NOT NULL DEFAULT '0',
-  `taxi_mountid` int(10) unsigned NOT NULL DEFAULT '0',
-  `transporter` int(10) unsigned NOT NULL DEFAULT '0',
-  `transporter_xdiff` float NOT NULL DEFAULT '0',
-  `transporter_ydiff` float NOT NULL DEFAULT '0',
-  `transporter_zdiff` float NOT NULL DEFAULT '0',
-  `reputation` longtext NOT NULL,
-  `actions` longtext NOT NULL,
-  `auras` longtext NOT NULL,
-  `finished_quests` longtext NOT NULL,
-  `finished_daily_quests` longtext NOT NULL,
-  `honorRolloverTime` int(30) NOT NULL DEFAULT '0',
-  `killsToday` int(10) unsigned NOT NULL DEFAULT '0',
-  `killsYesterday` int(10) unsigned NOT NULL DEFAULT '0',
-  `killsLifeTime` int(10) unsigned NOT NULL DEFAULT '0',
-  `honorToday` int(10) unsigned NOT NULL DEFAULT '0',
-  `honorYesterday` int(10) unsigned NOT NULL DEFAULT '0',
-  `honorPoints` int(10) unsigned NOT NULL DEFAULT '0',
-  `difficulty` int(10) unsigned NOT NULL DEFAULT '0',
-  `raiddifficulty` int(10) unsigned NOT NULL DEFAULT '0',
-  `active_spec` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `specs_count` tinyint(3) unsigned NOT NULL DEFAULT '1',
-  `need_talent_reset` int(3) NOT NULL DEFAULT '0',
-  `need_position_reset` int(3) NOT NULL DEFAULT '0',
+  `restAreaTrigger` int(10) unsigned NOT NULL DEFAULT '0',
+  `playedTimeLevel` int(10) unsigned NOT NULL DEFAULT '0',
+  `playedTimeTotal` int(10) unsigned NOT NULL DEFAULT '0',
+  `lastWeekResetTime` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `lastSaveTime` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `needPositionReset` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `needTalentReset` tinyint(3) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`guid`)
-) ENGINE=MyISAM AUTO_INCREMENT=33554465 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=259 DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_equipmentsets
+-- ----------------------------
+CREATE TABLE `character_equipmentsets` (
+  `setguid` bigint(20) NOT NULL AUTO_INCREMENT,
+  `ownerguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `name` varchar(35) NOT NULL DEFAULT '',
+  `iconname` varchar(35) NOT NULL DEFAULT '',
+  `item0` int(11) unsigned NOT NULL DEFAULT '0',
+  `item1` int(11) unsigned NOT NULL DEFAULT '0',
+  `item2` int(11) unsigned NOT NULL DEFAULT '0',
+  `item3` int(11) unsigned NOT NULL DEFAULT '0',
+  `item4` int(11) unsigned NOT NULL DEFAULT '0',
+  `item5` int(11) unsigned NOT NULL DEFAULT '0',
+  `item6` int(11) unsigned NOT NULL DEFAULT '0',
+  `item7` int(11) unsigned NOT NULL DEFAULT '0',
+  `item8` int(11) unsigned NOT NULL DEFAULT '0',
+  `item9` int(11) unsigned NOT NULL DEFAULT '0',
+  `item10` int(11) unsigned NOT NULL DEFAULT '0',
+  `item11` int(11) unsigned NOT NULL DEFAULT '0',
+  `item12` int(11) unsigned NOT NULL DEFAULT '0',
+  `item13` int(11) unsigned NOT NULL DEFAULT '0',
+  `item14` int(11) unsigned NOT NULL DEFAULT '0',
+  `item15` int(11) unsigned NOT NULL DEFAULT '0',
+  `item16` int(11) unsigned NOT NULL DEFAULT '0',
+  `item17` int(11) unsigned NOT NULL DEFAULT '0',
+  `item18` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`setguid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_exploration
+-- ----------------------------
+CREATE TABLE `character_exploration` (
+  `guid` int(11) unsigned NOT NULL DEFAULT '0',
+  `exploration_offset` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `exploration_flag` int(11) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`exploration_offset`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_glyphs
+-- ----------------------------
+CREATE TABLE `character_glyphs` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `spec` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `index` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `glyph` smallint(5) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`spec`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_inventory
+-- ----------------------------
+CREATE TABLE `character_inventory` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `itemguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `container` int(10) NOT NULL DEFAULT '-1',
+  `slot` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`itemguid`),
+  UNIQUE KEY `Unique` (`guid`,`itemguid`),
+  UNIQUE KEY `Unique2` (`guid`,`container`,`slot`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_known_titles
+-- ----------------------------
+CREATE TABLE `character_known_titles` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `title_offset` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `title_flag` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`title_offset`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_powers
+-- ----------------------------
+CREATE TABLE `character_powers` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `powertype` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `powervalue` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`powertype`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_questlog
+-- ----------------------------
+CREATE TABLE `character_questlog` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `slot` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `questid` int(10) unsigned NOT NULL DEFAULT '0',
+  `expiretimestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `objectivecount1` smallint(6) unsigned NOT NULL DEFAULT '0',
+  `objectivecount2` smallint(6) unsigned NOT NULL DEFAULT '0',
+  `objectivecount3` smallint(6) unsigned NOT NULL DEFAULT '0',
+  `objectivecount4` smallint(6) unsigned NOT NULL DEFAULT '0',
+  `explorationflags` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `playerslaincounter` smallint(6) unsigned NOT NULL DEFAULT '0',
+  UNIQUE KEY `Slot` (`guid`,`slot`),
+  UNIQUE KEY `QuestId` (`guid`,`questid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_quests_completed_repeatable
+-- ----------------------------
+CREATE TABLE `character_quests_completed_repeatable` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `questid` int(10) unsigned NOT NULL DEFAULT '0',
+  `completedtimestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`questid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_quests_completion_masks
+-- ----------------------------
+CREATE TABLE `character_quests_completion_masks` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `index` mediumint(6) unsigned NOT NULL DEFAULT '0',
+  `mask` bigint(20) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`index`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_reputation
+-- ----------------------------
+CREATE TABLE `character_reputation` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `reputation` smallint(6) unsigned NOT NULL DEFAULT '0',
+  `repflag` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `repbasestanding` int(8) NOT NULL DEFAULT '0',
+  `repstanding` int(8) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`reputation`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_skills
+-- ----------------------------
+CREATE TABLE `character_skills` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `skillid` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `skillpos` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `step` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `currentlevel` smallint(5) unsigned NOT NULL DEFAULT '0',
+  `maxlevel` smallint(5) unsigned NOT NULL DEFAULT '0',
+  UNIQUE KEY `Skills` (`guid`,`skillid`),
+  UNIQUE KEY `SkillPositions` (`guid`,`skillpos`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_social
+-- ----------------------------
+CREATE TABLE `character_social` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `socialtype` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `socialguid` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `socialnote` varchar(100) NOT NULL DEFAULT '',
+  PRIMARY KEY (`guid`,`socialtype`,`socialguid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_spells
+-- ----------------------------
+CREATE TABLE `character_spells` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `spellid` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`spellid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_talents
+-- ----------------------------
+CREATE TABLE `character_talents` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `spec` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `talentid` int(10) unsigned NOT NULL DEFAULT '0',
+  `rank` smallint(5) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`spec`,`talentid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_taximasks
+-- ----------------------------
+CREATE TABLE `character_taximasks` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `taxi_offset` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `taxi_flag` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`,`taxi_offset`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- ----------------------------
+-- Table structure for character_timestamps
+-- ----------------------------
+CREATE TABLE `character_timestamps` (
+  `guid` int(10) unsigned NOT NULL DEFAULT '0',
+  `logintimestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `creationtimestamp` bigint(20) unsigned NOT NULL DEFAULT '0',
+  `playedtime` int(10) unsigned NOT NULL DEFAULT '0',
+  `playedtimethislevel` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Table structure for characters_insert_queue
@@ -309,28 +605,6 @@ CREATE TABLE `charters` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 COMMENT='InnoDB free: 11264 kB; InnoDB free: 18432 kB';
 
 -- ----------------------------
--- Table structure for clientaddons
--- ----------------------------
-CREATE TABLE `clientaddons` (
-  `id` int(10) NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) DEFAULT NULL,
-  `crc` bigint(50) DEFAULT NULL,
-  `banned` int(1) NOT NULL DEFAULT '0',
-  `showinlist` int(1) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`),
-  KEY `index` (`name`)
-) ENGINE=MyISAM AUTO_INCREMENT=153 DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for command_overrides
--- ----------------------------
-CREATE TABLE `command_overrides` (
-  `command_name` varchar(100) NOT NULL,
-  `access_level` varchar(10) NOT NULL,
-  PRIMARY KEY (`command_name`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
 -- Table structure for corpses
 -- ----------------------------
 CREATE TABLE `corpses` (
@@ -347,82 +621,6 @@ CREATE TABLE `corpses` (
   KEY `b` (`mapId`),
   KEY `c` (`instanceId`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for equipmentsets
--- ----------------------------
-CREATE TABLE `equipmentsets` (
-  `guid` int(11) NOT NULL DEFAULT '0',
-  `setguid` bigint(20) NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL,
-  `iconname` varchar(100) NOT NULL,
-  `item0` int(11) NOT NULL DEFAULT '0',
-  `item1` int(11) NOT NULL DEFAULT '0',
-  `item2` int(11) NOT NULL DEFAULT '0',
-  `item3` int(11) NOT NULL DEFAULT '0',
-  `item4` int(11) NOT NULL DEFAULT '0',
-  `item5` int(11) NOT NULL DEFAULT '0',
-  `item6` int(11) NOT NULL DEFAULT '0',
-  `item7` int(11) NOT NULL DEFAULT '0',
-  `item8` int(11) NOT NULL DEFAULT '0',
-  `item9` int(11) NOT NULL DEFAULT '0',
-  `item10` int(11) NOT NULL DEFAULT '0',
-  `item11` int(11) NOT NULL DEFAULT '0',
-  `item12` int(11) NOT NULL DEFAULT '0',
-  `item13` int(11) NOT NULL DEFAULT '0',
-  `item14` int(11) NOT NULL DEFAULT '0',
-  `item15` int(11) NOT NULL DEFAULT '0',
-  `item16` int(11) NOT NULL DEFAULT '0',
-  `item17` int(11) NOT NULL DEFAULT '0',
-  `item18` int(11) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`setguid`),
-  UNIQUE KEY `idx_set` (`guid`,`setguid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Table structure for gm_surveys
--- ----------------------------
-CREATE TABLE `gm_surveys` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `playerguid` int(11) unsigned NOT NULL,
-  `question1` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer1` int(11) unsigned NOT NULL DEFAULT '0',
-  `question2` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer2` int(11) unsigned NOT NULL DEFAULT '0',
-  `question3` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer3` int(11) unsigned NOT NULL DEFAULT '0',
-  `question4` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer4` int(11) unsigned NOT NULL DEFAULT '0',
-  `question5` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer5` int(11) unsigned NOT NULL DEFAULT '0',
-  `question6` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer6` int(11) unsigned NOT NULL DEFAULT '0',
-  `question7` int(11) unsigned NOT NULL DEFAULT '0',
-  `answer7` int(11) unsigned NOT NULL DEFAULT '0',
-  `comment` text COLLATE utf8_unicode_ci NOT NULL,
-  `timestamp` int(11) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
-) ENGINE=MyISAM AUTO_INCREMENT=5 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
--- ----------------------------
--- Table structure for gm_tickets
--- ----------------------------
-CREATE TABLE `gm_tickets` (
-  `guid` int(11) unsigned NOT NULL DEFAULT '0',
-  `playerGuid` int(11) unsigned NOT NULL DEFAULT '0',
-  `name` varchar(32) COLLATE utf8_unicode_ci NOT NULL DEFAULT '',
-  `level` int(6) unsigned NOT NULL DEFAULT '0',
-  `map` int(11) unsigned NOT NULL DEFAULT '0',
-  `posX` float NOT NULL DEFAULT '0',
-  `posY` float NOT NULL DEFAULT '0',
-  `posZ` float NOT NULL DEFAULT '0',
-  `message` text COLLATE utf8_unicode_ci NOT NULL,
-  `timestamp` int(11) unsigned NOT NULL,
-  `deleted` int(1) unsigned NOT NULL DEFAULT '0',
-  `assignedto` int(11) unsigned NOT NULL DEFAULT '0',
-  `comment` text COLLATE utf8_unicode_ci NOT NULL,
-  PRIMARY KEY (`guid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- ----------------------------
 -- Table structure for groups
@@ -530,30 +728,25 @@ CREATE TABLE `guild_banktabs` (
 -- Table structure for guild_data
 -- ----------------------------
 CREATE TABLE `guild_data` (
-  `guildid` int(30) NOT NULL,
-  `playerid` int(30) NOT NULL,
-  `guildRank` int(30) NOT NULL,
-  `publicNote` varchar(300) NOT NULL,
-  `officerNote` varchar(300) NOT NULL,
-  `lastWithdrawReset` int(30) NOT NULL DEFAULT '0',
-  `withdrawlsSinceLastReset` int(30) NOT NULL DEFAULT '0',
-  `lastItemWithdrawReset0` int(30) NOT NULL DEFAULT '0',
-  `itemWithdrawlsSinceLastReset0` int(30) NOT NULL DEFAULT '0',
-  `lastItemWithdrawReset1` int(30) NOT NULL DEFAULT '0',
-  `itemWithdrawlsSinceLastReset1` int(30) NOT NULL DEFAULT '0',
-  `lastItemWithdrawReset2` int(30) NOT NULL DEFAULT '0',
-  `itemWithdrawlsSinceLastReset2` int(30) NOT NULL DEFAULT '0',
-  `lastItemWithdrawReset3` int(30) NOT NULL DEFAULT '0',
-  `itemWithdrawlsSinceLastReset3` int(30) NOT NULL DEFAULT '0',
-  `lastItemWithdrawReset4` int(30) NOT NULL DEFAULT '0',
-  `itemWithdrawlsSinceLastReset4` int(30) NOT NULL DEFAULT '0',
-  `lastItemWithdrawReset5` int(30) NOT NULL DEFAULT '0',
-  `itemWithdrawlsSinceLastReset5` int(30) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`playerid`,`guildRank`),
-  UNIQUE KEY `guildid` (`guildid`,`playerid`),
-  KEY `a` (`guildid`),
-  KEY `b` (`playerid`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+  `guildId` bigint(20) NOT NULL AUTO_INCREMENT,
+  `guildName` varchar(32) COLLATE utf8_unicode_ci NOT NULL DEFAULT '',
+  `leaderGuid` bigint(20) NOT NULL DEFAULT '0',
+  `guildLevel` int(20) NOT NULL DEFAULT '0',
+  `emblemStyle` int(10) NOT NULL DEFAULT '0',
+  `emblemColor` int(10) NOT NULL DEFAULT '0',
+  `borderStyle` int(10) NOT NULL DEFAULT '0',
+  `borderColor` int(10) NOT NULL DEFAULT '0',
+  `backgroundColor` int(10) NOT NULL DEFAULT '0',
+  `guildInfo` varchar(1024) COLLATE utf8_unicode_ci NOT NULL,
+  `motd` varchar(1024) COLLATE utf8_unicode_ci NOT NULL,
+  `createdate` int(10) NOT NULL DEFAULT '0',
+  `balance` bigint(30) unsigned NOT NULL DEFAULT '0',
+  `guildXPToday` bigint(30) unsigned NOT NULL DEFAULT '0',
+  `guildExperience` bigint(30) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`guildId`),
+  UNIQUE KEY `guildName` (`guildName`),
+  UNIQUE KEY `leaderGuid` (`leaderGuid`)
+) ENGINE=MyISAM AUTO_INCREMENT=25 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- ----------------------------
 -- Table structure for guild_logs
@@ -570,6 +763,39 @@ CREATE TABLE `guild_logs` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
+-- Table structure for guild_members
+-- ----------------------------
+CREATE TABLE `guild_members` (
+  `guildid` int(10) NOT NULL,
+  `playerid` int(10) NOT NULL,
+  `guildRank` int(10) NOT NULL,
+  `publicNote` varchar(300) NOT NULL,
+  `officerNote` varchar(300) NOT NULL,
+  `lastWithdrawReset` int(10) NOT NULL DEFAULT '0',
+  `withdrawlsSinceLastReset` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset0` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset0` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset1` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset1` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset2` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset2` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset3` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset3` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset4` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset4` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset5` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset5` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset6` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset6` int(10) NOT NULL DEFAULT '0',
+  `lastItemWithdrawReset7` int(10) NOT NULL DEFAULT '0',
+  `itemWithdrawlsSinceLastReset7` int(10) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`playerid`,`guildRank`),
+  UNIQUE KEY `guildid` (`guildid`,`playerid`),
+  KEY `a` (`guildid`),
+  KEY `b` (`playerid`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+
+-- ----------------------------
 -- Table structure for guild_ranks
 -- ----------------------------
 CREATE TABLE `guild_ranks` (
@@ -577,60 +803,61 @@ CREATE TABLE `guild_ranks` (
   `rankId` int(1) NOT NULL DEFAULT '0',
   `rankName` varchar(64) COLLATE utf8_unicode_ci NOT NULL DEFAULT '',
   `rankRights` int(3) unsigned NOT NULL DEFAULT '0',
-  `goldLimitPerDay` int(30) NOT NULL DEFAULT '0',
-  `bankTabFlags0` int(30) NOT NULL DEFAULT '0',
-  `itemStacksPerDay0` int(30) NOT NULL DEFAULT '0',
-  `bankTabFlags1` int(30) NOT NULL DEFAULT '0',
-  `itemStacksPerDay1` int(30) NOT NULL DEFAULT '0',
-  `bankTabFlags2` int(30) NOT NULL DEFAULT '0',
-  `itemStacksPerDay2` int(30) NOT NULL DEFAULT '0',
-  `bankTabFlags3` int(30) NOT NULL DEFAULT '0',
-  `itemStacksPerDay3` int(30) NOT NULL DEFAULT '0',
-  `bankTabFlags4` int(30) NOT NULL DEFAULT '0',
-  `itemStacksPerDay4` int(30) NOT NULL DEFAULT '0',
-  `bankTabFlags5` int(30) NOT NULL DEFAULT '0',
-  `itemStacksPerDay5` int(30) NOT NULL DEFAULT '0',
+  `goldLimitPerDay` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags0` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay0` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags1` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay1` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags2` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay2` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags3` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay3` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags4` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay4` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags5` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay5` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags6` int(10) NOT NULL DEFAULT '0',
+  `itemStacksPerDay6` int(10) NOT NULL DEFAULT '0',
+  `bankTabFlags7` int(10) DEFAULT '0',
+  `itemStacksPerDay7` int(10) DEFAULT '0',
   PRIMARY KEY (`guildId`,`rankId`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 -- ----------------------------
--- Table structure for guilds
+-- Table structure for item_data
 -- ----------------------------
-CREATE TABLE `guilds` (
-  `guildId` bigint(20) NOT NULL AUTO_INCREMENT,
-  `guildName` varchar(32) COLLATE utf8_unicode_ci NOT NULL DEFAULT '',
-  `leaderGuid` bigint(20) NOT NULL DEFAULT '0',
-  `emblemStyle` int(10) NOT NULL DEFAULT '0',
-  `emblemColor` int(10) NOT NULL DEFAULT '0',
-  `borderStyle` int(10) NOT NULL DEFAULT '0',
-  `borderColor` int(10) NOT NULL DEFAULT '0',
-  `backgroundColor` int(10) NOT NULL DEFAULT '0',
-  `guildInfo` varchar(1024) COLLATE utf8_unicode_ci NOT NULL,
-  `motd` varchar(1024) COLLATE utf8_unicode_ci NOT NULL,
-  `createdate` int(30) NOT NULL DEFAULT '0',
-  `balanceHigh` int(30) NOT NULL DEFAULT '0',
-  `balanceLow` int(30) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`guildId`),
-  UNIQUE KEY `guildName` (`guildName`),
-  UNIQUE KEY `leaderGuid` (`leaderGuid`)
-) ENGINE=MyISAM AUTO_INCREMENT=25 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+CREATE TABLE `item_data` (
+  `ownerguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `itemguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `itementry` int(10) unsigned NOT NULL DEFAULT '0',
+  `containerguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `creatorguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `count` int(10) unsigned NOT NULL DEFAULT '0',
+  `flags` int(10) unsigned NOT NULL DEFAULT '0',
+  `randomseed` int(10) unsigned NOT NULL DEFAULT '0',
+  `randomproperty` int(10) unsigned NOT NULL DEFAULT '0',
+  `durability` int(10) unsigned NOT NULL DEFAULT '0',
+  `textid` int(10) unsigned NOT NULL DEFAULT '0',
+  `playedtime` int(10) unsigned NOT NULL DEFAULT '0',
+  `spellcharges` int(10) NOT NULL DEFAULT '-1',
+  `giftitemid` int(10) unsigned NOT NULL DEFAULT '0',
+  `giftcreatorguid` int(10) unsigned NOT NULL DEFAULT '0',
+  PRIMARY KEY (`ownerguid`,`itemguid`),
+  UNIQUE KEY `Unique` (`ownerguid`,`itemguid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
--- Table structure for instances
+-- Table structure for item_enchantments
 -- ----------------------------
-CREATE TABLE `instances` (
-  `id` int(30) NOT NULL,
-  `mapid` int(30) NOT NULL,
-  `creation` int(30) NOT NULL,
-  `expiration` int(30) NOT NULL,
-  `killed_npc_guids` text NOT NULL,
-  `difficulty` int(30) NOT NULL,
-  `creator_group` int(30) NOT NULL,
-  `creator_guid` int(30) NOT NULL,
-  `active_members` text NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `a` (`mapid`,`difficulty`,`creator_group`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+CREATE TABLE `item_enchantments` (
+  `itemguid` int(10) unsigned NOT NULL DEFAULT '0',
+  `enchantslot` tinyint(3) unsigned NOT NULL DEFAULT '0',
+  `enchantid` int(10) unsigned NOT NULL DEFAULT '0',
+  `enchantsuffix` int(10) NOT NULL DEFAULT '0',
+  `enchantexpiretimer` int(10) unsigned NOT NULL DEFAULT '0',
+  `enchantcharges` int(10) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`itemguid`,`enchantslot`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
 -- Table structure for mailbox
@@ -654,112 +881,12 @@ CREATE TABLE `mailbox` (
   `returned_flag` int(10) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`message_id`),
   KEY `b` (`player_guid`)
-) ENGINE=MyISAM AUTO_INCREMENT=111 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=112 DEFAULT CHARSET=latin1;
 
 -- ----------------------------
--- Table structure for mailbox_insert_queue
+-- Table structure for pet_actionbar
 -- ----------------------------
-CREATE TABLE `mailbox_insert_queue` (
-  `sender_guid` int(30) NOT NULL DEFAULT '0',
-  `receiver_guid` int(30) NOT NULL DEFAULT '0',
-  `subject` varchar(200) NOT NULL DEFAULT '',
-  `body` varchar(500) NOT NULL DEFAULT '',
-  `stationary` int(30) NOT NULL DEFAULT '0',
-  `money` int(30) NOT NULL DEFAULT '0',
-  `item_id` int(30) NOT NULL DEFAULT '0',
-  `item_stack` int(30) NOT NULL DEFAULT '1'
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for news_timers
--- ----------------------------
-CREATE TABLE `news_timers` (
-  `id` int(10) unsigned NOT NULL,
-  `time` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for playercooldowns
--- ----------------------------
-CREATE TABLE `playercooldowns` (
-  `player_guid` int(30) NOT NULL,
-  `cooldown_type` int(30) NOT NULL,
-  `cooldown_misc` int(30) NOT NULL,
-  `cooldown_expire_time` int(30) NOT NULL,
-  `cooldown_spellid` int(30) NOT NULL,
-  `cooldown_itemid` int(30) NOT NULL
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Table structure for playerglyphs
--- ----------------------------
-CREATE TABLE `playerglyphs` (
-  `guid` int(10) unsigned NOT NULL,
-  `spec` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `glyph1` smallint(5) unsigned DEFAULT NULL,
-  `glyph2` smallint(5) unsigned DEFAULT NULL,
-  `glyph3` smallint(5) unsigned DEFAULT NULL,
-  `glyph4` smallint(5) unsigned DEFAULT NULL,
-  `glyph5` smallint(5) unsigned DEFAULT NULL,
-  `glyph6` smallint(5) unsigned DEFAULT NULL,
-  PRIMARY KEY (`guid`,`spec`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 CHECKSUM=1 DELAY_KEY_WRITE=1 ROW_FORMAT=DYNAMIC;
-
--- ----------------------------
--- Table structure for playeritems
--- ----------------------------
-CREATE TABLE `playeritems` (
-  `ownerguid` int(10) unsigned NOT NULL DEFAULT '0',
-  `guid` bigint(10) NOT NULL AUTO_INCREMENT,
-  `entry` int(10) unsigned NOT NULL DEFAULT '0',
-  `wrapped_item_id` int(30) NOT NULL DEFAULT '0',
-  `wrapped_creator` int(30) NOT NULL DEFAULT '0',
-  `creator` int(10) unsigned NOT NULL DEFAULT '0',
-  `count` int(10) unsigned NOT NULL DEFAULT '0',
-  `charges` int(10) NOT NULL DEFAULT '0',
-  `flags` int(10) unsigned NOT NULL DEFAULT '0',
-  `randomprop` int(10) unsigned NOT NULL DEFAULT '0',
-  `randomsuffix` int(30) DEFAULT '0',
-  `itemtext` int(10) unsigned NOT NULL DEFAULT '0',
-  `durability` int(10) unsigned NOT NULL DEFAULT '0',
-  `containerslot` int(11) DEFAULT '-1',
-  `slot` int(10) NOT NULL DEFAULT '0',
-  `enchantments` longtext NOT NULL,
-  `gems` varchar(255) NOT NULL DEFAULT '',
-  PRIMARY KEY (`guid`),
-  KEY `ownerguid` (`ownerguid`),
-  KEY `itemtext` (`itemtext`)
-) ENGINE=MyISAM AUTO_INCREMENT=78667 DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for playeritems_insert_queue
--- ----------------------------
-CREATE TABLE `playeritems_insert_queue` (
-  `ownerguid` int(10) unsigned NOT NULL DEFAULT '0',
-  `guid` int(10) NOT NULL AUTO_INCREMENT,
-  `entry` int(10) unsigned NOT NULL DEFAULT '0',
-  `wrapped_item_id` int(30) NOT NULL DEFAULT '0',
-  `wrapped_creator` int(30) NOT NULL DEFAULT '0',
-  `creator` int(10) unsigned NOT NULL DEFAULT '0',
-  `count` int(10) unsigned NOT NULL DEFAULT '0',
-  `charges` int(10) unsigned NOT NULL DEFAULT '0',
-  `flags` int(10) unsigned NOT NULL DEFAULT '0',
-  `randomprop` int(10) unsigned NOT NULL DEFAULT '0',
-  `randomsuffix` int(30) NOT NULL,
-  `itemtext` int(10) unsigned NOT NULL DEFAULT '0',
-  `durability` int(10) unsigned NOT NULL DEFAULT '0',
-  `containerslot` int(11) NOT NULL DEFAULT '-1',
-  `slot` tinyint(4) NOT NULL DEFAULT '0',
-  `enchantments` longtext COLLATE utf8_unicode_ci NOT NULL,
-  PRIMARY KEY (`guid`),
-  KEY `ownerguid` (`ownerguid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
-
--- ----------------------------
--- Table structure for playerpetactionbar
--- ----------------------------
-CREATE TABLE `playerpetactionbar` (
+CREATE TABLE `pet_actionbar` (
   `ownerguid` bigint(20) NOT NULL DEFAULT '0',
   `petnumber` int(11) NOT NULL DEFAULT '0',
   `spellid_1` int(11) unsigned NOT NULL DEFAULT '0',
@@ -774,9 +901,9 @@ CREATE TABLE `playerpetactionbar` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- ----------------------------
--- Table structure for playerpets
+-- Table structure for pet_data
 -- ----------------------------
-CREATE TABLE `playerpets` (
+CREATE TABLE `pet_data` (
   `ownerguid` bigint(20) NOT NULL DEFAULT '0',
   `petnumber` int(11) NOT NULL DEFAULT '0',
   `name` varchar(21) NOT NULL DEFAULT '',
@@ -792,9 +919,9 @@ CREATE TABLE `playerpets` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
--- Table structure for playerpetspells
+-- Table structure for pet_spells
 -- ----------------------------
-CREATE TABLE `playerpetspells` (
+CREATE TABLE `pet_spells` (
   `ownerguid` bigint(100) NOT NULL DEFAULT '0',
   `petnumber` int(100) NOT NULL DEFAULT '0',
   `spellid` int(100) NOT NULL DEFAULT '0',
@@ -804,9 +931,9 @@ CREATE TABLE `playerpetspells` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
--- Table structure for playerpettalents
+-- Table structure for pet_talents
 -- ----------------------------
-CREATE TABLE `playerpettalents` (
+CREATE TABLE `pet_talents` (
   `ownerguid` bigint(20) NOT NULL DEFAULT '0',
   `petnumber` int(4) NOT NULL DEFAULT '0',
   `talentid` int(11) NOT NULL DEFAULT '0',
@@ -816,191 +943,13 @@ CREATE TABLE `playerpettalents` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 -- ----------------------------
--- Table structure for playerphaseinfo
--- ----------------------------
-CREATE TABLE `playerphaseinfo` (
-  `guid` int(10) unsigned NOT NULL DEFAULT '0',
-  `areaid` int(10) unsigned NOT NULL DEFAULT '0',
-  `phase` int(11) NOT NULL DEFAULT '1',
-  UNIQUE KEY `Index` (`guid`,`areaid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Table structure for playerskills
--- ----------------------------
-CREATE TABLE `playerskills` (
-  `player_guid` int(11) NOT NULL DEFAULT '0',
-  `skill_id` int(11) NOT NULL DEFAULT '0',
-  `type` int(11) NOT NULL,
-  `currentlvl` int(11) NOT NULL DEFAULT '1',
-  `maxlvl` int(11) NOT NULL DEFAULT '1',
-  PRIMARY KEY (`player_guid`,`skill_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for playerskills_insert_queue
--- ----------------------------
-CREATE TABLE `playerskills_insert_queue` (
-  `player_guid` int(11) NOT NULL DEFAULT '0',
-  `skill_id` int(11) NOT NULL DEFAULT '0',
-  `type` int(11) NOT NULL,
-  `currentlvl` int(11) NOT NULL DEFAULT '1',
-  `maxlvl` int(11) NOT NULL DEFAULT '1',
-  PRIMARY KEY (`player_guid`,`skill_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for playerspells
--- ----------------------------
-CREATE TABLE `playerspells` (
-  `guid` int(10) unsigned NOT NULL,
-  `spellid` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`guid`,`spellid`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for playersummonspells
--- ----------------------------
-CREATE TABLE `playersummonspells` (
-  `ownerguid` bigint(20) NOT NULL DEFAULT '0',
-  `entryid` bigint(4) NOT NULL DEFAULT '0',
-  `spellid` int(4) NOT NULL DEFAULT '0',
-  KEY `a` (`ownerguid`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for playertalents
--- ----------------------------
-CREATE TABLE `playertalents` (
-  `guid` int(10) unsigned NOT NULL,
-  `spec` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `tid` smallint(5) unsigned NOT NULL,
-  `rank` tinyint(3) unsigned NOT NULL,
-  PRIMARY KEY (`guid`,`spec`,`tid`,`rank`),
-  UNIQUE KEY `Unique` (`guid`,`tid`,`spec`,`rank`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 CHECKSUM=1 DELAY_KEY_WRITE=1 ROW_FORMAT=DYNAMIC;
-
--- ----------------------------
--- Table structure for prestartqueries
--- ----------------------------
-CREATE TABLE `prestartqueries` (
-  `Query` text CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL,
-  `SingleShot` int(1) unsigned NOT NULL DEFAULT '1',
-  `Seq` int(11) NOT NULL AUTO_INCREMENT,
-  PRIMARY KEY (`Seq`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for questlog
--- ----------------------------
-CREATE TABLE `questlog` (
-  `player_guid` int(11) unsigned NOT NULL DEFAULT '0',
-  `quest_id` int(10) unsigned NOT NULL DEFAULT '0',
-  `slot` int(20) unsigned NOT NULL DEFAULT '0',
-  `time_left` int(10) NOT NULL DEFAULT '0',
-  `explored_area1` int(20) unsigned NOT NULL DEFAULT '0',
-  `explored_area2` int(20) NOT NULL DEFAULT '0',
-  `explored_area3` int(20) unsigned NOT NULL DEFAULT '0',
-  `explored_area4` int(20) unsigned NOT NULL DEFAULT '0',
-  `mob_kill1` int(20) NOT NULL DEFAULT '0',
-  `mob_kill2` int(20) NOT NULL DEFAULT '0',
-  `mob_kill3` int(20) NOT NULL DEFAULT '0',
-  `mob_kill4` int(20) NOT NULL DEFAULT '0',
-  `slain` int(20) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`player_guid`,`quest_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for questlog_insert_queue
--- ----------------------------
-CREATE TABLE `questlog_insert_queue` (
-  `player_guid` int(11) unsigned NOT NULL DEFAULT '0',
-  `quest_id` int(10) unsigned NOT NULL DEFAULT '0',
-  `slot` int(20) unsigned NOT NULL DEFAULT '0',
-  `time_left` int(10) NOT NULL DEFAULT '0',
-  `explored_area1` int(20) unsigned NOT NULL DEFAULT '0',
-  `explored_area2` int(20) NOT NULL DEFAULT '0',
-  `explored_area3` int(20) unsigned NOT NULL DEFAULT '0',
-  `explored_area4` int(20) unsigned NOT NULL DEFAULT '0',
-  `mob_kill1` int(20) NOT NULL DEFAULT '0',
-  `mob_kill2` int(20) NOT NULL DEFAULT '0',
-  `mob_kill3` int(20) NOT NULL DEFAULT '0',
-  `mob_kill4` int(20) unsigned NOT NULL DEFAULT '0',
-  `slain` int(20) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`player_guid`,`quest_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
 -- Table structure for server_settings
 -- ----------------------------
 CREATE TABLE `server_settings` (
   `setting_id` varchar(200) NOT NULL,
-  `setting_value` bigint(50) NOT NULL,
+  `setting_value` bigint(50) unsigned NOT NULL,
   PRIMARY KEY (`setting_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for social_friends
--- ----------------------------
-CREATE TABLE `social_friends` (
-  `character_guid` int(30) NOT NULL,
-  `friend_guid` int(30) NOT NULL,
-  `note` varchar(100) NOT NULL,
-  PRIMARY KEY (`character_guid`,`friend_guid`),
-  KEY `a` (`character_guid`),
-  KEY `b` (`friend_guid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Table structure for social_ignores
--- ----------------------------
-CREATE TABLE `social_ignores` (
-  `character_guid` int(30) NOT NULL,
-  `ignore_guid` int(30) NOT NULL,
-  PRIMARY KEY (`character_guid`,`ignore_guid`),
-  KEY `a` (`character_guid`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Table structure for tracker
--- ----------------------------
-CREATE TABLE `tracker` (
-  `Id` int(10) unsigned NOT NULL,
-  `AcctId` int(20) unsigned NOT NULL,
-  `Name` varchar(21) NOT NULL,
-  `IP_Address` varchar(15) NOT NULL,
-  PRIMARY KEY (`Id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Table structure for tutorials
--- ----------------------------
-CREATE TABLE `tutorials` (
-  `playerId` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut0` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut1` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut2` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut3` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut4` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut5` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut6` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `tut7` bigint(20) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`playerId`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
--- ----------------------------
--- Table structure for warnsystem
--- ----------------------------
-CREATE TABLE `warnsystem` (
-  `WarnID` int(20) unsigned NOT NULL,
-  `GMAcct` varchar(32) NOT NULL,
-  `WarnedChar` varchar(21) NOT NULL,
-  `WarnedAcct` varchar(32) NOT NULL,
-  `WarnedIP` varchar(15) NOT NULL,
-  `Reason` varchar(255) NOT NULL,
-  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`WarnID`)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 -- ----------------------------
 -- Table structure for worldstate_save_data
@@ -1010,7 +959,3 @@ CREATE TABLE `worldstate_save_data` (
   `setting_value` int(8) NOT NULL DEFAULT '0',
   PRIMARY KEY (`setting_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
-
--- ----------------------------
--- Records 
--- ----------------------------

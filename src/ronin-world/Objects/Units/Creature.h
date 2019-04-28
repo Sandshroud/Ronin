@@ -61,22 +61,6 @@ struct TrainerData
 };
 
 #pragma pack(PRAGMA_PACK)
-struct SeatInfo
-{
-    uint32 accessoryentry;
-    bool ejectfromvehicleondeath;
-    bool unselectableaccessory;
-};
-
-struct CreatureVehicleData
-{
-    uint32 vehicle_creature_entry; // Entry.
-    bool healthfromdriver; // Effects only driver.
-    uint32 healthunitfromitemlev;
-    uint32 VehicleSpells[6]; // Vehicle spells.
-    uint32 MovementFlags;
-    SeatInfo seats[8]; // Accessories.
-};
 
 struct CreatureInfoExtra
 {

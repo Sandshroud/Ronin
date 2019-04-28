@@ -32,22 +32,18 @@ s = std::string
 x = skip
 */
 const char * gAchievementRewardFormat                   = "uuuubuss";
-const char * gCreatureVehicleData                       = "ubuuuuuuuuubbubbubbubbubbubbubbubb";
 const char * gCreatureInfoExtra                         = "uuuhubbfbfuisbb";
 const char * gGameObjectNameFormat                      = "uuusssfuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuiu";
-const char * gItemPageFormat                            = "usu";
 const char * gNpcTextFormat                             = "ussssssssssssssssfuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuufuuuuuuu";
-const char * gTeleportCoordFormat                       = "uxuffff";
+const char * gPageTextFormat                            = "usu";
 const char * gWorldMapInfoFormat                        = "usXuuuufffiuuuuuuuu";
 
 /** SQLStorage symbols
  */
-SERVER_DECL SQLStorage<CreatureVehicleData, HashMapStorageContainer<CreatureVehicleData> >      CreatureVehicleDataStorage;
 SERVER_DECL SQLStorage<CreatureInfoExtra, HashMapStorageContainer<CreatureInfoExtra> >          CreatureInfoExtraStorage;
 SERVER_DECL SQLStorage<GameObjectInfo, HashMapStorageContainer<GameObjectInfo> >                GameObjectNameStorage;
-SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >                            ItemPageStorage;
 SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                        NpcTextStorage;
-SERVER_DECL SQLStorage<TeleportCoords, HashMapStorageContainer<TeleportCoords> >                TeleportCoordStorage;
+SERVER_DECL SQLStorage<PageText, HashMapStorageContainer<PageText> >                            PageTextStorage;
 
 SERVER_DECL std::set<std::string> ExtraMapCreatureTables;
 SERVER_DECL std::set<std::string> ExtraMapGameObjectTables;
@@ -186,19 +182,15 @@ void Storage_FillTaskList(TaskList & tl)
 {
     make_task(CreatureInfoExtraStorage, CreatureInfoExtra, HashMapStorageContainer, "creature_info", gCreatureInfoExtra);
     make_task(GameObjectNameStorage, GameObjectInfo, HashMapStorageContainer, "gameobject_names", gGameObjectNameFormat);
-    make_task(CreatureVehicleDataStorage, CreatureVehicleData, HashMapStorageContainer, "creature_proto_vehicle", gCreatureVehicleData);
-    make_task(ItemPageStorage, ItemPage, HashMapStorageContainer, "item_pages", gItemPageFormat);
-    make_task(TeleportCoordStorage, TeleportCoords, HashMapStorageContainer, "teleport_coords", gTeleportCoordFormat);
+    make_task(PageTextStorage, PageText, HashMapStorageContainer, "page_text", gPageTextFormat);
     make_task(NpcTextStorage, GossipText, HashMapStorageContainer, "npc_text", gNpcTextFormat);
 }
 
 void Storage_Cleanup()
 {
     GameObjectNameStorage.Cleanup();
-    CreatureVehicleDataStorage.Cleanup();
     CreatureInfoExtraStorage.Cleanup();
-    ItemPageStorage.Cleanup();
-    TeleportCoordStorage.Cleanup();
+    PageTextStorage.Cleanup();
     NpcTextStorage.Cleanup();
 }
 
@@ -212,18 +204,14 @@ bool LoadAdditionalTable(const char * TableName, const char * SecondName)
 bool Storage_ReloadTable(const char * TableName)
 {
     // bur: mah god this is ugly :P
-    if(!stricmp(TableName, "creature_proto_vehicle"))  // Creature Vehicle Proto
-        CreatureVehicleDataStorage.Reload(&WorldDatabase);
-    else if(!stricmp(TableName, "gameobject_names"))    // GO Names
+    if(!stricmp(TableName, "gameobject_names"))    // GO Names
         GameObjectNameStorage.Reload(&WorldDatabase);
-    else if(!stricmp(TableName, "item_pages"))           // Item Pages
-        ItemPageStorage.Reload(&WorldDatabase);
-    else if(!stricmp(TableName, "quests"))              // Quests
-        sQuestMgr.LoadQuests();
     else if(!stricmp(TableName, "npc_text"))            // NPC Text Storage
         NpcTextStorage.Reload(&WorldDatabase);
-    else if(!stricmp(TableName, "teleport_coords"))     // Teleport coords
-        TeleportCoordStorage.Reload(&WorldDatabase);
+    else if(!stricmp(TableName, "page_text"))           // Text Pages
+        PageTextStorage.Reload(&WorldDatabase);
+    else if(!stricmp(TableName, "quests"))              // Quests
+        sQuestMgr.LoadQuests();
     else if(!stricmp(TableName, "vendors"))
         objmgr.ReloadVendors();
     else if(!stricmp(TableName, "command_overrides"))   // Command Overrides

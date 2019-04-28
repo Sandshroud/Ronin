@@ -555,7 +555,7 @@ void ObjectMgr::SetHighestGuids()
         delete result;
     }
 
-    if(result = CharacterDatabase.Query("SELECT MAX(setguid) FROM equipmentsets"))
+    if(result = CharacterDatabase.Query("SELECT MAX(setguid) FROM character_equipmentsets"))
     {
         m_equipmentSetGuid = result->Fetch()[0].GetUInt64();
         delete result;
@@ -800,7 +800,7 @@ void ObjectMgr::LoadTrainers()
 {
     mTrainerData.clear();
     std::set<uint32> handledEntries;
-    if(QueryResult *result = WorldDatabase.Query("SELECT entry, category, subcategory, trainerstep, reqskill, reqkillvalue FROM creature_trainerdata "))
+    if(QueryResult *result = WorldDatabase.Query("SELECT entry, category, subcategory, trainerstep, reqskill, reqskillvalue FROM creature_trainerdata "))
     {
         do
         {

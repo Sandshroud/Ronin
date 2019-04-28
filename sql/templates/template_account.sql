@@ -1,6 +1,16 @@
+/*
+MySQL Data Transfer
+Source Host: 10.0.0.0
+Source Database: dummy_accounts
+Target Host: 10.0.0.0
+Target Database: dummy_accounts
+Date: 4/27/2019 11:06:44 PM
+*/
 
 SET FOREIGN_KEY_CHECKS=0;
-
+-- ----------------------------
+-- Table structure for accounts
+-- ----------------------------
 CREATE TABLE `accounts` (
   `acct` int(5) NOT NULL AUTO_INCREMENT,
   `login` varchar(32) NOT NULL DEFAULT '',
@@ -18,6 +28,9 @@ CREATE TABLE `accounts` (
   UNIQUE KEY `login` (`login`)
 ) ENGINE=MyISAM AUTO_INCREMENT=130 DEFAULT CHARSET=utf8;
 
+-- ----------------------------
+-- Table structure for ipbans
+-- ----------------------------
 CREATE TABLE `ipbans` (
   `ip` varchar(128) NOT NULL,
   `time` int(30) NOT NULL DEFAULT '0',
@@ -25,6 +38,9 @@ CREATE TABLE `ipbans` (
   PRIMARY KEY (`ip`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
 
+-- ----------------------------
+-- Table structure for static_realms
+-- ----------------------------
 CREATE TABLE `static_realms` (
   `name` varchar(32) NOT NULL,
   `adress` varchar(32) NOT NULL DEFAULT 'localhost',

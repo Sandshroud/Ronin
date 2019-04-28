@@ -22,11 +22,9 @@
 #pragma once
 
 extern SERVER_DECL SQLStorage<GameObjectInfo, HashMapStorageContainer<GameObjectInfo> >             GameObjectNameStorage;
-extern SERVER_DECL SQLStorage<CreatureVehicleData, HashMapStorageContainer<CreatureVehicleData> >   CreatureVehicleDataStorage;
 extern SERVER_DECL SQLStorage<CreatureInfoExtra, HashMapStorageContainer<CreatureInfoExtra> >       CreatureInfoExtraStorage;
-extern SERVER_DECL SQLStorage<ItemPage, HashMapStorageContainer<ItemPage> >                         ItemPageStorage;
 extern SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                     NpcTextStorage;
-extern SERVER_DECL SQLStorage<TeleportCoords, HashMapStorageContainer<TeleportCoords> >             TeleportCoordStorage;
+extern SERVER_DECL SQLStorage<PageText, HashMapStorageContainer<PageText> >                         PageTextStorage;
 
 void Storage_FillTaskList(TaskList & tl);
 void Storage_Cleanup();

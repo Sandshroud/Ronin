@@ -192,7 +192,7 @@ void WorldSession::HandlePageTextQueryOpcode( WorldPacket & recv_data )
     WorldPacket data;
     while(pageid)
     {
-        ItemPage *page = ItemPageStorage.LookupEntry(pageid);
+        PageText *page = PageTextStorage.LookupEntry(pageid);
 
         data.Initialize(SMSG_PAGE_TEXT_QUERY_RESPONSE, 255);
         data << pageid;
