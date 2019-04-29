@@ -504,7 +504,7 @@ struct ItemArmorShield
 {
     uint32 Id;              // 0 item level
     uint32 Id2;             // 1 item level
-    uint32 mod_Resist[7];   // 2-8 multiplier for item quality
+    float mod_Resist[7];   // 2-8 multiplier for item quality
 };
 
 struct ItemArmorTotal

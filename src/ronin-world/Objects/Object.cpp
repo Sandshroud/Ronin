@@ -1703,7 +1703,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
                     bool can_give_xp = true;
                     if(pVictim->IsCreature() && castPtr<Creature>(pVictim)->GetExtraInfo())
                         can_give_xp = (castPtr<Creature>(pVictim)->GetExtraInfo()->no_xp ? false : true);
-                    if(can_give_xp)
+                    if(can_give_xp && !isCritter)
                     {
                         // Is this player part of a group
                         if( plr->InGroup() && plr->GiveGroupXP( pVictim, plr ) )

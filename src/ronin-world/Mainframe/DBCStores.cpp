@@ -135,7 +135,7 @@ DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemArmorQuality, dbcArmorQuality);
 static const char *armorqualityFormat = "ufffffffu";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemArmorShield, dbcArmorShield);
-static const char *armorshieldFormat = "uuuuuuuuu";
+static const char *armorshieldFormat = "uufffffff";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ItemArmorTotal, dbcArmorTotal);
 static const char *armortotalFormat = "uuffff";
