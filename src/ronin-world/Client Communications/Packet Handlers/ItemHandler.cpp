@@ -1196,20 +1196,24 @@ void WorldSession::HandleRepairItemOpcode(WorldPacket &recvPacket)
 
 void WorldSession::HandleBuyBankSlotOpcode(WorldPacket& recvPacket)
 {
-    sLog.Debug("WorldSession","Received CMSG_BUY_bytes_SLOT");
+    sLog.Debug("WorldSession","Received CMSG_BUY_BANK_SLOT");
     CHECK_INWORLD_RETURN();
 
-    uint8 currentSlot = _player->GetByte(PLAYER_BYTES_2, 3);
+    uint32 result = 3;
+    uint8 currentSlot = _player->GetByte(PLAYER_BYTES_2, 2);
     BankSlotPriceEntry* bsp = dbcBankSlotPrices.LookupEntry(currentSlot+1);
     if(bsp == NULL)
-        return;
-
-    sLog.Debug("WorldSession","HandleBuyBankSlotOpcode: slot number = %d", currentSlot);
-    if (_player->GetUInt32Value(PLAYER_FIELD_COINAGE) >= bsp->Price)
+        result = 0;
+    else
     {
-        _player->SetByte(PLAYER_BYTES_2, 3, currentSlot+1);
-        _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -((int32)bsp->Price));
+        sLog.Debug("WorldSession","HandleBuyBankSlotOpcode: slot number = %d", currentSlot);
+        if (_player->GetUInt32Value(PLAYER_FIELD_COINAGE) >= bsp->Price)
+        {
+            _player->SetByte(PLAYER_BYTES_2, 2, currentSlot+1);
+            _player->ModUnsigned32Value(PLAYER_FIELD_COINAGE, -((int32)bsp->Price));
+        } else result = 1;
     }
+    _player->PushData(SMSG_BUY_BANK_SLOT_RESULT, 4, &result);
 }
 
 void WorldSession::HandleAutoBankItemOpcode(WorldPacket &recvPacket)
