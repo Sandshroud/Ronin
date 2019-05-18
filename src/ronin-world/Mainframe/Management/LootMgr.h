@@ -22,6 +22,7 @@
 #pragma once
 
 #define LOOT_CREATURE       "loot_creature"
+#define LOOT_ZONE           "loot_zone"
 #define LOOT_FISHING        "loot_fishing"
 #define LOOT_GAMEOBJECT     "loot_gameobject"
 #define LOOT_GATHERING      "loot_gathering"
@@ -137,6 +138,7 @@ public:
 
     void AddLoot(ObjectLoot * loot, uint32 itemid, uint32 mincount, uint32 maxcount, uint32 ffa_loot);
     void FillCreatureLoot(ObjectLoot * loot,uint32 loot_id, uint8 difficulty, uint8 team);
+    void FillZoneLoot(ObjectLoot * loot, MapInstance *instance, uint32 zoneId, uint8 rankModifier, uint8 difficulty, uint8 team);
     void FillGOLoot(ObjectLoot * loot,uint32 loot_id, uint8 difficulty, uint8 team);
     void FillItemLoot(ObjectLoot *loot, uint32 loot_id, uint8 team);
     void FillFishingLoot(ObjectLoot * loot,uint32 loot_id);
@@ -153,13 +155,15 @@ public:
     void LoadLootProp();
 
     LootStore CreatureLoot;
+    LootStore ZoneLoot;
+
     LootStore FishingLoot;
     LootStore GatheringLoot;
     LootStore GOLoot;
     LootStore ItemLoot;
     LootStore PickpocketingLoot;
 
-    void GenerateRandomProperties(__LootItem *item);
+    void GenerateRandomProperties(__LootItem *item, float luck = 1.f);
 
     bool is_loading;
 

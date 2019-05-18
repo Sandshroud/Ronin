@@ -446,29 +446,27 @@ void Creature::GenerateLoot()
     Player *taggedPlayer = GetInRangeObject<Player>(m_taggedPlayer);
     if(taggedPlayer == NULL)
         return;
+    CreatureData *info = GetCreatureData();
+    if(info == NULL)
+        return;
 
-    // Fill loot
+    // Fill loot from target
     lootmgr.FillCreatureLoot(GetLoot(), GetEntry(), m_mapInstance->iInstanceMode, taggedPlayer->GetTeam());
+    // Fill loot from world
+    lootmgr.FillZoneLoot(GetLoot(), m_mapInstance, GetZoneId(), info->rank, m_mapInstance->iInstanceMode, taggedPlayer->GetTeam());
 
     // -1 , no gold; 0 calculated according level; >0 coppercoins
-    if( _creatureData->money == -1)
+    if( _creatureData->money == -1 || info->type == UT_BEAST)
         GetLoot()->gold = 0;
-    else
+    else if(_creatureData->money == 0)
     {
-        if(_creatureData->money == 0)
-        {
-            CreatureData *info = GetCreatureData();
-            if (info && info->type != UT_BEAST)
-            {
-                if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
-                    GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
-                else GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
-            } else GetLoot()->gold = 0; // Beasts don't drop money
-        } else GetLoot()->gold = uint32(_creatureData->money);
+        if(GetUInt32Value(UNIT_FIELD_MAXHEALTH) <= 1667)
+            GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)); //generate copper
+        else GetLoot()->gold = uint32((info->rank+1)*getLevel()*((rand()%5) + 1)*(GetUInt32Value(UNIT_FIELD_MAXHEALTH)*0.0006)); //generate copper
+    } else GetLoot()->gold = uint32(_creatureData->money);
 
-        if(GetLoot()->gold)
-            GetLoot()->gold = float2int32(floor(float(GetLoot()->gold) * sWorld.getRate(RATE_MONEY)));
-    }
+    if(GetLoot()->gold)
+        GetLoot()->gold = float2int32(floor(float(GetLoot()->gold) * sWorld.getRate(RATE_MONEY)));
 
     SetFlag(UNIT_DYNAMIC_FLAGS, U_DYN_FLAG_LOOTABLE);
     UpdateLootAnimation();

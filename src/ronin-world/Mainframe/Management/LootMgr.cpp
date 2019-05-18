@@ -29,6 +29,35 @@ struct loot_tb
     float chance;
 };
 
+// Chance is required to be a float of lower than 1.0
+bool RollForLoot(float chance, float &luck)
+{
+    luck = 0;
+    if( chance >= 1.f )
+        return true;
+    int32 random = rand(), chanceMod = float2int32(100.f/chance), rolledValue = random%chanceMod;
+    if(rolledValue <= 100)
+    {   // Our luck is how much we've overshot our chance of getting the item
+        luck = ((float)100-rolledValue);
+        return true;
+    }
+    return false;
+}
+
+uint32 RollForCount(uint32 minCount, uint32 maxCount, float luck)
+{   // Grab the total count of resultable values(max-min+1) and multiply by 100
+    uint32 countDiff = ((maxCount-minCount)+1)*100;
+    // Grab a random value based on our total available values
+    uint32 randomResult = RandomUInt(countDiff);
+    // Add luck from loot roll to give better chance for top end result
+    randomResult += float2int32(luck);
+    // Divide total result by 100, automatically rounds down
+    randomResult /= 100;
+    // Subtract 1 from total value since mincount is a viable result
+    randomResult -= 1;
+    return minCount + randomResult;
+}
+
 bool Rand(float chance)
 {
     float val = RandomFloat(10000.0f);
@@ -114,6 +143,7 @@ void LootMgr::LoadDelayedLoot()
 {
     is_loading = true;
     LoadLootTables(LOOT_CREATURE, &CreatureLoot, true);
+    LoadLootTables(LOOT_ZONE, &ZoneLoot, true);
     LoadLootTables(LOOT_GAMEOBJECT, &GOLoot, true);
     LoadLootTables(LOOT_GATHERING, &GatheringLoot, true);
     LoadLootTables(LOOT_ITEMS, &ItemLoot, false);
@@ -121,19 +151,19 @@ void LootMgr::LoadDelayedLoot()
     is_loading = false;
 }
 
-void LootMgr::GenerateRandomProperties(__LootItem *item)
+void LootMgr::GenerateRandomProperties(__LootItem *item, float luck)
 {
     item->randProp = item->randSeed = 0;
+    if(item->proto->ContainerSlots || item->proto->Quality < ITEM_QUALITY_UNCOMMON_GREEN)
+        return;
     if(item->proto->RandomPropId == 0 && item->proto->RandomSuffixId == 0)
         return;
+
     if(item->proto->RandomPropId)
     {
 
     }
-    else
-    {
 
-    }
 }
 
 void LootMgr::LoadLootProp()
@@ -216,6 +246,7 @@ LootMgr::~LootMgr()
 {
     sLog.Notice("LootMgr","Deleting Loot Tables...");
     LOOT_CLEANUP_MACRO(CreatureLoot);
+    LOOT_CLEANUP_MACRO(ZoneLoot);
     LOOT_CLEANUP_MACRO(FishingLoot);
     LOOT_CLEANUP_MACRO(GatheringLoot);
     LOOT_CLEANUP_MACRO(GOLoot);
@@ -325,40 +356,46 @@ void LootMgr::LoadLootTables(const char * szTableName, LootStore * LootTable, bo
 
 void LootMgr::PushLoot(StoreLootList *list, ObjectLoot *loot, uint8 difficulty, uint8 team, bool disenchant)
 {
-    uint32 i;
-    uint32 count;
-    float nrand = 0;
-    float ncount = 0;
     assert(difficulty < 4);
-
-    if (disenchant)
-    {
-        nrand = RandomUInt(10000) / 100.0f;
-        ncount = 0;
-    }
-
+    std::map<uint32, float> unlucky;
     for(auto itr = list->begin(); itr != list->end(); itr++)
     {
         StoreLootItem *storeLoot = (*itr);
         if(storeLoot->proto == NULL)
             continue;
 
+        bool questItem = storeLoot->proto->Class == ITEM_CLASS_QUEST;
+        uint32 quality = storeLoot->proto->Quality;
         float chance = storeLoot->chance[difficulty];
         if(chance == 0.0f)
             continue;
 
-        int lucky;
-        if (disenchant)
+        chance *= sWorld.getRate(RATE_DROP0 + quality);
+        if(questItem == false)
         {
-            lucky = nrand >= ncount && nrand <= (ncount+chance);
-            ncount+= chance;
-        } else lucky = Rand( chance * sWorld.getRate( RATE_DROP0 + storeLoot->proto->Quality ) );
+            if(chance <= unlucky[quality])
+            {   // Equalize our lack of luck from being too lucky, skip this item
+                unlucky[quality] -= chance;
+                continue;
+            }
 
-        if( lucky )
+            float oldChance = chance;
+            chance -= unlucky[quality];
+            unlucky[quality] -= oldChance;
+        }
+
+        chance /= 100.f;
+
+        float luck;
+        if(RollForLoot(chance, luck))
         {
+            // 
+            if(questItem == false)
+                unlucky[quality] += luck/10.f;
+
+            uint32 count = storeLoot->maxCount;
             if( storeLoot->minCount < storeLoot->maxCount )
-                count = RandomUInt(storeLoot->maxCount - storeLoot->minCount) + storeLoot->minCount;
-            else count = storeLoot->maxCount;
+                count = RollForCount(storeLoot->minCount, storeLoot->maxCount, luck);
 
             __LootItem itm;
             itm.roll = NULL;
@@ -366,7 +403,7 @@ void LootMgr::PushLoot(StoreLootList *list, ObjectLoot *loot, uint8 difficulty, 
             itm.StackSize = count;
             itm.all_passed = false;
             itm.has_looted.clear();
-            GenerateRandomProperties(&itm);
+            GenerateRandomProperties(&itm, luck);
 
             loot->items.push_back(itm);
             if(loot->items.size() == 16)
@@ -376,8 +413,7 @@ void LootMgr::PushLoot(StoreLootList *list, ObjectLoot *loot, uint8 difficulty, 
 
     if( loot->items.size() > 16 )
     {
-        std::vector<__LootItem>::iterator item_to_remove;
-        std::vector<__LootItem>::iterator itr;
+        std::vector<__LootItem>::iterator itr, item_to_remove;
         int32 item_quality;
         bool quest_item;
         while( loot->items.size() > 16 )
@@ -409,6 +445,14 @@ void LootMgr::FillCreatureLoot(ObjectLoot * loot,uint32 loot_id, uint8 difficult
     if( CreatureLoot.end() == tab)
         return;
     PushLoot(&tab->second, loot, difficulty, team, false);
+}
+
+void LootMgr::FillZoneLoot(ObjectLoot * loot, MapInstance *instance, uint32 zoneId, uint8 rankModifier, uint8 difficulty, uint8 team)
+{
+    LootStore::iterator tab = ZoneLoot.find(zoneId);
+    if( ZoneLoot.end() == tab)
+        return;
+    PushLoot(&tab->second, loot, instance->IsInstance() ? difficulty : rankModifier, team, false);
 }
 
 void LootMgr::FillGOLoot(ObjectLoot * loot,uint32 loot_id, uint8 difficulty, uint8 team)
