@@ -331,6 +331,7 @@ bool Player::Initialize()
     // Initialize values based off of creation data
     // Faction template
     SetFaction( m_createInfo->factiontemplate );
+    ASSERT(m_factionTemplate);
 
     // Set our display id
     SetUInt32Value(UNIT_FIELD_DISPLAYID, m_createInfo->displayId[getGender()]);
@@ -338,7 +339,7 @@ bool Player::Initialize()
     // Values based off creation data initialized
 
     // Initialize values based off of player information
-    SetTeam(m_playerInfo->charTeam);
+    SetTeam(m_playerInfo->charTeam = m_factionTemplate->FactionTeam);
 
     // Set our position
     m_mapId         = m_playerInfo->lastMapID;
@@ -1305,6 +1306,9 @@ void Player::SaveToDB(bool bNewCharacter /* =false */)
         in_arena = true;*/
 
     m_playerInfo->dataLock.Acquire();
+    m_playerInfo->charAppearance = GetUInt32Value(PLAYER_BYTES);
+    m_playerInfo->charAppearance2 = GetUInt32Value(PLAYER_BYTES_2);
+    m_playerInfo->charAppearance3 = GetUInt32Value(PLAYER_BYTES_3);
     m_playerInfo->lastDeathState = getDeathState();
     m_playerInfo->lastLevel = getLevel();
     m_playerInfo->lastMapID = m_mapId;
