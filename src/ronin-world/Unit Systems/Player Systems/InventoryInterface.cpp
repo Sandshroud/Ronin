@@ -221,7 +221,8 @@ AddItemResult PlayerInventory::m_AddItem( Item* item, int16 ContainerSlot, int16
     if(ContainerSlot == INVENTORY_SLOT_NOT_SET)
     {
         //ASSERT(m_pItems[slot] == NULL);
-        if(GetInventoryItem(slot) != NULL || (item->GetProto()->InventoryType != INVTYPE_HOLDABLE && slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->HasSkillLine(SKILL_DUAL_WIELD)))
+        if(GetInventoryItem(slot) != NULL || ((item->GetProto()->InventoryType == INVTYPE_WEAPON || item->GetProto()->InventoryType == INVTYPE_WEAPONOFFHAND)
+           && slot == EQUIPMENT_SLOT_OFFHAND && !m_pOwner->HasSkillLine(SKILL_DUAL_WIELD)))
         {
             result = FindFreeInventorySlot(item->GetProto());
 
@@ -1784,8 +1785,7 @@ int16 PlayerInventory::CanEquipItemInSlot(int16 SrcSlot, int16 DstInvSlot, int16
             if(!GetInventoryItem(INVENTORY_SLOT_NOT_SET, slot))
             {
                 //check if player got that slot.
-                bytes = m_pOwner->GetUInt32Value(PLAYER_BYTES_2);
-                slots =(uint8) (bytes >> 16);
+                slots = m_pOwner->GetByte(PLAYER_BYTES_2, 2);
                 islot = GetInternalBankSlotFromPlayer(slot);
                 if(slots < islot)
                     return INV_ERR_NO_BANK_SLOT;
