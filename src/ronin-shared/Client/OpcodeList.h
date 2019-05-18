@@ -99,6 +99,7 @@ enum Opcodes
     CMSG_BUSY_TRADE,                                            // 4.3.4:0x331C
     CMSG_BUYBACK_ITEM,                                          // 4.3.4:0x6C17
     CMSG_BUY_BANK_SLOT,                                         // 4.3.4:0x0425
+    SMSG_BUY_BANK_SLOT_RESULT,                                  // 4.3.4:0x4806
     CMSG_BUY_ITEM,                                              // 4.3.4:0x0736
     CMSG_CALENDAR_ADD_EVENT,                                    // 4.3.4:0x0726
     CMSG_CALENDAR_ARENA_TEAM,                                   // 4.3.4:0x0204
