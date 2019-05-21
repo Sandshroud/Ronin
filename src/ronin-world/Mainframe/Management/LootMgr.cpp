@@ -35,7 +35,7 @@ bool RollForLoot(float chance, float &luck)
     luck = 0;
     if( chance >= 1.f )
         return true;
-    int32 random = rand(), chanceMod = float2int32(100.f/chance), rolledValue = random%chanceMod;
+    uint32 random = RandomUInt(), chanceMod = float2int32(100.f/chance), rolledValue = random%chanceMod;
     if(rolledValue <= 100)
     {   // Our luck is how much we've overshot our chance of getting the item
         luck = ((float)100-rolledValue);
@@ -44,7 +44,28 @@ bool RollForLoot(float chance, float &luck)
     return false;
 }
 
-uint32 RollForCount(uint32 minCount, uint32 maxCount, float luck)
+uint32 RollForCount(uint32 minCount, uint32 maxCount, int32 countModifier, float luck)
+{
+    uint32 scaledChance = 0;
+    std::map<uint32, uint32> rollValues;
+    for(uint32 c = maxCount, i = 1; c >= minCount; --c, ++i)
+    {
+        scaledChance += i*countModifier*10;
+        scaledChance += float2int32((luck * ((float)countModifier / ((float)(i+1))))/5.f);
+        rollValues.insert(std::make_pair(scaledChance, c));
+    }
+
+    uint32 roll = RandomUInt(scaledChance);
+    std::map<uint32, uint32>::iterator itr = rollValues.begin();
+    while(roll > itr->first && itr != rollValues.end())
+        ++itr;
+
+    if(itr != rollValues.end())
+        return itr->second;
+    return minCount;
+}
+
+uint32 RollForCountEqualized(uint32 minCount, uint32 maxCount, float luck)
 {   // Grab the total count of resultable values(max-min+1) and multiply by 100
     uint32 countDiff = ((maxCount-minCount)+1)*100;
     // Grab a random value based on our total available values
@@ -54,8 +75,7 @@ uint32 RollForCount(uint32 minCount, uint32 maxCount, float luck)
     // Divide total result by 100, automatically rounds down
     randomResult /= 100;
     // Subtract 1 from total value since mincount is a viable result
-    randomResult -= 1;
-    return minCount + randomResult;
+    return std::min<uint32>(maxCount, (minCount + randomResult) - 1);
 }
 
 bool Rand(float chance)
@@ -395,7 +415,7 @@ void LootMgr::PushLoot(StoreLootList *list, ObjectLoot *loot, uint8 difficulty, 
 
             uint32 count = storeLoot->maxCount;
             if( storeLoot->minCount < storeLoot->maxCount )
-                count = RollForCount(storeLoot->minCount, storeLoot->maxCount, luck);
+                count = RollForCount(storeLoot->minCount, storeLoot->maxCount, 15, luck);
 
             __LootItem itm;
             itm.roll = NULL;
