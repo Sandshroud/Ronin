@@ -39,7 +39,7 @@ class LootRoll
 public:
     LootRoll();
     ~LootRoll();
-    void Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randomsuffixid, uint32 randompropertyid, MapInstance* instance);
+    void Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randEnchant, bool isProperty, MapInstance* instance);
     void PlayerRolled(PlayerInfo* pInfo, uint8 choice);
     void Finalize();
 
@@ -52,15 +52,20 @@ private:
     uint32 _groupcount;
     uint32 _slotid;
     uint32 _itemid;
-    uint32 _randomProp;
-    uint32 _randomSeed;
+    uint32 _randomEnchant;
+    bool _isEnchantProperty;
     uint32 _remaining;
     uint64 _guid;
     MapInstance* _instance;
 };
 
-typedef std::vector<std::pair<ItemRandomPropertiesEntry*, float> > RandomPropertyVector;
-typedef std::vector<std::pair<ItemRandomSuffixEntry*, float> > RandomSuffixVector;
+struct RandomItemEnchantment
+{
+    int32 Id;
+    std::vector< std::pair<uint32, uint32> > enchantmentChances;
+};
+
+typedef std::map<int32, RandomItemEnchantment*> RandomItemEnchantmentMap;
 
 typedef std::set<WoWGuid> LooterSet;
 
@@ -69,7 +74,8 @@ struct __LootItem
     LootRoll *roll;
     ItemPrototype *proto;
     uint32 StackSize;
-    uint32 randSeed, randProp;
+    uint32 randEnchant;
+    bool isEnchantProperty;
 
     bool all_passed;
     LooterSet has_looted;
@@ -178,8 +184,7 @@ private:
 
     std::map<uint32, std::vector<uint32>> _creaturequestloot;
     std::map<uint32, std::vector<uint32>> _gameobjectquestloot;
-    std::map<uint32, RandomPropertyVector> _randomprops;
-    std::map<uint32, RandomSuffixVector> _randomsuffix;
+    RandomItemEnchantmentMap _randomItemEnchants;
 };
 
 #define lootmgr LootMgr::getSingleton()

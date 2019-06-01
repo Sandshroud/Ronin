@@ -4183,8 +4183,7 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
         data << uint32(itemProto->ItemId);
         data << uint32(iter->StackSize);//nr of items of this type
         data << uint32(itemProto->DisplayInfoID);
-        data << uint32(iter->randProp);
-        data << uint32(iter->randSeed);
+        data << uint32(iter->isEnchantProperty ? 0 : iter->randEnchant) << uint32(iter->isEnchantProperty ? iter->randEnchant : 0);
         data << slottype;   // "still being rolled for" flag
         if(slottype == 1)
         {
@@ -4192,15 +4191,14 @@ void Player::SendLoot(WoWGuid guid, uint32 mapid, uint8 loot_type)
             if(iter->roll == NULL && !iter->all_passed)
             {
                 iter->roll = new LootRoll();
-                iter->roll->Init(60000, (m_Group != NULL ? m_Group->MemberCount() : 1),  guid, x, itemProto->ItemId, iter->randProp, iter->randSeed, GetMapInstance());
+                iter->roll->Init(60000, (m_Group != NULL ? m_Group->MemberCount() : 1),  guid, x, itemProto->ItemId, iter->randEnchant, iter->isEnchantProperty, GetMapInstance());
 
                 data2.Initialize(SMSG_LOOT_START_ROLL);
                 data2 << uint64(guid);
                 data2 << uint32(mapid);
                 data2 << uint32(x);
                 data2 << uint32(itemProto->ItemId);
-                data2 << uint32(iter->randProp);
-                data2 << uint32(iter->randSeed);
+                data2 << uint32(iter->isEnchantProperty ? 0 : iter->randEnchant) << uint32(iter->isEnchantProperty ? iter->randEnchant : 0);
                 data2 << uint32(iter->StackSize);
                 data2 << uint32(60000); // countdown
 

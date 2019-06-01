@@ -58,7 +58,7 @@ void WorldSession::HandleAutostoreLootItemOpcode( WorldPacket & recv_data )
         {
             if(item->has_looted.empty()) // FFA check
             {
-                if(uint32 countLeft = _player->GetInventory()->AddItemById(item->proto->ItemId, item->StackSize, item->randProp, ADDITEM_FLAG_LOOTED))
+                if(uint32 countLeft = _player->GetInventory()->AddItemById(item->proto->ItemId, item->StackSize, item->randEnchant, ADDITEM_FLAG_LOOTED))
                 {
                     if(countLeft == item->StackSize)
                     {

@@ -173,83 +173,71 @@ void LootMgr::LoadDelayedLoot()
 
 void LootMgr::GenerateRandomProperties(__LootItem *item, float luck)
 {
-    item->randProp = item->randSeed = 0;
+    item->randEnchant = 0;
+    item->isEnchantProperty = false;
     if(item->proto->ContainerSlots || item->proto->Quality < ITEM_QUALITY_UNCOMMON_GREEN)
         return;
-    if(item->proto->RandomPropId == 0 && item->proto->RandomSuffixId == 0)
+    int32 enchantId = 0;
+    if((enchantId = item->proto->RandomPropId) == 0)
+        enchantId = item->proto->RandomSuffixId;
+    if(enchantId == 0)
+        return;
+    RandomItemEnchantmentMap::iterator itr;
+    if((itr = _randomItemEnchants.find(enchantId)) == _randomItemEnchants.end())
         return;
 
-    if(item->proto->RandomPropId)
+    uint32 scaledChance = 0;
+    std::map<uint32, uint32> rollValues;
+    for(uint32 i = 0; i < itr->second->enchantmentChances.size(); i++)
     {
-
+        scaledChance += itr->second->enchantmentChances[i].second;
+        rollValues.insert(std::make_pair(scaledChance, itr->second->enchantmentChances[i].first));
     }
 
+    uint32 roll = RandomUInt(scaledChance);
+    std::map<uint32, uint32>::iterator cItr = rollValues.begin();
+    while(roll > cItr->first && cItr != rollValues.end())
+        ++cItr;
+
+    if(cItr == rollValues.end())
+        return;
+
+    item->randEnchant = cItr->second;
+    item->isEnchantProperty = enchantId == item->proto->RandomPropId;
 }
 
 void LootMgr::LoadLootProp()
 {
-    QueryResult * result = WorldDatabase.Query("SELECT * FROM item_randomprop_groups");
-    uint32 id, eid;
-    ItemRandomPropertiesEntry * rp;
-    ItemRandomSuffixEntry * rs;
-    float ch;
-
-    if(result)
+    QueryResult * result = WorldDatabase.Query("SELECT * FROM item_randomenchants");
+    if(result == NULL)
     {
-        std::map<uint32, RandomPropertyVector>::iterator itr;
-        do
-        {
-            id = result->Fetch()[0].GetUInt32();
-            eid = result->Fetch()[1].GetUInt32();
-            ch = result->Fetch()[2].GetFloat();
-
-            rp = dbcItemRandomProperties.LookupEntry(eid);
-            if(rp == NULL)
-            {
-                sLog.Error("LoadLootProp", "RandomProp group %u references non-existant randomprop %u.", id, eid);
-                continue;
-            }
-
-            itr = _randomprops.find(id);
-            if(itr == _randomprops.end())
-            {
-                RandomPropertyVector v;
-                v.push_back(std::make_pair(rp, ch));
-                _randomprops.insert(std::make_pair(id, v));
-            } else itr->second.push_back(std::make_pair(rp,ch));
-
-        } while(result->NextRow());
-        delete result;
+        sLog.Error("LootMgr", "No item random enchantments loaded! RandomProp/RandomSuffix will not work for newly looted items!");
+        return;
     }
 
-    result = WorldDatabase.Query("SELECT * FROM item_randomsuffix_groups");
-    if(result)
+    do
     {
-        std::map<uint32, RandomSuffixVector>::iterator itr;
-        do
+        // Negative is suffix, positive is property
+        int32 randomId = result->Fetch()[0].GetInt32();
+        // Resulting enchantment
+        uint32 enchantId = result->Fetch()[1].GetUInt32();
+        // Chance we will get this enchantment, value is stored as 0.xx*100, we take this and times it by 100 more for uint32 skew
+        uint32 chance = float2int32(result->Fetch()[2].GetFloat()*100.f);
+        // Store our item enchantment
+        RandomItemEnchantment *itemEnchant;
+        RandomItemEnchantmentMap::iterator itr;
+        if((itr = _randomItemEnchants.find(randomId)) != _randomItemEnchants.end())
+            itemEnchant = itr->second;
+        else
         {
-            id = result->Fetch()[0].GetUInt32();
-            eid = result->Fetch()[1].GetUInt32();
-            ch = result->Fetch()[2].GetFloat();
+            itemEnchant = new RandomItemEnchantment();
+            itemEnchant->Id = randomId;
+            _randomItemEnchants.insert(std::make_pair(randomId, itemEnchant));
+        }
 
-            rs = dbcItemRandomSuffix.LookupEntry(eid);
-            if(rs == NULL)
-            {
-                sLog.Error("LoadLootProp", "RandomSuffix group %u references non-existant randomsuffix %u.", id, eid);
-                continue;
-            }
-
-            itr = _randomsuffix.find(id);
-            if(itr == _randomsuffix.end())
-            {
-                RandomSuffixVector v;
-                v.push_back(std::make_pair(rs, ch));
-                _randomsuffix.insert(std::make_pair(id, v));
-            } else itr->second.push_back(std::make_pair(rs,ch));
-
-        } while(result->NextRow());
-        delete result;
-    }
+        itemEnchant->enchantmentChances.push_back(std::make_pair(enchantId, chance));
+    } while(result->NextRow());
+    delete result;
 }
 
 #define LOOT_CLEANUP_MACRO(lootstore) for(LootStore::iterator iter=lootstore.begin(); iter != lootstore.end(); iter++)\
@@ -617,15 +605,15 @@ LootRoll::LootRoll()
 {
 }
 
-void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randProp, uint32 randSeed, MapInstance* instance)
+void LootRoll::Init(uint32 timer, uint32 groupcount, uint64 guid, uint32 slotid, uint32 itemid, uint32 randEnchant, bool isProperty, MapInstance* instance)
 {
     _instance = instance;
     _groupcount = groupcount;
     _guid = guid;
     _slotid = slotid;
     _itemid = itemid;
-    _randomProp = randProp;
-    _randomSeed = randSeed;
+    _randomEnchant = randEnchant;
+    _isEnchantProperty = isProperty;
     _remaining = groupcount;
 }
 
@@ -723,7 +711,8 @@ void LootRoll::Finalize()
     {
         /* all passed */
         data.Initialize(SMSG_LOOT_ALL_PASSED);
-        data << _guid << _groupcount << _itemid << _randomProp << _randomSeed;
+        data << _guid << _groupcount << _itemid;
+        data << uint32(_isEnchantProperty ? _randomEnchant : 0) << uint32(_isEnchantProperty ? 0 : _randomEnchant);
         std::set<WoWGuid>::iterator pitr = m_passRolls.begin();
         while(_player == NULL && pitr != m_passRolls.end())
         {
@@ -746,7 +735,8 @@ void LootRoll::Finalize()
 
     pLoot->items.at(_slotid).roll = 0;
     data.Initialize(SMSG_LOOT_ROLL_WON);
-    data << _guid << _slotid << _itemid << _randomProp << _randomSeed;
+    data << _guid << _slotid << _itemid;
+    data << uint32(_isEnchantProperty ? 0 : _randomEnchant) << uint32(_isEnchantProperty ? _randomEnchant : 0);
     data << _player->GetGUID() << uint8(highest) << uint8(hightype);
     if(_player->InGroup())
         _player->GetGroup()->SendPacketToAll(&data);
@@ -797,8 +787,8 @@ void LootRoll::PlayerRolled(PlayerInfo* pInfo, uint8 choice)
     int roll = RandomUInt(99)+1;
     // create packet
     WorldPacket data(SMSG_LOOT_ROLL, 34);
-    data << _guid << _slotid << pInfo->charGuid;
-    data << _itemid << _randomProp << _randomSeed;
+    data << _guid << _slotid << pInfo->charGuid << _itemid;
+    data << uint32(_isEnchantProperty ? 0 : _randomEnchant) << uint32(_isEnchantProperty ? _randomEnchant : 0);
 
     if(!pInfo->m_loggedInPlayer)
         choice = PASS;
