@@ -37,6 +37,7 @@ MapInstance::MapInstance(Map *map, uint32 mapId, uint32 instanceid, InstanceData
     m_battleground = NULL;
 
     InactiveMoveTime = 0;
+    iInstanceMode = 0;
 
     m_forceCombatState = false;
 
