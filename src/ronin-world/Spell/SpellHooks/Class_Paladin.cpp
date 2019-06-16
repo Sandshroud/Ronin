@@ -129,6 +129,17 @@ public:
     }
 
     bool endsDummycheck() { return true; }
+
+    SpellEntry *GetProcSpellOverride(uint8 triggerIndex, Unit *target)
+    {   // Seal of Truth will damage target when they have 5 stacks of censure
+        if(triggerIndex == 0 && target && target->m_AuraInterface.checkStackSize(31803, 5))
+            return dbcSpell.LookupEntry(42463);
+        else if(triggerIndex == 2) // Trigger our censure stack second
+            return dbcSpell.LookupEntry(31803);
+        return NULL;
+    }
+
+    bool AlwaysOverrideProcSpell() { return true; }
 };
 
 void SpellProcManager::_RegisterPaladinProcs()

@@ -23,6 +23,9 @@ public:
     virtual bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType) = 0;
     virtual bool endsDummycheck() { return false; }
 
+    virtual SpellEntry *GetProcSpellOverride(uint8 triggerIndex, Unit *target) { return NULL; }
+    virtual bool AlwaysOverrideProcSpell() { return false; }
+
 private:
     SpellEntry *spellProto;
 };

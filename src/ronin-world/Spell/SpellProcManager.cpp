@@ -178,14 +178,9 @@ SpellEntry *SpellProcManager::GetSpellProcFromSpellEntry(SpellEntry *sp, uint8 i
         }
     }
 
-    if(sp->Id == 31801)
-    {   // Seal of Truth will damage target when they have 5 stacks of censure
-        if(index == 0 && target && target->m_AuraInterface.checkStackSize(31803, 5))
-            triggerSpell = dbcSpell.LookupEntry(42463);
-        else if(index == 2) // Trigger our censure stack second
-            triggerSpell = dbcSpell.LookupEntry(31803);
-    }
-
+    SpellProcData * data = NULL;
+    if((data = GetSpellProcData(sp)) && (triggerSpell == NULL || data->AlwaysOverrideProcSpell()))
+        triggerSpell = data->GetProcSpellOverride(index, target);
     return triggerSpell;
 }
 
