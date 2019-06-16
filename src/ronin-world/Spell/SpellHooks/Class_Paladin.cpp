@@ -109,7 +109,30 @@ void SpellManager::_RegisterPaladinFixes()
     _RegisterAmountModifier(85256, SP_EFF_INDEX_0, PaladinTemplarsVerdictAmountModifier);
 }
 
+class SealOfTruthProcData : public SpellProcData
+{
+public:
+    SealOfTruthProcData(SpellEntry *sp) : SpellProcData(sp) { }
+    ~SealOfTruthProcData() {}
+
+    bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods) { return false; }
+
+    bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType)
+    {
+        if(sp != NULL && sp->isSpellAreaOfEffect())
+           return false;
+        if(procIdentifier != PROCD_CASTER)
+            return false;
+        if(procPairs.find(PROC_ON_STRIKE) == procPairs.end() && procPairs.find(PROC_ON_SPELL_LAND) == procPairs.end())
+            return false;
+        return true;
+    }
+
+    bool endsDummycheck() { return true; }
+};
+
 void SpellProcManager::_RegisterPaladinProcs()
 {
-
+    static SpellEntry *sealOfTruth = dbcSpell.LookupEntry(31801);
+    if(sealOfTruth) RegisterProcData(sealOfTruth, new SealOfTruthProcData(sealOfTruth));
 }

@@ -100,6 +100,8 @@ public:
     bool HasCombatStatusAffectingAuras(WoWGuid checkGuid);
     bool HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid casterguid);
 
+    bool checkStackSize(uint32 spellId, uint8 expectedSize);
+
     // Mounts
     void OnDismount();
 

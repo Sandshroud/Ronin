@@ -102,6 +102,15 @@ public:
     // Returns proc data for spell entry pointer
     SpellProcData *GetSpellProcData(SpellEntry *sp);
 
+    // Only use inside Player::SpellInterface::CanTriggerProc
+    bool CanTriggerProc(SpellProcData *procData, Unit *target);
+
+    // Checks if the spells that are triggered by our target match us
+    bool MatchTriggerSpell(SpellEntry *target, SpellEntry *trigger);
+
+    // Returns the triggered spell
+    SpellEntry *GetSpellProcFromSpellEntry(SpellEntry *sp, uint8 index, Unit *target = NULL);
+
 private:    // Spell proc overrides for different classes
     void _RegisterWarriorProcs();
     void _RegisterPaladinProcs();

@@ -1030,7 +1030,7 @@ void SpellInterface::RemoveProcData(SpellProcData *procData)
 bool SpellInterface::CanTriggerProc(SpellProcData *procData, SpellEntry *fromAbility, time_t triggerTime, uint32 msTime)
 {
     // Don't let us trigger ourself
-    if(fromAbility && procData->GetSpellProto()->NameHash == fromAbility->NameHash)
+    if(fromAbility && sSpellProcMgr.MatchTriggerSpell(procData->GetSpellProto(), fromAbility))
         return false;
 
     // Check proc chance
@@ -1049,23 +1049,14 @@ void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
     SpellEntry *proto = procData->GetSpellProto();
     for(uint8 j = 0; j < 3; ++j)
     {
-        switch(proto->EffectApplyAuraName[j])
+        if(SpellEntry *triggeredSpell = sSpellProcMgr.GetSpellProcFromSpellEntry(proto, j, target))
         {
-        case SPELL_AURA_PROC_TRIGGER_SPELL:
-        case SPELL_AURA_PROC_TRIGGER_DAMAGE:
-        case SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE:
-        case SPELL_AURA_PROC_TRIGGER_SPELL_2:
-            {
-                if(SpellEntry *triggeredSpell = dbcSpell.LookupEntry(proto->EffectTriggerSpell[j]))
-                {
-                    // Push our spell to our trigger function
-                    TriggerSpell(triggeredSpell, ((target == NULL || triggeredSpell->isSpellSelfCastOnly()) ? m_Unit : target));
-                    // Check if we have a proc charge to remove from our triggering aura
-                    Aura *triggerAura = NULL;
-                    if((triggerAura = m_Unit->m_AuraInterface.FindAura(proto->Id)) && triggerAura->getProcCharges())
-                        triggerAura->RemoveProcCharges(1);
-                }
-            }break;
+            // Push our spell to our trigger function
+            TriggerSpell(triggeredSpell, ((target == NULL || triggeredSpell->isSpellSelfCastOnly()) ? m_Unit : target));
+            // Check if we have a proc charge to remove from our triggering aura
+            Aura *triggerAura = NULL;
+            if((triggerAura = m_Unit->m_AuraInterface.FindAura(proto->Id)) && triggerAura->getProcCharges())
+                triggerAura->RemoveProcCharges(1);
         }
     }
 }

@@ -151,6 +151,44 @@ SpellProcData *SpellProcManager::GetSpellProcData(SpellEntry *sp)
     return NULL;
 }
 
+bool SpellProcManager::MatchTriggerSpell(SpellEntry *target, SpellEntry *trigger)
+{
+    if(target->NameHash == trigger->NameHash)
+        return true;
+    // Process through our indexes
+    for(uint8 i = 0; i < 3; ++i)
+        if(GetSpellProcFromSpellEntry(target, i) == trigger)
+            return true;
+    return false;
+}
+
+SpellEntry *SpellProcManager::GetSpellProcFromSpellEntry(SpellEntry *sp, uint8 index, Unit *target)
+{
+    SpellEntry *triggerSpell = NULL;
+    switch(sp->EffectApplyAuraName[index])
+    {
+        {
+        case SPELL_AURA_PROC_TRIGGER_SPELL:
+        case SPELL_AURA_PROC_TRIGGER_DAMAGE:
+        case SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE:
+        case SPELL_AURA_PROC_TRIGGER_SPELL_2:
+            {
+                triggerSpell = dbcSpell.LookupEntry(sp->EffectTriggerSpell[index]);
+            }break;
+        }
+    }
+
+    if(sp->Id == 31801)
+    {   // Seal of Truth will damage target when they have 5 stacks of censure
+        if(index == 0 && target && target->m_AuraInterface.checkStackSize(31803, 5))
+            triggerSpell = dbcSpell.LookupEntry(42463);
+        else if(index == 2) // Trigger our censure stack second
+            triggerSpell = dbcSpell.LookupEntry(31803);
+    }
+
+    return triggerSpell;
+}
+
 enum DBCProcFlags
 {
     PROC_FLAG_NONE                          = 0x00000000,

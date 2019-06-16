@@ -730,6 +730,15 @@ bool AuraInterface::HasAurasOfNameHashWithCaster(uint32 namehash, WoWGuid caster
     return false;
 }
 
+bool AuraInterface::checkStackSize(uint32 spellId, uint8 expectedSize)
+{
+    Aura *aur;
+    for(uint8 x = 0; x < m_maxPassiveAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))
+        if((aur = m_auras[x]) && aur->GetSpellId() == spellId && aur->getStackSize() == expectedSize)
+            return true;
+    return false;
+}
+
 bool AuraInterface::OverrideSimilarAuras(WorldObject *caster, Aura *aur)
 {
     std::set<uint8> m_aurasToRemove;
