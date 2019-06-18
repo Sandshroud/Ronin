@@ -326,6 +326,10 @@ uint8 Spell::cast(bool check)
 
     SendSpellGo();
 
+    // Our spell has been cast/started so we tell our modifier system
+    _unitCaster->m_AuraInterface.ModifiedSpellActivate(m_spellInfo);
+
+    // Process any spells that would be channeled now
     if( m_spellInfo->IsSpellChannelSpell() && !m_triggeredSpell )
     {
         m_timer = GetDuration();

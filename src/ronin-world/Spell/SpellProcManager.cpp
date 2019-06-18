@@ -153,6 +153,10 @@ SpellProcData *SpellProcManager::GetSpellProcData(SpellEntry *sp)
 
 bool SpellProcManager::MatchTriggerSpell(SpellEntry *target, SpellEntry *trigger)
 {
+    // GGEZ
+    if(target == trigger)
+        return true;
+    // If we have matching namehashes then we don't allow us to reactionarily trigger ourselves
     if(target->NameHash == trigger->NameHash)
         return true;
     // Process through our indexes

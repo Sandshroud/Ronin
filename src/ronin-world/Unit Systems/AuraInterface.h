@@ -235,6 +235,9 @@ public:
         return ret;
     }
 
+    // Spells that have passed cast point trigger this function
+    void ModifiedSpellActivate(SpellEntry *castSpell);
+
     // More overhead than normal mod type search
     bool HasApplicableAurasWithModType(uint32 modType);
 
@@ -262,6 +265,8 @@ private:
     Loki::AssocVector<uint16, Loki::AssocVector<uint8, int32>> m_spellGroupModifiers;
     // Storage is <<SpellId, effIndex>, Modifier>
     Loki::AssocVector<std::pair<uint32, uint8>, int32> m_calcModCache;
+    // Storage is <ModifierHolder*>
+    std::set<ModifierHolder*> m_activeAuraModifiers;
 
     static uint32 get32BitOffsetAndGroup(uint32 value, uint8 &group);
     void UpdateSpellGroupModifiers(bool apply, Modifier *mod, bool silent);

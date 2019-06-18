@@ -1574,6 +1574,7 @@ void AuraInterface::_RecalculateModAmountByType(Modifier *mod)
 void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, bool apply)
 {
     RWGuard guard(m_auraLock, true);
+    bool isGroupModifier = (mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER || mod->m_type == SPELL_AURA_MOD_CD_FROM_HASTE);
     uint16 mod_index = createModifierIndex(auraSlot, index);
     Loki::AssocVector<uint8, ModifierHolder*>::iterator itr;
     if(apply)
@@ -1585,6 +1586,8 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
         {
             modHolder = new ModifierHolder(auraSlot, aur->GetSpellProto());
             m_modifierHolders.insert(std::make_pair(auraSlot, modHolder));
+            if(isGroupModifier && !modHolder->spellInfo->isPassiveSpell())
+                m_activeAuraModifiers.insert(modHolder);
         }
 
         ASSERT(modHolder);
@@ -1614,11 +1617,12 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
         if (auraClear)
         {
             m_modifierHolders.erase(auraSlot);
+            m_activeAuraModifiers.erase(modHolder);
             delete modHolder;
         }
     }
 
-    if(mod->m_type == SPELL_AURA_ADD_FLAT_MODIFIER || mod->m_type == SPELL_AURA_ADD_PCT_MODIFIER || mod->m_type == SPELL_AURA_MOD_CD_FROM_HASTE)
+    if(isGroupModifier)
         UpdateSpellGroupModifiers(apply, mod, false);
 
     m_Unit->OnAuraModChanged(mod->m_type);
@@ -1673,6 +1677,28 @@ uint32 AuraInterface::get32BitOffsetAndGroup(uint32 value, uint8 &group)
 {
     group = uint8(float2int32(floor(float(value)/32.f)));
     return value%32;
+}
+
+void AuraInterface::ModifiedSpellActivate(SpellEntry *spell)
+{
+    m_auraLock.LowAcquire();
+    for(auto itr = m_activeAuraModifiers.begin(); itr != m_activeAuraModifiers.end(); ++itr)
+    {
+        bool affectsSpell = false;
+        for(uint8 i = 0; i < 3; ++i)
+            if(affectsSpell = Spell::EffectAffectsSpell((*itr)->spellInfo, i, spell))
+                break;
+
+        Aura *targetAura = NULL;
+        if(affectsSpell && (targetAura = FindAuraBySlot((*itr)->auraSlot)))
+        {
+            if(targetAura->getProcCharges())
+                targetAura->RemoveProcCharges(1);
+            else if(targetAura->getStackSize())
+                targetAura->RemoveStackSize(1);
+        }
+    }
+    m_auraLock.LowRelease();
 }
 
 bool AuraInterface::HasApplicableAurasWithModType(uint32 modType)
