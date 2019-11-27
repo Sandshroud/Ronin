@@ -1758,7 +1758,7 @@ int32 WorldObject::DealDamage(Unit* pVictim, uint32 damage, uint32 targetEvent, 
     return damage;
 }
 
-void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, float resistPct, bool allowProc, bool no_remove_auras)
+void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, float resistPct)
 {
 //==========================================================================================
 //==============================Unacceptable Cases Processing===============================
@@ -1778,7 +1778,12 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
     uint32 school = spellInfo->School;
     float res = float(damage);
     bool critical = false;
+    std::map<uint8, uint16> procPairs;
+    std::map<uint8, uint16> vProcPairs;
     Unit* caster = IsUnit() ? castPtr<Unit>(this) : NULL;
+
+    procPairs.insert(std::make_pair(PROC_ON_SPELL_LAND, PROC_ON_SPELL_LAND_NONE|PROC_ON_SPELL_LAND_DIRECT));
+    vProcPairs.insert(std::make_pair(PROC_ON_SPELL_LAND_VICTIM, PROC_ON_SPELL_LAND_VICTIM_NONE));
 
 //==========================================================================================
 //==============================+Spell Damage Bonus Calculations============================
@@ -1834,6 +1839,7 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
                 int32 critical_bonus = 100;
                 if( spellInfo->SpellGroupType )
                     caster->SM_PIValue(SMT_CRITICAL_DAMAGE, &critical_bonus, spellInfo->SpellGroupType );
+                procPairs[PROC_ON_SPELL_LAND] |= PROC_ON_SPELL_LAND_CRITICAL;
 
                 if( critical_bonus > 0 )
                 {
@@ -1863,21 +1869,36 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
 //==========================================================================================
 
 //------------------------------absorption--------------------------------------------------
-    uint32 abs_dmg = pVictim->AbsorbDamage(this, school, float2int32(floor(res)), dbcSpell.LookupEntry(spellID));
+    uint32 abs_dmg = pVictim->AbsorbDamage(this, school, float2int32(floor(res)), spellInfo);
     res -= abs_dmg; if(res < 1.0f) res = 0.f;
+
+    // Convert to integer
+    int32 ires = std::max<int32>(0, float2int32(res));
 
     dealdamage dmg;
     dmg.school_type = school;
-    dmg.full_damage = res;
+    dmg.full_damage = ires;
     dmg.resisted_damage = 0;
+
+//---------------------------Proc handling--------------------------------------------------
+    if( IsUnit() )
+    {
+        // Pass our proc flags to our manager
+        if(uint32 resisted_dmg = sSpellProcMgr.ProcessProcFlags(castPtr<Unit>(this), pVictim, procPairs, vProcPairs, spellInfo, ires, abs_dmg, 0))
+        {
+            dmg.resisted_damage += resisted_dmg;
+            dmg.full_damage -= resisted_dmg;
+            ires -= resisted_dmg;
+        }
+    }
 
     //------------------------------resistance reducing-----------------------------------------
     if(res > 0 && IsUnit())
     {
         dmg.resisted_damage += float2int32((((float)dmg.full_damage) * resistPct)/100.f);
         if((int32)dmg.resisted_damage >= dmg.full_damage)
-            res = 0;
-        else res = float(dmg.full_damage - dmg.resisted_damage);
+            ires = 0;
+        else ires = float(dmg.full_damage - dmg.resisted_damage);
     }
     //------------------------------special states----------------------------------------------
     /*if(pVictim->bInvincible == true)
@@ -1890,7 +1911,6 @@ void WorldObject::SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 d
 //==============================Data Sending ProcHandling===================================
 //==========================================================================================
 
-    int32 ires = std::max<int32>(0, float2int32(res));
 
 //--------------------------split damage-----------------------------------------------
     SendSpellNonMeleeDamageLog(this, pVictim, spellID, ires, school, abs_dmg, dmg.resisted_damage, false, 0, critical, IsPlayer());

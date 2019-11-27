@@ -1512,6 +1512,21 @@ Aura* AuraInterface::FindNegativeAuraByNameHash(uint32 namehash)
     return NULL;
 }
 
+Aura* AuraInterface::FindPassiveAuraByNamehash(uint32 namehash)
+{
+    for(uint8 x = MAX_NEGATIVE_AURAS; x < m_maxPassiveAuraSlot; x++)
+    {
+        if(Aura *aur = m_auras[x])
+        {
+            if(aur->GetSpellProto()->NameHash == namehash)
+            {
+                return aur;
+            }
+        }
+    }
+    return NULL;
+}
+
 Aura* AuraInterface::FindActiveAura(uint32 spellId, WoWGuid guid)
 {
     for(uint8 x = 0; x < m_maxNegAuraSlot; INC_INDEXORBLOCK_MACRO(x, false))

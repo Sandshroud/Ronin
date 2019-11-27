@@ -1694,7 +1694,7 @@ void Player::_LoadPlayerAuras(QueryResult *result)
                 continue;
         }
 
-        Aura *aur = new Aura(this, sp, (auraFlags & 0xFF), auraLevel, auraStackCharge, expiration, casterGuid);
+        Aura *aur = new Aura(this, sp, NULL, (auraFlags & 0xFF), auraLevel, auraStackCharge, expiration, casterGuid);
         for(uint8 x = 0; x < 3; x++)
         {
             // We either have the aura mod index saved, or we have no index saved and we can go on auraname application

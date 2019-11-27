@@ -109,7 +109,7 @@ void FillDynamicObjectTargetMapCallback::operator()(DynamicObject *obj, Unit *ca
     else
     {   // We need to create and add a new aura
         uint16 auraFlags = spell->isPassiveSpell() ? 0x0000 : (AFLAG_EFF_AMOUNT_SEND | (spell->isNegativeSpell1() ? AFLAG_NEGATIVE : AFLAG_POSITIVE));
-        aur = new Aura(target, spell, auraFlags, obj->casterLevel, 1, UNIXTIME, obj->casterGuid);
+        aur = new Aura(target, spell, NULL, auraFlags, obj->casterLevel, 1, UNIXTIME, obj->casterGuid);
         for(uint32 i = 0; i < 3; i++)
             if(spell->EffectApplyAuraName[i])
                 aur->AddMod(i, spell->EffectApplyAuraName[i], spell->CalculateSpellPoints(i, obj->casterLevel));

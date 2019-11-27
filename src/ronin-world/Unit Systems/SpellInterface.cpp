@@ -137,11 +137,14 @@ void SpellInterface::TriggerSpell(SpellEntry *info, float posX, float posY, floa
         spell->prepare(&targets, true);
 }
 
-void SpellInterface::TriggerSpell(SpellEntry *info, Unit *target)
+void SpellInterface::TriggerSpell(SpellEntry *info, Unit *target, SpellEntry *fromAbility)
 {
     SpellCastTargets targets(target->GetGUID());
     if(Spell *spell = new Spell(m_Unit, info))
+    {
+        if(fromAbility) spell->setSpellParent(fromAbility);
         spell->prepare(&targets, true);
+    }
 }
 
 void SpellInterface::LaunchSpellFromSpell(SpellEntry *info, Unit *target, SpellEntry *parent)
@@ -1041,7 +1044,7 @@ bool SpellInterface::CanTriggerProc(SpellProcData *procData, SpellEntry *fromAbi
     return true;
 }
 
-void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
+void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target, SpellEntry *fromAbility)
 {
     if(m_spellProcData.find(procData) == m_spellProcData.end())
         return;
@@ -1052,7 +1055,7 @@ void SpellInterface::TriggerProc(SpellProcData *procData, Unit *target)
         if(SpellEntry *triggeredSpell = sSpellProcMgr.GetSpellProcFromSpellEntry(proto, j, target))
         {
             // Push our spell to our trigger function
-            TriggerSpell(triggeredSpell, ((target == NULL || triggeredSpell->isSpellSelfCastOnly()) ? m_Unit : target));
+            TriggerSpell(triggeredSpell, ((target == NULL || triggeredSpell->isSpellSelfCastOnly()) ? m_Unit : target), fromAbility);
             // Check if we have a proc charge to remove from our triggering aura
             Aura *triggerAura = NULL;
             if((triggerAura = m_Unit->m_AuraInterface.FindAura(proto->Id)) && triggerAura->getProcCharges())

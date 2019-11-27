@@ -104,7 +104,7 @@ void SpellEffectClass::HandleDelayedEffects(Unit *unitTarget, SpellTarget *spTar
         }
 
         if(m_spellInfo->speed > 0 || m_spellInfo->spellType == NON_WEAPON)
-            _unitCaster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, spTarget->accumAmount, spTarget->resistMod, false, false);
+            _unitCaster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, spTarget->accumAmount, spTarget->resistMod);
         else _unitCaster->Strike(unitTarget, m_spellInfo->spellType, m_spellInfo, effIndex, spTarget->accumAmount, false, true);
 
         if(m_spellInfo->HasEffect(SPELL_EFFECT_ENVIRONMENTAL_DAMAGE, spTarget->EffectMask))
@@ -1200,7 +1200,7 @@ void SpellEffectClass::SpellEffectPowerBurn(uint32 i, WorldObject *target, int32
     _unitCaster->SM_PFValue(SMT_MULTIPLE_VALUE, &coef, m_spellInfo->SpellGroupType);
     mana = float2int32((float)mana * coef);
 
-    _unitCaster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, mana, 0.f, true,true);
+    _unitCaster->SpellNonMeleeDamageLog(unitTarget, m_spellInfo->Id, mana, 0.f);
 }
 
 void SpellEffectClass::SpellEffectThreat(uint32 i, WorldObject *target, int32 amount, bool rawAmt) // Threat

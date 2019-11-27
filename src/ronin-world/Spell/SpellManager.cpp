@@ -620,6 +620,14 @@ bool SpellManager::FetchSpellCoordinates(SpellEffectClass *spell, uint32 effInde
     return false;
 }
 
+bool SpellManager::HandleDummyAuraEffect(Unit *target, Aura *aur, SpellEntry *proto, uint32 modIndex, Modifier *modList, bool apply)
+{
+    std::pair<uint32, uint32> spEff = std::make_pair(proto->Id, modIndex);
+    if(m_dummyAuraEffectHandlers.find(spEff) != m_dummyAuraEffectHandlers.end())
+        return (*m_dummyAuraEffectHandlers.at(spEff))(target, aur, proto, modIndex, modList, apply);
+    return false;
+}
+
 bool SpellManager::CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr)
 {
     if(m_canCastCCSTriggers.find(sp->Id) != m_canCastCCSTriggers.end())

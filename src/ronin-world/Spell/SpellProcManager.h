@@ -72,8 +72,15 @@ enum SpellProcMods : uint16
     PROC_ON_STRIKEVICTIM_CRITICAL           = 0x0010,
     PROC_ON_STRIKEVICTIM_SPELL_HIT          = 0x0020,
     // Spell hit
-    PROC_ON_SPELL_LAND_RESIST               = 0x0001,
-    PROC_ON_SPELL_LAND_RESIST_PARTIAL       = 0x0002,
+    PROC_ON_SPELL_LAND_NONE                 = 0x0000,
+    PROC_ON_SPELL_LAND_RESIST               = 0x0001, // impl pending
+    PROC_ON_SPELL_LAND_RESIST_PARTIAL       = 0x0002, // impl pending
+    PROC_ON_SPELL_LAND_DIRECT               = 0x0010,
+    PROC_ON_SPELL_LAND_CRITICAL             = 0x0020,
+    PROC_ON_SPELL_LAND_REDIRECT             = 0x0040,
+    PROC_ON_SPELL_LAND_DOT                  = 0x0080,
+    // Spell hit victim
+    PROC_ON_SPELL_LAND_VICTIM_NONE          = 0x0000,
 };
 
 class SpellProcManager : public Singleton<SpellProcManager>
@@ -87,7 +94,7 @@ public:
 
     // 
     void QuickProcessProcs(Unit *caster, uint8 procType, uint16 procMods);
-    uint32 ProcessProcFlags(Unit *caster, Unit *target, std::map<uint8, uint16> procPairs, std::map<uint8, uint16> vProcPairs, SpellEntry *fromAbility, int32 &realDamage, uint32 &absoluteDamage, uint8 weaponDamageType);
+    uint32 ProcessProcFlags(Unit *caster, Unit *target, std::map<uint8, uint16> procPairs, std::map<uint8, uint16> vProcPairs, SpellEntry *fromAbility, int32 &realDamage, uint32 &absorbDamage, uint8 weaponDamageType);
 
     // Proc trigger checks
     bool HandleAuraProcTriggerDummy(Unit *target, SpellEntry *spellProto, Modifier *auraMod, bool apply);

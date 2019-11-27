@@ -22,6 +22,24 @@ bool MageArcaneBrillianceApplicator(SpellEffectClass *spell, uint32 effIndex, Un
     return true;
 }
 
+bool MageIgniteDOTDamageCalculation(Unit *target, Aura *aur, SpellEntry *proto, uint32 modIndex, Modifier *modList, bool apply)
+{
+    ASSERT(modList);
+    Unit *caster = aur->GetUnitCaster();
+    if(apply == true && caster)
+    {
+        SpellEntry *sp;
+        uint8 index = 0xFF;
+        int32 effectAmount = 10;
+        if(Aura *aur = caster->m_AuraInterface.FindPassiveAuraByNamehash(SPELL_HASH_IGNITE))
+            effectAmount = aur->GetMod(SP_EFF_INDEX_0)->m_amount;
+
+        if((sp = aur->GetParentSpell()) && sp->GetEffectIndex(SPELL_EFFECT_SCHOOL_DAMAGE, index))
+            modList[0].m_amount = (caster->GetSpellBonusDamage(target, sp, index, sp->CalculateSpellPoints(index, aur->GetAuraLevel()), false) * effectAmount)/200;
+    }
+    return true;
+}
+
 bool MageConjureRefreshmentDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount)
 {
     static uint8 requiredLevels[7] = { 33, 44, 54, 64, 74, 80, 85 };
@@ -52,11 +70,50 @@ void SpellManager::_RegisterMageFixes()
     // Arcane Brilliance applicator call
     _RegisterDummyEffect(1459, SP_EFF_INDEX_0, MageArcaneBrillianceApplicator);
 
+    // Mage Ignite damage percentage
+    _RegisterDummyAuraEffect(12654, SP_EFF_INDEX_1, MageIgniteDOTDamageCalculation);
+
     // Trigger sub spells for conjuring refreshments based on level
     _RegisterDummyEffect(42955, SP_EFF_INDEX_0, MageConjureRefreshmentDummyEffect);
 }
 
+class MageIgniteProcData : public SpellProcData
+{
+public:
+    MageIgniteProcData(SpellEntry *sp) : SpellProcData(sp) { }
+    ~MageIgniteProcData() {}
+
+    bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, uint8 procType, uint16 procMods) { return false; }
+
+    bool canProc(uint8 procIdentifier, Unit *caster, Unit *target, SpellEntry *sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType)
+    {
+        if(procIdentifier != PROCD_CASTER)
+            return false;
+        if(procPairs.find(PROC_ON_SPELL_LAND) == procPairs.end())
+            return false;
+        if((procPairs[PROC_ON_SPELL_LAND] & PROC_ON_SPELL_LAND_CRITICAL) == 0)
+            return false;
+        if(sp == NULL || sp->School != SCHOOL_FIRE)
+           return false;
+        return true;
+    }
+
+    bool endsDummycheck() { return true; }
+
+    SpellEntry *GetProcSpellOverride(uint8 triggerIndex, Unit *target)
+    {
+        return dbcSpell.LookupEntry(12654);
+    }
+
+    bool AlwaysOverrideProcSpell() { return true; }
+};
+
 void SpellProcManager::_RegisterMageProcs()
 {
-
+    static SpellEntry *igniteRank1 = dbcSpell.LookupEntry(11119);
+    if(igniteRank1) RegisterProcData(igniteRank1, new MageIgniteProcData(igniteRank1));
+    static SpellEntry *igniteRank2 = dbcSpell.LookupEntry(11120);
+    if(igniteRank2) RegisterProcData(igniteRank2, new MageIgniteProcData(igniteRank2));
+    static SpellEntry *igniteRank3 = dbcSpell.LookupEntry(12846);
+    if(igniteRank3) RegisterProcData(igniteRank3, new MageIgniteProcData(igniteRank3));
 }

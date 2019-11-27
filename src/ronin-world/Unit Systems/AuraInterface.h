@@ -166,6 +166,7 @@ public:
     Aura* FindAura(uint32 spellId, WoWGuid guid = 0);
     Aura* FindPositiveAuraByNameHash(uint32 namehash);
     Aura* FindNegativeAuraByNameHash(uint32 namehash);
+    Aura *FindPassiveAuraByNamehash(uint32 namehash);
     Aura* FindActiveAura(uint32 spellId, WoWGuid guid = 0);
     Aura* FindActiveAuraWithNameHash(uint32 namehash, WoWGuid guid = 0);
 

@@ -24,7 +24,7 @@
 class SERVER_DECL Aura
 {
 public:
-    Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid);
+    Aura(Unit *target, SpellEntry *proto, SpellEntry *spellParent, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid);
     ~Aura();
 
     static void InitializeAuraHandlerClass();
@@ -42,6 +42,7 @@ public:
     RONIN_INLINE SpellEntry* GetSpellProto() const { return m_spellProto; }
     RONIN_INLINE uint32 GetSpellId() const { return m_spellProto->Id; }
     RONIN_INLINE bool IsPassive() { return (m_spellProto->isPassiveSpell() || m_spellProto->isHiddenSpell()) && !m_areaAura; }
+    RONIN_INLINE SpellEntry *GetParentSpell() const { return m_spellParent; }
 
     RONIN_INLINE uint32 GetModCount() const { return m_modcount; }
     RONIN_INLINE Modifier *GetMod(uint32 x) { return &m_modList[x]; }
@@ -173,7 +174,7 @@ public:
 
 private:
     void TriggerPeriodic(uint32 i);
-    void CalculateDuration();
+    void CalculateLifetime(time_t expectedExpire = 0);
 
     RONIN_INLINE bool IsInrange(float x1, float y1, float z1, WorldObject* obj, float square_r)
     {
@@ -189,7 +190,7 @@ private:
     Unit *m_target;
     WoWGuid m_casterGuid;
 
-    time_t m_expirationTime;
+    time_t m_creationTime, m_expirationTime;
     int32 m_duration;
     bool m_castInDuel;
 
@@ -207,7 +208,7 @@ private:
     } *_periodicData;
 
 protected:
-    SpellEntry * m_spellProto;
+    SpellEntry *m_spellProto, *m_spellParent;
     bool m_dispelled;
     bool m_applied, m_positive, m_deleted;
     bool m_areaAura, m_creatureAA;        // Area aura stuff -> never passive.

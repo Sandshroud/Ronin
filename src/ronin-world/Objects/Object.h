@@ -551,7 +551,7 @@ public:
     void __fastcall SendMessageToSet(WorldPacket *data, bool self, bool myteam_only = false, float maxRange = -1.f);
     void OutPacketToSet(uint16 Opcode, uint16 Len, const void * Data, bool self, float maxRange=-1.f);
 
-    void SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, float resistPct, bool allowProc, bool no_remove_auras = false);
+    void SpellNonMeleeDamageLog(Unit* pVictim, uint32 spellID, uint32 damage, float resistPct);
 
     //*****************************************************************************************
     //* SpellLog packets just to keep the code cleaner and better to read

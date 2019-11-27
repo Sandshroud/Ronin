@@ -9,11 +9,13 @@ class ItemPrototype;
 class SpellEffectClass;
 class SpellCastTargets;
 class SpellTarget;
+class Aura;
 
 typedef bool(*tSpellAmountModifier)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount);
 typedef bool(*tSpellDummyEffect)(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount);
 typedef bool(*tSpellScriptedEffect)(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount);
 typedef bool(*tSpellTeleportData)(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O);
+typedef bool(*tAuraDummyEffect)(Unit *target, Aura *aur, SpellEntry *proto, uint32 modIndex, Modifier *modList, bool apply);
 
 typedef bool(*tCanCastCCS)(SpellEntry *sp, Creature *ctr);
 typedef bool(*tGenCCSTargets)(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
@@ -48,6 +50,7 @@ public:
     bool HandleDummyEffect(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, SpellTarget *spTarget, int32 &amount);
     bool TriggerScriptedEffect(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt);
     bool FetchSpellCoordinates(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 modAmt, uint32 &mapId, float &X, float &Y, float &Z, float &O);
+    bool HandleDummyAuraEffect(Unit *target, Aura *aur, SpellEntry *proto, uint32 modIndex, Modifier *modList, bool apply);
 
     bool CanCastCreatureCombatSpell(SpellEntry *sp, Creature *ctr);
     bool GenerateCreatureCombatSpellTargets(SpellEntry *sp, Creature *ctr, SpellCastTargets *targets, WoWGuid attackGuid);
@@ -103,6 +106,7 @@ private:    // Spell fixes, start with class then continue to zones, items, ques
     RONIN_INLINE void _RegisterDummyEffect(uint32 spellId, uint32 effIndex, tSpellDummyEffect dummyHandler) { m_dummyEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), dummyHandler)); }
     RONIN_INLINE void _RegisterScriptedEffect(uint32 spellId, uint32 effIndex, tSpellScriptedEffect scriptedHandler) { m_scriptedEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), scriptedHandler)); }
     RONIN_INLINE void _RegisterTeleportData(uint32 spellId, uint32 effIndex, tSpellTeleportData teleportData) { m_teleportEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), teleportData)); }
+    RONIN_INLINE void _RegisterDummyAuraEffect(uint32 spellId, uint32 effIndex, tAuraDummyEffect dummyHandler) { m_dummyAuraEffectHandlers.insert(std::make_pair(std::make_pair(spellId, effIndex), dummyHandler)); }
 
     RONIN_INLINE void _RegisterCanCastCCS(uint32 spellId, tCanCastCCS canCastCCS) { m_canCastCCSTriggers.insert(std::make_pair(spellId, canCastCCS)); }
     RONIN_INLINE void _RegisterGenCCSTargets(uint32 spellId, tGenCCSTargets genCCSTargets) { m_genCCSTargetTriggers.insert(std::make_pair(spellId, genCCSTargets)); }
@@ -138,6 +142,7 @@ private:
     std::map<std::pair<uint32, uint32>, tSpellDummyEffect> m_dummyEffectHandlers;
     std::map<std::pair<uint32, uint32>, tSpellScriptedEffect> m_scriptedEffectHandlers;
     std::map<std::pair<uint32, uint32>, tSpellTeleportData> m_teleportEffectHandlers;
+    std::map<std::pair<uint32, uint32>, tAuraDummyEffect> m_dummyAuraEffectHandlers;
 
     // Creature Combat spell limiters
     std::map<uint32, tCanCastCCS> m_canCastCCSTriggers;

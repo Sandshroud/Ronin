@@ -191,17 +191,14 @@ Unit* Aura::GetUnitCaster()
     return NULL;
 }
 
-Aura::Aura(Unit *target, SpellEntry *proto, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid)
-    : m_target(target), m_spellProto(proto), m_auraFlags(auraFlags), m_auraLevel(auraLevel), m_duration(-1), m_expirationTime(0), m_casterGuid(casterGuid),
+Aura::Aura(Unit *target, SpellEntry *proto, SpellEntry *spellParent, uint16 auraFlags, uint8 auraLevel, int16 auraStackCharge, time_t expirationTime, WoWGuid casterGuid)
+    : m_target(target), m_spellProto(proto), m_spellParent(spellParent), m_auraFlags(auraFlags), m_auraLevel(auraLevel), m_duration(-1), m_expirationTime(0), m_casterGuid(casterGuid),
     m_auraSlot(0xFF), m_applied(false), m_deleted(false), m_dispelled(false), m_castInDuel(false), m_creatureAA(false), m_areaAura(false), m_interrupted(-1),
     m_positive(!proto->isNegativeSpell1())
 {
     m_stackSizeorProcCharges = auraStackCharge;
-    if(expirationTime)
-    {
-        CalculateDuration();
-        m_expirationTime = expirationTime;
-    }
+
+    CalculateLifetime(expirationTime);
 
     mod = NULL;
     m_modcount = 0;
@@ -268,7 +265,7 @@ void Aura::Update(uint32 diff)
 
 void Aura::UpdatePreApplication()
 {
-    CalculateDuration();
+    CalculateLifetime();
     if (m_spellProto->NameHash == SPELL_HASH_DRINK)
         EventPeriodicDrinkDummy(1, m_modList[1].m_amount);
 }
@@ -319,10 +316,13 @@ void Aura::TriggerPeriodic(uint32 i)
     }
 }
 
-void Aura::CalculateDuration()
+void Aura::CalculateLifetime(time_t expectedExpire)
 {
     if(IsPassive())
         return;
+
+    m_creationTime = UNIXTIME;
+    int32 forcedDuration = expectedExpire ? 1000*(expectedExpire - UNIXTIME) : 0;
 
     int32 Duration = m_spellProto->CalculateSpellDuration(m_auraLevel, 0);
     if(!m_positive && !m_spellProto->isPassiveSpell())
@@ -340,7 +340,7 @@ void Aura::CalculateDuration()
 void Aura::Refresh(bool freshStack)
 {
     // Recalc duration instead of just resetting
-    CalculateDuration();
+    CalculateLifetime();
     // If we're a fresh stack then we have a stacksize
     if(freshStack)
         AddStackSize(1);
@@ -614,8 +614,8 @@ void Aura::EventPeriodicDamage(uint32 amount)
         return;
 
     if(Unit *m_caster = GetUnitCaster())
-        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, amount, m_triggeredSpellId==0, true);
-    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, amount, m_triggeredSpellId==0, true);
+        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, amount, 0.f);
+    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, amount, 0.f);
 }
 
 void Aura::EventPeriodicDamagePercent(uint32 amount)
@@ -627,8 +627,8 @@ void Aura::EventPeriodicDamagePercent(uint32 amount)
     uint32 damage = m_target->GetModPUInt32Value(UNIT_FIELD_MAXHEALTH, amount);
     Unit * m_caster = GetUnitCaster();
     if(m_caster!=NULL)
-        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, m_triggeredSpellId==0, true);
-    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, m_triggeredSpellId==0, true);
+        m_caster->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, 0.f);
+    else m_target->SpellNonMeleeDamageLog(m_target, m_spellProto->Id, damage, 0.f);
 }
 
 void Aura::EventPeriodicHeal( uint32 amount )
@@ -922,6 +922,8 @@ void Aura::SpellAuraModPossess(bool apply)
 void Aura::SpellAuraDummy(bool apply)
 {
     if(sSpellProcMgr.HandleAuraProcTriggerDummy(m_target, m_spellProto, mod, apply))
+        return;
+    if(sSpellMgr.HandleDummyAuraEffect(m_target, this, m_spellProto, mod->i, m_modList, apply))
         return;
 
     switch(m_spellProto->NameHash)

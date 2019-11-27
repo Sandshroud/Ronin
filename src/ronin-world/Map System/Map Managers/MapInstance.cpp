@@ -956,6 +956,7 @@ float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z
         groundHeight = ADTHeight - 5.f;
         if(groundHeight > z && groundHeight > destZ)
             groundHeight = std::max<float>(z, destZ);
+        else groundHeight += 5.f;
     }
     else if(groundHeight > destZ && ADTHeight < groundHeight && ADTHeight < destZ)
         groundHeight = ADTHeight;
@@ -966,6 +967,7 @@ float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z
     else if(liquidHeight == NO_WMO_HEIGHT || (groundHeight == ADTHeight))
         liquidHeight = ADTLiquid;
 
+    groundHeight += 0.75f;
     if(liquidHeight != NO_WATER_HEIGHT)
     {   // We have liquid height
         if(obj->IsUnit() && castPtr<Unit>(obj)->canSwim())
@@ -974,7 +976,7 @@ float MapInstance::GetWalkableHeight(WorldObject *obj, float x, float y, float z
             {
                 if(z < liquidHeight)
                     return z; // We can return our z height
-                return liquidHeight;
+                return liquidHeight + 0.35f;
             }
             return groundHeight;
         }
