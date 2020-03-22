@@ -296,21 +296,21 @@ void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool 
         data->WriteBit(guid[4]);
         data->WriteBit(counter[3]);
         data->WriteBit(guid[5]);
-        data->WriteGuidBitString(2, counter, 0, 6);
-        data->WriteGuidBitString(2, guid, 3, 0);
+        data->WriteGuidBitString(2, counter, ByteBuffer::Filler, 0, 6);
+        data->WriteGuidBitString(2, guid, ByteBuffer::Filler, 3, 0);
         data->WriteBit(counter[4]);
         data->WriteBit(guid[2]);
         data->WriteBit(counter[7]);
         data->WriteBit(guid[7]);
         data->WriteBits(it->second->flag, 2);
         data->WriteBit(guid[6]);
-        data->WriteGuidBitString(3, counter, 2, 1, 5);
+        data->WriteGuidBitString(3, counter, ByteBuffer::Filler, 2, 1, 5);
         data->WriteBit(guid[1]);
 
         // Append byte data
         criteriaData.WriteByteSeq(guid[3]);
-        criteriaData.WriteSeqByteString(2, counter, 5, 6);
-        criteriaData.WriteSeqByteString(2, guid, 4, 6);
+        criteriaData.WriteSeqByteString(2, counter, ByteBuffer::Filler, 5, 6);
+        criteriaData.WriteSeqByteString(2, guid, ByteBuffer::Filler, 4, 6);
         criteriaData.WriteByteSeq(counter[2]);
 
         criteriaData << uint32(UNIXTIME - it->second->timerData[1]); // Timer 2
@@ -318,8 +318,8 @@ void AchievementMgr::BuildAchievementData(WoWGuid guid, WorldPacket *data, bool 
         criteriaData << uint32(it->first);
 
         criteriaData.WriteByteSeq(guid[5]);
-        criteriaData.WriteSeqByteString(4, counter, 0, 3, 1, 4);
-        criteriaData.WriteSeqByteString(2, guid, 0, 7);
+        criteriaData.WriteSeqByteString(4, counter, ByteBuffer::Filler, 0, 3, 1, 4);
+        criteriaData.WriteSeqByteString(2, guid, ByteBuffer::Filler, 0, 7);
         criteriaData.WriteByteSeq(counter[7]);
 
         criteriaData << uint32(UNIXTIME - it->second->timerData[0]); // Timer 1

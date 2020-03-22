@@ -196,31 +196,31 @@ void GuildMgr::Packet_HandleGuildInvite(WorldSession* m_session, std::string inv
     data << uint32(gInfo->m_backgroundColor);
     data << uint32(gInfo->m_emblemColor);
 
-    data.WriteGuidBitString(2, newGuild, 3, 2);
+    data.WriteGuidBitString(2, newGuild, ByteBuffer::Filler, 3, 2);
     data.WriteBits(oldGuildName.length(), 8);
-    data.WriteGuidBitString(1, newGuild, 1);
-    data.WriteGuidBitString(6, oldGuild, 6, 4, 1, 5, 7, 2);
-    data.WriteGuidBitString(3, newGuild, 7, 0, 6);
+    data.WriteGuidBitString(1, newGuild, ByteBuffer::Filler, 1);
+    data.WriteGuidBitString(6, oldGuild, ByteBuffer::Filler, 6, 4, 1, 5, 7, 2);
+    data.WriteGuidBitString(3, newGuild, ByteBuffer::Filler, 7, 0, 6);
     data.WriteBits(newGuildName.length(), 8);
-    data.WriteGuidBitString(2, oldGuild, 3, 0);
-    data.WriteGuidBitString(1, newGuild, 5);
+    data.WriteGuidBitString(2, oldGuild, ByteBuffer::Filler, 3, 0);
+    data.WriteGuidBitString(1, newGuild, ByteBuffer::Filler, 5);
     data.WriteBits(thisPlrName->length(), 7);
-    data.WriteGuidBitString(1, newGuild, 4);
+    data.WriteGuidBitString(1, newGuild, ByteBuffer::Filler, 4);
     data.FlushBits();
 
     data.WriteByteSeq(newGuild[1]);
     data.WriteByteSeq(oldGuild[3]);
     data.WriteByteSeq(newGuild[6]);
-    data.WriteSeqByteString(2, oldGuild, 2, 1);
+    data.WriteSeqByteString(2, oldGuild, ByteBuffer::Filler, 2, 1);
     data.WriteByteSeq(newGuild[0]);
     data.append(oldGuildName.c_str(), oldGuildName.length());
-    data.WriteSeqByteString(2, newGuild, 7, 2);
+    data.WriteSeqByteString(2, newGuild, ByteBuffer::Filler, 7, 2);
     data.append(thisPlrName->c_str(), thisPlrName->length());
-    data.WriteSeqByteString(4, oldGuild, 7, 6, 5, 0);
-    data.WriteSeqByteString(1, newGuild, 4);
+    data.WriteSeqByteString(4, oldGuild, ByteBuffer::Filler, 7, 6, 5, 0);
+    data.WriteSeqByteString(1, newGuild, ByteBuffer::Filler, 4);
     data.append(newGuildName.c_str(), newGuildName.length());
-    data.WriteSeqByteString(2, newGuild, 5, 3);
-    data.WriteSeqByteString(1, oldGuild, 4);
+    data.WriteSeqByteString(2, newGuild, ByteBuffer::Filler, 5, 3);
+    data.WriteSeqByteString(1, oldGuild, ByteBuffer::Filler, 4);
     thatplr->PushPacket(&data);
 
     thatplr->SetGuildInvitersGuid( thisplr->GetLowGUID() );
@@ -307,14 +307,14 @@ void GuildMgr::Packet_SendGuildRoster(WorldSession* m_session)
         GuildMember *gMember = itr->second;
         PlayerInfo *pInfo = gMember->pPlayer;
         WoWGuid guid = gMember->PlrGuid;
-        data.WriteGuidBitString(2, guid, 3, 4);
+        data.WriteGuidBitString(2, guid, ByteBuffer::Filler, 3, 4);
         data.WriteBit(false); // Has Authenticator
         data.WriteBit(false); // Can Scroll of Ressurect
         data.WriteBits(gMember->szPublicNote.length(), 8);
         data.WriteBits(gMember->szOfficerNote.length(), 8);
-        data.WriteGuidBitString(1, guid, 0);
+        data.WriteGuidBitString(1, guid, ByteBuffer::Filler, 0);
         data.WriteBits(pInfo->charName.length(), 7);
-        data.WriteGuidBitString(5, guid, 1, 2, 6, 5, 7);
+        data.WriteGuidBitString(5, guid, ByteBuffer::Filler, 1, 2, 6, 5, 7);
 
         uint8 flags = 0x00;
         Player *player = NULL;

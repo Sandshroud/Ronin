@@ -1531,8 +1531,8 @@ void WorldSession::HandleItemReforgeOpcode( WorldPacket& recv_data )
     WorldPacket response(SMSG_REFORGE_RESULT, 1);
     recv_data >> reforgeType >> slot >> containerSlot;
     if(containerSlot == 0xFF) containerSlot = -1;
-    recv_data.ReadGuidBitString(8, guid, 2, 6, 3, 4, 1, 0, 7, 5);
-    recv_data.ReadGuidByteString(8, guid, 2, 3, 6, 4, 1, 0, 7, 5);
+    recv_data.ReadGuidBitString(8, guid, ByteBuffer::Filler, 2, 6, 3, 4, 1, 0, 7, 5);
+    recv_data.ReadGuidByteString(8, guid, ByteBuffer::Filler, 2, 3, 6, 4, 1, 0, 7, 5);
 
     Creature *reforgeNpc;
     if(guid.getHigh() != HIGHGUID_TYPE_UNIT || (reforgeNpc = _player->GetInRangeObject<Creature>(guid)) == NULL)
@@ -1605,14 +1605,14 @@ void WorldSession::HandleTransmogrifyItemsOpcode( WorldPacket& recv_data )
     std::vector<WoWGuid> itemGuids(count, 0);
     std::vector<uint32> itemTransmogs(count, 0);
     for (uint8 i = 0; i < count; ++i)
-        recv_data.ReadGuidBitString(8, itemGuids[i], 0, 5, 6, 2, 3, 7, 4, 1);
-    recv_data.ReadGuidBitString(8, npcGuid, 7, 3, 5, 6, 1, 4, 0, 2);
+        recv_data.ReadGuidBitString(8, itemGuids[i], ByteBuffer::Filler, 0, 5, 6, 2, 3, 7, 4, 1);
+    recv_data.ReadGuidBitString(8, npcGuid, ByteBuffer::Filler, 7, 3, 5, 6, 1, 4, 0, 2);
 
     bool hasTransmogError = false;
     for(uint8 i = 0; i < count; i++)
     {
         itemTransmogs[i] = recv_data.read<uint32>();
-        recv_data.ReadGuidByteString(8, itemGuids[i], 1, 5, 0, 4, 6, 7, 3, 2);
+        recv_data.ReadGuidByteString(8, itemGuids[i], ByteBuffer::Filler, 1, 5, 0, 4, 6, 7, 3, 2);
         itemSlots[i] = recv_data.read<uint32>();
         if(itemTransmogs[i] == 0)
             continue;
@@ -1642,7 +1642,7 @@ void WorldSession::HandleTransmogrifyItemsOpcode( WorldPacket& recv_data )
         }
     }
 
-    recv_data.ReadGuidByteString(8, npcGuid, 7, 2, 5, 4, 3, 1, 6, 0);
+    recv_data.ReadGuidByteString(8, npcGuid, ByteBuffer::Filler, 7, 2, 5, 4, 3, 1, 6, 0);
     Creature *transmogNpc;
     if(hasTransmogError || npcGuid.getHigh() != HIGHGUID_TYPE_UNIT || (transmogNpc = _player->GetInRangeObject<Creature>(npcGuid)) == NULL)
     {

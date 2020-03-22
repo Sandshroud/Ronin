@@ -131,8 +131,8 @@ void WorldSession::HandleLFGLeaveOpcode(WorldPacket& recvPacket)
     uint32 queueId = recvPacket.read<uint32>();
 
     WoWGuid guid;
-    recvPacket.ReadGuidBitString(8, guid, 4, 5, 0, 6, 2, 7, 1, 3);
-    recvPacket.ReadGuidByteString(8, guid, 7, 4, 3, 2, 6, 0, 1, 5);
+    recvPacket.ReadGuidBitString(8, guid, ByteBuffer::Filler, 4, 5, 0, 6, 2, 7, 1, 3);
+    recvPacket.ReadGuidByteString(8, guid, ByteBuffer::Filler, 7, 4, 3, 2, 6, 0, 1, 5);
 
     sGroupFinder.HandleDungeonLeave(_player, guid, queueId);
 }
@@ -167,13 +167,13 @@ void WorldSession::HandleLFGProposalResultOpcode(WorldPacket& recvPacket)
     recvPacket.read_skip<uint32>();
 
     WoWGuid guid, guid2;
-    recvPacket.ReadGuidBitString(8, guid, 4, 5, 0, 6, 2, 7, 1, 3);
-    recvPacket.ReadGuidByteString(8, guid, 7, 4, 3, 2, 6, 0, 1, 5);
+    recvPacket.ReadGuidBitString(8, guid, ByteBuffer::Filler, 4, 5, 0, 6, 2, 7, 1, 3);
+    recvPacket.ReadGuidByteString(8, guid, ByteBuffer::Filler, 7, 4, 3, 2, 6, 0, 1, 5);
 
     guid2[7] = recvPacket.ReadBit();
     bool result = recvPacket.ReadBit();
-    recvPacket.ReadGuidBitString(7, guid2, 1, 3, 0, 5, 4, 6, 2);
-    recvPacket.ReadGuidByteString(8, guid2, 7, 1, 5, 6, 3, 4, 0, 2);
+    recvPacket.ReadGuidBitString(7, guid2, ByteBuffer::Filler, 1, 3, 0, 5, 4, 6, 2);
+    recvPacket.ReadGuidByteString(8, guid2, ByteBuffer::Filler, 7, 1, 5, 6, 3, 4, 0, 2);
 
     sGroupFinder.UpdateProposal(_player, proposalCounter, result, guid, guid2);
 }

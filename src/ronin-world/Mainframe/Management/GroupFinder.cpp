@@ -1196,11 +1196,11 @@ void GroupFinderMgr::SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *gr
     data << uint32(group ? group->queueId : 0);
     data << uint8(group ? group->queueState : 0);
     data << uint32(group ? group->timeStamp : 0);
-    data.WriteGuidBitString(4, guid, 2, 7, 3, 0);
+    data.WriteGuidBitString(4, guid, ByteBuffer::Filler, 2, 7, 3, 0);
     if(group == NULL)
     {
         data.WriteBits<uint32>(0, 24);
-        data.WriteGuidBitString(4, guid, 4, 5, 1, 6);
+        data.WriteGuidBitString(4, guid, ByteBuffer::Filler, 4, 5, 1, 6);
     }
     else
     {
@@ -1210,7 +1210,7 @@ void GroupFinderMgr::SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *gr
         for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
         {
             WoWGuid memberGuid = (*itr);
-            data.WriteGuidBitString(8, memberGuid, 7, 5, 3, 6, 0, 2, 4, 1);
+            data.WriteGuidBitString(8, memberGuid, ByteBuffer::Filler, 7, 5, 3, 6, 0, 2, 4, 1);
             if(Player *plr = objmgr.GetPlayer(memberGuid))
             {
                 ByteBuffer &buff = lockVector[index++];
@@ -1219,7 +1219,7 @@ void GroupFinderMgr::SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *gr
             } else data.WriteBits(0, 22);
         }
 
-        data.WriteGuidBitString(4, guid, 4, 5, 1, 6);
+        data.WriteGuidBitString(4, guid, ByteBuffer::Filler, 4, 5, 1, 6);
 
         index = 0;
         for(std::vector<WoWGuid>::iterator itr = group->members.begin(); itr != group->members.end(); itr++)
@@ -1231,11 +1231,11 @@ void GroupFinderMgr::SendLFGJoinResult(Player *plr, uint8 result, QueueGroup *gr
                 data.append(buff.contents(), buff.size());
             }
 
-            data.WriteSeqByteString(8, memberGuid, 2, 5, 1, 0, 4, 3, 6, 7);
+            data.WriteSeqByteString(8, memberGuid, ByteBuffer::Filler, 2, 5, 1, 0, 4, 3, 6, 7);
         }
     }
 
-    data.WriteSeqByteString(8, guid, 1, 4, 3, 5, 0, 7, 2, 6);
+    data.WriteSeqByteString(8, guid, ByteBuffer::Filler, 1, 4, 3, 5, 0, 7, 2, 6);
     plr->PushPacket(&data);
 }
 
@@ -1282,7 +1282,7 @@ void GroupFinderMgr::SendQueueCommandResult(Player *plr, uint8 type, uint32 queu
     data.WriteByteSeq(guid[6]);
     for(uint8 i = 0; i < 3; i++)
         data << uint8(0);
-    data.WriteSeqByteString(6, guid, 1, 2, 4, 3, 5, 0);
+    data.WriteSeqByteString(6, guid, ByteBuffer::Filler, 1, 2, 4, 3, 5, 0);
     data << uint32(42);
     data.WriteByteSeq(guid[7]);
     if(dungeonSet != NULL && !dungeonSet->empty())
@@ -1324,10 +1324,10 @@ void GroupFinderMgr::SendProposalUpdate(QueueProposition *proposition, Player *p
         data << uint32(proposition ? proposition->propId : 0);
         data << uint8(proposition ? proposition->propState : 0);
         data.WriteBit(groupId[4]);
-        data.WriteGuidBitString(3, guid, 3, 7, 0);
+        data.WriteGuidBitString(3, guid, ByteBuffer::Filler, 3, 7, 0);
         data.WriteBit(groupId[1]);
         data.WriteBit(false);
-        data.WriteGuidBitString(2, guid, 4, 5);
+        data.WriteGuidBitString(2, guid, ByteBuffer::Filler, 4, 5);
         data.WriteBit(groupId[3]);
         data.WriteBits<uint32>(proposition ? proposition->memberRoles.size() : 0, 23);
         data.WriteBit(groupId[7]);

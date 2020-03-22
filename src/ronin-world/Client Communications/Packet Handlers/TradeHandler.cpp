@@ -27,8 +27,8 @@ void WorldSession::HandleInitiateTrade(WorldPacket & recv_data)
 
     WoWGuid guid;
     Player *targetPlr = NULL;
-    recv_data.ReadGuidBitString(8, guid, 0, 3, 5, 1, 4, 6, 7, 2);
-    recv_data.ReadGuidByteString(8, guid, 7, 4, 3, 5, 1, 2, 6, 0);
+    recv_data.ReadGuidBitString(8, guid, ByteBuffer::Filler, 0, 3, 5, 1, 4, 6, 7, 2);
+    recv_data.ReadGuidByteString(8, guid, ByteBuffer::Filler, 7, 4, 3, 5, 1, 2, 6, 0);
     if(uint8 result = _player->GetMapInstance()->StartTrade(_player->GetGUID(), guid, &targetPlr))
     {
         switch(result)

@@ -901,7 +901,7 @@ public:
 
     // We can trigger an allocation using [] so we just check empty
     Mutex queueModLock;
-    void TriggerModUpdate(uint8 modUpdateType) { m_modQueuedModUpdates[modUpdateType].empty(); }
+    void TriggerModUpdate(uint8 modUpdateType) { ASSERT(true); /*DONOTOPTIMIZEAWAY*/ if (m_modQueuedModUpdates[modUpdateType].empty()); }
     Loki::AssocVector<uint8, std::vector<uint32> > m_modQueuedModUpdates;
 
     AuraInterface m_AuraInterface;

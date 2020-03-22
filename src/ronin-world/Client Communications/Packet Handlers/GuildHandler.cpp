@@ -42,8 +42,8 @@ void WorldSession::HandleGuildMaxDailyXP(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WoWGuid guid;
-    recv_data.ReadGuidBitString(8, guid, 0, 3, 5, 1, 4, 6, 7, 2);
-    recv_data.ReadGuidByteString(8, guid, 7, 4, 3, 5, 1, 2, 6, 0);
+    recv_data.ReadGuidBitString(8, guid, ByteBuffer::Filler, 0, 3, 5, 1, 4, 6, 7, 2);
+    recv_data.ReadGuidByteString(8, guid, ByteBuffer::Filler, 7, 4, 3, 5, 1, 2, 6, 0);
 
     guildmgr.Packet_SendGuildMaxDailyXP(this, guid);
 }
@@ -60,8 +60,8 @@ void WorldSession::HandleGuildRanks(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WoWGuid guildId;
-    recv_data.ReadGuidBitString(8, guildId, 2, 3, 0, 6, 4, 7, 5, 1);
-    recv_data.ReadGuidByteString(8, guildId, 3, 4, 5, 7, 1, 0, 6, 2);
+    recv_data.ReadGuidBitString(8, guildId, ByteBuffer::Filler, 2, 3, 0, 6, 4, 7, 5, 1);
+    recv_data.ReadGuidByteString(8, guildId, ByteBuffer::Filler, 3, 4, 5, 7, 1, 0, 6, 2);
     guildmgr.Packet_SendGuildRankInfo(this);
 }
 
@@ -71,31 +71,31 @@ void WorldSession::HandleGuildRoster(WorldPacket & recv_data)
 
     WoWGuid guid1, guid2;
 
-    recv_data.ReadGuidBitString(2, guid2, 2, 3);
-    recv_data.ReadGuidBitString(2, guid1, 6, 0);
-    recv_data.ReadGuidBitString(1, guid2, 7);
-    recv_data.ReadGuidBitString(1, guid1, 2);
-    recv_data.ReadGuidBitString(2, guid2, 6, 4);
-    recv_data.ReadGuidBitString(1, guid1, 1);
-    recv_data.ReadGuidBitString(1, guid2, 5);
-    recv_data.ReadGuidBitString(2, guid1, 4, 3);
-    recv_data.ReadGuidBitString(1, guid2, 0);
-    recv_data.ReadGuidBitString(1, guid1, 5);
-    recv_data.ReadGuidBitString(1, guid2, 1);
-    recv_data.ReadGuidBitString(1, guid1, 7);
+    recv_data.ReadGuidBitString(2, guid2, ByteBuffer::Filler, 2, 3);
+    recv_data.ReadGuidBitString(2, guid1, ByteBuffer::Filler, 6, 0);
+    recv_data.ReadGuidBitString(1, guid2, ByteBuffer::Filler, 7);
+    recv_data.ReadGuidBitString(1, guid1, ByteBuffer::Filler, 2);
+    recv_data.ReadGuidBitString(2, guid2, ByteBuffer::Filler, 6, 4);
+    recv_data.ReadGuidBitString(1, guid1, ByteBuffer::Filler, 1);
+    recv_data.ReadGuidBitString(1, guid2, ByteBuffer::Filler, 5);
+    recv_data.ReadGuidBitString(2, guid1, ByteBuffer::Filler, 4, 3);
+    recv_data.ReadGuidBitString(1, guid2, ByteBuffer::Filler, 0);
+    recv_data.ReadGuidBitString(1, guid1, ByteBuffer::Filler, 5);
+    recv_data.ReadGuidBitString(1, guid2, ByteBuffer::Filler, 1);
+    recv_data.ReadGuidBitString(1, guid1, ByteBuffer::Filler, 7);
 
     // Skip the rest of the packet
     recv_data.rpos(recv_data.size());
     // This is wrong, gotta find the right structure
-    /*recv_data.ReadGuidByteString(1, guid1, 3);
-    recv_data.ReadGuidByteString(1, guid2, 4);
-    recv_data.ReadGuidByteString(4, guid1, 7, 2, 4, 0);
-    recv_data.ReadGuidByteString(1, guid2, 5);
-    recv_data.ReadGuidByteString(1, guid1, 1);
-    recv_data.ReadGuidByteString(2, guid2, 0, 6);
-    recv_data.ReadGuidByteString(1, guid1, 5);
-    recv_data.ReadGuidByteString(4, guid2, 7, 2, 3, 1);
-    recv_data.ReadGuidByteString(1, guid1, 6);*/
+    /*recv_data.ReadGuidByteString(1, guid1, ByteBuffer::Filler, 3);
+    recv_data.ReadGuidByteString(1, guid2, ByteBuffer::Filler, 4);
+    recv_data.ReadGuidByteString(4, guid1, ByteBuffer::Filler, 7, 2, 4, 0);
+    recv_data.ReadGuidByteString(1, guid2, ByteBuffer::Filler, 5);
+    recv_data.ReadGuidByteString(1, guid1, ByteBuffer::Filler, 1);
+    recv_data.ReadGuidByteString(2, guid2, ByteBuffer::Filler, 0, 6);
+    recv_data.ReadGuidByteString(1, guid1, ByteBuffer::Filler, 5);
+    recv_data.ReadGuidByteString(4, guid2, ByteBuffer::Filler, 7, 2, 3, 1);
+    recv_data.ReadGuidByteString(1, guid1, ByteBuffer::Filler, 6);*/
 
     guildmgr.Packet_SendGuildRoster(this);
 }
@@ -166,8 +166,8 @@ void WorldSession::HandleGuildPromote(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WoWGuid targetGuid;
-    recv_data.ReadGuidBitString(8, targetGuid, 7, 2, 5, 6, 1, 0, 3, 4);
-    recv_data.ReadGuidByteString(8, targetGuid, 0, 5, 2, 3, 6, 4, 1, 7);
+    recv_data.ReadGuidBitString(8, targetGuid, ByteBuffer::Filler, 7, 2, 5, 6, 1, 0, 3, 4);
+    recv_data.ReadGuidByteString(8, targetGuid, ByteBuffer::Filler, 0, 5, 2, 3, 6, 4, 1, 7);
 
     if(PlayerInfo* Promoted = objmgr.GetPlayerInfo(targetGuid))
     {
@@ -184,8 +184,8 @@ void WorldSession::HandleGuildDemote(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WoWGuid targetGuid;
-    recv_data.ReadGuidBitString(8, targetGuid, 7, 1, 5, 6, 2, 3, 0, 4);
-    recv_data.ReadGuidByteString(8, targetGuid, 1, 2, 7, 5, 6, 0, 4, 3);
+    recv_data.ReadGuidBitString(8, targetGuid, ByteBuffer::Filler, 7, 1, 5, 6, 2, 3, 0, 4);
+    recv_data.ReadGuidByteString(8, targetGuid, ByteBuffer::Filler, 1, 2, 7, 5, 6, 0, 4, 3);
 
     if(PlayerInfo* Demoted = objmgr.GetPlayerInfo(targetGuid))
     {
@@ -209,8 +209,8 @@ void WorldSession::HandleGuildRemove(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WoWGuid memberGuid;
-    recv_data.ReadGuidBitString(8, memberGuid, 6, 5, 4, 0, 1, 3, 7, 2);
-    recv_data.ReadGuidByteString(8, memberGuid, 2, 6, 5, 7, 1, 4, 3, 0);
+    recv_data.ReadGuidBitString(8, memberGuid, ByteBuffer::Filler, 6, 5, 4, 0, 1, 3, 7, 2);
+    recv_data.ReadGuidByteString(8, memberGuid, ByteBuffer::Filler, 2, 6, 5, 7, 1, 4, 3, 0);
 
     PlayerInfo * dstplr = objmgr.GetPlayerInfo(memberGuid);
     if( dstplr == NULL )
@@ -257,15 +257,15 @@ void WorldSession::HandleGuildSetNote(WorldPacket & recv_data)
     CHECK_INWORLD_RETURN();
 
     WoWGuid targetGuid;
-    recv_data.ReadGuidBitString(6, targetGuid, 1, 4, 5, 3, 0, 7);
+    recv_data.ReadGuidBitString(6, targetGuid, ByteBuffer::Filler, 1, 4, 5, 3, 0, 7);
     bool officer = !recv_data.ReadBit();
-    recv_data.ReadGuidBitString(1, targetGuid, 6);
+    recv_data.ReadGuidBitString(1, targetGuid, ByteBuffer::Filler, 6);
     size_t noteLen = recv_data.ReadBits(8);
-    recv_data.ReadGuidBitString(1, targetGuid, 2);
+    recv_data.ReadGuidBitString(1, targetGuid, ByteBuffer::Filler, 2);
 
-    recv_data.ReadGuidByteString(7, targetGuid, 4, 5, 0, 3, 1, 6, 7);
+    recv_data.ReadGuidByteString(7, targetGuid, ByteBuffer::Filler, 4, 5, 0, 3, 1, 6, 7);
     std::string newnote = recv_data.ReadString(noteLen);
-    recv_data.ReadGuidByteString(1, targetGuid, 2);
+    recv_data.ReadGuidByteString(1, targetGuid, ByteBuffer::Filler, 2);
 
     PlayerInfo *pInfo = objmgr.GetPlayerInfo(targetGuid);
     if(pInfo == NULL)

@@ -32,15 +32,15 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
     std::string realmName, memberName;
     recv_data.read_skip<uint32>(); // cross-realm party related
     recv_data.read_skip<uint32>(); // roles mask?
-    recv_data.ReadGuidBitString(2, guid, 2, 7);
+    recv_data.ReadGuidBitString(2, guid, ByteBuffer::Filler, 2, 7);
     size_t realmLength = recv_data.ReadBits(9);
-    recv_data.ReadGuidBitString(1, guid, 3);
+    recv_data.ReadGuidBitString(1, guid, ByteBuffer::Filler, 3);
     size_t nameLength = recv_data.ReadBits(10);
-    recv_data.ReadGuidBitString(5, guid, 5, 4, 6, 0, 1);
-    recv_data.ReadGuidByteString(3, guid, 4, 7, 6);
+    recv_data.ReadGuidBitString(5, guid, ByteBuffer::Filler, 5, 4, 6, 0, 1);
+    recv_data.ReadGuidByteString(3, guid, ByteBuffer::Filler, 4, 7, 6);
     realmName = recv_data.ReadString(realmLength);
     memberName = recv_data.ReadString(nameLength);
-    recv_data.ReadGuidByteString(5, guid, 0, 1, 2, 3, 5);
+    recv_data.ReadGuidByteString(5, guid, ByteBuffer::Filler, 0, 1, 2, 3, 5);
     if(_player->HasBeenInvited())
         return;
 
@@ -109,23 +109,23 @@ void WorldSession::HandleGroupInviteOpcode( WorldPacket & recv_data )
 
     WorldPacket data(SMSG_GROUP_INVITE, 100);
     data.WriteBit(0);
-    data.WriteGuidBitString(3, guid, 0, 3, 2);
+    data.WriteGuidBitString(3, guid, ByteBuffer::Filler, 0, 3, 2);
     data.WriteBit(inviteAvailable);   // Invite available
-    data.WriteGuidBitString(2, guid, 6, 5);
+    data.WriteGuidBitString(2, guid, ByteBuffer::Filler, 6, 5);
     data.WriteBits(0, 9);   // realm name length
     data.WriteBit(guid[4]);
     data.WriteBits(strlen(player->GetName()), 7);
     data.WriteBits(0, 24);  // count
     data.WriteBit(0);
-    data.WriteSeqByteString(2, guid, 1, 7);
+    data.WriteSeqByteString(2, guid, ByteBuffer::Filler, 1, 7);
 
-    data.WriteSeqByteString(2, guid, 1, 4);
+    data.WriteSeqByteString(2, guid, ByteBuffer::Filler, 1, 4);
     data << uint32(getMSTime());
     data << uint32(0) << uint32(0);
-    data.WriteSeqByteString(4, guid, 6, 0, 2, 3);
+    data.WriteSeqByteString(4, guid, ByteBuffer::Filler, 6, 0, 2, 3);
     // for(int i = 0; i < count; ++i)
     //    data << uint32(0);
-    data.WriteSeqByteString(2, guid, 5, 7);
+    data.WriteSeqByteString(2, guid, ByteBuffer::Filler, 5, 7);
     data.append(player->GetName(), strlen(player->GetName()));
     data << uint32(0);
     player->PushPacket(&data);

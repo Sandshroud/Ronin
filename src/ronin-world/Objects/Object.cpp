@@ -616,7 +616,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint16 flags, Player* targe
     if(flags & UPDATEFLAG_HAS_TARGET)
     {
         WoWGuid targetGuid = GetUInt64Value(UNIT_FIELD_TARGET);
-        data->WriteSeqByteString(8, targetGuid, 4, 0, 3, 5, 7, 6, 2, 1);
+        data->WriteSeqByteString(8, targetGuid, ByteBuffer::Filler, 4, 0, 3, 5, 7, 6, 2, 1);
     }
 
     if (flags & UPDATEFLAG_ANIMKITS)

@@ -49,6 +49,9 @@ private:
 class SERVER_DECL ByteBuffer
 {
 public:
+    typedef struct{ } FillerType;
+    static const FillerType Filler;
+
     const static size_t DEFAULT_SIZE = 0x1000;
 
     ByteBuffer(): _rpos(0), _wpos(0), _bitpos(8), _curbitval(0)
@@ -107,10 +110,10 @@ public:
         va_end(vl);
     }
 
-    void WriteGuidBitString(uint32 count, WoWGuid guid, ...)
+    void WriteGuidBitString(uint32 count, WoWGuid guid, FillerType filler, ...)
     {
         va_list vl;
-        va_start(vl, &guid);
+        va_start(vl, filler);
         for(uint32 i = 0; i < count; i++)
             WriteBit(guid[va_arg(vl, uint32)]);
         va_end(vl);
@@ -143,19 +146,19 @@ public:
     }
 
     // Read guid mask bits
-    void ReadGuidBitString(uint32 count, WoWGuid &guid, ...)
+    void ReadGuidBitString(uint32 count, WoWGuid &guid, FillerType filler, ...)
     {
         va_list vl;
-        va_start(vl, &guid);
+        va_start(vl, filler);
         for(uint32 i = 0; i < count; i++)
             guid[va_arg(vl, uint32)] = ReadBit();
         va_end(vl);
     }
 
-    void ReadGuidByteString(uint32 count, WoWGuid &guid, ...)
+    void ReadGuidByteString(uint32 count, WoWGuid &guid, FillerType filler, ...)
     {
         va_list vl;
-        va_start(vl, &guid);
+        va_start(vl, filler);
         for(uint32 i = 0; i < count; i++)
             ReadByteSeq(guid[(va_arg(vl, uint32))]);
         va_end(vl);
@@ -175,10 +178,10 @@ public:
     }
 
     void WriteSeqByteString(int guid, uint32 count, ...) = delete;
-    void WriteSeqByteString(uint32 count, WoWGuid guid, ...)
+    void WriteSeqByteString(uint32 count, WoWGuid guid, FillerType filler, ...)
     {
         va_list vl;
-        va_start(vl, &guid);
+        va_start(vl, filler);
         for(uint32 i = 0; i < count; i++)
             WriteByteSeq(guid[(va_arg(vl, uint32))]);
         va_end(vl);

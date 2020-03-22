@@ -901,9 +901,9 @@ void Creature::SendInventoryList(Player *plr)
         }
     }
 
-    data.WriteGuidBitString(2, m_objGuid, 1, 0);
+    data.WriteGuidBitString(2, m_objGuid, ByteBuffer::Filler, 1, 0);
     data.WriteBits(counter, 21); // item count
-    data.WriteGuidBitString(5, m_objGuid, 3, 6, 5, 2, 7);
+    data.WriteGuidBitString(5, m_objGuid, ByteBuffer::Filler, 3, 6, 5, 2, 7);
     for (uint32 i = 0; i < bitFlags.size(); ++i)
         data.WriteBit(bitFlags[i]);
     data.WriteBit(m_objGuid[4]);

@@ -274,7 +274,7 @@ void WorldSession::HandleCharReorderOpcode( WorldPacket & recv_data )
     for(uint8 i = 0; i < count; i++)
     {
         WoWGuid guid;
-        recv_data.ReadGuidBitString(8, guid, 1, 4, 5, 3, 0, 7, 6, 2);
+        recv_data.ReadGuidBitString(8, guid, ByteBuffer::Filler, 1, 4, 5, 3, 0, 7, 6, 2);
         guidSet.push_back(guid);
     }
 
@@ -290,9 +290,9 @@ void WorldSession::HandleCharReorderOpcode( WorldPacket & recv_data )
     std::stringstream ss;
     for(uint8 i = 0; i < count; i++)
     {
-        recv_data.ReadGuidByteString(6, guidSet[i], 6, 5, 1, 4, 0, 3);
+        recv_data.ReadGuidByteString(6, guidSet[i], ByteBuffer::Filler, 6, 5, 1, 4, 0, 3);
         uint8 slot = recv_data.read<uint8>()/10;
-        recv_data.ReadGuidByteString(2, guidSet[i], 2, 7);
+        recv_data.ReadGuidByteString(2, guidSet[i], ByteBuffer::Filler, 2, 7);
         maxSlot = std::max<uint8>(maxSlot, slot);
 
         PlayerInfo *info = NULL;
@@ -591,8 +591,8 @@ void WorldSession::HandlePlayerLoginOpcode( WorldPacket & recv_data )
     sLog.Debug( "WorldSession"," Recvd Player Logon Message" );
 
     WoWGuid guid;
-    recv_data.ReadGuidBitString(8, guid, 2, 3, 0, 6, 4, 5, 1, 7);
-    recv_data.ReadGuidByteString(8, guid, 2, 7, 0, 3, 5, 6, 1, 4);
+    recv_data.ReadGuidBitString(8, guid, ByteBuffer::Filler, 2, 3, 0, 6, 4, 5, 1, 7);
+    recv_data.ReadGuidByteString(8, guid, ByteBuffer::Filler, 2, 7, 0, 3, 5, 6, 1, 4);
 
     PlayerInfo *pInfo = NULL;
     // Check to see if we have data for this character

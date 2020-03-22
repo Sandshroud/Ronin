@@ -2546,8 +2546,8 @@ void MapInstance::SendTradeStatus(Player *target, uint32 TradeStatus, WoWGuid ow
     switch (TradeStatus)
     {
     case MapInstance::TRADE_STATUS_BEGIN_TRADE:
-        data.WriteGuidBitString(8, trader, 2, 4, 6, 0, 1, 3, 7, 5);
-        data.WriteSeqByteString(8, trader, 4, 1, 2, 3, 0, 7, 6, 5);
+        data.WriteGuidBitString(8, trader, ByteBuffer::Filler, 2, 4, 6, 0, 1, 3, 7, 5);
+        data.WriteSeqByteString(8, trader, ByteBuffer::Filler, 4, 1, 2, 3, 0, 7, 6, 5);
         break;
     case MapInstance::TRADE_STATUS_OPEN_WINDOW: data << uint32(0); break;
     case MapInstance::TRADE_STATUS_CLOSE_WINDOW:
@@ -2602,12 +2602,12 @@ void MapInstance::SendTradeData(Player *plr, bool ourData, MapInstance::TradeDat
             continue;
 
         WoWGuid creatorGuid = item->GetCreatorGUID(), giftCreatorGuid = item->GetGiftCreatorGUID();
-        data.WriteGuidBitString(2, giftCreatorGuid, 7, 1);
+        data.WriteGuidBitString(2, giftCreatorGuid, ByteBuffer::Filler, 7, 1);
         data.WriteBit(!item->IsWrapped());
         data.WriteBit(giftCreatorGuid[3]);
         if(!item->IsWrapped())
         {   // Append bit data
-            data.WriteGuidBitString(7, creatorGuid, 7, 1, 4, 6, 2, 3, 5);
+            data.WriteGuidBitString(7, creatorGuid, ByteBuffer::Filler, 7, 1, 4, 6, 2, 3, 5);
             data.WriteBit(item->GetProto()->LockId);
             data.WriteBit(creatorGuid[0]);
             // Append item data to byte buffer, since we're not wrapped
@@ -2617,7 +2617,7 @@ void MapInstance::SendTradeData(Player *plr, bool ourData, MapInstance::TradeDat
             itemData << uint32(item->GetEnchantmentId(SOCK_ENCHANTMENT_SLOT2));
             itemData << uint32(item->GetEnchantmentId(SOCK_ENCHANTMENT_SLOT3));
             itemData << uint32(item->GetDurabilityMax());
-            itemData.WriteSeqByteString(4, creatorGuid, 6, 2, 7, 4);
+            itemData.WriteSeqByteString(4, creatorGuid, ByteBuffer::Filler, 6, 2, 7, 4);
             itemData << uint32(item->GetEnchantmentId(REFORGE_ENCHANTMENT_SLOT));
             itemData << uint32(item->GetDurability());
             itemData << uint32(item->GetItemRandomPropertyId());
@@ -2630,9 +2630,9 @@ void MapInstance::SendTradeData(Player *plr, bool ourData, MapInstance::TradeDat
         }
 
         // Write some bits
-        data.WriteGuidBitString(5, giftCreatorGuid, 6, 4, 2, 0, 5);
+        data.WriteGuidBitString(5, giftCreatorGuid, ByteBuffer::Filler, 6, 4, 2, 0, 5);
         // Append item data to byte buffer
-        itemData.WriteSeqByteString(4, giftCreatorGuid, 6, 1, 7, 4);
+        itemData.WriteSeqByteString(4, giftCreatorGuid, ByteBuffer::Filler, 6, 1, 7, 4);
         itemData << uint32(item->GetEntry());
         itemData.WriteByteSeq(giftCreatorGuid[0]);
         itemData << uint32(item->GetStackCount());
