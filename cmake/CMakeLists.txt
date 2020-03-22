@@ -25,7 +25,7 @@ IF( CMAKE_GENERATOR MATCHES Visual*)
 SET(CORECOMPILECOUNT "0" CACHE STRING "Amount of cores visual studio will compile with, 0 is max")
 
 #Visual Studio has Win64 appended to declare 64bit compiling
-IF(CMAKE_GENERATOR MATCHES Win64* )
+IF(CMAKE_EXE_LINKER_FLAGS MATCHES "[xX]64" )
 SET(IS_64BIT TRUE)
 SET(GLOBAL_DEFINES ${GLOBAL_DEFINES} "/bigobj")
 ENDIF()#Win64*

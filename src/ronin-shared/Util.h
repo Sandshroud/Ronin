@@ -400,7 +400,7 @@ namespace RONIN_UTIL
 
     RONIN_INLINE unsigned long long getBitCount(unsigned long long val)
     {
-#ifdef WIN32
+#ifndef WIN32
         return __popcnt64(val);
 #else
         val = (val & 0x5555555555555555ULL) + ((val >> 1) & 0x5555555555555555ULL);
