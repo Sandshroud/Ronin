@@ -1487,7 +1487,7 @@ uint32 GroupFinderMgr::GetRealDungeon(LFGDungeonsEntry *entry)
         }
 
         if(set.size() > 1)
-            ret = set[RandomUInt(set.size())];
+            ret = set[RandomUInt(set.size()-1)];
     }
     return ret;
 }
