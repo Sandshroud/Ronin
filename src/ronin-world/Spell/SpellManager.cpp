@@ -834,8 +834,7 @@ SpellEntry* SpellManager::_CreateDummySpell(uint32 id)
 SpellEntry* SpellManager::_CreateScriptedEffectSpell(uint32 id)
 {
     static std::string name = "Dummy Script Trigger";
-    SpellEntry* sp = new SpellEntry();
-    memset(sp, 0, sizeof(SpellEntry*));
+    SpellEntry* sp = RONIN_UTIL::Allocate<SpellEntry>();
     sp->Id = id;
     sp->Attributes[0] = 384;
     sp->Attributes[1] = 268435456;

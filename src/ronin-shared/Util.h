@@ -29,6 +29,13 @@ extern SERVER_DECL tm g_localTime;
 
 namespace RONIN_UTIL
 {
+    template<typename T> RONIN_INLINE T *Allocate()
+    {
+        T* newAlloc = new T, alloc = { 0 };
+        *newAlloc = alloc;
+        return newAlloc;
+    }
+
     static const char* timeNames[6] = { " seconds, ", " minutes, ", " hours, ", " days, ", " months, ", " years, " };
     static const char * szDayNames[7] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
     static const char * szMonthNames[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };

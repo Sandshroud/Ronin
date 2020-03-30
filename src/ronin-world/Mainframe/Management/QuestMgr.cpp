@@ -95,10 +95,11 @@ QuestMgr::~QuestMgr()
         free(MapQuestIterator->second->qst_incompletetext);
         for(uint8 i = 0; i < 4; i++)
             free(MapQuestIterator->second->qst_objectivetexts[i]);
-        MapQuestIterator->second->quest_poi.clear();
+        MapQuestIterator->second->quest_poiIds.clear();
         delete MapQuestIterator->second;
     }
     QuestStorage.clear();
+    m_questPoIOrderedStorage.clear();
 
     for (std::vector<QuestPOI*>::const_iterator itr = m_questPOI.begin(); itr != m_questPOI.end(); ++itr)
     {
@@ -129,8 +130,7 @@ void QuestMgr::LoadQuests()
             continue;
         }
 
-        Quest *newQuest = new Quest();
-        memset(newQuest, 0, sizeof(Quest));
+        Quest *newQuest = RONIN_UTIL::Allocate<Quest>();
         newQuest->id = QuestId;
         newQuest->qst_title = strdup(fields[f++].GetString());
         newQuest->qst_details = strdup(fields[f++].GetString());
@@ -331,17 +331,16 @@ void QuestMgr::LoadQuests()
         delete pResult;
     }
 
-    std::map<std::pair<uint32, uint32>, QuestPOI*> m_orderedQuestPOI;
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_poi ORDER BY questId, id ASC"))
     {
         do
         {
             Field *fields = result->Fetch();
             uint32 QuestId = fields[0].GetUInt32();
-            if(QuestStorage.find(QuestId) == QuestStorage.end())
+            QuestStorageMap::iterator questItr;
+            if((questItr = QuestStorage.find(QuestId)) == QuestStorage.end())
                 continue;
 
-            Quest *quest = QuestStorage.at(QuestId);
             QuestPOI *PoI = new QuestPOI();
             PoI->questId = QuestId;
             PoI->PoIID = fields[1].GetUInt32();
@@ -349,9 +348,12 @@ void QuestMgr::LoadQuests()
             PoI->mapId = fields[3].GetUInt32();
             PoI->areaId = fields[4].GetUInt32();
             PoI->MapFloorId = fields[5].GetUInt32();
+            // Push our PoI ID to our quest
+            questItr->second->quest_poiIds.insert(PoI->PoIID);
+            // Push into ordered map for quick access
+            m_questPoIOrderedStorage.insert(std::make_pair(std::make_pair(PoI->questId, PoI->PoIID), PoI));
+            // Store for cleanup
             m_questPOI.push_back(PoI);
-            quest->quest_poi.push_back(PoI);
-            m_orderedQuestPOI[std::make_pair(PoI->questId, PoI->PoIID)] = PoI;
         } while (result->NextRow());
         delete result;    
     }
@@ -362,14 +364,14 @@ void QuestMgr::LoadQuests()
         {
             Field *pointFields = result->Fetch();
             std::pair<uint32, uint32> questPOID = std::make_pair(pointFields[0].GetUInt32(), pointFields[1].GetUInt32());
-            if(m_orderedQuestPOI.find(questPOID) != m_orderedQuestPOI.end())
-                m_orderedQuestPOI.at(questPOID)->points.push_back(std::make_pair(pointFields[3].GetInt32(), pointFields[4].GetInt32()));
+            if(m_questPoIOrderedStorage.find(questPOID) != m_questPoIOrderedStorage.end())
+                m_questPoIOrderedStorage.at(questPOID)->points.push_back(std::make_pair(pointFields[3].GetInt32(), pointFields[4].GetInt32()));
         }while (result->NextRow());
         delete result;
     }
 
-    sLog.Notice("QuestMgr", "%u quest POI definitions", m_orderedQuestPOI.size());
-    m_orderedQuestPOI.clear();
+    sLog.Notice("QuestMgr", "%u quest POI definitions", m_questPoIOrderedStorage.size());
+
     LoadLocks.Release();
 }
 

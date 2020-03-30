@@ -157,8 +157,7 @@ public:
         /* read the data for each row */
         for(uint32 i = 0; i < header.rows; ++i)
         {
-            T *block = new T();
-            memset(block, 0, sizeof(T));
+            T* block = RONIN_UTIL::Allocate<T>();
 
             uint32 c = 0, stringCount = 0;
             uint8 *dest_ptr = (uint8*)block;

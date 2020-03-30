@@ -99,8 +99,7 @@ public:
     {
         if(_map.find(Entry) != _map.end())
             return reinterpret_cast<T*>(0);
-        T * n = new T();
-        memset(n, NULL, sizeof(T*));
+        T *n = RONIN_UTIL::Allocate<T>();
         _map.insert( std::make_pair( Entry, n ) );
         return n;
     }
@@ -348,10 +347,8 @@ public:
 
             case 'S':
                 {
-                    std::string ptr = "";
-                    if(const char *str = f->GetString())
-                        ptr.append(str);
-                    *(std::string*)&structpointer[offset] = ptr;
+                    const char* ptr = f->GetString();
+                    ((std::string*)&structpointer[offset])->copy((char*)ptr, strlen(ptr));
                     offset += sizeof(std::string);
                 }break;
 

@@ -769,24 +769,35 @@ void WorldSession::HandleQuestPOI(WorldPacket& recvPacket)
             if (Quest *quest = sQuestMgr.GetQuestPointer(questId))
             {
                 data << uint32(questId);
-                data << uint32(quest->quest_poi.size());
 
-                for (std::vector<QuestPOI*>::const_iterator itr = quest->quest_poi.begin(); itr != quest->quest_poi.end(); ++itr)
+                uint32 poiCounter = 0;
+                size_t poiPosition = data.wpos();
+                data << uint32(poiCounter);
+
+                for (std::set<uint32>::const_iterator itr = quest->quest_poiIds.begin(); itr != quest->quest_poiIds.end(); ++itr)
                 {
-                    data << uint32((*itr)->PoIID);
-                    data << int32((*itr)->questObjectIndex);
-                    data << uint32((*itr)->mapId);
-                    data << uint32((*itr)->areaId);
-                    data << uint32((*itr)->MapFloorId);
-                    data << uint32(0) << uint32(1);
-                    data << uint32((*itr)->points.size());
-
-                    for (std::vector<std::pair<int32, int32>>::const_iterator itr2 = (*itr)->points.begin(); itr2 != (*itr)->points.end(); ++itr2)
+                    if (QuestPOI* questPoI = sQuestMgr.GetPointOfInterest(questId, *itr))
                     {
-                        data << int32(itr2->first);
-                        data << int32(itr2->second);
+                        data << uint32(questPoI->PoIID);
+                        data << int32(questPoI->questObjectIndex);
+                        data << uint32(questPoI->mapId);
+                        data << uint32(questPoI->areaId);
+                        data << uint32(questPoI->MapFloorId);
+                        data << uint32(0) << uint32(1);
+                        data << uint32(questPoI->points.size());
+
+                        for (std::vector<std::pair<int32, int32>>::const_iterator itr2 = questPoI->points.begin(); itr2 != questPoI->points.end(); ++itr2)
+                        {
+                            data << int32(itr2->first);
+                            data << int32(itr2->second);
+                        }
+
+                        ++poiCounter;
                     }
                 }
+
+                // Set our counter
+                data.put<uint32>(poiPosition, poiCounter);
             }
             else
             {

@@ -218,7 +218,7 @@ struct Quest
     uint8 count_requiredareatriggers;
     uint8 count_requiredquests;
 
-    std::vector<QuestPOI*> quest_poi;
+    std::set<uint32> quest_poiIds;
 };
 
 #pragma pack(PRAGMA_POP)
@@ -243,6 +243,7 @@ typedef std::list<QuestAssociation *> QuestAssociationList;
 typedef std::map<uint32, std::vector<QuestPOI*> > QuestPOIStorageMap;
 typedef std::map<uint32, QuestRelationList* > QuestRelationListMap;
 typedef std::map<uint32, QuestAssociationList* > QuestAssociationListMap;
+typedef std::map<std::pair<uint32, uint32>, QuestPOI*> QuestPoIRelationMap;
 
 class SERVER_DECL QuestMgr :  public Singleton < QuestMgr >
 {
@@ -254,8 +255,16 @@ public:
     void LoadQuests(); // Actually load our quests, do not call outside startup.
     void AppendQuestList(Object *obj, Player *plr, uint32 &count, WorldPacket *packet);
 
-    bool QuestExists(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return true; return false; };
-    Quest* GetQuestPointer(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return QuestStorage.at(entry); return NULL; };
+    bool QuestExists(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return true; return false; }
+    Quest* GetQuestPointer(uint32 entry) { if(QuestStorage.find(entry) != QuestStorage.end()) return QuestStorage.at(entry); return NULL; }
+
+    QuestPOI* GetPointOfInterest(uint32 questId, uint32 poiId)
+    {
+        QuestPoIRelationMap::iterator poiIter;
+        if ((poiIter = m_questPoIOrderedStorage.find(std::make_pair(questId, poiId))) != m_questPoIOrderedStorage.end())
+            return poiIter->second;
+        return NULL;
+    }
 
     QuestStorageMap::iterator GetQuestStorageBegin() { return QuestStorage.begin(); };
     QuestStorageMap::iterator GetQuestStorageEnd() { return QuestStorage.end(); };
@@ -350,6 +359,7 @@ private:
     QuestRelationListMap m_npc_quests;
     QuestRelationListMap m_obj_quests;
     QuestRelationListMap m_itm_quests;
+    QuestPoIRelationMap m_questPoIOrderedStorage;
     std::vector<QuestPOI*> m_questPOI;
 
     std::map<uint32, uint32> m_ObjectLootQuestList;

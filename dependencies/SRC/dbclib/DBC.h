@@ -137,12 +137,10 @@ public:
 
     bool PackData(FILE *f)
     {
-        size_t blockSize = sizeof(T);
         /* read the data for each row */
         for(uint32 i = 0; i < header.rows; ++i)
         {
-            T *block = new T();
-            memset(block, 0, blockSize);
+            T *block = RONIN_UTIL::Allocate<T>();
 
             uint32 entry = 0xFFFFFFFF;
             uint32 c = 0, stringCount = 0;
