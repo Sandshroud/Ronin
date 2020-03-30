@@ -115,8 +115,11 @@ DatabaseConnection * DirectDatabase::GetFreeConnection()
 
     // Check for threadId assigned connections and wait for it to be free
     std::map<uint32, DatabaseConnection*>::iterator itr;
-    if((itr = m_assignedConnections.find(threadId)) != m_assignedConnections.end())
+    if ((itr = m_assignedConnections.find(threadId)) != m_assignedConnections.end())
+    {
+        itr->second->Busy.Acquire();
         return itr->second;
+    }
 
     for(;;)
     {
