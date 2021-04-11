@@ -142,8 +142,34 @@ public:
     bool AlwaysOverrideProcSpell() { return true; }
 };
 
+class JudgementsOfTheBoldProcData : public SpellProcData
+{
+public:
+    JudgementsOfTheBoldProcData(SpellEntry* sp) : SpellProcData(sp) { }
+    ~JudgementsOfTheBoldProcData() {}
+
+    bool canProc(uint8 procIdentifier, Unit* caster, Unit* target, SpellEntry* sp, uint8 procType, uint16 procMods) { return false; }
+
+    bool canProc(uint8 procIdentifier, Unit* caster, Unit* target, SpellEntry* sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType)
+    {
+        if (sp != NULL && (sp->NameHash == SPELL_HASH_JUDGEMENT || sp->NameHash == SPELL_HASH_JUDGEMENT_OF_TRUTH || sp->NameHash == SPELL_HASH_JUDGEMENT_OF_RIGHTEOUSNESS))
+            return true;
+        return false;
+    }
+
+    bool endsDummycheck() { return true; }
+
+    SpellEntry* GetProcSpellOverride(uint8 triggerIndex, Unit* target) { return dbcSpell.LookupEntry(89906); }
+    bool AlwaysOverrideProcSpell() { return true; }
+};
+
 void SpellProcManager::_RegisterPaladinProcs()
 {
+    //
     static SpellEntry *sealOfTruth = dbcSpell.LookupEntry(31801);
     if(sealOfTruth) RegisterProcData(sealOfTruth, new SealOfTruthProcData(sealOfTruth));
+
+    //
+    static SpellEntry *judgementsOfTheBold = dbcSpell.LookupEntry(89901);
+    if(judgementsOfTheBold) RegisterProcData(judgementsOfTheBold, new JudgementsOfTheBoldProcData(judgementsOfTheBold));
 }
