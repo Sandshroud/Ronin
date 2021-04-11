@@ -33,6 +33,7 @@ public:
     void LaunchSpell(SpellEntry *info, Unit *target = NULL);
     void TriggerSpell(SpellEntry *info, float posX, float posY, float posZ);
     void TriggerSpell(SpellEntry *info, Unit *target, SpellEntry *fromAbility = NULL);
+    void TriggerSpellWithData(SpellEntry* info, Unit* target, SpellEntry* fromAbility, int32 triggerAmount, uint32 triggerAbs);
 
     void LaunchSpellFromSpell(SpellEntry *info, Unit *target, SpellEntry *parent);
 
@@ -64,7 +65,7 @@ protected: // Proc related functions
     void RemoveProcData(SpellProcData *procData);
 
     bool CanTriggerProc(SpellProcData *procData, SpellEntry *fromAbility, time_t triggerTime, uint32 msTime);
-    void TriggerProc(SpellProcData *procData, Unit *target, SpellEntry *fromAbility);
+    void TriggerProc(SpellProcData *procData, Unit *target, SpellEntry *fromAbility, int32 &realDamage, uint32 &absorbDamage);
 
     std::set<SpellProcData*>::iterator beginProcData() { return m_spellProcData.begin(); }
     std::set<SpellProcData*>::iterator endProcData() { return m_spellProcData.end(); }

@@ -134,6 +134,9 @@ public:
     bool IsNeedSendToClient();
     bool IsTriggerSpellEffect(uint32 i);
 
+    // Set arbitrary trigger information
+    void SetTriggerEffectData(int32 triggerAmt, uint32 triggerAbs);
+
     void SendSpellStart();
     void SendSpellGo();
     void SendSpellMisses(SpellTarget *forced = NULL);
@@ -188,6 +191,9 @@ public:
         return m_radius[1][i];
     }
 
+    RONIN_INLINE int32 GetTriggerEffectAmount() { return m_triggerEffAmount; }
+    RONIN_INLINE int32 GetTriggerEffectAbsorb() { return m_triggerEffAbs; }
+
     bool Reflect(Unit* refunit);
 
 protected:
@@ -227,6 +233,9 @@ protected:
 
     Aura* m_triggeredByAura;
     bool m_triggeredSpell;
+    int32 m_triggerEffAmount;
+    uint32 m_triggerEffAbs;
+
     BaseSpell* m_reflectedParent;
 
     bool m_isCasting;

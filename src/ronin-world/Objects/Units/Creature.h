@@ -282,6 +282,14 @@ public:
     bool isTrainingDummy() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_TRAINING_DUMMY; }
     bool isWorldTrigger() { return _creatureData->extraFlags & CREATURE_DATA_EX_FLAG_WORLD_TRIGGER; }
 
+    uint32 computeOverkill(uint32 damage)
+    {
+        if (isTrainingDummy())
+            return 0;
+
+        return Unit::computeOverkill(damage);
+    }
+
     float GetAggroRange();
 
     void Respawn(bool addrespawnevent, bool free_guid);

@@ -73,6 +73,22 @@ bool PaladinExorcismAmountModifier(SpellEffectClass *spell, uint32 effIndex, Uni
     return true;
 }
 
+bool PaladinHandOfLightModifier(SpellEffectClass* spell, uint32 effIndex, Unit* caster, WorldObject* target, int32& amount)
+{
+    // Hand of light gets % of our trigger spell's damage output as holy damage based on mastery %
+    if (Player* playerCaster = caster->IsPlayer() ? castPtr<Player>(caster) : NULL)
+    {
+        float masteryRatio = (playerCaster->GetFloatValue(PLAYER_MASTERY) / 100.f), triggerAmt = spell->GetTriggerEffectAmount();
+        // Ratio modifier, we get 2.1% per mastery ratio so bring us to a flat float
+        masteryRatio *= 2100.f;
+        // Round up our flat float that is in the tenth percentile lift
+        masteryRatio = ceilf(masteryRatio);
+        // Add total trigger amount divided by a thou to bring us back to float percentage
+        amount += float2int32((triggerAmt * masteryRatio)/1000.f);
+    }
+    return true;
+}
+
 bool PaladinTemplarsVerdictAmountModifier(SpellEffectClass *spell, uint32 effIndex, Unit *caster, WorldObject *target, int32 &amount)
 {
     if(Unit *unitCaster = caster->IsUnit() ? castPtr<Unit>(caster) : NULL)
@@ -105,6 +121,9 @@ void SpellManager::_RegisterPaladinFixes()
     // Register the damage modifier based off attack power for exorcism
     _RegisterAmountModifier(879, SP_EFF_INDEX_0, PaladinExorcismAmountModifier);
 
+    // Register the damage modifier based off attack power for exorcism
+    _RegisterAmountModifier(96172, SP_EFF_INDEX_0, PaladinHandOfLightModifier);
+
     // Register the damage increase for templar's verdict based off holy power available
     _RegisterAmountModifier(85256, SP_EFF_INDEX_0, PaladinTemplarsVerdictAmountModifier);
 }
@@ -121,7 +140,7 @@ public:
     {
         if(sp != NULL && sp->isSpellAreaOfEffect())
            return false;
-        if(procIdentifier != PROCD_CASTER)
+        if(procIdentifier != PROCD_CASTER || target == NULL || target == caster)
             return false;
         if(procPairs.find(PROC_ON_STRIKE) == procPairs.end() && procPairs.find(PROC_ON_SPELL_LAND) == procPairs.end())
             return false;
@@ -142,6 +161,29 @@ public:
     bool AlwaysOverrideProcSpell() { return true; }
 };
 
+class HandOfLightProcData : public SpellProcData
+{
+public:
+    HandOfLightProcData(SpellEntry* sp) : SpellProcData(sp) { }
+    ~HandOfLightProcData() {}
+
+    bool canProc(uint8 procIdentifier, Unit* caster, Unit* target, SpellEntry* sp, uint8 procType, uint16 procMods) { return false; }
+
+    bool canProc(uint8 procIdentifier, Unit* caster, Unit* target, SpellEntry* sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType)
+    {
+        if (sp == NULL || procIdentifier != PROCD_CASTER)
+            return false;
+        if (sp->NameHash != SPELL_HASH_CRUSADER_STRIKE && sp->NameHash != SPELL_HASH_TEMPLAR_S_VERDICT && sp->NameHash != SPELL_HASH_DIVINE_STORM)
+            return false;
+        return true;
+    }
+
+    bool endsDummycheck() { return true; }
+
+    SpellEntry* GetProcSpellOverride(uint8 triggerIndex, Unit* target) { return triggerIndex == 1 ? dbcSpell.LookupEntry(96172) : 0; }
+    bool AlwaysOverrideProcSpell() { return true; }
+};
+
 class JudgementsOfTheBoldProcData : public SpellProcData
 {
 public:
@@ -152,24 +194,30 @@ public:
 
     bool canProc(uint8 procIdentifier, Unit* caster, Unit* target, SpellEntry* sp, std::map<uint8, uint16> procPairs, uint8 weaponDamageType)
     {
-        if (sp != NULL && (sp->NameHash == SPELL_HASH_JUDGEMENT || sp->NameHash == SPELL_HASH_JUDGEMENT_OF_TRUTH || sp->NameHash == SPELL_HASH_JUDGEMENT_OF_RIGHTEOUSNESS))
-            return true;
-        return false;
+        if (sp == NULL || procIdentifier != PROCD_CASTER)
+            return false;
+        if (sp->NameHash != SPELL_HASH_JUDGEMENT && sp->NameHash != SPELL_HASH_JUDGEMENT_OF_TRUTH && sp->NameHash != SPELL_HASH_JUDGEMENT_OF_RIGHTEOUSNESS)
+            return false;
+        return true;
     }
 
     bool endsDummycheck() { return true; }
 
-    SpellEntry* GetProcSpellOverride(uint8 triggerIndex, Unit* target) { return dbcSpell.LookupEntry(89906); }
+    SpellEntry* GetProcSpellOverride(uint8 triggerIndex, Unit* target) { return triggerIndex == 0 ? dbcSpell.LookupEntry(89906) : 0; }
     bool AlwaysOverrideProcSpell() { return true; }
 };
 
 void SpellProcManager::_RegisterPaladinProcs()
 {
-    //
+    // Seal of Truth requires a modified proc data register for censure stack or damage
     static SpellEntry *sealOfTruth = dbcSpell.LookupEntry(31801);
     if(sealOfTruth) RegisterProcData(sealOfTruth, new SealOfTruthProcData(sealOfTruth));
 
-    //
+    // Hand of light requires a specific set of spells to trigger
+    static SpellEntry *handOfLight = dbcSpell.LookupEntry(76672);
+    if(handOfLight) RegisterProcData(handOfLight, new HandOfLightProcData(handOfLight));
+
+    // Judgements of the bold require spell checks for existing judgement triggers
     static SpellEntry *judgementsOfTheBold = dbcSpell.LookupEntry(89901);
     if(judgementsOfTheBold) RegisterProcData(judgementsOfTheBold, new JudgementsOfTheBoldProcData(judgementsOfTheBold));
 }

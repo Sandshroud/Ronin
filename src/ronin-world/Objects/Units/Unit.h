@@ -698,7 +698,7 @@ public:
         return StandState (uint8 (bytes1));
     }
 
-    RONIN_INLINE uint32 computeOverkill(uint32 damage)
+    virtual uint32 computeOverkill(uint32 damage)
     {
         uint32 curHealth = GetUInt32Value(UNIT_FIELD_HEALTH);
         return (damage > curHealth) ? damage - curHealth : 0;

@@ -38,9 +38,10 @@ void SpellProcManager::QuickProcessProcs(Unit *caster, uint8 procType, uint16 pr
 {
     time_t current = UNIXTIME;
     uint32 msTime = RONIN_UTIL::ThreadTimer::getThreadTime();
+    int32 damage = 0; uint32 absorb = 0;
     for(std::set<SpellProcData*>::iterator itr = caster->GetSpellInterface()->beginProcData(); itr != caster->GetSpellInterface()->endProcData(); ++itr)
         if((*itr)->canProc(PROCD_CASTER, caster, caster, NULL, procType, procMods) && caster->GetSpellInterface()->CanTriggerProc(*itr, NULL, current, msTime))
-            caster->GetSpellInterface()->TriggerProc(*itr, NULL, NULL);
+            caster->GetSpellInterface()->TriggerProc(*itr, NULL, NULL, damage, absorb);
 }
 
 uint32 SpellProcManager::ProcessProcFlags(Unit *caster, Unit *target, std::map<uint8, uint16> procPairs, std::map<uint8, uint16> vProcPairs, SpellEntry *fromAbility, int32 &realDamage, uint32 &absorbDamage, uint8 weaponDamageType)
@@ -58,9 +59,9 @@ uint32 SpellProcManager::ProcessProcFlags(Unit *caster, Unit *target, std::map<u
             victimProcs.push_back(*itr);
 
     for(std::vector<SpellProcData*>::iterator itr = casterProcs.begin(); itr != casterProcs.end(); ++itr)
-        caster->GetSpellInterface()->TriggerProc(*itr, target, fromAbility);
+        caster->GetSpellInterface()->TriggerProc(*itr, target, fromAbility, realDamage, absorbDamage);
     for(std::vector<SpellProcData*>::iterator itr = victimProcs.begin(); itr != victimProcs.end(); ++itr)
-        target->GetSpellInterface()->TriggerProc(*itr, caster, fromAbility);
+        target->GetSpellInterface()->TriggerProc(*itr, caster, fromAbility, realDamage, absorbDamage);
 
     casterProcs.clear();
     victimProcs.clear();

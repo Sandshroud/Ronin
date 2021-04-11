@@ -108,6 +108,8 @@ BaseSpell::BaseSpell(Unit* caster, SpellEntry *info, uint8 castNumber, WoWGuid i
     m_radius[0][0] = m_radius[0][1] = m_radius[0][2] = 0.f;
     m_radius[0][0] = m_radius[1][1] = m_radius[1][2] = 0.f;
     m_triggeredSpell = m_AreaAura = b_durSet = b_radSet[0] = b_radSet[1] = b_radSet[2] = false;
+    m_triggerEffAmount = m_triggerEffAbs = 0;
+
     m_spellState = SPELL_STATE_NULL;
     m_spellParent = NULL;
     m_triggeredByAura = NULL;
@@ -449,6 +451,12 @@ bool BaseSpell::IsTriggerSpellEffect(uint32 i)
         || m_spellInfo->HasEffect(SPELL_EFFECT_TRIGGER_SPELL_2, i))
         return true;
     return false;
+}
+
+void BaseSpell::SetTriggerEffectData(int32 triggerAmt, uint32 triggerAbs)
+{
+    m_triggerEffAmount = triggerAmt;
+    m_triggerEffAbs = triggerAbs;
 }
 
 void BaseSpell::SendProjectileUpdate()
