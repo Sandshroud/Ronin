@@ -892,7 +892,7 @@ void World::UpdateServerTimers(uint32 diff)
     if(m_gameTime >= 10800 && m_gameTime < 12600 && m_dailyReset == false)
     {
         m_lastDailyReset = thisTime;
-        CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_dailies_reset_time\", \'%ull\')", thisTime);
+        CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_dailies_reset_time\", \'%lld\')", thisTime);
         sLog.Notice("World", "Running Daily Quest Reset...");
         objmgr.ResetDailies();
         m_dailyReset = true;
@@ -909,7 +909,7 @@ void World::UpdateServerTimers(uint32 diff)
     else if(m_gameTime >= 32400 && m_gameTime < 34200 && m_heroicReset == false)
     {
         m_lastHeroicReset = thisTime;
-        CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_heroic_reset_time\", \'%ull\')", thisTime);
+        CharacterDatabase.Execute("REPLACE INTO server_settings VALUES(\"last_heroic_reset_time\", \'%lld\')", thisTime);
         sLog.Notice("World", "Reseting heroic instances...");
         sWorldMgr.ResetHeroicInstances();
         m_heroicReset = true;
