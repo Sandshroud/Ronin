@@ -42,7 +42,8 @@ public:
             return 0;
         uint64 value;
 #if defined(_WIN64)
-        sscanf(mValue,UI64FMTD,(long long unsigned int*)&value);
+        if (sscanf(mValue, UI64FMTD, (long long unsigned int*) & value) == 0)
+            return 0;
 #else
         sscanf(mValue,UI64FMTD,&value);
 #endif
@@ -55,7 +56,8 @@ public:
             return 0;
         int64 value;
 #if defined(_WIN64)
-        sscanf(mValue,I64FMTD,(long long unsigned int*)&value);
+        if(sscanf(mValue,I64FMTD,(long long unsigned int*)&value) == 0)
+            return 0;
 #else
         sscanf(mValue,I64FMTD,&value);
 #endif

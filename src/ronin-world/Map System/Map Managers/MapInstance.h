@@ -378,7 +378,7 @@ protected:
 class MapInstanceBroadcastMessageInrangeCallback : public MapInstanceBroadcastMessageCallback
 {
 public:
-    MapInstanceBroadcastMessageInrangeCallback(MapInstance *instance) : MapInstanceBroadcastMessageCallback(instance) {}
+    MapInstanceBroadcastMessageInrangeCallback(MapInstance *instance) : MapInstanceBroadcastMessageCallback(instance), _myTeam(true), _teamId(0), _range(0.f), _opcode(0), _dataLen(0){}
     void operator()(WorldObject *obj, WorldObject *curObj);
 
     void ResetData(float range, WorldPacket *data, bool myTeam, uint32 teamId) { setPacketData(data); _range = range; _myTeam = myTeam; _teamId = teamId; _opcode = 0; _dataLen = 0; _dataStream = NULL; };

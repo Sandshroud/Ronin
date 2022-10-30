@@ -164,7 +164,7 @@ void QuestMgr::LoadQuests()
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_objectives"))
     {
         if(result->GetFieldCount() != 37)
-            sLog.Error("QuestMgr", "Incorrect column count in quest_rewards(%u/37)", result->GetFieldCount());
+            sLog.Error("QuestMgr", "Incorrect column count in quest_objectives(%u/37)", result->GetFieldCount());
         else do
         {
             uint8 f = 0;
@@ -209,7 +209,7 @@ void QuestMgr::LoadQuests()
     if(QueryResult *result = WorldDatabase.Query("SELECT * FROM quest_requirements"))
     {
         if(result->GetFieldCount() != 13)
-            sLog.Error("QuestMgr", "Incorrect column count in quests_rewards(%u/13)", result->GetFieldCount());
+            sLog.Error("QuestMgr", "Incorrect column count in quests_requirements(%u/13)", result->GetFieldCount());
         else do
         {
             uint8 f = 0;

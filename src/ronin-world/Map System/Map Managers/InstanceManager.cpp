@@ -189,6 +189,8 @@ void InstanceManager::LaunchGroupFinderDungeon(uint32 mapId, GroupFinderMgr::Gro
 
 MapInstance *InstanceManager::GetInstanceForObject(WorldObject *obj)
 {
+    ASSERT(obj != NULL);
+
     Map *mapData = NULL;
     MapInstance *ret = NULL;
     uint32 mapId = obj->GetMapId(), instanceId = obj->GetInstanceID();

@@ -18,7 +18,7 @@
  */
 
 #include "StdAfx.h"
-#include "3487_silvermoon_city.h"
+#include "4395_dalaran.h"
 
 bool PortalEffectCavernsOfTime(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount, uint32 &mapId, float &X, float &Y, float &Z, float &O)
 {

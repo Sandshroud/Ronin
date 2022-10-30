@@ -35,7 +35,14 @@ class Condition
 public:
     RONIN_INLINE Condition(Mutex * mutex) : m_nLockCount(0), m_externalMutex(mutex)
     {
-        ::InitializeCriticalSection(&m_critsecWaitSetProtection);
+        try
+        {
+            ::InitializeCriticalSection(&m_critsecWaitSetProtection);
+        }
+        catch (...)
+        {
+
+        }
     }
 
     ~Condition()
