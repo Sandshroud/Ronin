@@ -135,7 +135,6 @@ public:
     }
 
     static bool CanEffectTargetGameObjects(SpellEntry *sp, uint32 i);
-    static bool IsAreaAuraApplicator(SpellEntry *sp, uint32 effMask);
 
     bool IsAuraApplyingSpell();
     bool IsStealthSpell();

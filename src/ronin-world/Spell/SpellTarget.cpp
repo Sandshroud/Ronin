@@ -214,8 +214,8 @@ void SpellTargetClass::_AddTarget(WorldObject* target, const uint32 effIndex)
     tgt->effectAmount[effIndex] = CalculateEffect(effIndex, target);
     // Call to spell manager to modify the spell amount
     tgt->moddedAmount[effIndex] = sSpellMgr.ModifyEffectAmount(this, effIndex, _unitCaster, target, tgt->effectAmount[effIndex]);
-    // Build any modifier data here, area auras are handled differently so make sure we don't handle these unless the effect is a different handler
-    if(m_spellInfo->isSpellAuraApplicator(effIndex) && target->IsUnit() && !Spell::IsAreaAuraApplicator(m_spellInfo, m_spellInfo->GetAuraApplicationMask()))
+    // Build any modifier data here, persistent area auras are handled differently so make sure we don't handle these unless the effect is a different handler
+    if(m_spellInfo->isSpellAuraApplicator(effIndex) && target->IsUnit() && !m_spellInfo->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, m_spellInfo->GetAuraApplicationMask()))
     {
         Unit *unitTarget = castPtr<Unit>(target);
         if(tgt->resistMod)

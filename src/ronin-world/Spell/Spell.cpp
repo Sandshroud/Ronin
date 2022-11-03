@@ -120,19 +120,6 @@ bool Spell::CanEffectTargetGameObjects(SpellEntry *sp, uint32 i)
     return false;
 }
 
-bool Spell::IsAreaAuraApplicator(SpellEntry *sp, uint32 effectMask)
-{
-    if(sp->HasEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA, effectMask))
-        return true;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA, effectMask))
-        return true;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_FRIEND, effectMask))
-        return true;
-    if(sp->HasEffect(SPELL_EFFECT_APPLY_AREA_AURA_ENEMY, effectMask))
-        return true;
-    return false;
-}
-
 uint8 Spell::prepare(SpellCastTargets *targets, bool triggered)
 {
     if( _unitCaster->IsPlayer() && (m_spellInfo->Id == 51514 || m_spellInfo->NameHash == SPELL_HASH_ARCANE_SHOT || m_spellInfo->NameHash == SPELL_HASH_MIND_FLAY))
