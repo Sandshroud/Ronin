@@ -848,6 +848,7 @@ bool ChatHandler::HandleMountCommand(const char *args, WorldSession *m_session)
         return true;
     }
 
+    m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
     m_target->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID , modelid);
     //m_target->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
 

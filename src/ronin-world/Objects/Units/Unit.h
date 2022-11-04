@@ -228,7 +228,7 @@ enum UnitFieldFlags // UNIT_FIELD_FLAGS #46 - these are client flags
     UNIT_FLAG_PLAYER_CONTROLLED_CREATURE = 0x01000000, // 25  16777216  used in spell Eyes of the Beast for pet
     UNIT_FLAG_NOT_SELECTABLE             = 0x02000000, // 26  33554432  cannot select the unit
     UNIT_FLAG_SKINNABLE                  = 0x04000000, // 27  67108864
-    UNIT_FLAG_MOUNT                      = 0x08000000, // 28  134217728  ? was MAKE_CHAR_UNTOUCHABLE (probably wrong), nothing ever set it
+    UNIT_FLAG_MOUNT                      = 0x08000000, // 28  134217728  Used in 4.x.x to notify client of mounted status(keeps moveflags between water transitions)
     UNIT_FLAG_UNKNOWN_29                 = 0x10000000, // 29  268435456
     UNIT_FLAG_FEIGN_DEATH                = 0x20000000, // 30  536870912
     UNIT_FLAG_SHEATHE                    = 0x40000000, // 31  1073741824  ? was WEAPON_OFF and being used for disarm

@@ -1671,6 +1671,7 @@ void Aura::SpellAuraMounted(bool apply)
         if(ctrData == NULL || ctrData->displayInfo[0] == 0)
             return;
 
+        pPlayer->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
         pPlayer->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
 
         if( pPlayer->GetShapeShift() && !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
@@ -1697,6 +1698,7 @@ void Aura::SpellAuraMounted(bool apply)
         if(mod->fixed_amount)
             pPlayer->RemoveAura(mod->fixed_amount);
 
+        pPlayer->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
         pPlayer->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
         pPlayer->m_AuraInterface.RemoveAllAurasByInterruptFlagButSkip( AURA_INTERRUPT_ON_DISMOUNT, GetSpellId() );
     }

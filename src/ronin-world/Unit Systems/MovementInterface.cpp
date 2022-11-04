@@ -746,7 +746,7 @@ protected:
 float MovementInterface::_CalculateSpeed(MovementSpeedTypes speedType)
 {
     SpeedValueCallback callback;
-    bool mounted = m_Unit->GetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID) != 0;
+    bool mounted = m_Unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
     float baseSpeed = m_defaultSpeeds[speedType], speedMod = 0.f, speedStack = 0.f;
     uint32 normalizerModMap = SPELL_AURA_TOTAL, speedBonusMap = SPELL_AURA_TOTAL, speedStackMap = SPELL_AURA_TOTAL, speedNonStackMap = SPELL_AURA_TOTAL;
 

@@ -4230,6 +4230,7 @@ void Unit::Dismount()
     m_AuraInterface.OnDismount();
     m_movementInterface.OnDismount();
 
+    RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
     SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, 0);
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI );
     RemoveFlag( UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER );
