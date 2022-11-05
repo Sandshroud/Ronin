@@ -895,14 +895,6 @@ bool AuraInterface::GetMountedAura(uint32 &auraId)
     return auraId != 0;
 }
 
-bool AuraInterface::HasFlightAura()
-{
-    RWGuard guard(m_auraLock, false);
-    if(m_modifiersByModType.find(SPELL_AURA_FLY) != m_modifiersByModType.end() && !m_modifiersByModType[SPELL_AURA_FLY].empty())
-        return true;
-    return false;
-}
-
 void AuraInterface::RemoveFlightAuras()
 {
     RWGuard guard(m_auraLock, false);
@@ -1608,6 +1600,12 @@ void AuraInterface::UpdateModifier(uint8 auraSlot, uint8 index, Modifier *mod, b
             m_modifierHolders.insert(std::make_pair(auraSlot, modHolder));
             if(isGroupModifier && !modHolder->spellInfo->isPassiveSpell())
                 m_activeAuraModifiers.insert(modHolder);
+        }
+
+        if (modHolder->mod[index] && modHolder->mod[index]->m_type != mod->m_type)
+        {   // TODO
+            // Shits fucked, fix it
+            ASSERT(false);
         }
 
         ASSERT(modHolder);

@@ -5424,28 +5424,6 @@ void Player::RequestPvPToggle(bool state)
 
 void Player::SoftLoadPlayer()
 {
-    for(SpellSet::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
-    {
-        if(SpellEntry *info = dbcSpell.LookupEntry(*itr))
-        {
-            uint8 retIndex = 0xFF;
-            uint32 skillEffect = SPELL_EFFECT_NULL;
-            if(info->isPassiveSpell() && !info->isSpellExpiringWithPet() && !info->isSpellbookInvisible())
-                GetSpellInterface()->TriggerSpell(info, this);
-            else if((skillEffect = info->IsSpellTeachingSkill(0xFF, &retIndex)) != SPELL_EFFECT_NULL)
-            {   // Ensure we have skill lines for the spells we're holding, Skills are already loaded so if it's not there just reset
-                uint32 skillLine = info->SpellSkillLine;
-                if(skillLine == 0 || skillEffect == SPELL_EFFECT_SKILL_STEP)
-                    skillLine = info->EffectMiscValue[retIndex];
-                if(!HasSkillLine(skillLine))
-                    GetSpellInterface()->TriggerSpell(info, this);
-            }
-        }
-    }
-
-    // Initialize our talent info
-    m_talentInterface.InitActiveSpec();
-
     static SpellEntry *shapeShift = dbcSpell.LookupEntry(2457), *honorless = dbcSpell.LookupEntry(PLAYER_HONORLESS_TARGET_SPELL);
     if(isDead()) // only add aura's to the living (death aura set elsewhere)
     {
@@ -5468,7 +5446,7 @@ void Player::SoftLoadPlayer()
             // Load our mod list from Aura loading
             pair.second->ProcessModListLoad();
             // Add aura through aura interface
-            AddAura(pair.second, pair.first);
+            AddAura(pair.second);
             m_loadAuras.pop_front();
         }
 
@@ -5479,6 +5457,28 @@ void Player::SoftLoadPlayer()
         // Honorless target at 1st entering world.
         if(honorless) GetSpellInterface()->TriggerSpell(honorless, this);
     }
+
+    for(SpellSet::iterator itr = m_spells.begin(); itr != m_spells.end(); itr++)
+    {
+        if(SpellEntry *info = dbcSpell.LookupEntry(*itr))
+        {
+            uint8 retIndex = 0xFF;
+            uint32 skillEffect = SPELL_EFFECT_NULL;
+            if(info->isPassiveSpell() && !info->isSpellExpiringWithPet() && !info->isSpellbookInvisible())
+                GetSpellInterface()->TriggerSpell(info, this);
+            else if((skillEffect = info->IsSpellTeachingSkill(0xFF, &retIndex)) != SPELL_EFFECT_NULL)
+            {   // Ensure we have skill lines for the spells we're holding, Skills are already loaded so if it's not there just reset
+                uint32 skillLine = info->SpellSkillLine;
+                if(skillLine == 0 || skillEffect == SPELL_EFFECT_SKILL_STEP)
+                    skillLine = info->EffectMiscValue[retIndex];
+                if(!HasSkillLine(skillLine))
+                    GetSpellInterface()->TriggerSpell(info, this);
+            }
+        }
+    }
+
+    // Initialize our talent info
+    m_talentInterface.InitActiveSpec();
 }
 
 void Player::CompleteLoading()

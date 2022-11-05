@@ -108,7 +108,6 @@ public:
     bool HasMountAura();
     bool GetMountedAura(uint32 &auraId);
 
-    bool HasFlightAura();
     void RemoveFlightAuras();
 
     /*****************************

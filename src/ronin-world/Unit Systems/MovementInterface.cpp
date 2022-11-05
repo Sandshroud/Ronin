@@ -1215,7 +1215,7 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
 
     // Update pending flight
     if(updateFlight)
-        setCanFly(aurInterface->HasApplicableAurasWithModType(SPELL_AURA_FLY) || aurInterface->HasApplicableAurasWithModType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED));
+        setCanFly(m_Unit->canFly());
     // Update pending speeds
     for(std::set<MovementSpeedTypes>::iterator itr = speedsToUpdate.begin(); itr != speedsToUpdate.end(); itr++)
         RecalculateMoveSpeed(*itr);
@@ -1300,6 +1300,10 @@ void MovementInterface::OnPreSetInWorld()
 {
     for(uint8 i = 0; i < MOVE_SPEED_MAX; i++)
         RecalculateMoveSpeed(MovementSpeedTypes(i));
+
+    // Update wether we can fly or not
+    AuraInterface* aurInterface = &m_Unit->m_AuraInterface;
+    setCanFly(m_Unit->canFly());
 }
 
 void MovementInterface::OnPrePushToWorld()

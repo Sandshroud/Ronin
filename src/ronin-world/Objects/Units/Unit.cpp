@@ -2008,9 +2008,6 @@ bool Unit::canFly()
         return true;
     if(m_AuraInterface.HasAurasWithModType(SPELL_AURA_FLY))
         return true;
-    if(m_AuraInterface.HasFlightAura())
-        return true;
-
     return false;
 }
 
