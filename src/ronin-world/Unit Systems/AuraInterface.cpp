@@ -94,6 +94,11 @@ void AuraInterface::SavePlayerAuras(std::stringstream *ss)
         Aura *aur = FindAuraBySlot(i);
         if(aur == NULL)
             continue;
+
+        // Don't save auras that are proc'd from other auras
+        if(aur->GetParentSpell() || aur->GetSpellProto()->isSpellAuraSavingDisabled())
+            continue;
+
         if(aur->GetCasterGUID() != m_Unit->GetGUID())
         {   // Only save apply aura spells, area auras should be ignored
             if(!aur->GetSpellProto()->HasEffect(SPELL_EFFECT_APPLY_AURA))
@@ -985,7 +990,7 @@ void AuraInterface::AddAura(Aura* aur, uint8 slot)
             return;
         }
 
-    } else aur->BuildAuraUpdate();
+    } else if(m_Unit->IsInWorld()) aur->BuildAuraUpdate();
     guard.Nullify();
 
     m_auraLock.HighAcquire();

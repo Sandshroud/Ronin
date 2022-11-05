@@ -32,12 +32,14 @@ public:
     static std::map<uint16, pSpellAura> m_auraHandlerMap;
 
     void Refresh(bool freshStack);
+    void ProcessModListLoad();
 
     void Remove();
     void Update(uint32 diff);
     void UpdatePreApplication();
     void OnTargetChangeLevel(uint32 newLevel, uint64 targetGuid);
     void AddMod(uint32 i, uint32 t, int32 a, uint32 b = 0, int32 f = 0, float ff = 0);
+    void PushPendingModLoad(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff);
 
     RONIN_INLINE SpellEntry* GetSpellProto() const { return m_spellProto; }
     RONIN_INLINE uint32 GetSpellId() const { return m_spellProto->Id; }
@@ -84,6 +86,7 @@ public:
 
     void RemoveIfNecessary();
 
+    void PreApplyModifierCases(uint8 index, Modifier *mod);
     void ApplyModifiers(bool apply);
     void UpdateModifiers();
     bool AddAuraVisual();
@@ -196,6 +199,17 @@ private:
 
     uint32 m_modcount;
     Modifier m_modList[3], *mod;
+    struct pendingLoadMod
+    {
+        uint32 index;
+        uint32 type;
+        int32 baseAmount;
+        uint32 bonusAmount;
+        int32 fixedA;
+        float fixedFA;
+    };
+
+    std::set<pendingLoadMod*> m_pendingModLoads;
 
     struct PeriodicAura
     {
@@ -224,7 +238,6 @@ protected:
 
     void SendInterrupted(uint8 result, WorldObject* m_caster);
     void SendChannelUpdate(uint32 time, WorldObject* m_caster);
-    void SpecialCases();
 
 public:
     RONIN_INLINE bool IsInterrupted() { return ( m_interrupted >= 0 ); }

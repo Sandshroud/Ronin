@@ -1178,12 +1178,12 @@ void MovementInterface::ProcessModUpdate(uint8 modUpdateType, std::vector<uint32
             break;
             // Speed modifiers
         case SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED:
-            updateFlight = true;
         case SPELL_AURA_MOD_INCREASE_VEHICLE_FLIGHT_SPEED:
         case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
         case SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS:
         case SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACK:
             speedsToUpdate.insert(MOVE_SPEED_FLIGHT);
+            updateFlight = true;
             break;
         case SPELL_AURA_MOD_INCREASE_SPEED:
         case SPELL_AURA_MOD_SPEED_ALWAYS:
@@ -1235,7 +1235,7 @@ void MovementInterface::HandlePendingMoveData(bool fromLanding)
         if(fromLanding == true && !(hasFlag(MOVEMENTFLAG_SWIMMING) || hoveringExclude || flyingExclude || featherFallingExclude))
         {   // Handle our pending falling damage
             float diff = 0.f;
-            if(castPtr<Player>(m_Unit)->hasGMTag() && (diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)
+            if(!castPtr<Player>(m_Unit)->hasGMTag() && (diff = ((m_fallPointZ-m_clientLocation.z)-12.f)) > 0.f)
                 m_Unit->DealDamage(m_Unit, float2int32(diff * 0.017f * ((float)m_Unit->GetMaxHealth())), 0, 0, 0);
             // Damage handled, data will be cleared after this
         } else return;

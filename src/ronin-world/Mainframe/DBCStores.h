@@ -1189,6 +1189,7 @@ struct SpellEntry
     bool isSpellRangedSpell() { return HasCustomAttribute(1, 0x10); }
     bool isSpellFinishingMove() { return HasCustomAttribute(1, 0x20); }
     bool isSpellFlyingSpell() { return HasCustomAttribute(1, 0x40); }
+    bool isSpellAuraSavingDisabled() { return HasCustomAttribute(1, 0x80); }
 
     // Combo
     bool IsSpellChannelSpell() { return (isChanneledSpell() || isChanneledSpell2() || ChannelInterruptFlags); }

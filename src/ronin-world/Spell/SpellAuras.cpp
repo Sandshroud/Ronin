@@ -349,6 +349,17 @@ void Aura::Refresh(bool freshStack)
     BuildAuraUpdate();
 }
 
+void Aura::ProcessModListLoad()
+{   // We have a list of mods shoved into our aura at load, process through them
+    while (!m_pendingModLoads.empty())
+    {
+        pendingLoadMod* pendingLoad = *m_pendingModLoads.begin();
+        AddMod(pendingLoad->index, pendingLoad->type, pendingLoad->baseAmount, pendingLoad->bonusAmount, pendingLoad->fixedA, pendingLoad->fixedFA);
+        m_pendingModLoads.erase(m_pendingModLoads.begin());
+        delete pendingLoad;
+    }
+}
+
 void Aura::Remove()
 {
     if( m_deleted )
@@ -429,6 +440,11 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
     m_modList[modIndex].fixed_amount = f;
     m_modList[modIndex].fixed_float_amount = ff;
     m_modList[modIndex].m_spellInfo = GetSpellProto();
+
+    // Hack
+    PreApplyModifierCases(modIndex, &m_modList[modIndex]);
+
+    // Calculate bonus amount
     CalculateBonusAmount(GetUnitCaster(), modIndex);
 
     // Periodic effect adding
@@ -463,6 +479,18 @@ void Aura::AddMod(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff )
     }
 }
 
+void Aura::PushPendingModLoad(uint32 i, uint32 t, int32 a, uint32 b, int32 f, float ff)
+{   // Create a stored addmod function for use later
+    pendingLoadMod* pendingLoad = new pendingLoadMod();
+    pendingLoad->index = i;
+    pendingLoad->type = t;
+    pendingLoad->baseAmount = a;
+    pendingLoad->bonusAmount = b;
+    pendingLoad->fixedA = f;
+    pendingLoad->fixedFA = ff;
+    m_pendingModLoads.insert(pendingLoad);
+}
+
 void Aura::ResetExpirationTime()
 {
     if(m_expirationTime == 0 || m_duration == -1)
@@ -484,6 +512,59 @@ void Aura::RemoveIfNecessary()
     {
         ApplyModifiers(false);
         return;
+    }
+}
+
+// Dirty, needs rewrite
+void Aura::PreApplyModifierCases(uint8 index, Modifier* mod)
+{
+    // Temp player only
+    if (!m_target->IsPlayer())
+        return;
+    Player* pPlayer = castPtr<Player>(m_target);
+
+    //We put all the special cases here, so we keep the code clean.
+    switch (m_spellProto->Id)
+    {
+        case 12976:// Last Stand
+        case 50322:// Survival Instincts
+        {
+            if(index == 0)
+                mod->m_amount = (uint32)(m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * 0.3);
+        }break;
+        case 23782:// Gift of Life
+        {
+            if (index == 0)
+                mod->m_amount = 1500;
+        }break;
+        case 48418:// Master Shapeshifter Physical Damage
+        case 48420:// Master Shapeshifter CritChance
+        case 48421:// Master Shapeshifter SpellDamage
+        case 48422:// Master Shapeshifter Healing
+        {
+            if (index == 0 && pPlayer->HasSpell(48411))
+                mod->m_amount = 2;
+            if (index == 0 && pPlayer->HasSpell(48412))
+                mod->m_amount = 4;
+        }break;
+    }
+
+    // Special cases based on mod type
+    switch (mod->m_type)
+    {
+    case SPELL_AURA_MOUNTED:
+        {
+            // Grab our mount capability spell
+            SpellEntry* mountCapability = pPlayer->GetMountCapability(mod->m_miscValue[1], mod->m_baseAmount);
+            if (mountCapability == NULL)
+                return;
+            // Update our amount to match our base amount
+            mod->m_amount = mod->m_baseAmount;
+
+            // Set fixed amount to the spell Id of the movement we've been allotted
+            mod->fixed_amount = mountCapability->Id;
+            SetAuraFlag(AFLAG_EFF_AMOUNT_SEND);
+        }break;
     }
 }
 
@@ -1671,27 +1752,18 @@ void Aura::SpellAuraMounted(bool apply)
         if(ctrData == NULL || ctrData->displayInfo[0] == 0)
             return;
 
-        pPlayer->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
         pPlayer->SetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID, ctrData->displayInfo[0]);
 
         if( pPlayer->GetShapeShift() && !(pPlayer->GetShapeShift() & FORM_BATTLESTANCE | FORM_DEFENSIVESTANCE | FORM_BERSERKERSTANCE ))
             pPlayer->m_AuraInterface.RemoveAllAurasOfType(SPELL_AURA_MOD_SHAPESHIFT, m_spellProto);
 
-        // If we already have a fixed amount, then this is a reapplication of the modifier
-        if(mod->fixed_amount)
+        // If we already have mount flag, then this is a reapplication of the modifier
+        if (pPlayer->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT))
             return;
 
-        // Grab our mount capability spell
-        SpellEntry *mountCapability = pPlayer->GetMountCapability(mod->m_miscValue[1]);
-        if(mountCapability == NULL)
-            return;
-
-        SpellCastTargets targets(pPlayer->GetGUID());
-        if(Spell *mountAbility = new Spell(pPlayer, mountCapability))
-        {
-            mod->fixed_amount = mountCapability->Id;
-            mountAbility->prepare(&targets, true);
-        }
+        pPlayer->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNT);
+        if (SpellEntry* mountCapability = dbcSpell.LookupEntry(mod->fixed_amount))
+            pPlayer->GetSpellInterface()->TriggerSpell(dbcSpell.LookupEntry(mod->fixed_amount), pPlayer, m_spellProto);
     }
     else
     {
@@ -2382,33 +2454,6 @@ void Aura::SpellAuraAddCreatureImmunity(bool apply)
 void Aura::SpellAuraReduceAOEDamageTaken(bool apply)
 {
 
-}
-
-void Aura::SpecialCases()
-{
-    //We put all the special cases here, so we keep the code clean.
-    switch(m_spellProto->Id)
-    {
-    case 12976:// Last Stand
-    case 50322:// Survival Instincts
-        {
-            mod->m_amount = (uint32)(m_target->GetUInt32Value(UNIT_FIELD_MAXHEALTH) * 0.3);
-        }break;
-    case 23782:// Gift of Life
-        {
-            mod->m_amount = 1500;
-        }break;
-    case 48418:// Master Shapeshifter Physical Damage
-    case 48420:// Master Shapeshifter CritChance
-    case 48421:// Master Shapeshifter SpellDamage
-    case 48422:// Master Shapeshifter Healing
-        {
-            if(castPtr<Player>(m_target)->HasSpell(48411))
-                mod->m_amount =  2;
-            if(castPtr<Player>(m_target)->HasSpell(48412))
-                mod->m_amount =  4;
-        }break;
-    }
 }
 
 void Aura::SpellAuraModPetTalentPoints(bool apply)

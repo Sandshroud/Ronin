@@ -368,7 +368,8 @@ bool SpellInterface::checkCast(SpellEntry *sp, SpellCastTargets &targets, uint8 
                 if(sp->EffectApplyAuraName[i] != SPELL_AURA_MOUNTED)
                     continue;
 
-                if(p_caster->GetMountCapability(sp->EffectMiscValueB[i]) == NULL)
+                int32 mountCapabilityId;
+                if(p_caster->GetMountCapability(sp->EffectMiscValueB[i], mountCapabilityId) == NULL)
                 {
                     errorOut =SPELL_FAILED_SPELL_UNAVAILABLE;
                     return false;

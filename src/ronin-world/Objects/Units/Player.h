@@ -806,7 +806,7 @@ public: /// Player field based functions
     void _AdvanceAllSkills(uint16 count, bool skipprof = false, uint16 max = 0);
 
     // Get mount capability based on mount skill
-    SpellEntry *GetMountCapability(uint32 mountType);
+    SpellEntry *GetMountCapability(uint32 mountType, int32 &capabilityIdOut);
 
     void RecalculateHonor();
 

@@ -1619,26 +1619,33 @@ void Player::LoadFromDBProc(QueryResultVector & results)
         m_restData.areaTriggerId = fields[PLAYERLOAD_FIELD_RESTAREATRIGGER].GetUInt32();
     }
 
-    m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
-    _LoadPlayerAuras(results[PLAYER_LO_AURAS].result);
-    _LoadPlayerCooldowns(results[PLAYER_LO_COOLDOWNS].result);
-    m_currency.LoadFromDB(fields[PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME].GetUInt64(), results[PLAYER_LO_CURRENCY].result);
+    _LoadSocial(results[PLAYER_LO_SOCIAL].result);
+    _LoadKnownTitles(results[PLAYER_LO_KNOWN_TITLES].result);
+    _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
+    _LoadExplorationData(results[PLAYER_LO_EXPLORATION].result);
+    m_factionInterface.LoadFactionData(results[PLAYER_LO_REPUTATIONS].result);
+
     AchieveMgr.LoadAchievementData(GetGUID(), m_playerInfo, results[PLAYER_LO_ACHIEVEMENT_DATA].result);
     AchieveMgr.LoadCriteriaData(GetGUID(), results[PLAYER_LO_CRITERIA_DATA].result);
-    _LoadEquipmentSets(results[PLAYER_LO_EQUIPMENTSETS].result);
-    _LoadExplorationData(results[PLAYER_LO_EXPLORATION].result);
-    m_talentInterface.LoadGlyphData(results[PLAYER_LO_GLYPHS].result);
-    _LoadKnownTitles(results[PLAYER_LO_KNOWN_TITLES].result);
-    _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
-    _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result, results[PLAYER_LO_QUESTS_COMPLETED_REPEATABLE].result);
-    m_factionInterface.LoadFactionData(results[PLAYER_LO_REPUTATIONS].result);
+
     _LoadSkills(results[PLAYER_LO_SKILLS].result);
-    _LoadSpells(results[PLAYER_LO_SPELLS].result);
-    _LoadSocial(results[PLAYER_LO_SOCIAL].result);
-    m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
-    _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
-    _LoadTimeStampData(results[PLAYER_LO_TIMESTAMPS].result);
+
     m_inventory.mLoadItemsFromDatabase(results[PLAYER_LO_ITEMS].result, results[PLAYER_LO_ITEM_ENCHANTS].result);
+    m_currency.LoadFromDB(fields[PLAYERLOAD_FIELD_LAST_WEEK_RESET_TIME].GetUInt64(), results[PLAYER_LO_CURRENCY].result);
+
+    m_talentInterface.LoadTalentData(results[PLAYER_LO_TALENTS].result);
+    m_talentInterface.LoadGlyphData(results[PLAYER_LO_GLYPHS].result);
+
+    _LoadSpells(results[PLAYER_LO_SPELLS].result);
+    _LoadPlayerAuras(results[PLAYER_LO_AURAS].result);
+    _LoadPlayerCooldowns(results[PLAYER_LO_COOLDOWNS].result);
+
+    _LoadEquipmentSets(results[PLAYER_LO_EQUIPMENTSETS].result);
+    m_talentInterface.LoadActionButtonData(results[PLAYER_LO_ACTIONS].result);
+
+    _LoadCompletedQuests(results[PLAYER_LO_QUESTS_COMPLETED].result, results[PLAYER_LO_QUESTS_COMPLETED_REPEATABLE].result);
+    _LoadPlayerQuestLog(results[PLAYER_LO_QUEST_LOG].result);
+    _LoadTaxiMasks(results[PLAYER_LO_TAXIMASKS].result);
 
     OnlineTime = UNIXTIME;
     if( fields[PLAYERLOAD_FIELD_NEEDS_POSITION_RESET].GetBool() )
@@ -1678,7 +1685,7 @@ void Player::_LoadPlayerAuras(QueryResult *result)
         uint8 auraSlot = fields[1].GetUInt8();
         uint32 spellId = fields[2].GetUInt32();
         SpellEntry *sp = dbcSpell.LookupEntry(spellId);
-        if(sp == NULL)
+        if(sp == NULL || sp->isSpellAuraSavingDisabled())
             continue;
 
         uint16 auraFlags = fields[3].GetUInt16();
@@ -1699,7 +1706,7 @@ void Player::_LoadPlayerAuras(QueryResult *result)
         {
             // We either have the aura mod index saved, or we have no index saved and we can go on auraname application
             if((auraFlags & (1<<(x+8))) || ((auraFlags & 0xFF00) == 0 && sp->EffectApplyAuraName[x] != 0))
-                aur->AddMod(x, sp->EffectApplyAuraName[x], fields[8+x].GetInt32(), fields[11+x].GetUInt32(), fields[14+x].GetInt32(), fields[17+x].GetFloat());
+                aur->PushPendingModLoad(x, sp->EffectApplyAuraName[x], fields[8+x].GetInt32(), fields[11+x].GetUInt32(), fields[14+x].GetInt32(), fields[17+x].GetFloat());
         }
         m_loadAuras.push_back(std::make_pair(auraSlot, aur));
     }while(result->NextRow());
@@ -5458,6 +5465,9 @@ void Player::SoftLoadPlayer()
         while(!m_loadAuras.empty())
         {
             std::pair<uint8, Aura*> pair = m_loadAuras.front();
+            // Load our mod list from Aura loading
+            pair.second->ProcessModListLoad();
+            // Add aura through aura interface
             AddAura(pair.second, pair.first);
             m_loadAuras.pop_front();
         }
@@ -6139,6 +6149,7 @@ bool CanFlyInCurrentZoneOrMap(Player *plr, uint32 ridingSkill)
     AreaTableEntry *area = dbcAreaTable.LookupEntry(plr->GetAreaId());
     if(area == NULL || (area->AreaFlags & AREA_CANNOT_FLY))
         return false; // can't fly in non-flying zones
+
     switch(plr->GetMapId())
     {
     case 530: return ridingSkill > 150; // We can fly in outlands all the time
@@ -6159,7 +6170,7 @@ bool CanFlyInCurrentZoneOrMap(Player *plr, uint32 ridingSkill)
     return false;
 }
 
-SpellEntry *Player::GetMountCapability(uint32 mountType)
+SpellEntry *Player::GetMountCapability(uint32 mountType, int32 &capabilityIdOut)
 {
     SpellEntry *ret = NULL;
     if(MountTypeEntry *mountTypeEntry = dbcMountType.LookupEntry(mountType))
@@ -6197,6 +6208,7 @@ SpellEntry *Player::GetMountCapability(uint32 mountType)
             if (entry->requiredSpell && !HasSpell(entry->requiredSpell))
                 continue;
 
+            capabilityIdOut = entry->Id;
             ret = dbcSpell.LookupEntry(entry->speedModSpell);
             break;
         }

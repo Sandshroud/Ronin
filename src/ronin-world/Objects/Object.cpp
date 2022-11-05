@@ -1053,8 +1053,6 @@ void WorldObject::PushToWorld(MapInstance* instance, uint32 msTime)
         return; //instance add failed
     }
 
-    OnPreSetInWorld();
-
     m_mapId = instance->GetMapId();
     m_instanceId = instance->GetInstanceID();
 
@@ -1063,6 +1061,9 @@ void WorldObject::PushToWorld(MapInstance* instance, uint32 msTime)
 
     // Call area update
     UpdateAreaInfo(instance);
+
+    // Pre call before assigning map instance
+    OnPreSetInWorld();
 
     // Set our map manager
     m_mapInstance = instance;
