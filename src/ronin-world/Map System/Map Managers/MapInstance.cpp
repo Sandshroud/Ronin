@@ -218,6 +218,27 @@ WorldObject *MapInstance::GetInRangeObject(ObjectCellManager *manager, WoWGuid g
     return NULL;
 }
 
+void MapInstance::PrePushObject(WorldObject* obj)
+{
+    /////////////
+    // Assertions
+    /////////////
+    ASSERT(obj);
+    ASSERT(obj->GetMapId() == _mapId);
+    ASSERT(obj->GetPositionZ() < _maxY && obj->GetPositionZ() > _minY);
+
+    float mx = obj->GetPositionX(), my = obj->GetPositionY(), mz = obj->GetPositionZ();
+    uint32 cx = GetPosX(mx), cy = GetPosY(my);
+
+    MapCell* objCell = GetCell(cx, cy);
+    if (objCell == NULL && (objCell = Create(cx, cy)) != NULL) // Should never fail to create but...
+        objCell->Init(cx, cy, _mapId, this);
+    ASSERT(objCell);
+
+    // Push object cell activity notification
+    UpdateCellActivity(cx, cy, MapInstance::ActiveCellRange, obj->IsPlayer());
+}
+
 void MapInstance::PushObject(WorldObject* obj)
 {
     /////////////
@@ -258,12 +279,16 @@ void MapInstance::PushObject(WorldObject* obj)
     ASSERT(obj->GetMapId() == _mapId);
     ASSERT(obj->GetPositionZ() < _maxY && obj->GetPositionZ() > _minY);
 
+    // Grab object position information
     float mx = obj->GetPositionX();
     float my = obj->GetPositionY();
     float mz = obj->GetPositionZ();
     uint32 cx = GetPosX(mx), cy = GetPosY(my);
 
-    if( mx > _maxX || my > _maxY ||
+    // Grab our object cell
+    MapCell* objCell = GetCell(cx, cy);
+    if( objCell == NULL ||
+        mx > _maxX || my > _maxY ||
         mx < _minX || my < _minY ||
         cx >= _sizeX || cy >= _sizeY)
     {
@@ -283,20 +308,19 @@ void MapInstance::PushObject(WorldObject* obj)
                 plObj->PushPacket(data);
                 delete data;
             }
-        }
-        else
+        } else obj->GetPositionV()->ChangeCoords(0.f,0.f,0.f,0.f);
+
+        cx = GetPosX(mx = obj->GetPositionX());
+        cy = GetPosY(my = obj->GetPositionY());
+        mz = obj->GetPositionY();
+
+        if ((objCell = GetCell(cx, cy)) == NULL)
         {
-            obj->GetPositionV()->ChangeCoords(0.f,0.f,0.f,0.f);
+            if (obj->IsPlayer())
+                castPtr<Player>(obj)->SoftDisconnect();
+            return;
         }
-
-        cx = GetPosX(obj->GetPositionX());
-        cy = GetPosY(obj->GetPositionY());
     }
-
-    MapCell *objCell = GetCell(cx,cy);
-    if (objCell == NULL && (objCell = Create(cx,cy)) != NULL) // Should never fail to create but...
-        objCell->Init(cx, cy, _mapId, this);
-    ASSERT(objCell);
 
     m_dataBufferLock.Acquire();
     uint32 count = 0, minX = cx ? cx-1 : 0, maxX = (cx < _sizeY-1 ? cx+1 : _sizeY-1), minY = cy ? cy-1 : 0, maxY = (cy < _sizeY-1 ? cy+1 : _sizeY-1);
@@ -307,6 +331,9 @@ void MapInstance::PushObject(WorldObject* obj)
     }
     m_dataBuffer.clear();
     m_dataBufferLock.Release();
+
+    // We must always have a cell at this point
+    ASSERT(objCell);
 
     //Add to the cell's object list
     objCell->AddObject(obj);
@@ -401,9 +428,7 @@ void MapInstance::PushObject(WorldObject* obj)
         // Change the instance ID, this will cause it to be removed from the world thread (return value 1)
         plObj->GetSession()->SetEventInstanceId(GetInstanceID());
 
-        // Update our player's zone
-        plObj->UpdateAreaInfo(this);
-
+        // Update our player's area and zone visibility
         UpdateAreaAndZoneVisibility(plObj);
     }
 
@@ -894,7 +919,7 @@ void MapInstance::UpdateAllCells(bool apply, uint32 areamask)
     }
 }
 
-void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
+void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius, bool preloadPlayer)
 {
     bool isActiveCellSet = _CellActive(x, y, radius);
     uint32 endX = (x + radius) <= _sizeX ? x + radius : (_sizeX-1);
@@ -915,8 +940,9 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
             // Grab cell pointer and spawn list
             objCell = GetCell(posX, posY);
             sp = _map->GetSpawnsList(posX, posY);
+            bool targetCell = posX == x && posY == y;
             // Check cell activity for spawn loading
-            if (objCell == NULL && isActiveCellSet)
+            if (objCell == NULL && (isActiveCellSet || (preloadPlayer && targetCell)))
             {
                 ASSERT(objCell = Create(posX, posY));
                 objCell->Init(posX, posY, _mapId, this);
@@ -927,7 +953,7 @@ void MapInstance::UpdateCellActivity(uint32 x, uint32 y, int radius)
             else if(objCell)
             {
                 //Cell is now active
-                if (isActiveCellSet && !objCell->IsActive())
+                if (!objCell->IsActive() && (isActiveCellSet || (preloadPlayer && targetCell)))
                 {
                     objCell->SetActivity(true);
                     objCell->LoadCellData(sp);

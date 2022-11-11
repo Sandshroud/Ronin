@@ -1056,6 +1056,9 @@ void WorldObject::PushToWorld(MapInstance* instance, uint32 msTime)
     m_mapId = instance->GetMapId();
     m_instanceId = instance->GetInstanceID();
 
+    // Pre call to instance for tile information
+    instance->PrePushObject(this);
+
     // Call a quick exploration event with a mgr override
     EventExploration(instance);
 

@@ -559,6 +559,7 @@ public:
 
     WorldObject *GetInRangeObject(ObjectCellManager *manager, WoWGuid guid);
 
+    void PrePushObject(WorldObject* obj);
     void PushObject(WorldObject* obj);
     void RemoveObject(WorldObject* obj);
 
@@ -668,7 +669,7 @@ public:
     bool UpdateQueued(WorldObject *obj);
     void ObjectUpdated(WorldObject *obj);
     void ObjectLocationChange(WorldObject *obj);
-    void UpdateCellActivity(uint32 x, uint32 y, int radius);
+    void UpdateCellActivity(uint32 x, uint32 y, int radius, bool preloadPlayer = false);
 
     // Calc functions
     float GetWalkableHeight(WorldObject *obj, float x, float y, float z, float destZ);
