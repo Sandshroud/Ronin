@@ -529,15 +529,17 @@ void TerrainMgr::CellGoneActive(uint32 x, uint32 y)
 {
     uint32 tileX = x/CellsPerTile, tileY = y/CellsPerTile;
     mutex.Acquire();
-    FILE *input = NULL;
-    fopen_s(&input, file_name.c_str(), "rb");
-    if(input)
+    if ((++LoadCounter[tileX][tileY]) == 1)
     {
-        if((++LoadCounter[tileX][tileY]) == 1)
+        FILE* input = NULL;
+        fopen_s(&input, file_name.c_str(), "rb");
+        if (input)
+        {
             LoadTileInformation(tileX, tileY, input);
-        sVMapInterface.ActivateTile(mapId, tileX, tileY, input);
-        sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
-        fclose(input);
+            sVMapInterface.ActivateTile(mapId, tileX, tileY, input);
+            sNavMeshInterface.LoadNavMesh(mapId, tileX, tileY);
+            fclose(input);
+        } else --LoadCounter[tileX][tileY];
     }
     mutex.Release();
 }
