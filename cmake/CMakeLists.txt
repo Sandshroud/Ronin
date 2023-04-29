@@ -1,7 +1,8 @@
-project(Ronin)
+#Do system checking first
+cmake_minimum_required(VERSION 2.8.12)
 
-#Do system checking.
-cmake_minimum_required(VERSION 2.8)
+#Set project name post version req
+project(Ronin)
 
 #set our system paths
 get_filename_component(ROOT_PATH ${CMAKE_SOURCE_DIR} PATH)
