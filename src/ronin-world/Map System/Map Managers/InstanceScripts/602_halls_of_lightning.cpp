@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "602_halls_of_lightning.h"

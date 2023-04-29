@@ -22,7 +22,7 @@
 
 bool UndercityTranslocateScript(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
-    static SpellEntry *translocate = dbcSpell.LookupEntry(26566);
+    static SpellEntry *translocate = dbcSpell.LookupEntry(TIRISFAL_TRANSLOCATE_CAST);
     if(translocate == NULL) // We need our translocate
         return false;
 
@@ -36,6 +36,6 @@ bool UndercityTranslocateScript(SpellEffectClass *spell, uint32 effIndex, WorldO
 void SpellManager::_RegisterTirisfalGladesScripts()
 {
     // Process our handling of translocation
-    _RegisterScriptedEffect(35727, SP_EFF_INDEX_0, &UndercityTranslocateScript); // Trigger 35730
+    _RegisterScriptedEffect(TIRISFAL_TRANSLOCATE_TRIGGER, SP_EFF_INDEX_0, &UndercityTranslocateScript);
 
 }

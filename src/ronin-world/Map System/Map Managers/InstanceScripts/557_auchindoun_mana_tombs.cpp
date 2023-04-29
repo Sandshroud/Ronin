@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "557_auchindoun_mana_tombs.h"

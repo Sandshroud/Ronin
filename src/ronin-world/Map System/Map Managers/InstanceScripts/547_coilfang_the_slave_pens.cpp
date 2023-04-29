@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "547_coilfang_the_slave_pens.h"

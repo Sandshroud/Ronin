@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "036_deadmines.h"

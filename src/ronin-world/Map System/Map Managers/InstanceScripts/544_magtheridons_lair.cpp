@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "544_magtheridons_lair.h"

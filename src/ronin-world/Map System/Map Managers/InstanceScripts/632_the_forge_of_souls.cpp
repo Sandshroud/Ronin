@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "632_the_forge_of_souls.h"

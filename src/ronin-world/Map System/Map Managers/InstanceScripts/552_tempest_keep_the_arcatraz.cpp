@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "552_tempest_keep_the_arcatraz.h"

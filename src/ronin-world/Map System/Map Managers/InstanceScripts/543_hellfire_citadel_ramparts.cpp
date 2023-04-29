@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "543_hellfire_citadel_ramparts.h"

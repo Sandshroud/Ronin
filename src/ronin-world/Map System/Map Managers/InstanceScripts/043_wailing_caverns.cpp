@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "043_wailing_caverns.h"

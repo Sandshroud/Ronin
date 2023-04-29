@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "540_hellfire_citadel_the_shattered_halls.h"

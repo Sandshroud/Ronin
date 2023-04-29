@@ -19,3 +19,8 @@
 
 #pragma once
 
+enum SilvermoonCityScriptSpellIds
+{
+    SILVERMOON_TRANSLOCATE_CAST = 25649,
+    SILVERMOON_TRANSLOCATE_TRIGGER = 35376
+};

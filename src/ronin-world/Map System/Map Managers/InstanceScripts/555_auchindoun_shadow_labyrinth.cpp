@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "555_auchindoun_shadow_labyrinth.h"

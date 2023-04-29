@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "545_coilfang_the_steamvault.h"

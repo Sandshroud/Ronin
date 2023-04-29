@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "615_the_obsidian_sanctum.h"

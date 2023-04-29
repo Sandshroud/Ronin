@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "649_trial_of_the_crusader.h"

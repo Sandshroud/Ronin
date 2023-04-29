@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "550_tempest_keep.h"

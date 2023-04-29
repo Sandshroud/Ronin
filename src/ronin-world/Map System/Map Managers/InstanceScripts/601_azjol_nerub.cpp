@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "601_azjol_nerub.h"

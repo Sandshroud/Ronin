@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "624_wintergrasp_raid.h"

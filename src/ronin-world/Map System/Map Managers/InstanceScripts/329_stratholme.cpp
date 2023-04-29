@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "329_stratholme.h"

@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "595_the_culling_of_stratholme.h"

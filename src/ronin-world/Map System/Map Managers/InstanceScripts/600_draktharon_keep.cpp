@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "600_draktharon_keep.h"

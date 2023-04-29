@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "650_trial_of_the_champion.h"

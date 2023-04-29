@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "189_scarlet_monastery.h"

@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "631_icecrown_citadel.h"

@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "574_utgarde_keep.h"

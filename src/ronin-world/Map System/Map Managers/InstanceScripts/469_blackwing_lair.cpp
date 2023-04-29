@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "469_blackwing_lair.h"

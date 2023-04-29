@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "556_auchindoun_sethekk_halls.h"

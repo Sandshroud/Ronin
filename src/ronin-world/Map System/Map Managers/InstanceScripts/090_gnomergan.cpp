@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "090_gnomergan.h"

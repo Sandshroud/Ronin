@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "533_naxxramas.h"

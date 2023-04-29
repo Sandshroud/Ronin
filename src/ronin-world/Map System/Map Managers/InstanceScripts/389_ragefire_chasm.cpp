@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "389_ragefire_chasm.h"

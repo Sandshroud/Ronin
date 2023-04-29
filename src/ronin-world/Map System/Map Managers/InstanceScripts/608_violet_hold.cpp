@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "608_violet_hold.h"

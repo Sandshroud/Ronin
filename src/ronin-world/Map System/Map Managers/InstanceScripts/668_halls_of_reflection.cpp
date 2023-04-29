@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "668_halls_of_reflection.h"

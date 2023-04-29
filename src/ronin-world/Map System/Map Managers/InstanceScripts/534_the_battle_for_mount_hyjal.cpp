@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "534_the_battle_for_mount_hyjal.h"

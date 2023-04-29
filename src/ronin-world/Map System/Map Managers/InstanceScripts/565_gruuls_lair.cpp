@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "565_gruuls_lair.h"

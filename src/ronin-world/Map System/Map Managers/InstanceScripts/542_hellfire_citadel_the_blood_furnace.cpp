@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "542_hellfire_citadel_the_blood_furnace.h"

@@ -22,7 +22,7 @@
 
 bool SilvermoonTranslocateScript(SpellEffectClass *spell, uint32 effIndex, WorldObject *target, int32 amount)
 {
-    static SpellEntry *translocate = dbcSpell.LookupEntry(25649);
+    static SpellEntry *translocate = dbcSpell.LookupEntry(SILVERMOON_TRANSLOCATE_CAST);
     if(translocate == NULL) // We need our translocate
         return false;
 
@@ -36,6 +36,6 @@ bool SilvermoonTranslocateScript(SpellEffectClass *spell, uint32 effIndex, World
 void SpellManager::_RegisterSilvermoonCityScripts()
 {
     // Process our handling of translocation
-    _RegisterScriptedEffect(35376, SP_EFF_INDEX_0, &SilvermoonTranslocateScript);
+    _RegisterScriptedEffect(SILVERMOON_TRANSLOCATE_TRIGGER, SP_EFF_INDEX_0, &SilvermoonTranslocateScript);
 
 }

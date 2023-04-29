@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "724_ruby_sanctum.h"

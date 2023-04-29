@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "548_coilfang_serpentshrine_cavern.h"

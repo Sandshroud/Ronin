@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "564_black_temple.h"

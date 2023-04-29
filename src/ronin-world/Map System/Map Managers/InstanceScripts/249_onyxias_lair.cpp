@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "249_onyxias_lair.h"

@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "585_magisters_terrace.h"

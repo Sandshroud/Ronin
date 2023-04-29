@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "560_old_hillsbrad_foothills.h"

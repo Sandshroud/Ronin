@@ -18,3 +18,4 @@
  */
 
 #include "StdAfx.h"
+#include "047_razorfen_kraul.h"

@@ -19,3 +19,8 @@
 
 #pragma once
 
+enum TirisfalGladesScriptSpellIds
+{
+    TIRISFAL_TRANSLOCATE_CAST = 26566,
+    TIRISFAL_TRANSLOCATE_TRIGGER = 35727
+};
