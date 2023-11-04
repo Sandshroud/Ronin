@@ -46,171 +46,143 @@ void WorldSession::HandleChannelJoin(WorldPacket& recvPacket)
 void WorldSession::HandleChannelLeave(WorldPacket& recvPacket)
 {
     uint32 code = 0;
-    std::string channelname;
-
     recvPacket >> code;
-    recvPacket >> channelname;
+    uint32 len = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(len);
+
     if(Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player))
         chn->Part(_player, false);
 }
 
 void WorldSession::HandleChannelList(WorldPacket& recvPacket)
 {
-    std::string channelname;
-    recvPacket >> channelname;
+    uint32 len = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(len);
+
     if(Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player))
         chn->List(_player);
 }
 
 void WorldSession::HandleChannelPassword(WorldPacket& recvPacket)
 {
-    std::string channelname, pass;
-    Channel * chn;
+    uint32 nameLen = recvPacket.ReadBits(8), passLen = recvPacket.ReadBits(7);
+    std::string channelname = recvPacket.ReadString(nameLen), pass = recvPacket.ReadString(passLen);
 
-    recvPacket >> channelname;
-    recvPacket >> pass;
-    chn = channelmgr.GetChannel(channelname.c_str(),_player);
-    if( chn != NULL )
+    if(Channel *chn = channelmgr.GetChannel(channelname.c_str(),_player))
         chn->Password(_player, pass.c_str());
 }
 
 void WorldSession::HandleChannelSetOwner(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 nameLen = recvPacket.ReadBits(8), newOwnerLen = recvPacket.ReadBits(7);
+    std::string newOwner = recvPacket.ReadString(newOwnerLen), channelname = recvPacket.ReadString(nameLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player *plr = objmgr.GetPlayer(newOwner.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->SetOwner(_player, plr);
 }
 
 void WorldSession::HandleChannelOwner(WorldPacket& recvPacket)
 {
-    std::string channelname;
-    recvPacket >> channelname;
+    uint32 len = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(len);
+
     if(Channel *chn = channelmgr.GetChannel(channelname.c_str(),_player))
         chn->GetOwner(_player);
 }
 
 void WorldSession::HandleChannelModerator(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 nameLen = recvPacket.ReadBits(8), newModLen = recvPacket.ReadBits(7);
+    std::string newMod = recvPacket.ReadString(newModLen), channelname = recvPacket.ReadString(nameLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel* chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player* plr = objmgr.GetPlayer(newMod.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->GiveModerator(_player, plr);
 }
 
 void WorldSession::HandleChannelUnmoderator(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 oldModLen = recvPacket.ReadBits(7), nameLen = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(nameLen), oldMod = recvPacket.ReadString(oldModLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player *plr = objmgr.GetPlayer(oldMod.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->TakeModerator(_player, plr);
 }
 
 void WorldSession::HandleChannelMute(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 nameLen = recvPacket.ReadBits(8), targetLen = recvPacket.ReadBits(7);
+    std::string channelname = recvPacket.ReadString(nameLen), targetName = recvPacket.ReadString(targetLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player *plr = objmgr.GetPlayer(targetName.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->Mute(_player, plr);
 }
 
 void WorldSession::HandleChannelUnmute(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 nameLen = recvPacket.ReadBits(8), targetLen = recvPacket.ReadBits(7);
+    std::string channelname = recvPacket.ReadString(nameLen), targetName = recvPacket.ReadString(targetLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel* chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player* plr = objmgr.GetPlayer(targetName.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->Unmute(_player, plr);
 }
 
 void WorldSession::HandleChannelInvite(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 targetLen = recvPacket.ReadBits(7), nameLen = recvPacket.ReadBits(8);
+    std::string targetName = recvPacket.ReadString(targetLen), channelname = recvPacket.ReadString(nameLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel* chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player* plr = objmgr.GetPlayer(targetName.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->Invite(_player, plr);
 }
 void WorldSession::HandleChannelKick(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 nameLen = recvPacket.ReadBits(8), targetLen = recvPacket.ReadBits(7);
+    std::string channelname = recvPacket.ReadString(nameLen), targetName = recvPacket.ReadString(targetLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel* chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player* plr = objmgr.GetPlayer(targetName.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->Kick(_player, plr, false);
 }
 
 void WorldSession::HandleChannelBan(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    Player* plr;
+    uint32 nameLen = recvPacket.ReadBits(8), targetLen = recvPacket.ReadBits(7);
+    std::string channelname = recvPacket.ReadString(nameLen), targetName = recvPacket.ReadString(targetLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayer(newp.c_str(), false);
+    Channel* chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    Player* plr = objmgr.GetPlayer(targetName.c_str(), false);
     if( chn != NULL && plr != NULL )
         chn->Kick(_player, plr, true);
 }
 
 void WorldSession::HandleChannelUnban(WorldPacket& recvPacket)
 {
-    std::string channelname, newp;
-    Channel * chn;
-    PlayerInfo * plr;
+    uint32 nameLen = recvPacket.ReadBits(8), targetLen = recvPacket.ReadBits(7);
+    std::string channelname = recvPacket.ReadString(nameLen), targetName = recvPacket.ReadString(targetLen);
 
-    recvPacket >> channelname >> newp;
-
-    chn = channelmgr.GetChannel(channelname.c_str(), _player);
-    plr = objmgr.GetPlayerInfoByName(newp.c_str());
+    Channel* chn = channelmgr.GetChannel(channelname.c_str(), _player);
+    PlayerInfo *plr = objmgr.GetPlayerInfoByName(targetName.c_str());
     if( chn != NULL && plr != NULL )
         chn->Unban(_player, plr);
 }
 
 void WorldSession::HandleChannelAnnounce(WorldPacket& recvPacket)
 {
-    std::string channelname;
-    recvPacket >> channelname;
+    uint32 nameLen = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(nameLen);
 
     if(Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player))
         chn->Announce(_player);
@@ -218,8 +190,8 @@ void WorldSession::HandleChannelAnnounce(WorldPacket& recvPacket)
 
 void WorldSession::HandleChannelModerate(WorldPacket& recvPacket)
 {
-    std::string channelname;
-    recvPacket >> channelname;
+    uint32 nameLen = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(nameLen);
 
     if(Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player))
         chn->Moderate(_player);
@@ -227,8 +199,8 @@ void WorldSession::HandleChannelModerate(WorldPacket& recvPacket)
 
 void WorldSession::HandleChannelRosterQuery(WorldPacket & recvPacket)
 {
-    std::string channelname;
-    recvPacket >> channelname;
+    uint32 nameLen = recvPacket.ReadBits(8);
+    std::string channelname = recvPacket.ReadString(nameLen);
 
     if(Channel *chn = channelmgr.GetChannel(channelname.c_str(), _player))
         chn->List(_player);

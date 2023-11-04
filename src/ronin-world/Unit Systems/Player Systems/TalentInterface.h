@@ -18,6 +18,13 @@ enum ActionButtonType
     ACTION_BUTTON_ITEM      = 0x80
 };
 
+enum ActionButtonReason
+{
+    ACTION_BUTTON_LIST_REASON_INITIAL = 0,
+    ACTION_BUTTON_LIST_OVERRIDE,
+    ACTION_BUTTON_LIST_RESET
+};
+
 #define ACTION_BUTTON_ACTION(X) (uint32(X) & 0x00FFFFFF)
 #define ACTION_BUTTON_TYPE(X) ((uint32(X) & 0xFF000000) >> 24)
 #define ACTION_PACK_BUTTION(action, type) uint32(action | (uint32(type) << 24))
@@ -46,7 +53,7 @@ public:
     void SendTalentInfo();
 
     void BuildPlayerTalentInfo(WorldPacket *data);
-    void BuildPlayerActionInfo(WorldPacket *data);
+    void BuildPlayerActionInfo(WorldPacket *data, uint8 reason);
 
     void ModTalentPoints(int32 talentPoints);
 

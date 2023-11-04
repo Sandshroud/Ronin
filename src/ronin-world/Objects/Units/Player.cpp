@@ -3033,6 +3033,38 @@ void Player::OnPushToWorld(uint32 msTime)
 
     Unit::OnPushToWorld(msTime);
 
+    // Update rune data if initialized
+    if (m_runeData != NULL && m_runeData->runemask != 0x3F)
+    {
+        std::queue<uint8> changedRunes;
+        WorldPacket data(SMSG_RESYNC_RUNES, 24);
+        data << uint32(6); // rune count
+        for (uint8 i = 0; i < 6; ++i)
+        {
+            uint8 runeShortCD = 0;
+            float runeCDConversion = 0.f;
+            if (m_runeData->runeCD[i])
+                runeCDConversion = (float(0xFF) * ((float)m_runeData->runeCD[i]/10000.f));
+            // Throw that shit in there.
+            data << uint8(m_runeData->runes[i]) << uint8(runeShortCD);
+            if (m_runeData->runes[i] != baseRunes[i])
+                changedRunes.push(i);
+        }
+        // Push rune data on
+        PushPacket(&data, true);
+
+        // Push any changed rune info to the client
+        if (changedRunes.size())
+        {
+            while (uint8 runeIndex = changedRunes.front())
+            {
+                data.Initialize(SMSG_CONVERT_RUNE, 2);
+                data << uint8(runeIndex) << uint8(m_runeData->runes[runeIndex]);
+                PushPacket(&data, true);
+            }
+        }
+    }
+
     // Send our auras
     m_AuraInterface.SendAuraData();
 
@@ -4398,17 +4430,18 @@ void Player::SendProficiency(bool armorProficiency)
 // Initial packets, these don't need to be sent when switching between maps
 void Player::SendInitialLogonPackets()
 {
-    WorldPacket data(SMSG_BINDPOINTUPDATE, 32);
+    // Initialize client control
+    WorldPacket data(SMSG_CLIENT_CONTROL_UPDATE, 10);
+    data << GetGUID().asPacked() << uint8(m_movementInterface.isMovementDisabled() ? 0 : 1);
+    PushPacket(&data);
+
+    // Send a rebind
+    data.Initialize(SMSG_BINDPOINTUPDATE, 32);
     data << m_bindData.posX << m_bindData.posY << m_bindData.posZ;
     data << m_bindData.mapId << m_bindData.zoneId;
     PushPacket( &data, true );
 
-    SendProficiency(true);
-    SendProficiency(false);
-
-    // Send player talent info
-    m_talentInterface.SendTalentInfo();
-
+    // Push server info
     data.Initialize(SMSG_WORLD_SERVER_INFO, 5);
     data.WriteBit(0);                       // HasRestrictedLevel
     data.WriteBit(0);                       // HasRestrictedMoney
@@ -4424,6 +4457,13 @@ void Player::SendInitialLogonPackets()
     data << uint32(sWorld.GetWeekStart());  // LastWeeklyReset (not instance reset)
     data << uint32(0);//sInstanceMgr.GetDungeonDifficulty(m_instanceId));
     PushPacket(&data, true);
+
+    // Push proficiencies before login finishes
+    SendProficiency(true);
+    SendProficiency(false);
+
+    // Send player talent info
+    m_talentInterface.SendTalentInfo();
 
     //Initial Spells
     smsg_InitialSpells();
@@ -5898,7 +5938,7 @@ void Player::Possess(Unit* pTarget)
 
     /* send "switch mover" packet */
     WorldPacket data1(SMSG_CLIENT_CONTROL_UPDATE, 10);      /* burlex: this should be renamed SMSG_SWITCH_ACTIVE_MOVER :P */
-    data1 << pTarget->GetGUID() << uint8(1);
+    data1 << pTarget->GetGUID().asPacked() << uint8(pTarget->GetMovementInterface()->isMovementDisabled() ? 0 : 1);
     PushPacket(&data1);
 
     return;
@@ -5965,7 +6005,7 @@ void Player::UnPossess()
 
     /* send "switch mover" packet */
     WorldPacket data(SMSG_CLIENT_CONTROL_UPDATE, 10);
-    data << GetGUID() << uint8(1);
+    data << GetGUID().asPacked() << uint8(m_movementInterface.isMovementDisabled() ? 0 : 1);
     PushPacket(&data);
 
     data.Initialize(SMSG_PET_SPELLS);
@@ -6776,18 +6816,16 @@ void Player::Social_SendFriendList(uint32 flag)
         for( itr = m_friends.begin(); itr != m_friends.end(); itr++ )
         {
             data << itr->first << listFlags << itr->second;
-            if(0x01 & 0x01)
+
+            Player *plr = NULL;
+            if(PlayerInfo *info = objmgr.GetPlayerInfo(itr->first))
+                plr = info->m_loggedInPlayer;
+            data << uint8(plr ? plr->GetChatTag() : 0);
+            if(plr)
             {
-                Player *plr = NULL;
-                if(PlayerInfo *info = objmgr.GetPlayerInfo(itr->first))
-                    plr = info->m_loggedInPlayer;
-                data << uint8(plr ? plr->GetChatTag() : 0);
-                if(plr)
-                {
-                    data << uint32(plr->GetZoneId());
-                    data << uint32(plr->getLevel());
-                    data << uint32(plr->getClass());
-                }
+                data << uint32(plr->GetZoneId());
+                data << uint32(plr->getLevel());
+                data << uint32(plr->getClass());
             }
             count++;
         }

@@ -421,15 +421,22 @@ void WorldSocket::Authenticate()
     data.Initialize(SMSG_HOTFIX_NOTIFY, 12); // Blop or not, client will accept the info
     if(size_t count = sItemMgr.HotfixOverridesSize())
     {
-        data << uint32(count); // count
-        data << uint32(true ? 0x919BE54E : 0x50238EC2); // This can be either, the client will ask for both if no current db2 info is found
+        data.WriteBits(count, 22);
+        data.FlushBits();
+
         for(std::map<uint32, uint8>::iterator itr = sItemMgr.HotfixOverridesBegin(); itr != sItemMgr.HotfixOverridesEnd(); itr++)
         {
             data << uint32(((itr->second & 0x02) ? 0x50238EC2 : 0x919BE54E));
             data << uint32(sWorld.GetStartTime());
             data << itr->first;
         }
-    } else data << uint32(0);
+    }
+    else
+    {
+        // Write a null count
+        data.WriteBits<uint32>(0, 22);
+        data.FlushBits();
+    }
     SendPacket(&data);
 
     data.Initialize(SMSG_TUTORIAL_FLAGS, 4 * 8);
@@ -446,6 +453,8 @@ void WorldSocket::SendAuthResponse(uint8 code, bool holdsPosition, uint32 positi
     WorldPacket data(SMSG_AUTH_RESPONSE, 15);
     if(holdsPosition) data.WriteBitString(3, 1, 0, 1);
     else data.WriteBitString(2, 0, 1);
+    data.FlushBits();
+
     data << uint32(0) << uint8(expansion) << uint32(0) << uint8(expansion);
     data << uint32(0) << uint8(0) << uint8(code);
     if(holdsPosition) data << uint32(position);

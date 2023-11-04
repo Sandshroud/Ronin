@@ -346,6 +346,7 @@ public:
     bool isRooted() { return hasFlag(MOVEMENTFLAG_TOGGLE_ROOT); }
     bool isAsleep() { return false; }
     bool isStunned() { return false; }
+    bool isMovementDisabled() { return isRooted() || isAsleep() || isStunned(); }
     bool canFly() { return hasFlag(MOVEMENTFLAG_CAN_FLY); }
 
     void setRooted(bool root);

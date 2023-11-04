@@ -671,11 +671,12 @@ void WorldSession::FullLogin(Player* plr)
     SendAccountDataTimes(0xEA);
 
     data.Initialize(SMSG_FEATURE_SYSTEM_STATUS, 2);
-    data << uint8(2) << uint32(1) << uint32(1) << uint32(2) << uint32(0);
-    data.WriteBitString(6, 1, 1, 0, 1, 0, 0);
-    if (1) // bit4
+    data << uint8(2) << uint32(1) << uint32(1) << uint32(1) << uint32(0);
+    // Bit string is... Beta func, beta func?, res scroll, ticket system?, server error?, voice chat... Disable it all
+    data.WriteBitString(6, 0, 0, 0, 0, 0, 0);
+    if (0) // bit4 ticket system?
         data << uint32(1) << uint32(0) << uint32(10) << uint32(60);
-    if (0) // bit5
+    if (0) // bit5 server error info
         data << uint32(0) << uint32(0) << uint32(0);
     SendPacket(&data);
 
@@ -696,6 +697,7 @@ void WorldSession::FullLogin(Player* plr)
         } else plr->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_GM);
     }
 
+    // Still haven't learned the dance moves from wotlk
     data.Initialize(SMSG_LEARNED_DANCE_MOVES, 8);
     data << uint32(0) << uint32(0);
     SendPacket(&data);
@@ -726,7 +728,7 @@ void WorldSession::FullLogin(Player* plr)
     sLog.Debug( "WorldSession","Created new player for existing players (%s)", plr->GetName() );
 
     // send friend list (for ignores)
-    plr->Social_SendFriendList(7);
+    plr->Social_SendFriendList(0x07);
 
     // send to gms
     if(HasGMPermissions())

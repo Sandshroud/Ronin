@@ -96,32 +96,35 @@ enum LFGroleflags
 
 enum PlayerFlags
 {
-    PLAYER_FLAG_PARTY_LEADER        = 0x01,
-    PLAYER_FLAG_AFK                 = 0x02,
-    PLAYER_FLAG_DND                 = 0x04,
-    PLAYER_FLAG_GM                  = 0x08,
-    PLAYER_FLAG_DEATH_WORLD_ENABLE  = 0x10,
-    PLAYER_FLAG_RESTING             = 0x20,
-    PLAYER_FLAG_UNKNOWN1            = 0x40,
-    PLAYER_FLAG_FREE_FOR_ALL_PVP    = 0x80,
-    PLAYER_FLAG_UNKNOWN2            = 0x100,
-    PLAYER_FLAG_PVP_TOGGLE          = 0x200,
-    PLAYER_FLAG_NOHELM              = 0x400,
-    PLAYER_FLAG_NOCLOAK             = 0x800,
-    PLAYER_FLAG_NEED_REST_3_HOURS   = 0x1000,
-    PLAYER_FLAG_NEED_REST_5_HOURS   = 0x2000,
-    PLAYER_FLAG_UNK15               = 0x4000,
-    PLAYER_FLAG_DEVELOPER           = 0x8000,
-    PLAYER_FLAG_UNK17               = 0x10000,
-    PLAYER_FLAG_UNK18               = 0x20000,
-    PLAYER_FLAG_PVP_TIMER           = 0x40000,
-    PLAYER_FLAG_UNK20               = 0x80000,
-    PLAYER_FLAG_UNK21               = 0x100000,
-    PLAYER_FLAG_UNK22               = 0x200000,
-    PLAYER_FLAG_UNK23               = 0x400000,
-    PLAYER_FLAG_ALLOW_ONLY_ABILITY  = 0x800000,
-    PLAYER_FLAG_UNK25               = 0x1000000,
-    PLAYER_FLAGS_XP_USER_DISABLED   = 0x2000000,
+    PLAYER_FLAG_PARTY_LEADER                    = 0x01,
+    PLAYER_FLAG_AFK                             = 0x02,
+    PLAYER_FLAG_DND                             = 0x04,
+    PLAYER_FLAG_GM                              = 0x08,
+    PLAYER_FLAG_DEATH_WORLD_ENABLE              = 0x10,
+    PLAYER_FLAG_RESTING                         = 0x20,
+    PLAYER_FLAG_UNKNOWN1                        = 0x40,
+    PLAYER_FLAG_FREE_FOR_ALL_PVP                = 0x80,
+    PLAYER_FLAG_CONTESTED_PVP                   = 0x100,
+    PLAYER_FLAG_PVP_TOGGLE                      = 0x200,
+    PLAYER_FLAG_NOHELM                          = 0x400,
+    PLAYER_FLAG_NOCLOAK                         = 0x800,
+    PLAYER_FLAG_NEED_REST_3_HOURS               = 0x1000,
+    PLAYER_FLAG_NEED_REST_5_HOURS               = 0x2000,
+    PLAYER_FLAG_DUEL_OUT_OF_BOUNDS              = 0x4000,
+    PLAYER_FLAG_DEVELOPER                       = 0x8000,
+    PLAYER_FLAG_UNK17                           = 0x10000,
+    PLAYER_FLAG_UNK18                           = 0x20000,
+    PLAYER_FLAG_PVP_TIMER                       = 0x40000,
+    PLAYER_FLAG_UNK20                           = 0x80000,
+    PLAYER_FLAG_UNK21                           = 0x100000,
+    PLAYER_FLAG_UNK22                           = 0x200000,
+    PLAYER_FLAG_UNK23                           = 0x400000,
+    PLAYER_FLAG_ALLOW_ONLY_ABILITY              = 0x800000,
+    PLAYER_FLAG_DISABLE_ATTACK_ALLOW_ABILITY    = 0x1000000,
+    PLAYER_FLAGS_XP_USER_DISABLED               = 0x2000000,
+    PLAYER_FLAGS_AUTO_DECLINE_GINVITES          = 0x8000000,
+    PLAYER_FLAGS_GUILD_LEVEL_INFORMATION        = 0x10000000,
+    PLAYER_FLAGS_VOID_STORAGE_UNLOCKED          = 0x20000000
 };
 
 enum CharterTypes
@@ -669,8 +672,8 @@ public: /// Player field based functions
     RONIN_INLINE void SetQuestSlotId(uint16 slot, uint32 value) { SetUInt32Value(PLAYER_QUEST_LOG + slot * 5, value); }
 
     // Guard hostility flags
-    RONIN_INLINE void SetGuardHostileFlag() { SetFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
-    RONIN_INLINE void RemoveGuardHostileFlag() { RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_UNKNOWN2); }
+    RONIN_INLINE void SetGuardHostileFlag() { SetFlag(PLAYER_FLAGS, PLAYER_FLAG_CONTESTED_PVP); }
+    RONIN_INLINE void RemoveGuardHostileFlag() { RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_CONTESTED_PVP); }
 
     // Guild data
     RONIN_INLINE bool IsInGuild() { return (GetUInt32Value(PLAYER_GUILDID) > 0); }

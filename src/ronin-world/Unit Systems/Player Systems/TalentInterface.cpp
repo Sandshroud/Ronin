@@ -161,12 +161,12 @@ void TalentInterface::BuildPlayerTalentInfo(WorldPacket *packet)
     m_specLock.Release();
 }
 
-void TalentInterface::BuildPlayerActionInfo(WorldPacket *packet)
+void TalentInterface::BuildPlayerActionInfo(WorldPacket *packet, uint8 reason)
 {
     m_specLock.Acquire();
     for(uint8 i = 0; i < PLAYER_ACTION_BUTTON_COUNT; i++)
         *packet << m_specs[m_activeSpec].m_actions[i].PackedData;
-    *packet << uint8(1); // Action button list packet
+    *packet << uint8(reason); // Action button list packet
     m_specLock.Release();
 }
 
@@ -239,7 +239,7 @@ void TalentInterface::ApplySpec(uint8 spec)
         return;
 
     WorldPacket data(SMSG_ACTION_BUTTONS, 1);
-    data << uint8(2);
+    data << uint8(ACTION_BUTTON_LIST_RESET);
     m_Player->PushPacket(&data, true);
 
     for(TalentStorageMap::iterator itr = m_specs[m_activeSpec].m_talents.begin(); itr != m_specs[m_activeSpec].m_talents.end(); itr++)
@@ -612,7 +612,7 @@ void TalentInterface::LoadActionButtonData(QueryResult *result)
 void TalentInterface::SendInitialActions()
 {
     WorldPacket data(SMSG_ACTION_BUTTONS, PLAYER_ACTION_BUTTON_COUNT*4 + 1);
-    BuildPlayerActionInfo(&data);
+    BuildPlayerActionInfo(&data, ACTION_BUTTON_LIST_REASON_INITIAL);
     m_Player->PushPacket(&data, true);
 }
 
