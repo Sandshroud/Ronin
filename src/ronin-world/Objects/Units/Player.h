@@ -1435,6 +1435,7 @@ private:
             TravelTime = startOverride;
             MoveTime = pathLength;
             ArrivalTime = pathLength;
+            pendingProcess = false;
         }
 
         TaxiPath* CurrentPath; // Current taxi path pointer
@@ -1446,6 +1447,7 @@ private:
         uint32 ArrivalTime; // our calculated arrival time, not sent to client but used server side in lue of movetime
         float posX, posY, posZ; // Target position
         std::vector<TaxiPath*> paths; // Pending taxi paths
+        bool pendingProcess;
     } *m_taxiData;
 
     // Player Game Master data

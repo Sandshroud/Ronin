@@ -1906,7 +1906,7 @@ void MapInstance::_PerformPendingUpdates()
     while(!_processQueue.empty())
     {
         plyr = *_processQueue.begin();
-        if(plyr && plyr->GetMapInstance() == this)
+        if (plyr && plyr->GetMapInstance() == this)
             plyr->PopPendingUpdates(_mapId, true);
         _processQueue.erase(_processQueue.begin());
     }

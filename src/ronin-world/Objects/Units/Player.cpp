@@ -3082,11 +3082,11 @@ void Player::OnPushToWorld(uint32 msTime)
 
     m_changingMaps = false;
 
-    if(GetTaxiState())
-    {
-        PopPendingUpdates(m_mapId, false); // Create HAS to be sent before this!
-        TaxiStart(GetTaxiPath(), m_taxiData->ModelId, m_taxiData->TravelTime);
-    } else m_mapInstance->PushToProcessed(this);
+    if (GetTaxiState())
+        m_taxiData->pendingProcess = true;
+
+    // Push to processing queue
+    m_mapInstance->PushToProcessed(this);
 }
 
 void Player::OnWorldLogin()
@@ -4660,7 +4660,7 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 startOverride)
         m_taxiData = new Player::TaxiData();
 
     // Construct new taxi data pointer
-    m_taxiData->StartPath(getMSTime(), path, startOverride, modelid, 1000 * (path->GetLength(GetMapId())/TAXI_TRAVEL_SPEED));
+    m_taxiData->StartPath(getMSTime(), path, modelid, startOverride, 1000 * (path->GetLength(GetMapId())/TAXI_TRAVEL_SPEED));
 
     // Send our movement packet for the taxi trip
     path->SendMoveForTime(this, this, m_taxiData->TravelTime, m_taxiData->MoveTime);
@@ -5141,6 +5141,12 @@ void Player::PopPendingUpdates(uint16 mapId, bool fromWorld)
 
     bProcessPending = false;
     _bufferS.Release();
+
+    if (m_taxiData && m_taxiData->pendingProcess)
+    {
+        TaxiStart(m_taxiData->CurrentPath, m_taxiData->ModelId, m_taxiData->TravelTime);
+        m_taxiData->pendingProcess = false;
+    }
 
     // send any delayed packets
     WorldPacket * pck;
