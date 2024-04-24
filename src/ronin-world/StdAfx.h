@@ -154,6 +154,7 @@ extern size_t __line__;
 #include "AddonMgr.h"
 #include "SkillNameMgr.h"
 #include "Chat.h"
+#include "GMWardenMgr.h"
 #include "Corpse.h"
 #include "QuestInterface.h"
 #include "QuestMgr.h"

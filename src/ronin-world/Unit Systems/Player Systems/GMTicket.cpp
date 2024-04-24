@@ -73,14 +73,10 @@ void WorldSession::HandleGMTicketCreateOpcode(WorldPacket & recv_data)
     if(chn)
     {
         std::stringstream ss;
-#ifdef GM_TICKET_MY_MASTER_COMPATIBLE
-        ss << "GmTicket 5, " << ticket->name;
-#else
         ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_NEWTICKET;
         ss << ":" << ticket->guid.getLow();
         ss << ":" << ticket->level;
         ss << ":" << ticket->name;
-#endif
         chn->Say(_player, ss.str().c_str(), NULL, true);
     }
 }
@@ -113,7 +109,6 @@ void WorldSession::HandleGMTicketUpdateOpcode(WorldPacket & recv_data)
 
     SendPacket(&data);
 
-#ifndef GM_TICKET_MY_MASTER_COMPATIBLE
     Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(),GetPlayer());
     if(chn)
     {
@@ -122,7 +117,6 @@ void WorldSession::HandleGMTicketUpdateOpcode(WorldPacket & recv_data)
         ss << ":" << ticket->guid.getLow();
         chn->Say(_player, ss.str().c_str(), NULL, true);
     }
-#endif
 }
 
 void WorldSession::HandleGMTicketDeleteOpcode(WorldPacket & recv_data)
@@ -142,12 +136,8 @@ void WorldSession::HandleGMTicketDeleteOpcode(WorldPacket & recv_data)
     if(chn && ticket != NULL)
     {
         std::stringstream ss;
-#ifdef GM_TICKET_MY_MASTER_COMPATIBLE
-        ss << "GmTicket 1," << ticket->name;
-#else
         ss << "GmTicket:" << GM_TICKET_CHAT_OPCODE_REMOVED;
         ss << ":" << ticket->guid.getLow();
-#endif
         chn->Say(_player, ss.str().c_str(), NULL, true);
     }
 }

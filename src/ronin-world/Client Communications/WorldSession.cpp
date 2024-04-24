@@ -38,7 +38,6 @@ _logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _
     m_highestLevel = sWorld.StartLevel;
     _lastPacketHandle = m_currMsTime = getMSTime();
     bDeleted = false;
-    m_bIsWLevelSet = false;
     floodLines = 0;
     floodTime = UNIXTIME;
     _updatecount = 0;
@@ -50,10 +49,6 @@ _logoutTime(0), permissioncount(0), _loggingOut(false), m_eventInstanceId(-1), _
     m_repeatEmoteTime = 0;
     m_repeatEmoteId = 0;
     m_lastWhoTime = 0;
-    m_isFalling = false;
-    m_isJumping = false;
-    m_isKnockedback = false;
-    m_jumpHackChances = 5;
     m_tutorials.Clear();
 
     for(uint32 x = 0; x < 8; x++)

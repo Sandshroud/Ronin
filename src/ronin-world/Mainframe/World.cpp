@@ -342,6 +342,9 @@ void World::Destruct()
     sLog.Notice("ChatHandler", "~ChatHandler()");
     delete ChatHandler::getSingletonPtr();
 
+    sLog.Notice("GMWarden", "~GMWarden()");
+    delete GMWarden::getSingletonPtr();
+
     sLog.Notice("AuctionMgr", "~AuctionMgr()");
     delete AuctionMgr::getSingletonPtr();
 
@@ -656,6 +659,7 @@ bool World::SetInitialWorldSettings()
     new TransportMgr();
     new AddonMgr();
     new ChatHandler();
+    new GMWarden();
     new WarnSystem();
     new Tracker();
     new GuildMgr();
@@ -720,7 +724,7 @@ bool World::SetInitialWorldSettings()
 
     // start mail system
     sLog.Notice("World","Starting Mail System...");
-    MailSystem::getSingleton().StartMailSystem();
+    sMailSystem.StartMailSystem();
 
     sLog.Notice("World", "Starting Auction System...");
     new AuctionMgr;
@@ -738,8 +742,13 @@ bool World::SetInitialWorldSettings()
     tl.kill();
     tl.waitForThreadsToExit();
 
+    // Generate name data in main thread
     LoadNameGenData();
 
+    // Push GM data into processing queue
+    sGMWarden.LoadGMData();
+
+    // Loot loading, either background or delayed processing.
     if(mainIni->ReadBoolean("Startup", "BackgroundLootLoading", true))
     {
         sLog.Notice("World", "Background loot loading...");

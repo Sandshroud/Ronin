@@ -21,152 +21,12 @@
 
 #include "StdAfx.h"
 
-#ifdef GM_TICKET_MY_MASTER_COMPATIBLE
-
-bool ChatHandler::HandleGMTicketListCommand(const char* args, WorldSession *m_session)
-{
-    Player *cplr = m_session->GetPlayer();
-
-    Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), cplr);
-    if(!chn)
-        return false;
-
-    chn->Say(cplr, "GmTicket 2", cplr, true);
-
-    for(GmTicketList::iterator itr = objmgr.GM_TicketList.begin(); itr != objmgr.GM_TicketList.end(); itr++)
-    {
-        if((*itr)->deleted)
-            continue;
-
-        Player* plr = objmgr.GetPlayer((uint32)(*itr)->playerGuid);
-
-        if( plr == NULL )
-            continue;
-
-        std::stringstream ss;
-
-        uint32 zone = 0;
-        if(plr->IsInWorld())
-        {
-            zone = plr->GetZoneId();
-        }
-        ss << "GmTicket 0," << (*itr)->name << "," << (*itr)->level << ",0," << zone;
-        chn->Say(cplr, ss.str().c_str(), cplr, true);
-    }
-
-    return true;
-}
-
-bool ChatHandler::HandleGMTicketGetByIdCommand(const char* args, WorldSession *m_session)
-{
-    if(!*args)
-        return false;
-
-    Player *cplr = m_session->GetPlayer();
-    Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), cplr);
-    if(!chn)
-        return false;
-
-    Player *plr = objmgr.GetPlayer(args, false);
-    if(plr == NULL)
-    {
-        RedSystemMessage(m_session, "Player not found.");
-        return true;
-    }
-    GM_Ticket *ticket = objmgr.GetGMTicketByPlayer(plr->GetGUID());
-    if(ticket == NULL || ticket->deleted)
-    {
-        RedSystemMessage(m_session, "Ticket not found.");
-        return true;
-    }
-
-    char* msg = new char[ticket->message.size() + 1];
-    strcpy(msg, ticket->message.c_str());
-    char * start = msg, *end;
-    bool firstLine = true;
-    for(;;)
-    {
-        end = strchr(start, '\n');
-        if(!end)
-            break;
-
-        *end = '\0';
-
-        std::stringstream ss;
-        ss << "GmTicket " << (firstLine ? "3" : "4") << "," << ticket->name << "," << start;
-        chn->Say(cplr, ss.str().c_str(), cplr, true);
-
-        firstLine = false;
-
-        start = end + 1;
-    }
-    if(*start != '\0')
-    {
-        std::stringstream ss;
-        ss << "GmTicket " << (firstLine ? "3" : "4") << "," << ticket->name << "," << start;
-        chn->Say(cplr, ss.str().c_str(), cplr, true);
-    }
-    delete[] msg;
-
-    return true;
-}
-
-bool ChatHandler::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession *m_session)
-{
-    if(!*args)
-        return false;
-
-    Player *cplr = m_session->GetPlayer();
-    Channel *chn = channelmgr.GetChannel(sWorld.getGmClientChannel().c_str(), cplr);
-    if(!chn)
-        return false;
-
-    Player *plr = objmgr.GetPlayer(args, true);
-    if(plr == NULL)
-    {
-        RedSystemMessage(m_session, "Player not found.");
-        return true;
-    }
-
-    GM_Ticket *ticket = objmgr.GetGMTicketByPlayer(plr->GetGUID());
-    if(ticket == NULL || ticket->deleted)
-    {
-        RedSystemMessage(m_session, "Ticket not found.");
-        return true;
-    }
-
-    std::stringstream ss;
-    ss << "GmTicket 1," << ticket->name;
-    chn->Say(cplr, ss.str().c_str(), NULL, true);
-
-    objmgr.RemoveGMTicket(ticket->guid);
-
-    if(!plr)
-        return true;
-
-    if(!plr->IsInWorld())
-        return true;
-
-    // Notify player about removing ticket
-    WorldPacket data(SMSG_GMTICKET_DELETETICKET, 4);
-    data << uint32(9);
-    plr->PushPacket( &data );
-    // Response - Send GM Survey
-    WorldPacket datab(SMSG_GM_TICKET_STATUS_UPDATE, 1);
-    datab << uint32(3);
-    plr->PushPacket( &datab );
-
-    return true;
-}
-
-#else
-
-void ChatHandler::SendGMSurvey()
+void GMWarden::SendGMSurvey()
 {
 
 }
 
-bool ChatHandler::HandleGMTicketListCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketListCommand(const char* args, WorldSession *m_session)
 {
     Player *cplr = m_session->GetPlayer();
 
@@ -202,12 +62,12 @@ bool ChatHandler::HandleGMTicketListCommand(const char* args, WorldSession *m_se
     return true;
 }
 
-bool ChatHandler::HandleGMTicketGetByIdCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketGetByIdCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid = (args ? atoi(args) : 0);
     if(!ticketGuid)
     {
-        RedSystemMessage(m_session, "You must specify a ticket id.");
+        sChatHandler.RedSystemMessage(m_session, "You must specify a ticket id.");
         return true;
     }
 
@@ -258,12 +118,12 @@ bool ChatHandler::HandleGMTicketGetByIdCommand(const char* args, WorldSession *m
     return true;
 }
 
-bool ChatHandler::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid = (args ? atoi(args) : 0);
     if(!ticketGuid)
     {
-        RedSystemMessage(m_session, "You must specify a ticket id.");
+        sChatHandler.RedSystemMessage(m_session, "You must specify a ticket id.");
         return true;
     }
 
@@ -308,7 +168,7 @@ bool ChatHandler::HandleGMTicketRemoveByIdCommand(const char* args, WorldSession
 }
 
 
-bool ChatHandler::HandleGMTicketAssignToCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketAssignToCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid;
     char guidstring[100], name[100];
@@ -319,7 +179,7 @@ bool ChatHandler::HandleGMTicketAssignToCommand(const char* args, WorldSession *
     ticketGuid = atoi(guidstring);
     if(!ticketGuid)
     {
-        RedSystemMessage(m_session, "You must specify a ticket id.");
+        sChatHandler.RedSystemMessage(m_session, "You must specify a ticket id.");
         return true;
     }
 
@@ -389,16 +249,16 @@ bool ChatHandler::HandleGMTicketAssignToCommand(const char* args, WorldSession *
     //data << unit64(2);//assignedToGM |0 - ticket is not currently assigned to a gm | 1 - ticket is assigned to a normal gm |  2 - ticket is in the escalation queue
     //data << uint64(1);//openedByGM | 0 - ticket has never been opened by a gm | 1 - ticket has been opened by a gm
     //mplr->PushPacket( &data );
-    SystemMessageToPlr(mplr, "SYSTEM: Your ticket has been escalated. A Senior Game Master will be with you shortly!");
+    sChatHandler.SystemMessageToPlr(mplr, "SYSTEM: Your ticket has been escalated. A Senior Game Master will be with you shortly!");
     return true;
 }
 
-bool ChatHandler::HandleGMTicketReleaseCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketReleaseCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid = (args ? atoi(args) : 0);
     if(!ticketGuid)
     {
-        RedSystemMessage(m_session, "You must specify a ticket id.");
+        sChatHandler.RedSystemMessage(m_session, "You must specify a ticket id.");
         return true;
     }
 
@@ -438,7 +298,7 @@ bool ChatHandler::HandleGMTicketReleaseCommand(const char* args, WorldSession *m
     return true;
 }
 
-bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketCommentCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid;
     int argc = 1;
@@ -457,7 +317,7 @@ bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m
     ticketGuid = atoi(guidstring);
     if(!ticketGuid)
     {
-        RedSystemMessage(m_session, "You must specify a ticket id.");
+        sChatHandler.RedSystemMessage(m_session, "You must specify a ticket id.");
         return true;
     }
 
@@ -492,12 +352,12 @@ bool ChatHandler::HandleGMTicketCommentCommand(const char* args, WorldSession *m
     return true;
 }
 
-bool ChatHandler::HandleGMTicketDeletePermanentCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMTicketDeletePermanentCommand(const char* args, WorldSession *m_session)
 {
     uint64 ticketGuid = (args ? atoi(args) : 0);
     if(!ticketGuid)
     {
-        RedSystemMessage(m_session, "You must specify a ticket id.");
+        sChatHandler.RedSystemMessage(m_session, "You must specify a ticket id.");
         return true;
     }
 
@@ -544,5 +404,3 @@ bool ChatHandler::HandleGMTicketDeletePermanentCommand(const char* args, WorldSe
 
     return true;
 }
-
-#endif

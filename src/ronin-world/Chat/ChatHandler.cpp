@@ -146,7 +146,7 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
         return;
     }
 
-    if (sChatHandler.ParseCommands(message.c_str(), this) > 0)
+    if (sChatHandler.ParseCommands(type, message.c_str(), GetPlayer()) > 0)
         return;
 
     //arghhh STFU. I'm not giving you gold or items NOOB
@@ -243,9 +243,6 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
     }
 
     WorldPacket broadcast(type, 50);
-    if(packetLang && lang > LANG_UNIVERSAL)
-        lang = CanUseCommand('c') ? LANG_UNIVERSAL : lang;
-
     switch(type)
     {
     case CHAT_MSG_CHANNEL:
@@ -334,13 +331,8 @@ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
 
             /* WorldPacket *data, WorldSession* session, uint32 type, uint32 language, const char *channelName, const char *message*/
             if(GetPlayer()->HasFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK))
-            {
                 GetPlayer()->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK);
-            }
-            else
-            {
-                GetPlayer()->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK);
-            }
+            else GetPlayer()->SetFlag(PLAYER_FLAGS, PLAYER_FLAG_AFK);
         } break;
     case CHAT_MSG_DND:
         {
@@ -583,19 +575,6 @@ bool WorldSession::ValidateText2(std::string text)
         return false;
     if( text.find("\n") != std::string::npos )
         return false;
-
-    /* Crow
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Crow: Die color text! You don't belong in this world!
-    ColorTxt: It was not by my hand that I am once again given flesh.
-    ColorTxt: I was called here by, Humans, who wish to pay me Tribute.
-    Crow: Tribute? You steal mens souls! And make them your slaves!
-    ColorTxt: Perhaps the same could be said of all Religions...
-    Crow: Your words are as empty as your soul...
-    Crow: Mankind ill needs a savor such as you!
-    ~ColorTxt breaks wine glass~
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    */
 
     // Quests
     if((stringpos = text.find("|Hquest:")) != std::string::npos)

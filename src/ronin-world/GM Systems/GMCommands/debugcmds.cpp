@@ -25,24 +25,24 @@
 
 #include "StdAfx.h"
 
-bool ChatHandler::HandleDebugInFrontCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleDebugInFrontCommand(const char* args, WorldSession *m_session)
 {
     Unit* unit = getSelectedUnit(m_session, true);
     if(unit == NULL)
         return false;
 
     Player* plr = m_session->GetPlayer();
-    BlueSystemMessage(m_session, "Test1 should equal Test2");
-    SystemMessage(m_session, format("Test1: Target is %s you.", (plr->isTargetInFront(unit) ? "infront of" : "behind")).c_str());
-    SystemMessage(m_session, format("Test2: You are %s the target.", (plr->isInFrontOfTarget(unit) ? "infront of" : "behind")).c_str());
+    sChatHandler.BlueSystemMessage(m_session, "Test1 should equal Test2");
+    sChatHandler.SystemMessage(m_session, format("Test1: Target is %s you.", (plr->isTargetInFront(unit) ? "infront of" : "behind")).c_str());
+    sChatHandler.SystemMessage(m_session, format("Test2: You are %s the target.", (plr->isInFrontOfTarget(unit) ? "infront of" : "behind")).c_str());
 
-    BlueSystemMessage(m_session, "Test3 should equal Test4");
-    SystemMessage(m_session, format("Test3: Target is %s you.", (plr->isTargetInBack(unit) ?  "behind" : "infront of")).c_str());
-    SystemMessage(m_session, format("Test4: You are %s the target.", (plr->isInBackOfTarget(unit) ?  "behind" : "infront of")).c_str());
+    sChatHandler.BlueSystemMessage(m_session, "Test3 should equal Test4");
+    sChatHandler.SystemMessage(m_session, format("Test3: Target is %s you.", (plr->isTargetInBack(unit) ?  "behind" : "infront of")).c_str());
+    sChatHandler.SystemMessage(m_session, format("Test4: You are %s the target.", (plr->isInBackOfTarget(unit) ?  "behind" : "infront of")).c_str());
     return true;
 }
 
-bool ChatHandler::HandleShowReactionCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleShowReactionCommand(const char* args, WorldSession *m_session)
 {
     if(args == NULL)
         return false;
@@ -59,11 +59,11 @@ bool ChatHandler::HandleShowReactionCommand(const char* args, WorldSession *m_se
     data << creature->GetGUID() << uint32(Reaction);
     m_session->SendPacket( &data );
 
-    SystemMessage(m_session,  format("Sent forced reaction %u from %s.", Reaction, creature->GetName()).c_str());
+    sChatHandler.SystemMessage(m_session,  format("Sent forced reaction %u from %s.", Reaction, creature->GetName()).c_str());
     return true;
 }
 
-bool ChatHandler::HandleDistanceCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleDistanceCommand(const char* args, WorldSession *m_session)
 {
     Unit* pUnit = getSelectedChar(m_session, false, false);
     if(pUnit == NULL)
@@ -76,30 +76,30 @@ bool ChatHandler::HandleDistanceCommand(const char* args, WorldSession *m_sessio
         }
     }
 
-    SystemMessage(m_session, "Distance: %f", m_session->GetPlayer()->GetDistanceSq(pUnit));
+    sChatHandler.SystemMessage(m_session, "Distance: %f", m_session->GetPlayer()->GetDistanceSq(pUnit));
     return true;
 }
 
-bool ChatHandler::HandleMoveInfoCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleMoveInfoCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = m_session->GetPlayer();
     Creature* creature = getSelectedCreature(m_session, true);
     if(creature == NULL)
         return false;
 
-    SystemMessage(m_session, "Move Info:");
-    GreenSystemMessage(m_session, format("Distance is: %f;", sqrtf(plr->GetDistanceSq(creature))).c_str());
-    GreenSystemMessage(m_session, format("Mob Facing Player: %s; Player Facing Mob %s;", (creature->isTargetInFront(plr) ? "true" : "false"),
+    sChatHandler.SystemMessage(m_session, "Move Info:");
+    sChatHandler.GreenSystemMessage(m_session, format("Distance is: %f;", sqrtf(plr->GetDistanceSq(creature))).c_str());
+    sChatHandler.GreenSystemMessage(m_session, format("Mob Facing Player: %s; Player Facing Mob %s;", (creature->isTargetInFront(plr) ? "true" : "false"),
         (plr->isTargetInFront(creature) ? "true" : "false")).c_str());
     return true;
 }
 
-bool ChatHandler::HandleFaceCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleFaceCommand(const char* args, WorldSession *m_session)
 {
     Creature* obj = getSelectedCreature(m_session, false);
     if(obj == NULL)
     {
-        SystemMessage(m_session,  "You should select a creature.");
+        sChatHandler.SystemMessage(m_session,  "You should select a creature.");
         return true;
     }
 
@@ -112,11 +112,11 @@ bool ChatHandler::HandleFaceCommand(const char* args, WorldSession *m_session)
     float theOrientation = Orentation ? Orentation/(360/float(6.28)) : 0.0f;
 
     obj->SetPosition(obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ(), theOrientation);
-    SystemMessage(m_session, "Facing sent.");
+    sChatHandler.SystemMessage(m_session, "Facing sent.");
     return true;
 }
 
-bool ChatHandler::HandleSetBytesCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleSetBytesCommand(const char* args, WorldSession *m_session)
 {
     WorldObject* obj = getSelectedUnit(m_session, false);
     if(obj == NULL)
@@ -146,17 +146,17 @@ bool ChatHandler::HandleSetBytesCommand(const char* args, WorldSession *m_sessio
         break;
     default:
         {
-            RedSystemMessage(m_session, "You must supply either a simple byte field value(0, 1, 2) or a valid byte field.");
+            sChatHandler.RedSystemMessage(m_session, "You must supply either a simple byte field value(0, 1, 2) or a valid byte field.");
             return false;
         }break;
     }
 
     obj->SetUInt32Value(RealBytesIndex, bytevalue);
-    SystemMessage(m_session, format("Set Field %u bytes to %u(%u %u %u %u)", BytesIndex, bytevalue, byte1, byte2, byte3, byte4).c_str());
+    sChatHandler.SystemMessage(m_session, format("Set Field %u bytes to %u(%u %u %u %u)", BytesIndex, bytevalue, byte1, byte2, byte3, byte4).c_str());
     return true;
 }
 
-bool ChatHandler::HandleGetBytesCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGetBytesCommand(const char* args, WorldSession *m_session)
 {
     WorldObject* obj = getSelectedUnit(m_session, false);
     if(obj == NULL)
@@ -184,31 +184,31 @@ bool ChatHandler::HandleGetBytesCommand(const char* args, WorldSession *m_sessio
         break;
     default:
         {
-            RedSystemMessage(m_session, "You must supply either a simple byte field value(0, 1, 2) or a valid byte field.");
+            sChatHandler.RedSystemMessage(m_session, "You must supply either a simple byte field value(0, 1, 2) or a valid byte field.");
             return false;
         }break;
     }
 
     uint32 byteValue = obj->GetUInt32Value(RealBytesIndex);
-    SystemMessage(m_session, format("Bytes for Field %u are %u(%u %u %u %u)", BytesIndex, byteValue,
+    sChatHandler.SystemMessage(m_session, format("Bytes for Field %u are %u(%u %u %u %u)", BytesIndex, byteValue,
         uint8(byteValue & 0xFF), uint8((byteValue >> 8) & 0xFF), uint8((byteValue >> 16) & 0xFF), uint8((byteValue >> 24) & 0xFF)).c_str());
     return true;
 }
 
-bool ChatHandler::HandleAggroRangeCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleAggroRangeCommand(const char* args, WorldSession *m_session)
 {
     Player* plr = m_session->GetPlayer();
     Creature* obj = getSelectedCreature(m_session, false);
     if(obj == NULL)
     {
-        SystemMessage(m_session, "You should select a creature.");
+        sChatHandler.SystemMessage(m_session, "You should select a creature.");
         return true;
     }
 
     return true;
 }
 
-bool ChatHandler::HandleKnockBackCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleKnockBackCommand(const char* args, WorldSession *m_session)
 {
     float hspeed, vspeed;
     Unit* target = getSelectedChar(m_session, true);
@@ -219,7 +219,7 @@ bool ChatHandler::HandleKnockBackCommand(const char* args, WorldSession *m_sessi
     return true;
 }
 
-bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_session)
+bool GMWarden::HandleModifyBitCommand(const char* args, WorldSession* m_session)
 {
     return false;
 
@@ -230,7 +230,7 @@ bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_sessi
     {
         if(!(obj = m_session->GetPlayer()->GetMapInstance()->GetUnit(guid)))
         {
-            SystemMessage(m_session, "You should select a character or a creature.");
+            sChatHandler.SystemMessage(m_session, "You should select a character or a creature.");
             return true;
         }
     }
@@ -250,13 +250,13 @@ bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_sessi
 
     if (field < 1 || field >= PLAYER_END)
     {
-        SystemMessage(m_session, "Incorrect values.");
+        sChatHandler.SystemMessage(m_session, "Incorrect values.");
         return true;
     }
 
     if (bit < 1 || bit > 32)
     {
-        SystemMessage(m_session, "Incorrect values.");
+        sChatHandler.SystemMessage(m_session, "Incorrect values.");
         return true;
     }
 
@@ -273,11 +273,11 @@ bool ChatHandler::HandleModifyBitCommand(const char* args, WorldSession* m_sessi
         snprintf((char*)buf,256, "Set bit %i in field %i.", (unsigned int)bit, (unsigned int)field);
     }
 
-    SystemMessage(m_session, buf);
+    sChatHandler.SystemMessage(m_session, buf);
     return true;*/
 }
 
-bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_session)
+bool GMWarden::HandleModifyValueCommand(const char* args,  WorldSession* m_session)
 {
     return false;
 /*
@@ -288,7 +288,7 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
     {
         if(!(obj = m_session->GetPlayer())->GetMapInstance()->GetUnit(guid))
         {
-            SystemMessage(m_session, "You should select a character or a creature.");
+            sChatHandler.SystemMessage(m_session, "You should select a character or a creature.");
             return true;
         }
     } else obj = m_session->GetPlayer();
@@ -306,7 +306,7 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
 
     if (field < 1 || field >= PLAYER_END)
     {
-        SystemMessage(m_session, "Incorrect Field.");
+        sChatHandler.SystemMessage(m_session, "Incorrect Field.");
         return true;
     }
 
@@ -319,44 +319,44 @@ bool ChatHandler::HandleModifyValueCommand(const char* args,  WorldSession* m_se
     if( obj->IsPlayer() )
         castPtr<Player>( obj )->UpdateChances();
 
-    SystemMessage(m_session, buf);
+    sChatHandler.SystemMessage(m_session, buf);
 
     return true;*/
 }
 
-bool ChatHandler::HandleDebugGoDamage(const char* args, WorldSession *m_session)
+bool GMWarden::HandleDebugGoDamage(const char* args, WorldSession *m_session)
 {
     Player *plr = m_session->GetPlayer();
     GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
     if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
+        sChatHandler.RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
     uint32 damage = (float)atof(args);
     GObj->TakeDamage(uint32(damage),  m_session->GetPlayer(), m_session->GetPlayer(), 5555);
-    BlueSystemMessage(m_session, "Gameobject Has Taken %u", damage);
+    sChatHandler.BlueSystemMessage(m_session, "Gameobject Has Taken %u", damage);
     return true;
 }
 
-bool ChatHandler::HandleDebugGoRepair(const char* args, WorldSession *m_session)
+bool GMWarden::HandleDebugGoRepair(const char* args, WorldSession *m_session)
 {
     Player *plr = m_session->GetPlayer();
     GameObject *GObj = plr->GetInRangeObject<GameObject>(plr->m_selectedGo);
     if( GObj == NULL )
     {
-        RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
+        sChatHandler.RedSystemMessage(m_session, "%s GameObject selected...", plr->m_selectedGo.empty() ? "No" : "Invalid");
         return true;
     }
 
     GObj->SetStatusRebuilt();
-    BlueSystemMessage(m_session, "Gameobject rebuilt.");
+    sChatHandler.BlueSystemMessage(m_session, "Gameobject rebuilt.");
     return true;
 
 }
 
-bool ChatHandler::HandleSetPlayerStartLocation(const char* args, WorldSession *m_session)
+bool GMWarden::HandleSetPlayerStartLocation(const char* args, WorldSession *m_session)
 {
     Player* p = m_session->GetPlayer();
     uint32 team[2][5] = { { RACE_HUMAN, RACE_DWARF, RACE_NIGHTELF, RACE_GNOME, RACE_DRAENEI }, { RACE_ORC, RACE_UNDEAD, RACE_TAUREN, RACE_TROLL, RACE_BLOODELF} };
@@ -378,7 +378,7 @@ bool ChatHandler::HandleSetPlayerStartLocation(const char* args, WorldSession *m
     return true;
 }
 
-bool ChatHandler::HandleModifySpeedCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleModifySpeedCommand(const char* args, WorldSession *m_session)
 {
     if(Unit* target = getSelectedChar(m_session, true))
     {
@@ -390,7 +390,7 @@ bool ChatHandler::HandleModifySpeedCommand(const char* args, WorldSession *m_ses
     return false;
 }
 
-bool ChatHandler::HandleModifySwimSpeedCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleModifySwimSpeedCommand(const char* args, WorldSession *m_session)
 {
     if(Unit* target = getSelectedChar(m_session, true))
     {
@@ -402,7 +402,7 @@ bool ChatHandler::HandleModifySwimSpeedCommand(const char* args, WorldSession *m
     return false;
 }
 
-bool ChatHandler::HandleModifyFlightSpeedCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleModifyFlightSpeedCommand(const char* args, WorldSession *m_session)
 {
     if(Unit* target = getSelectedChar(m_session, true))
     {

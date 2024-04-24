@@ -25,11 +25,11 @@
 
 #include "StdAfx.h"
 
-bool ChatHandler::ShowHelpForCommand(WorldSession *m_session, ChatCommand *table, const char* cmd)
+bool GMWarden::ShowHelpForCommand(WorldSession *m_session, ChatCommand *table, const char* cmd)
 {
     for(uint32 i = 0; table[i].Name != NULL; i++)
     {
-        if(!hasStringAbbr(table[i].Name, cmd))
+        if(!ChatHandler::hasStringAbbr(table[i].Name, cmd))
             continue;
 
         if(m_session->CanUseCommand(table[i].CommandGroup))
@@ -44,11 +44,11 @@ bool ChatHandler::ShowHelpForCommand(WorldSession *m_session, ChatCommand *table
 
         if(table[i].Help == "")
         {
-            SystemMessage(m_session, "There is no help for that command");
+            sChatHandler.SystemMessage(m_session, "There is no help for that command");
             return true;
         }
 
-        SendMultilineMessage(m_session, table[i].Help.c_str());
+        sChatHandler.sChatHandler.SendMultilineMessage(m_session, table[i].Help.c_str());
 
         return true;
     }
@@ -56,7 +56,7 @@ bool ChatHandler::ShowHelpForCommand(WorldSession *m_session, ChatCommand *table
     return false;
 }
 
-bool ChatHandler::HandleHelpCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleHelpCommand(const char* args, WorldSession *m_session)
 {
 //  ChatCommand *table = getCommandTable();
     WorldPacket data;
@@ -70,14 +70,14 @@ bool ChatHandler::HandleHelpCommand(const char* args, WorldSession *m_session)
 
     if(!ShowHelpForCommand(m_session, sComTableStore.Get(), cmd))
     {
-        RedSystemMessage(m_session, "Sorry, no help was found for this command, or that command does not exist.");
+        sChatHandler.RedSystemMessage(m_session, "Sorry, no help was found for this command, or that command does not exist.");
     }
 
     return true;
 }
 
 
-bool ChatHandler::HandleCommandsCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleCommandsCommand(const char* args, WorldSession *m_session)
 {
     ChatCommand *table = sComTableStore.Get();
     WorldPacket data;
@@ -89,7 +89,7 @@ bool ChatHandler::HandleCommandsCommand(const char* args, WorldSession *m_sessio
 
     for(uint32 i = 0; table[i].Name != NULL; i++)
     {
-        if(*args && !hasStringAbbr(table[i].Name, (char*)args))
+        if(*args && !ChatHandler::hasStringAbbr(table[i].Name, (char*)args))
             continue;
 
         if(table[i].CommandGroup != '0' && !m_session->CanUseCommand(table[i].CommandGroup))
@@ -137,16 +137,16 @@ bool ChatHandler::HandleCommandsCommand(const char* args, WorldSession *m_sessio
         output += "\n";
 
 
-        //FillSystemMessageData(&data, table[i].Name);
+        //FillsChatHandler.SystemMessageData(&data, table[i].Name);
         //m_session->SendPacket(&data);
     //}
 
-    SendMultilineMessage(m_session, output.c_str());
+    sChatHandler.sChatHandler.SendMultilineMessage(m_session, output.c_str());
 
     return true;
 }
 
-bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleStartCommand(const char* args, WorldSession *m_session)
 {
     Player* m_plyr = castPtr<Player>(getSelectedChar(m_session, true));
     if( m_plyr == NULL)
@@ -173,7 +173,7 @@ bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
         case 11:argument = "draenei";   break;
         default:
             {
-                RedSystemMessage(m_session, "Could not extract race from slected character.");
+                sChatHandler.RedSystemMessage(m_session, "Could not extract race from slected character.");
                 return true;
             }
 
@@ -197,7 +197,7 @@ bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
         else if(argument == "deathknight")  classid = 6;
         else
         {
-            RedSystemMessage(m_session, "Invalid start location! Valid locations are: human, dwarf, gnome, nightelf, draenei, orc, troll, tauren, undead, bloodelf");
+            sChatHandler.RedSystemMessage(m_session, "Invalid start location! Valid locations are: human, dwarf, gnome, nightelf, draenei, orc, troll, tauren, undead, bloodelf");
             return true;
         }
     } else return false;
@@ -207,18 +207,18 @@ bool ChatHandler::HandleStartCommand(const char* args, WorldSession *m_session)
     info = objmgr.GetPlayerCreateInfo(raceid, classid);
     if(info == NULL)
     {
-        RedSystemMessage(m_session, "Internal error: Could not find create info.");
+        sChatHandler.RedSystemMessage(m_session, "Internal error: Could not find create info.");
             return true;
     }
 
 
-    GreenSystemMessage(m_session, "Telporting %s to %s starting location.", m_plyr->GetName(), argument.c_str());
+    sChatHandler.GreenSystemMessage(m_session, "Telporting %s to %s starting location.", m_plyr->GetName(), argument.c_str());
     m_plyr->SafeTeleport(info->mapId, 0, LocationVector(info->positionX, info->positionY, info->positionZ, info->Orientation));
     return true;
 }
 
 
-bool ChatHandler::HandleInfoCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleInfoCommand(const char* args, WorldSession *m_session)
 {
     int gm = 0;
     int avg = 0;
@@ -238,23 +238,23 @@ bool ChatHandler::HandleInfoCommand(const char* args, WorldSession *m_session)
     }
     objmgr._playerslock.ReleaseReadLock();
 
-    GreenSystemMessage(m_session, "Server Revision: SS Ronin(%s::%s) r%u/%s-%s-%s", BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, PLATFORM_TEXT, ARCH);
-    GreenSystemMessage(m_session, "Server Uptime: |r%s", sWorld.GetUptimeString().c_str());
+    sChatHandler.GreenSystemMessage(m_session, "Server Revision: SS Ronin(%s::%s) r%u/%s-%s-%s", BUILD_TAG, BUILD_HASH_STR, BUILD_REVISION, CONFIG, PLATFORM_TEXT, ARCH);
+    sChatHandler.GreenSystemMessage(m_session, "Server Uptime: |r%s", sWorld.GetUptimeString().c_str());
     if(m_session->CanUseCommand('z'))
-        GreenSystemMessage(m_session, "Useage(Win only): RAM:(%f), CPU:(%f)", sWorld.GetRAMUsage(), sWorld.GetAverageCPUUsage());
-    GreenSystemMessage(m_session, "Players: (%u Alliance/%u Horde/%u GMs)",sWorld.AlliancePlayers, sWorld.HordePlayers, gm);
-    GreenSystemMessage(m_session, "Average Latency: |r%.3fms", (float)((float)avg / (float)count));
+        sChatHandler.GreenSystemMessage(m_session, "Useage(Win only): RAM:(%f), CPU:(%f)", sWorld.GetRAMUsage(), sWorld.GetAverageCPUUsage());
+    sChatHandler.GreenSystemMessage(m_session, "Players: (%u Alliance/%u Horde/%u GMs)",sWorld.AlliancePlayers, sWorld.HordePlayers, gm);
+    sChatHandler.GreenSystemMessage(m_session, "Average Latency: |r%.3fms", (float)((float)avg / (float)count));
     return true;
 }
 
 
-bool ChatHandler::HandleNYICommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleNYICommand(const char* args, WorldSession *m_session)
 {
-    RedSystemMessage(m_session, "Not yet implemented.");
+    sChatHandler.RedSystemMessage(m_session, "Not yet implemented.");
     return true;
 }
 
-bool ChatHandler::HandleDismountCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleDismountCommand(const char* args, WorldSession *m_session)
 {
     Unit* m_target = NULL;
 
@@ -270,31 +270,31 @@ bool ChatHandler::HandleDismountCommand(const char* args, WorldSession *m_sessio
     }
 
     if(!m_target)
-        RedSystemMessage(m_session, "No target found.");
+        sChatHandler.RedSystemMessage(m_session, "No target found.");
     else if( !m_target->GetUInt32Value( UNIT_FIELD_MOUNTDISPLAYID) )
-        RedSystemMessage(m_session, "Target is not mounted.");
+        sChatHandler.RedSystemMessage(m_session, "Target is not mounted.");
     else
     {
         m_target->Dismount();
-        BlueSystemMessage(m_session, "Unit has been dismounted.");
+        sChatHandler.BlueSystemMessage(m_session, "Unit has been dismounted.");
     }
     return true;
 
 }
 
-bool ChatHandler::HandleFullDismountCommand(const char * args, WorldSession *m_session)
+bool GMWarden::HandleFullDismountCommand(const char * args, WorldSession *m_session)
 {
     Player* p_target = getSelectedChar(m_session, false);
     if(p_target == NULL || !p_target->IsInWorld())
     {
-        SystemMessage(m_session, "Select a player or yourself first.");
+        sChatHandler.SystemMessage(m_session, "Select a player or yourself first.");
         return true;
     }
 
     WorldSession* sess = p_target->GetSession();
     if(!sess || !sess->GetSocket())
     {
-       RedSystemMessage(m_session, "Not able to locate player %s.", sess->GetPlayer()->GetName());
+       sChatHandler.RedSystemMessage(m_session, "Not able to locate player %s.", sess->GetPlayer()->GetName());
        return true;
     }
 
@@ -305,18 +305,18 @@ bool ChatHandler::HandleFullDismountCommand(const char * args, WorldSession *m_s
     return true;
 }
 
-bool ChatHandler::HandleSaveCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleSaveCommand(const char* args, WorldSession *m_session)
 {
     if(Player* plr = getSelectedChar(m_session, true))
     {
         plr->SaveToDB(false);
-        GreenSystemMessage(m_session, "Player saved to DB");
-    } else RedSystemMessage(m_session, "You can only save one extra time every 2 minutes.");
+        sChatHandler.GreenSystemMessage(m_session, "Player saved to DB");
+    } else sChatHandler.RedSystemMessage(m_session, "You can only save one extra time every 2 minutes.");
     return true;
 }
 
 
-bool ChatHandler::HandleGMListCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleGMListCommand(const char* args, WorldSession *m_session)
 {
     //sWorld.SendGMList(m_session);
     /*WorldSession *gm_session;
@@ -328,20 +328,20 @@ bool ChatHandler::HandleGMListCommand(const char* args, WorldSession *m_session)
         gm_session = (*itr);
         ++itr;
         if(first)
-            GreenSystemMessage(m_session, "There are following active GMs on this server:");
+            sChatHandler.GreenSystemMessage(m_session, "There are following active GMs on this server:");
         first = false;
 
         if(gm_session->GetPlayer() && m_session != gm_session)
-            SystemMessage(m_session, "%s [%s]", gm_session->GetPlayer()->GetName(), gm_session->GetPermissions());
+            sChatHandler.SystemMessage(m_session, "%s [%s]", gm_session->GetPlayer()->GetName(), gm_session->GetPermissions());
     }
     sWorld.gmList_lock.ReleaseReadLock();
     if(first)
-        SystemMessage(m_session, "There are no GMs currently logged in on this server.");*/
+        sChatHandler.SystemMessage(m_session, "There are no GMs currently logged in on this server.");*/
 
     return true;
 }
 
-bool ChatHandler::HandleRangeCheckCommand( const char *args , WorldSession *m_session )
+bool GMWarden::HandleRangeCheckCommand( const char *args , WorldSession *m_session )
 {
     WorldPacket data;
     WoWGuid guid = m_session->GetPlayer()->GetSelection();
@@ -368,15 +368,15 @@ bool ChatHandler::HandleRangeCheckCommand( const char *args , WorldSession *m_se
     return true;
 }
 
-bool ChatHandler::HandleGmLogCommentCommand( const char *args , WorldSession *m_session )
+bool GMWarden::HandleGmLogCommentCommand( const char *args , WorldSession *m_session )
 {
     if(!args || !strlen(args)) return false;
-    BlueSystemMessage(m_session, "Added Logcomment: %s",args);
+    sChatHandler.BlueSystemMessage(m_session, "Added Logcomment: %s",args);
     sWorld.LogGM(m_session,"Logcomment: %s", args);
     return true;
 }
 
-bool ChatHandler::HandleRatingsCommand( const char *args , WorldSession *m_session )
+bool GMWarden::HandleRatingsCommand( const char *args , WorldSession *m_session )
 {
     m_session->SystemMessage("Ratings!!!");
     Player* m_plyr = getSelectedChar(m_session, false);
@@ -384,7 +384,7 @@ bool ChatHandler::HandleRatingsCommand( const char *args , WorldSession *m_sessi
     return true;
 }
 
-bool ChatHandler::HandleModifyPlayerFlagsCommand(const char *args, WorldSession *m_session)
+bool GMWarden::HandleModifyPlayerFlagsCommand(const char *args, WorldSession *m_session)
 {
     Player* player = getSelectedChar(m_session);
     if(player == NULL || !args)
@@ -394,7 +394,7 @@ bool ChatHandler::HandleModifyPlayerFlagsCommand(const char *args, WorldSession 
     return true;
 }
 
-bool ChatHandler::HandleModifyAuraStateCommand(const char *args, WorldSession *m_session)
+bool GMWarden::HandleModifyAuraStateCommand(const char *args, WorldSession *m_session)
 {
     Player* player = getSelectedChar(m_session);
     if(player == NULL || !args)
@@ -405,7 +405,7 @@ bool ChatHandler::HandleModifyAuraStateCommand(const char *args, WorldSession *m
     return true;
 }
 
-bool ChatHandler::HandleMirrorTimerCommand( const char *args , WorldSession *m_session )
+bool GMWarden::HandleMirrorTimerCommand( const char *args , WorldSession *m_session )
 {
     uint32 type = 0, spellid = 0;
     sscanf(args, "%u %u", &type, &spellid);

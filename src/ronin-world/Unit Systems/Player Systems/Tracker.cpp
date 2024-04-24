@@ -301,7 +301,7 @@ void Tracker::List(WorldSession *m_session, uint32 listStart)
     }
 }
 
-bool ChatHandler::HandleTrackerListCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleTrackerListCommand(const char* args, WorldSession *m_session)
 {
     uint32 listStart = 0;
     if( args )
@@ -311,7 +311,7 @@ bool ChatHandler::HandleTrackerListCommand(const char* args, WorldSession *m_ses
     return true;
 }
 
-bool ChatHandler::HandleAddTrackerCommand(const char *args, WorldSession * m_session)
+bool GMWarden::HandleAddTrackerCommand(const char *args, WorldSession * m_session)
 {
     if(!*args) return false;
 
@@ -319,7 +319,7 @@ bool ChatHandler::HandleAddTrackerCommand(const char *args, WorldSession * m_ses
     return true;
 }
 
-bool ChatHandler::HandleDelTrackerCommand(const char *args, WorldSession * m_session)
+bool GMWarden::HandleDelTrackerCommand(const char *args, WorldSession * m_session)
 {
     if(!*args) return false;
 

@@ -214,7 +214,6 @@ Player::Player(PlayerInfo *pInfo, WorldSession *session, uint32 fieldCount) : Un
     m_bgData = NULL;
     m_runeData = NULL;
     m_taxiData = NULL;
-    m_gmData = NULL;
     memset(&m_bindData, 0, sizeof(Player::BindData));
 
     m_lastSwingError = 0;
@@ -430,9 +429,10 @@ bool Player::Initialize()
     // Update group's out of range players every 10 seconds
     m_eventHandler.AddStaticEvent(this, &Player::EventGroupFullUpdate, 10000);
 
-    // Construct storage pointers
+    // Initialize GM Warden
     if(m_session->HasGMPermissions())
-        m_gmData = new Player::PlayerGMData();
+        sGMWarden.InitializeGM(this);
+
     return true;
 }
 
@@ -4648,13 +4648,6 @@ void Player::TaxiStart(TaxiPath *path, uint32 modelid, uint32 startOverride)
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_MOUNTED_TAXI);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOCK_PLAYER);
     m_movementInterface.setRooted(true);
-
-    if(GetSession())
-    {
-        GetSession()->m_isFalling = false;
-        GetSession()->m_isJumping = false;
-        GetSession()->m_isKnockedback = false;
-    }
 
     if(m_taxiData == NULL)
         m_taxiData = new Player::TaxiData();

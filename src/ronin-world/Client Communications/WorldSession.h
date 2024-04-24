@@ -717,14 +717,6 @@ public:
     void SendSpiritHealerRequest(Creature* pCreature);
     void FullLogin(Player* plr);
 
-    float m_wLevel; // Level of water the player is currently in
-    bool m_bIsWLevelSet; // Does the m_wLevel variable contain up-to-date information about water level?
-
-    bool m_isFalling;
-    bool m_isJumping;
-    bool m_isKnockedback;
-    uint32 m_jumpHackChances;
-
 private:
     friend class Player;
     Player* _player;

@@ -610,18 +610,6 @@ public:
     // Do not use for packets, use push instead
     RONIN_INLINE WorldSession* GetSession() const { return m_session; }
 
-    // GM functionality
-    bool isGM() { return m_gmData != NULL; }
-
-    uint8 getGMSight() { return m_gmData->gmSightType; }
-    void setGMSight(uint8 sightType) { m_gmData->gmSightType = sightType; }
-
-    uint32 getGMEventSight() { return m_gmData->gmSightEventID; }
-    void setGMEventSight(uint32 eventId) { m_gmData->gmSightEventID = eventId; }
-
-    uint32 getGMPhaseSight() { return m_gmData->gmSightPhaseMask; }
-    void setGMPhaseSight(uint32 phaseMask) { m_gmData->gmSightPhaseMask = phaseMask; }
-
     bool hasGMTag() { return HasFlag(PLAYER_FLAGS, PLAYER_FLAG_GM|PLAYER_FLAG_DEVELOPER); }
     bool hasCooldownCheat() { return false; }
 
@@ -1449,18 +1437,6 @@ private:
         std::vector<TaxiPath*> paths; // Pending taxi paths
         bool pendingProcess;
     } *m_taxiData;
-
-    // Player Game Master data
-    struct PlayerGMData
-    {
-        uint8 gmSightType;
-        uint32 gmSightEventID;
-        uint32 gmSightPhaseMask;
-
-        bool gmCooldownCheat;
-        bool gmCastTimeCheat;
-        bool gmTriggerPassCheat;
-    } *m_gmData;
 
     // Player bind positioning data
     struct BindData

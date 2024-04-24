@@ -21,11 +21,17 @@ FILE(GLOB chat_sources
 source_group("Chat" FILES ${chat_sources})
 SET(group_sources ${group_sources} ${chat_sources})
 
-FILE(GLOB chat_command_sources
-"${prefix}/Chat/Commands/*.h"
-"${prefix}/Chat/Commands/*.cpp")
-source_group("Chat" FILES ${chat_command_sources})
-SET(group_sources ${group_sources} ${chat_command_sources})
+FILE(GLOB gm_system_sources
+"${prefix}/GM Systems/*.h"
+"${prefix}/GM Systems/*.cpp")
+source_group("GM Systems" FILES ${gm_system_sources})
+SET(group_sources ${group_sources} ${gm_system_sources})
+
+FILE(GLOB gm_system_command_sources
+"${prefix}/GM Systems/GMCommands/*.h"
+"${prefix}/GM Systems/GMCommands/*.cpp")
+source_group("GM Systems\\Commands" FILES ${gm_system_command_sources})
+SET(group_sources ${group_sources} ${gm_system_command_sources})
 
 FILE(GLOB client_coms_sources
 "${prefix}/Client Communications/*.h"

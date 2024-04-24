@@ -321,13 +321,13 @@ uint32 WarnSystem::GetWarnCountForAccount(std::string WarnedAcct)
     return cnt;
 }
 
-bool ChatHandler::HandleWarnPlayerCommand(const char *args, WorldSession * m_session)
+bool GMWarden::HandleWarnPlayerCommand(const char *args, WorldSession * m_session)
 {
     if(!*args) return false;
     char *pname = strtok((char*)args, " ");
     if(!pname)
     {
-        RedSystemMessage(m_session, "No name specified.");
+        sChatHandler.RedSystemMessage(m_session, "No name specified.");
         return false;
     }
 
@@ -337,7 +337,7 @@ bool ChatHandler::HandleWarnPlayerCommand(const char *args, WorldSession * m_ses
         char* pReason = strtok(NULL, "\n");
         if( !pReason || strlen(pReason) < 3 )
         {
-            RedSystemMessage(m_session, "You need to specify a valid reason!");
+            sChatHandler.RedSystemMessage(m_session, "You need to specify a valid reason!");
             return false;
         }
         else
@@ -350,11 +350,11 @@ bool ChatHandler::HandleWarnPlayerCommand(const char *args, WorldSession * m_ses
     return false;
 }
 
-bool ChatHandler::HandleWarnListCommand(const char *args, WorldSession * m_session)
+bool GMWarden::HandleWarnListCommand(const char *args, WorldSession * m_session)
 {
     if( *args )
     {
-        SystemMessage(m_session, "This command does not accept arguments, player selection is required.");
+        sChatHandler.SystemMessage(m_session, "This command does not accept arguments, player selection is required.");
         return true;
     }
 
@@ -375,13 +375,13 @@ bool ChatHandler::HandleWarnListCommand(const char *args, WorldSession * m_sessi
     return true;
 }
 
-bool ChatHandler::HandleWarnClearCommand(const char *args, WorldSession * m_session)
+bool GMWarden::HandleWarnClearCommand(const char *args, WorldSession * m_session)
 {
     if(!*args) return false;
     char *pname = strtok((char*)args, " ");
     if( !pname )
     {
-        RedSystemMessage(m_session, "No name specified.");
+        sChatHandler.RedSystemMessage(m_session, "No name specified.");
         return false;
     }
 
@@ -390,18 +390,18 @@ bool ChatHandler::HandleWarnClearCommand(const char *args, WorldSession * m_sess
     return true;
 }
 
-bool ChatHandler::HandleWarnSingleDelCommand(const char *args, WorldSession * m_session)
+bool GMWarden::HandleWarnSingleDelCommand(const char *args, WorldSession * m_session)
 {
     if( !*args )
     {
-        RedSystemMessage(m_session, "No name specified.");
+        sChatHandler.RedSystemMessage(m_session, "No name specified.");
         return false;
     }
 
     char * pCharacter = strtok((char*)args, " ");
     if( !pCharacter )
     {
-        RedSystemMessage(m_session, "No name specified.");
+        sChatHandler.RedSystemMessage(m_session, "No name specified.");
         return false;
     }
 
@@ -409,7 +409,7 @@ bool ChatHandler::HandleWarnSingleDelCommand(const char *args, WorldSession * m_
     Player * pPlayer = objmgr.GetPlayer(pCharacter, false);
     if(!pWarnID || !pPlayer)
     {
-        SystemMessage(m_session, "This function requires 2 arguments.");
+        sChatHandler.SystemMessage(m_session, "This function requires 2 arguments.");
         return false;
     }
     uint32 WarnID = atol(pWarnID);

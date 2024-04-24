@@ -148,30 +148,26 @@ set(GLOBAL_INCLUDE_DIRS
 ${ROOT_PATH}/src/ronin-shared
 ${ROOT_PATH}/src/ronin-world
 ${ROOT_PATH}/src/ronin-logonserver
+${ROOT_PATH}/src/tools
 ${DEPENDENCY_SOURCES}
 ${DEPENDENCY_SOURCES}/g3dlite
-${DEPENDENCY_SOURCES}/g3dlite/vmap
+${DEPENDENCY_SOURCES}/vmaplib
 ${DEPENDENCY_SOURCES}/pcre
 ${DEPENDENCY_SOURCES}/zlib
 ${DEPENDENCY_SOURCES}/recast
 ${DEPENDENCY_SOURCES}/detour
-${DEPENDENCY_SOURCES}/bzip2
-${DEPENDENCY_SOURCES}/libmpq2 )
+${DEPENDENCY_SOURCES}/bzip2 )
 
 SET(RONIN_SOURCE_DIRECTORIES
-"${ROOT_PATH}/src/ronin-world/AI"
 "${ROOT_PATH}/src/ronin-world/Battlegrounds"
 "${ROOT_PATH}/src/ronin-world/Battlegrounds/Expansion0"
 "${ROOT_PATH}/src/ronin-world/Battlegrounds/Expansion1"
 "${ROOT_PATH}/src/ronin-world/Battlegrounds/Expansion2"
 "${ROOT_PATH}/src/ronin-world/Chat"
-"${ROOT_PATH}/src/ronin-world/Chat/Commands"
 "${ROOT_PATH}/src/ronin-world/Client Communications"
 "${ROOT_PATH}/src/ronin-world/Client Communications/Packet Handlers"
-"${ROOT_PATH}/src/ronin-world/Intersystem/Logon"
-"${ROOT_PATH}/src/ronin-world/Intersystem/Management"
-"${ROOT_PATH}/src/ronin-world/Intersystem/Management/Guild"
-"${ROOT_PATH}/src/ronin-world/Intersystem/Voice"
+"${ROOT_PATH}/src/ronin-world/GM Systems"
+"${ROOT_PATH}/src/ronin-world/GM Systems/GMCommands"
 "${ROOT_PATH}/src/ronin-world/Items"
 "${ROOT_PATH}/src/ronin-world/Mainframe"
 "${ROOT_PATH}/src/ronin-world/Mainframe/InterServer"
@@ -184,15 +180,15 @@ SET(RONIN_SOURCE_DIRECTORIES
 "${ROOT_PATH}/src/ronin-world/Map System/Environment"
 "${ROOT_PATH}/src/ronin-world/Map System/Map Interface"
 "${ROOT_PATH}/src/ronin-world/Map System/Map Managers"
+"${ROOT_PATH}/src/ronin-world/Map System/Map Managers/InstanceScripts"
+"${ROOT_PATH}/src/ronin-world/Map System/Map Managers/ZoneScripts"
 "${ROOT_PATH}/src/ronin-world/Map System/Map Tiles"
 "${ROOT_PATH}/src/ronin-world/Objects"
 "${ROOT_PATH}/src/ronin-world/Objects/Units"
-"${ROOT_PATH}/src/ronin-world/Mainframe"
-"${ROOT_PATH}/src/ronin-world/Unit Systems"
-"${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems"
-"${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems/Items"
 "${ROOT_PATH}/src/ronin-world/Spell"
-"${ROOT_PATH}/src/ronin-world/Spell/Spellfixes")
+"${ROOT_PATH}/src/ronin-world/Spell/SpellHooks"
+"${ROOT_PATH}/src/ronin-world/Unit Systems"
+"${ROOT_PATH}/src/ronin-world/Unit Systems/Player Systems")
 
 #On apple n linux, mysql.h should have been found.
 SET( GLOBAL_INCLUDE_DIRS ${GLOBAL_INCLUDE_DIRS} ${MYSQL_INCLUDE_DIR} )

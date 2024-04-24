@@ -381,7 +381,9 @@ bool Master::Run(int argc, char ** argv)
     remove( "ronin-world.pid" );
 
     sLog.Notice( "Shutdown", "Shutdown complete." );
-    return true;
+
+    // Exit process here
+    ExitProcess(0);
 }
 
 bool Master::_StartDB()

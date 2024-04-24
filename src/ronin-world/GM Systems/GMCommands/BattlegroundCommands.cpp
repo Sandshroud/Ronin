@@ -21,30 +21,30 @@
 
 #include "StdAfx.h"
 
-bool ChatHandler::HandleSetBGScoreCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleSetBGScoreCommand(const char* args, WorldSession *m_session)
 {
-    SystemMessage(m_session, "Command not yet implemented.");
+    sChatHandler.SystemMessage(m_session, "Command not yet implemented.");
     return true;
 }
 
-bool ChatHandler::HandleStartBGCommand(const char *args, WorldSession *m_session)
+bool GMWarden::HandleStartBGCommand(const char *args, WorldSession *m_session)
 {
     return true;
 }
 
-bool ChatHandler::HandlePauseBGCommand(const char *args, WorldSession *m_session)
+bool GMWarden::HandlePauseBGCommand(const char *args, WorldSession *m_session)
 {
-    SystemMessage(m_session, "Command not yet implemented.");
+    sChatHandler.SystemMessage(m_session, "Command not yet implemented.");
     return true;
 }
 
-bool ChatHandler::HandleBGInfoCommnad(const char *args, WorldSession *m_session)
+bool GMWarden::HandleBGInfoCommnad(const char *args, WorldSession *m_session)
 {
-    SystemMessage(m_session, "Command not yet implemented.");
+    sChatHandler.SystemMessage(m_session, "Command not yet implemented.");
     return true;
 }
 
-bool ChatHandler::HandleSetWorldStateCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleSetWorldStateCommand(const char* args, WorldSession *m_session)
 {
     uint32 id,val;
     if(sscanf(args,"%u %u", &id,&val)!=2)
@@ -59,24 +59,24 @@ bool ChatHandler::HandleSetWorldStateCommand(const char* args, WorldSession *m_s
     return true;
 }
 
-bool ChatHandler::HandlePlaySoundCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandlePlaySoundCommand(const char* args, WorldSession *m_session)
 {
-    SystemMessage(m_session, "Command not yet implemented.");
+    sChatHandler.SystemMessage(m_session, "Command not yet implemented.");
     return true;
 }
 
-bool ChatHandler::HandleSetBattlefieldStatusCommand(const char* args, WorldSession *m_session)
+bool GMWarden::HandleSetBattlefieldStatusCommand(const char* args, WorldSession *m_session)
 {
     return true;
 }
 
-bool ChatHandler::HandleBattlegroundExitCommand(const char* args, WorldSession* m_session)
+bool GMWarden::HandleBattlegroundExitCommand(const char* args, WorldSession* m_session)
 {
 
     return true;
 }
 
-bool ChatHandler::HandleBattlegroundForcestartCommand(const char* args, WorldSession* m_session)
+bool GMWarden::HandleBattlegroundForcestartCommand(const char* args, WorldSession* m_session)
 {
     return true;
 }

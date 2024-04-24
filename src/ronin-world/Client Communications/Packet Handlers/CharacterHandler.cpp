@@ -21,40 +21,6 @@
 
 #include "StdAfx.h"
 
-bool ChatHandler::HandleRenameAllCharacter(const char * args, WorldSession * m_session)
-{
-    WoWGuid guid;
-    uint32 uCount = 0;
-    uint32 ts = getMSTime();
-    QueryResult * result = CharacterDatabase.Query("SELECT guid, name FROM character_data");
-    if( result )
-    {
-        do
-        {
-            guid = result->Fetch()[0].GetUInt64();
-            const char * pName = result->Fetch()[1].GetString();
-            size_t szLen = strlen(pName);
-
-            if( !sWorld.VerifyName(pName, szLen) )
-            {
-                sLog.printf("renaming character %s, %u\n", pName, guid.getLow());
-                if( Player* pPlayer = objmgr.GetPlayer(guid) )
-                {
-                    pPlayer->GetSession()->SystemMessage("Your character has had a force rename set, you will be prompted to rename your character at next login in conformance with server rules.");
-                }
-
-                CharacterDatabase.WaitExecute("UPDATE character_data SET customizeFlags = customizeFlags|0x01 WHERE guid = %u", guid);
-                ++uCount;
-            }
-
-        } while (result->NextRow());
-        delete result;
-    }
-
-    SystemMessage(m_session, "Procedure completed in %u ms. %u character(s) forced to rename.", getMSTime() - ts, uCount);
-    return true;
-}
-
 void CapitalizeString(std::string& arg)
 {
     if(arg.length() == 0) return;
@@ -754,53 +720,6 @@ void WorldSession::FullLogin(Player* plr)
     sTracker.CheckPlayerForTracker(plr, true);
 
     objmgr.AddPlayer(plr);
-}
-
-bool ChatHandler::HandleRenameCommand(const char * args, WorldSession * m_session)
-{
-    // prevent buffer overflow
-    if(strlen(args) > 100)
-        return false;
-
-    char name1[100], name2[100];
-    if(sscanf(args, "%s %s", name1, name2) != 2)
-        return false;
-
-    if(!sWorld.VerifyName(name2, strlen(name2)))
-    {
-        RedSystemMessage(m_session, "That name is invalid or contains invalid characters.");
-        return true;
-    }
-
-    std::string new_name = name2;
-    PlayerInfo * pi = objmgr.GetPlayerInfoByName(name1);
-    if(pi == 0)
-    {
-        RedSystemMessage(m_session, "Player not found with this name.");
-        return true;
-    }
-
-    if( objmgr.GetPlayerInfoByName(new_name.c_str()) != NULL )
-    {
-        RedSystemMessage(m_session, "Player found with this name in use already.");
-        return true;
-    }
-
-    objmgr.RenamePlayerInfo(pi, pi->charName.c_str(), new_name.c_str());
-    pi->charName = new_name;
-
-    // look in world for him
-    if(Player* plr = objmgr.GetPlayer(pi->charGuid))
-    {
-        plr->SetName(new_name);
-        BlueSystemMessageToPlr(plr, "%s changed your name to '%s'.", m_session->GetPlayer()->GetName(), new_name.c_str());
-        plr->SaveToDB(false);
-    } else CharacterDatabase.WaitExecute("UPDATE character_data SET name = '%s' WHERE guid = %u", CharacterDatabase.EscapeString(new_name).c_str(), pi->charGuid.getLow());
-
-    GreenSystemMessage(m_session, "Changed name of '%s' to '%s'.", (char*)name1, (char*)name2);
-    sWorld.LogGM(m_session, "renamed character %s (GUID: %u) to %s", (char*)name1, pi->charGuid.getLow(), (char*)name2);
-    sWorld.LogPlayer(m_session, "GM renamed character %s (GUID: %u) to %s", (char*)name1, pi->charGuid.getLow(), ((char*)name2));
-    return true;
 }
 
 void WorldSession::HandleAlterAppearance(WorldPacket & recv_data)
