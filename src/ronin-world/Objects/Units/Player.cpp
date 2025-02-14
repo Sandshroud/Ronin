@@ -4310,12 +4310,19 @@ uint32 Player::CalcTalentResetCost(uint32 resetnum)
     return resetnum*50000;
 }
 
-void Player::SendTalentResetConfirm()
+bool Player::SendTalentResetConfirm()
 {
+    bool canReset = false;
     WorldPacket data(MSG_TALENT_WIPE_CONFIRM, 12);
-    data << GetGUID();
-    data << CalcTalentResetCost(m_talentInterface.GetTalentResets());
+    if (m_talentInterface.CalculateSpentPoints(m_talentInterface.GetActiveSpec()))
+    {
+        canReset = true;
+        data << GetGUID();
+        data << CalcTalentResetCost(m_talentInterface.GetTalentResets());
+    } else data << uint64(0) << uint32(0); // No spent talents
     PushPacket(&data);
+
+    return canReset;
 }
 
 void Player::removeSpellByNameHash(uint32 hash)

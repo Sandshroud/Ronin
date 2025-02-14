@@ -773,7 +773,7 @@ public: /// Player field based functions
     void ResetSpec(uint8 spec) { m_talentInterface.ResetSpec(spec, false); }
 
     uint32 CalcTalentResetCost(uint32 resetnum);
-    void SendTalentResetConfirm();
+    bool SendTalentResetConfirm();
 
     /************************************************************************/
     /* Skill System                                                         */

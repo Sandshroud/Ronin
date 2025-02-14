@@ -66,6 +66,7 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
     switch (optionGuid)
     {
     case GOSSIP_OPT_NEXT_MENU:
+        _BuildSecondaryGossipMenu(obj, menuId, plr);
         break;
     case GOSSIP_OPT_VENDOR:
         ctrObj->SendInventoryList(plr);
@@ -103,6 +104,44 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
             WorldPacket data(SMSG_TRAINER_LIST, 5000);
             ctrObj->BuildTrainerData(&data, plr);
             plr->PushPacket(&data);
+        }break;
+    case GOSSIP_OPT_TALENT_RESET:
+        {
+            // Send talent reset confirmation
+            if(!plr->SendTalentResetConfirm())
+            {
+                // Send gossip complete opcode
+                WorldPacket data(SMSG_GOSSIP_COMPLETE, 8);
+                plr->PushPacket(&data);
+            }
+        }break;
+    case GOSSIP_OPT_DUAL_TALENT_CONFIRM:
+        {
+            uint32 playerGold = plr->GetUInt32Value(PLAYER_FIELD_COINAGE), price = 10000000;
+            if (playerGold >= price)
+            {
+                SpellEntry* learn = dbcSpell.LookupEntry(63680), * visual = dbcSpell.LookupEntry(63624);
+                if (learn && visual)
+                {
+                    // Remove gold, confirm.
+                    plr->SetUInt32Value(PLAYER_FIELD_COINAGE, playerGold - price);
+
+                    plr->GetSpellInterface()->TriggerSpell(learn, plr);
+                    plr->GetSpellInterface()->TriggerSpell(visual, plr);
+                }
+
+                _BuildSecondaryGossipMenu(obj, GOSSIP_OPT_DUAL_TALENT_CONFIRM, plr);
+            }
+            else
+            {
+                // Send gossip complete opcode
+                WorldPacket data(SMSG_GOSSIP_COMPLETE, 8);
+                plr->PushPacket(&data);
+            }
+        }break;
+    case GOSSIP_OPT_TOGGLE_XPGAIN:
+        {
+            plr->SendXPToggleConfirm();
         }break;
     }
 }
@@ -199,6 +238,57 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
     }
 
     return result;
+}
+
+void GossipManager::_BuildSecondaryGossipMenu(Object* obj, uint32 menuId, Player* plr)
+{
+    WorldPacket data(SMSG_GOSSIP_MESSAGE, 500);
+
+    size_t count = 0, textId = 68;
+    data << uint64(obj->GetGUID()); // NPC guid
+    data << uint32(obj->GetEntry()); // Menu Guid
+    size_t sizePos = data.wpos();
+    data << uint32(textId); // Text ID
+    data << uint32(count); // Gossip counter
+
+    switch (obj->GetTypeId())
+    {
+    case TYPEID_UNIT:
+        {
+            if (Creature* pCreature = castPtr<Creature>(obj))
+            {
+                uint32 flags = pCreature->GetUInt32Value(UNIT_NPC_FLAGS);
+                if (menuId == GOSSIP_OPT_DUAL_TALENT_CONFIRM)
+                    textId = 14393; // Dual talent confirmation menu
+                else if ((flags & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF)) && pCreature->CanTrainPlayer(plr) && plr->getLevel() >= 40 && plr->GetTalentInterface()->GetSpecCount() < 2)
+                {
+                    textId = 14391; // Dual talent information
+                    _AddMenuItem(&data, count, GOSSIP_OPT_DUAL_TALENT_CONFIRM, GOSSIP_ICON_GOSSIP_NORMAL, "Purchase a Dual Talent Specialization.", false, 10000000, "Are you sure you would like to purchase your second talent specialization?");
+                }
+            }
+        }break;
+    case TYPEID_GAMEOBJECT:
+        {
+            if (GameObject* gObj = castPtr<GameObject>(obj))
+            {
+                switch (gObj->GetType())
+                {
+                case GAMEOBJECT_TYPE_GOOBER:
+                    {
+                        if (uint32 gossipId = 0)//GetGossipIdChain(menuId, optionId, gObj->GetInfo()->data.goober.gossipID))
+                            textId = gossipId;
+                    }break;
+                }
+            }
+        }break;
+    }
+
+    data.put<uint32>(sizePos, textId);
+    data.put<uint32>(sizePos + 4, count);
+    // Append our questgiver data from here on
+    sizePos = data.wpos();
+    data << uint32(0); // Quest counter
+    plr->PushPacket(&data);
 }
 
 void GossipManager::_AddMenuItem(WorldPacket *packet, size_t &counter, uint32 guid, uint8 Icon, std::string text, bool codeBox, uint32 boxMoney, std::string boxMessage)

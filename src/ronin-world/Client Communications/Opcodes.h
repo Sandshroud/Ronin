@@ -105,7 +105,7 @@ enum GossipIcons
     GOSSIP_ICON_GOSSIP_NORMAL       = 0,
     GOSSIP_ICON_GOSSIP_VENDOR       = 1,
     GOSSIP_ICON_GOSSIP_FLIGHT       = 2,
-    GOSSIP_ICON_GOSSIP_TRAINER      = 3,
+    GOSSIP_ICON_GOSSIP_TRAINER      = 3, // Automatic selection if no other dialogue options
     GOSSIP_ICON_GOSSIP_ENGINEER1    = 4,
     GOSSIP_ICON_GOSSIP_ENGINEER2    = 5,
     GOSSIP_ICON_GOSSIP_AUCTION      = 6,

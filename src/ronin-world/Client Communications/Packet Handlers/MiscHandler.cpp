@@ -1365,18 +1365,18 @@ void WorldSession::HandleTalentWipeConfirmOpcode( WorldPacket& recv_data )
 
     uint32 playerGold = _player->GetUInt32Value( PLAYER_FIELD_COINAGE );
     uint32 price = _player->CalcTalentResetCost(_player->m_talentInterface.GetTalentResets());
-
     if( playerGold < price )
+        return;
+    Unit* trainer = _player->GetInRangeObject<Unit>(guid);
+    if (trainer == NULL)
         return;
 
     _player->SetUInt32Value( PLAYER_FIELD_COINAGE, playerGold - price );
     _player->GetSpellInterface()->TriggerSpell(untalentVisual, _player);// Spell: "Untalent Visual Effect"
     _player->GetSpellInterface()->TriggerSpell(untrainTalent, _player); // Spell: "Trainer: Untrain Talents"
 
-    WorldPacket data( MSG_TALENT_WIPE_CONFIRM, 12); // You don't have any talent.
-    data << uint64(0);
-    data << uint32(0);
-    SendPacket( &data );
+    // Send empty talent info
+    _player->GetTalentInterface()->SendTalentInfo();
     return;
 }
 

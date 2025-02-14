@@ -57,18 +57,6 @@ void WorldSession::HandleLearnPreviewTalents( WorldPacket & recv_data )
     _player->m_talentInterface.SendTalentInfo();
 }
 
-void WorldSession::HandleUnlearnTalents( WorldPacket & recv_data )
-{
-    CHECK_INWORLD_RETURN();
-    uint32 playerGold = GetPlayer()->GetUInt32Value( PLAYER_FIELD_COINAGE );
-    uint32 price = GetPlayer()->CalcTalentResetCost(GetPlayer()->m_talentInterface.GetTalentResets());
-
-    if( playerGold < price ) return;
-
-    GetPlayer()->ResetSpec(_player->m_talentInterface.GetActiveSpec());
-    GetPlayer()->SetUInt32Value( PLAYER_FIELD_COINAGE, playerGold - price );
-}
-
 void WorldSession::HandleUnlearnSkillOpcode(WorldPacket& recv_data)
 {
     CHECK_INWORLD_RETURN();

@@ -245,8 +245,13 @@ void SpellEffectClass::InitializeSpellEffectClass()
     m_spellEffectMap[SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL]       = &SpellEffectClass::SpellEffectWeaponDamageNoSchool; // 17
     m_spellEffectMap[SPELL_EFFECT_RESURRECT]                    = &SpellEffectClass::SpellEffectResurrect; // 18
     m_spellEffectMap[SPELL_EFFECT_ADD_EXTRA_ATTACKS]            = &SpellEffectClass::SpellEffectAddExtraAttacks; // 19
+    m_spellEffectMap[SPELL_EFFECT_DODGE]                        = &SpellEffectClass::SpellEffectDelayed; // 20
+    m_spellEffectMap[SPELL_EFFECT_EVADE]                        = &SpellEffectClass::SpellEffectDelayed; // 21
+    m_spellEffectMap[SPELL_EFFECT_PARRY]                        = &SpellEffectClass::SpellEffectDelayed; // 22
+    m_spellEffectMap[SPELL_EFFECT_BLOCK]                        = &SpellEffectClass::SpellEffectDelayed; // 23
     m_spellEffectMap[SPELL_EFFECT_CREATE_ITEM]                  = &SpellEffectClass::SpellEffectCreateItem; // 24
     m_spellEffectMap[SPELL_EFFECT_WEAPON]                       = &SpellEffectClass::SpellEffectSkill; // 25
+    m_spellEffectMap[SPELL_EFFECT_DEFENSE]                      = &SpellEffectClass::SpellEffectDelayed; // 26
     m_spellEffectMap[SPELL_EFFECT_PERSISTENT_AREA_AURA]         = &SpellEffectClass::SpellEffectPersistentAA; // 27
     m_spellEffectMap[SPELL_EFFECT_SUMMON]                       = &SpellEffectClass::SpellEffectSummon; // 28
     m_spellEffectMap[SPELL_EFFECT_LEAP]                         = &SpellEffectClass::SpellEffectLeap; // 29
