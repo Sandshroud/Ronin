@@ -24,21 +24,56 @@
 enum GossipOptionGuids
 {
     GOSSIP_OPT_NEXT_MENU            = 1,
-    GOSSIP_OPT_VENDOR               = 2,
-    GOSSIP_OPT_FLIGHT               = 3,
-    GOSSIP_OPT_AUCTION              = 4,
-    GOSSIP_OPT_BANKER               = 5,
+    GOSSIP_OPT_QUEST                = 2,
+    GOSSIP_OPT_VENDOR               = 3,
+    GOSSIP_OPT_FLIGHT               = 4,
+    GOSSIP_OPT_TRAINER              = 5,
     GOSSIP_OPT_SPIRITHEALER         = 6,
-    GOSSIP_OPT_CHARTER              = 7,
-    GOSSIP_OPT_TABARD               = 8,
-    GOSSIP_OPT_BATTLEMASTER         = 9,
-    GOSSIP_OPT_INNKEEPER            = 10,
-    GOSSIP_OPT_TRAINER              = 11,
-    GOSSIP_OPT_TALENT_RESET         = 12,
-    GOSSIP_OPT_DUAL_TALENT_CONFIRM  = 13,
-    GOSSIP_OPT_TOGGLE_XPGAIN        = 14,
+    GOSSIP_OPT_SPIRITGUIDE          = 7,
+    GOSSIP_OPT_INNKEEPER            = 8,
+    GOSSIP_OPT_BANKER               = 9,
+    GOSSIP_OPT_CHARTER              = 10,
+    GOSSIP_OPT_TABARD               = 11,
+    GOSSIP_OPT_BATTLEMASTER         = 12,
+    GOSSIP_OPT_AUCTION              = 13,
+    GOSSIP_OPT_PETSTABLES           = 14,
+    GOSSIP_OPT_REPAIR_VENDOR        = 15,
+    GOSSIP_OPT_TALENT_RESET         = 16,
+    GOSSIP_OPT_PET_TALENT_RESET     = 17,
+    GOSSIP_OPT_DUAL_TALENT_CONFIRM  = 18,
+    GOSSIP_OPT_SEND_POI             = 19,
+    GOSSIP_OPT_TOGGLE_XPGAIN        = 21,
     GOSSIP_OPT_START
 };
+
+struct DatabaseGossipOptions
+{
+    uint32 menuId;
+    uint8 orderId;
+    uint16 optionIcon;
+    std::string gossipText;
+    uint8 optionId;
+    uint32 optionNPCFlag;
+    int32 actionMenuId;
+    uint32 menuPoiID;
+};
+
+struct DatabaseGossipMenu
+{
+    uint32 menuEntry;
+    std::map<uint8, DatabaseGossipOptions*> gossipOptions;
+    std::set<uint32> text_ids;
+};
+
+struct DatabaseGossipPOI
+{
+    uint32 poiId;
+    std::string poiName;
+    float x, y;
+    uint16 flags;
+};
+
+class GossipMenu;
 
 class SERVER_DECL GossipManager : public Singleton < GossipManager >
 {
@@ -59,15 +94,65 @@ public:
         return gossipOptGuid;
     }
 
-private:
-    size_t _BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId, Player *plr, Object *obj);
+    void RegisterCreatureGossipOverride(uint32 entry, GossipMenu* menu)
+    {
+        if (m_creatureGossipOverride.find(entry) != m_creatureGossipOverride.end())
+        {
+            sLog.outError("Gossip script override registered for already existing entry %u", entry);
+            return;
+        }
+        m_creatureGossipOverride.insert(std::make_pair(entry, menu));
+    }
 
-    void _BuildSecondaryGossipMenu(Object *obj, uint32 menuId, Player* plr);
-    void _AddMenuItem(WorldPacket *packet, size_t &counter, uint32 guid, uint8 Icon, std::string text, bool codeBox = false, uint32 boxMoney = 0, std::string boxMessage = "");
+    void RegisterGOGossipOverride(uint32 entry, GossipMenu* menu)
+    {
+        if (m_goGossipOverride.find(entry) != m_goGossipOverride.end())
+        {
+            sLog.outError("Gossip script override registered for already existing entry %u", entry);
+            return;
+        }
+        m_goGossipOverride.insert(std::make_pair(entry, menu));
+    }
+
+private:
+    size_t _BuildBasicGossipMenu(WorldPacket *packet, uint32 &menuId, uint32 &textId, Player *plr, Object *obj);
+
+    void _BuildSecondaryGossipMenu(Object *obj, uint32 menuId, uint32 textId, Player* plr);
+    void _AddMenuItem(ByteBuffer *buffer, size_t &counter, uint32 optionId, uint8 Icon, std::string text, bool codeBox = false, uint32 boxMoney = 0, std::string boxMessage = "");
+
+    // Database functions
+    bool _hasDatabaseGossipMenu(uint32 menuId);
+    size_t _buildDatabaseGossipMenu(uint32 menuId, WorldPacket *packet, uint32 &textId, Creature *ctr, Player *plr);
+    DatabaseGossipOptions *_acquireDatabaseGossipInfo(uint32 &menuId, uint32 &textId, uint32 &optionGuid, Creature *ctr, Player *plr);
+
+    // Scripted override functions
+    GossipMenu* _getCreatureGossipOverride(uint32 entry)
+    {
+        std::map<uint32, GossipMenu*>::iterator itr;
+        if ((itr = m_creatureGossipOverride.find(entry)) != m_creatureGossipOverride.end())
+            return itr->second;
+        return NULL;
+    }
+
+    GossipMenu* _getGoGossipOverride(uint32 entry)
+    {
+        std::map<uint32, GossipMenu*>::iterator itr;
+        if ((itr = m_goGossipOverride.find(entry)) != m_goGossipOverride.end())
+            return itr->second;
+        return NULL;
+    }
+
+    // Directions gossip
 
 protected:
     Mutex gossipOptLock;
     uint32 m_gossipOptGuidCounter;
+
+protected:
+    std::map<uint32, GossipMenu*> m_creatureGossipOverride, m_goGossipOverride;
+
+    std::map<uint32, DatabaseGossipMenu*> m_dbGossipMenus;
+    std::map<uint32, DatabaseGossipPOI*> m_dbGossipPOIs;
 };
 
 #define sGossipMgr GossipManager::getSingleton()
@@ -77,4 +162,5 @@ class SERVER_DECL GossipMenu
 public:
     bool BlocksBasicMenu() { return false; }
 
+    size_t BuildGossipMenu(WorldPacket* packet, uint32 &menuId, uint32& textId, Player* plr, Object* obj) { return 0; }
 };

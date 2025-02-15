@@ -414,6 +414,7 @@ public:
     uint32 GetLineByFamily(CreatureFamilyEntry * family) { return family->skillLine[0] ? family->skillLine[0] : 0; };
     void RemoveLimboState(Unit* healer);
     uint32 GetCanMove() { return _creatureData->movementMask; }
+    uint32 GetGossipId() { return _creatureData ? _creatureData->gossipId : 0; }
 
     bool HasNpcFlag(uint32 Flag)
     {

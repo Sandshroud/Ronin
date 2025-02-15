@@ -30,28 +30,119 @@ GossipManager::GossipManager() : Singleton<GossipManager>(), m_gossipOptGuidCoun
 
 GossipManager::~GossipManager()
 {
+    while(m_dbGossipPOIs.size())
+    {
+        DatabaseGossipPOI *gossipPOI = m_dbGossipPOIs.begin()->second;
+        m_dbGossipPOIs.erase(m_dbGossipPOIs.begin());
+        delete gossipPOI;
+    }
 
+    while(m_dbGossipMenus.size())
+    {
+        DatabaseGossipMenu *gossipMenu = m_dbGossipMenus.begin()->second;
+        m_dbGossipMenus.erase(m_dbGossipMenus.begin());
+        while(gossipMenu->gossipOptions.size())
+        {
+            DatabaseGossipOptions *gossipOption = gossipMenu->gossipOptions.begin()->second;
+            gossipMenu->gossipOptions.erase(gossipMenu->gossipOptions.begin());
+            delete gossipOption;
+        }
+        delete gossipMenu;
+    }
 }
 
 void GossipManager::LoadGossipData()
 {
+    QueryResult *result = NULL;
+    if(result = WorldDatabase.Query("SELECT * FROM gossip_poi_points"))
+    {
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 entryId = fields[0].GetUInt32();
+            if(m_dbGossipPOIs.find(entryId) != m_dbGossipPOIs.end())
+                return;
 
+            DatabaseGossipPOI *gossipPOI = new DatabaseGossipPOI();
+            gossipPOI->poiId = entryId;
+            gossipPOI->poiName.append(fields[1].GetString());
+            gossipPOI->x = fields[2].GetFloat();
+            gossipPOI->y = fields[3].GetFloat();
+            gossipPOI->flags = fields[3].GetUInt16();
+            m_dbGossipPOIs.insert(std::make_pair(entryId, gossipPOI));
+        }
+        while(result->NextRow());
+        delete result;
+    }
+
+    if(result = WorldDatabase.Query("SELECT * FROM gossip_menu_data ORDER BY menuId, menuText"))
+    {
+        DatabaseGossipMenu *gossipMenu = NULL;
+        std::map<uint32, DatabaseGossipMenu*>::iterator menu_itr;
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 MenuID = fields[0].GetUInt32();
+            if((menu_itr = m_dbGossipMenus.find(MenuID)) == m_dbGossipMenus.end())
+            {
+                gossipMenu = new DatabaseGossipMenu();
+                gossipMenu->menuEntry = MenuID;
+                m_dbGossipMenus.insert(std::make_pair(MenuID, gossipMenu));
+            } else gossipMenu = menu_itr->second;
+
+            gossipMenu->text_ids.insert(fields[1].GetUInt32());
+        }
+        while(result->NextRow());
+        delete result;
+    }
+
+    if(result = WorldDatabase.Query("SELECT * FROM gossip_menu_options ORDER BY menuId, orderId"))
+    {
+        std::map<uint32, DatabaseGossipMenu*>::iterator menu_itr;
+        do
+        {
+            Field *fields = result->Fetch();
+            uint32 MenuID = fields[0].GetUInt32();
+            uint32 OrderId = fields[1].GetUInt32();
+            uint8 optionId = fields[4].GetUInt8();
+            if(optionId == 0)
+                continue;
+            if((menu_itr = m_dbGossipMenus.find(MenuID)) == m_dbGossipMenus.end())
+                continue;
+
+            DatabaseGossipOptions *option = new DatabaseGossipOptions();
+            option->menuId = MenuID;
+            option->orderId = OrderId;
+            option->optionIcon = fields[2].GetUInt16();
+            option->gossipText = fields[3].GetString();
+            option->optionId = optionId;
+            option->optionNPCFlag = fields[5].GetUInt32();
+            option->actionMenuId = fields[6].GetInt32();
+            option->menuPoiID = fields[7].GetUInt32();
+            menu_itr->second->gossipOptions.insert(std::make_pair(OrderId, option));
+        }
+        while(result->NextRow());
+        delete result;
+    }
 }
 
 void GossipManager::BuildGossipMessage(WorldPacket *packet, Player *plr, Object *obj)
 {
-    uint32 count = 0, textId = 68;
+    uint32 count = 0, menuId = obj->GetEntry(), textId = 68;
     *packet << uint64(obj->GetGUID()); // NPC guid
-    *packet << uint32(obj->GetEntry()); // Menu Guid
     size_t sizePos = packet->wpos();
+    *packet << uint32(menuId); // Menu Id
     *packet << uint32(textId); // Text ID
     *packet << uint32(count); // Gossip counter
-    GossipMenu *menu = NULL;//GetScriptedGossipMenu(obj);
+    // Custom gossip menu or basic gossip menu appending
+    GossipMenu *menu = obj->IsCreature() ? _getCreatureGossipOverride(obj->GetEntry()) : obj->IsGameObject() ? _getGoGossipOverride(obj->GetEntry()) : NULL;
     if(menu == NULL || !menu->BlocksBasicMenu())
-        count += _BuildBasicGossipMenu(packet, textId, plr, obj);
-    //else if(menu) count += menu->Append(packet, textId, plr);
-    packet->put<uint32>(sizePos, textId);
-    packet->put<uint32>(sizePos+4, count);
+        count += _BuildBasicGossipMenu(packet, menuId, textId, plr, obj);
+    if (menu != NULL)
+        count += menu->BuildGossipMenu(packet, menuId, textId, plr, obj);
+    packet->put<uint32>(sizePos, menuId);
+    packet->put<uint32>(sizePos+4, textId);
+    packet->put<uint32>(sizePos+8, count);
 
     // Append our questgiver data from here on
     sizePos = packet->wpos();
@@ -62,20 +153,40 @@ void GossipManager::BuildGossipMessage(WorldPacket *packet, Player *plr, Object 
 
 void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, Player *plr, Object *obj, const char *coded)
 {
+    uint32 newMenuId = menuId, textId = 68;
+    DatabaseGossipOptions *gossipOptions = NULL;
     Creature *ctrObj = obj->IsCreature() ? castPtr<Creature>(obj) : NULL;
+    if(ctrObj && _hasDatabaseGossipMenu(ctrObj->GetGossipId()))
+    {
+        if((gossipOptions = _acquireDatabaseGossipInfo(newMenuId, textId, optionGuid, ctrObj, plr)) == NULL || menuId == -1)
+        {
+            if(WorldSession *session = plr->GetSession())
+                session->OutPacket(SMSG_GOSSIP_COMPLETE);
+            return;
+        }
+    }
+
+    bool switchedMenus = menuId != newMenuId;
     switch (optionGuid)
     {
     case GOSSIP_OPT_NEXT_MENU:
-        _BuildSecondaryGossipMenu(obj, menuId, plr);
+        if(newMenuId)
+            _BuildSecondaryGossipMenu(obj, switchedMenus ? newMenuId : menuId, textId, plr);
+        else
+        {
+            if(WorldSession *session = plr->GetSession())
+                session->OutPacket(SMSG_GOSSIP_COMPLETE);
+            return;
+        }
         break;
-    case GOSSIP_OPT_VENDOR:
-        ctrObj->SendInventoryList(plr);
-        break;
-    case GOSSIP_OPT_FLIGHT:
-        ctrObj->SendTaxiList(plr);
-        break;
+
+    case GOSSIP_OPT_VENDOR: if(ctrObj) ctrObj->SendInventoryList(plr); break;
+    case GOSSIP_OPT_FLIGHT: if(ctrObj) ctrObj->SendTaxiList(plr); break;
+    case GOSSIP_OPT_INNKEEPER: if (ctrObj) plr->GetSession()->SendInnkeeperBind(ctrObj); break;
+    case GOSSIP_OPT_TOGGLE_XPGAIN: { plr->SendXPToggleConfirm(); }break;
+
     case GOSSIP_OPT_AUCTION:
-        if(AuctionHouse *auctionHouse = ctrObj->auctionHouse)
+        if(AuctionHouse *auctionHouse = ctrObj ? ctrObj->auctionHouse : NULL)
             auctionHouse->SendAuctionHello(ctrObj->GetGUID(), plr);
         break;
     case GOSSIP_OPT_BANKER:
@@ -96,14 +207,14 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
     case GOSSIP_OPT_BATTLEMASTER:
         //plr->GetSession()->SendBattlegGroundList(guid, bgTypeId);
         break;
-    case GOSSIP_OPT_INNKEEPER:
-        plr->GetSession()->SendInnkeeperBind(ctrObj);
-        break;
     case GOSSIP_OPT_TRAINER:
         {
-            WorldPacket data(SMSG_TRAINER_LIST, 5000);
-            ctrObj->BuildTrainerData(&data, plr);
-            plr->PushPacket(&data);
+            if (ctrObj)
+            {
+                WorldPacket data(SMSG_TRAINER_LIST, 5000);
+                ctrObj->BuildTrainerData(&data, plr);
+                plr->PushPacket(&data);
+            }
         }break;
     case GOSSIP_OPT_TALENT_RESET:
         {
@@ -130,7 +241,7 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
                     plr->GetSpellInterface()->TriggerSpell(visual, plr);
                 }
 
-                _BuildSecondaryGossipMenu(obj, GOSSIP_OPT_DUAL_TALENT_CONFIRM, plr);
+                _BuildSecondaryGossipMenu(obj, GOSSIP_OPT_DUAL_TALENT_CONFIRM, textId, plr);
             }
             else
             {
@@ -139,14 +250,33 @@ void GossipManager::HandleGossipOptionSelect(uint32 menuId, uint32 optionGuid, P
                 plr->PushPacket(&data);
             }
         }break;
-    case GOSSIP_OPT_TOGGLE_XPGAIN:
+    case GOSSIP_OPT_SEND_POI:
         {
-            plr->SendXPToggleConfirm();
+            std::map<uint32, DatabaseGossipPOI*>::iterator itr;
+            if(gossipOptions && (itr = m_dbGossipPOIs.find(gossipOptions->menuPoiID)) != m_dbGossipPOIs.end())
+            {
+                WorldPacket data(SMSG_GOSSIP_POI, 50);
+                data << uint32(itr->second->flags);
+                data << float(itr->second->x);
+                data << float(itr->second->y);
+                data << uint32(7) << uint32(0);
+                data << itr->second->poiName;
+                plr->PushPacket(&data);
+            }
+
+            if(switchedMenus && newMenuId && newMenuId != 68)
+                _BuildSecondaryGossipMenu(obj, newMenuId, textId, plr);
+            else
+            {
+                // Send gossip complete opcode
+                WorldPacket data(SMSG_GOSSIP_COMPLETE, 8);
+                plr->PushPacket(&data);
+            }
         }break;
     }
 }
 
-size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId, Player *plr, Object *obj)
+size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &menuId, uint32 &textId, Player *plr, Object *obj)
 {
     size_t result = 0;
     switch(obj->GetTypeId())
@@ -157,6 +287,16 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
             {
                 /*if(uint32 textID = GetTextID<Creature>(pCreature->GetEntry()))
                     textId = textID;*/
+
+                // Set our gossip menu ID
+                if(uint32 MenuId = pCreature->GetGossipId())
+                    menuId = MenuId;
+
+                if(_hasDatabaseGossipMenu(menuId) && result == 0)
+                {
+                    result += _buildDatabaseGossipMenu(menuId, packet, textId, pCreature, plr);
+                    return result;
+                }
 
                 uint32 flags = pCreature->GetUInt32Value(UNIT_NPC_FLAGS);
                 if( flags & UNIT_NPC_FLAG_VENDOR && !pCreature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED_CREATURE))
@@ -240,13 +380,14 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &textId,
     return result;
 }
 
-void GossipManager::_BuildSecondaryGossipMenu(Object* obj, uint32 menuId, Player* plr)
+void GossipManager::_BuildSecondaryGossipMenu(Object* obj, uint32 menuId, uint32 textId, Player* plr)
 {
     WorldPacket data(SMSG_GOSSIP_MESSAGE, 500);
 
-    size_t count = 0, textId = 68;
+    size_t count = 0;
+
     data << uint64(obj->GetGUID()); // NPC guid
-    data << uint32(obj->GetEntry()); // Menu Guid
+    data << uint32(menuId); // Menu Guid
     size_t sizePos = data.wpos();
     data << uint32(textId); // Text ID
     data << uint32(count); // Gossip counter
@@ -257,13 +398,18 @@ void GossipManager::_BuildSecondaryGossipMenu(Object* obj, uint32 menuId, Player
         {
             if (Creature* pCreature = castPtr<Creature>(obj))
             {
-                uint32 flags = pCreature->GetUInt32Value(UNIT_NPC_FLAGS);
-                if (menuId == GOSSIP_OPT_DUAL_TALENT_CONFIRM)
-                    textId = 14393; // Dual talent confirmation menu
-                else if ((flags & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF)) && pCreature->CanTrainPlayer(plr) && plr->getLevel() >= 40 && plr->GetTalentInterface()->GetSpecCount() < 2)
+                if(_hasDatabaseGossipMenu(menuId))
+                    count += _buildDatabaseGossipMenu(menuId, &data, textId, pCreature, plr);
+                else
                 {
-                    textId = 14391; // Dual talent information
-                    _AddMenuItem(&data, count, GOSSIP_OPT_DUAL_TALENT_CONFIRM, GOSSIP_ICON_GOSSIP_NORMAL, "Purchase a Dual Talent Specialization.", false, 10000000, "Are you sure you would like to purchase your second talent specialization?");
+                    uint32 flags = pCreature->GetUInt32Value(UNIT_NPC_FLAGS);
+                    if (menuId == GOSSIP_OPT_DUAL_TALENT_CONFIRM)
+                        textId = 14393; // Dual talent confirmation menu
+                    else if ((flags & (UNIT_NPC_FLAG_TRAINER | UNIT_NPC_FLAG_TRAINER_PROF)) && pCreature->CanTrainPlayer(plr) && plr->getLevel() >= 40 && plr->GetTalentInterface()->GetSpecCount() < 2)
+                    {
+                        textId = 14391; // Dual talent information
+                        _AddMenuItem(&data, count, GOSSIP_OPT_DUAL_TALENT_CONFIRM, GOSSIP_ICON_GOSSIP_NORMAL, "Purchase a Dual Talent Specialization.", false, 10000000, "Are you sure you would like to purchase your second talent specialization?");
+                    }
                 }
             }
         }break;
@@ -291,12 +437,65 @@ void GossipManager::_BuildSecondaryGossipMenu(Object* obj, uint32 menuId, Player
     plr->PushPacket(&data);
 }
 
-void GossipManager::_AddMenuItem(WorldPacket *packet, size_t &counter, uint32 guid, uint8 Icon, std::string text, bool codeBox, uint32 boxMoney, std::string boxMessage)
+void GossipManager::_AddMenuItem(ByteBuffer *buffer, size_t &counter, uint32 optionId, uint8 Icon, std::string text, bool codeBox, uint32 boxMoney, std::string boxMessage)
 {
-    *packet << uint32(guid);
-    *packet << uint8(Icon);
-    *packet << uint8(codeBox);
-    *packet << uint32(boxMoney);
-    *packet << text << boxMessage;
+    *buffer << uint32(optionId);
+    *buffer << uint8(Icon);
+    *buffer << uint8(codeBox);
+    *buffer << uint32(boxMoney);
+    *buffer << text << boxMessage;
     counter++;
+}
+
+bool GossipManager::_hasDatabaseGossipMenu(uint32 menuId)
+{
+    return m_dbGossipMenus.find(menuId) != m_dbGossipMenus.end();
+}
+
+size_t GossipManager::_buildDatabaseGossipMenu(uint32 menuId, WorldPacket *packet, uint32 &textId, Creature *ctr, Player *plr)
+{
+    std::map<uint32, DatabaseGossipMenu*>::iterator itr;
+    if((itr = m_dbGossipMenus.find(menuId)) == m_dbGossipMenus.end())
+        return 0;
+    textId = itr->second->text_ids.size() ? (*itr->second->text_ids.begin()) : 68;
+
+    size_t result = 0;
+    std::map<uint8, DatabaseGossipOptions*>::iterator itr2 = itr->second->gossipOptions.begin();
+    for(itr2; itr2 != itr->second->gossipOptions.end(); ++itr2)
+    {
+        // Check NPC flags
+        if(itr2->second->optionNPCFlag && !ctr->HasNpcFlag(itr2->second->optionNPCFlag))
+            continue;
+
+        _AddMenuItem(packet, result, itr2->second->orderId, itr2->second->optionIcon, itr2->second->gossipText.c_str());
+    }
+
+    return result;
+}
+
+DatabaseGossipOptions *GossipManager::_acquireDatabaseGossipInfo(uint32 &menuId, uint32 &textId, uint32 &optionGuid, Creature *ctr, Player *plr)
+{
+    DatabaseGossipOptions *optionFound = NULL;
+    std::map<uint32, DatabaseGossipMenu*>::iterator itr;
+    if((itr = m_dbGossipMenus.find(menuId)) != m_dbGossipMenus.end())
+    {
+        std::map<uint8, DatabaseGossipOptions*>::iterator itr2;
+        if((itr2 = itr->second->gossipOptions.find(optionGuid)) != itr->second->gossipOptions.end())
+        {
+            optionFound = itr2->second;
+            if(optionFound->actionMenuId)
+            {
+                menuId = optionFound->actionMenuId;
+                optionGuid = GOSSIP_OPT_NEXT_MENU;
+            } else optionGuid = optionFound->optionId;
+
+            if((itr = m_dbGossipMenus.find(menuId)) != m_dbGossipMenus.end())
+                textId = itr->second->text_ids.size() ? (*itr->second->text_ids.begin()) : 68;
+
+            if(optionFound->menuPoiID)
+                optionGuid = GOSSIP_OPT_SEND_POI;
+
+        }
+    }
+    return optionFound;
 }

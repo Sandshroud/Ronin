@@ -90,6 +90,7 @@ struct CreatureData
 
     // Set on server load
     uint32 extraFlags;
+    uint32 gossipId;
     std::set<uint32> Auras;
     std::vector<uint32> combatSpells, supportSpells;
 

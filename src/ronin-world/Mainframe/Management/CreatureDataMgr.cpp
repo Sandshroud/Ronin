@@ -108,9 +108,25 @@ void CreatureDataManager::LoadFromDB()
             ctrData->extraFlags |= CREATURE_DATA_EX_FLAG_TRAINING_DUMMY;
         if(RONIN_UTIL::FindXinYString("World", ctrData->GetFullName()) && RONIN_UTIL::FindXinYString("Trigger", ctrData->GetFullName()))
             ctrData->extraFlags |= CREATURE_DATA_EX_FLAG_WORLD_TRIGGER;
-
+        ctrData->gossipId = 0;
         m_creatureData.insert(std::make_pair(ctrData->entry, ctrData));
     }while(result->NextRow());
+    delete result;
+
+    result = WorldDatabase.Query("SELECT * FROM creature_gossip_ids");
+    if(result == NULL)
+        return;
+
+    do
+    {
+        Field *fields = result->Fetch();
+        uint32 entry = fields[0].GetUInt32();
+        if(m_creatureData.find(entry) == m_creatureData.end())
+            continue;
+
+        m_creatureData.at(entry)->gossipId = fields[1].GetUInt32();
+    }while(result->NextRow());
+    delete result;
 }
 
 void CreatureDataManager::LoadCreatureSpells()
