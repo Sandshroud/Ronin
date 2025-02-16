@@ -171,9 +171,9 @@ void UnitPathSystem::InitializeAutoPath()
     CreatureWaypoint *point = waypathIterator->second;
     while(point->x == m_Unit->GetPositionX() && point->y == m_Unit->GetPositionY())
     {
-        point = (++waypathIterator)->second;
         if(waypathIterator == _waypointPath->end())
             break;
+        point = (waypathIterator++)->second;
     }
 
     // If we have no point selected, just start at the beginning

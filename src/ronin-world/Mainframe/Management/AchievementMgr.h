@@ -27,6 +27,7 @@ struct AchieveDataContainer
     WoWGuid playerguid;
     std::map<uint32, time_t> m_completedAchievements;
     std::map<uint32, CriteriaData*> m_criteriaProgress;
+    std::set<uint32> m_retroActiveAcievements;
 };
 
 class SERVER_DECL AchievementMgr : public Singleton < AchievementMgr >

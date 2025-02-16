@@ -2188,6 +2188,7 @@ void SpellEffectClass::SpellEffectSetTalentSpecsCount(uint32 i, WorldObject *tar
         return;
 
     castPtr<Player>(_unitCaster)->GetTalentInterface()->UnlockSpec(amount);
+    AchieveMgr.EarnAchievement(castPtr<Player>(_unitCaster), 2716);
 }
 
 void SpellEffectClass::SpellEffectActivateTalentSpec(uint32 i, WorldObject *target, int32 amount, bool rawAmt)

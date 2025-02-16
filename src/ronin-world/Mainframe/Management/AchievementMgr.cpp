@@ -168,7 +168,23 @@ void AchievementMgr::PlayerFinishedLoading(Player *plr)
     if(m_playerAchieveData.find(plr->GetGUID()) == m_playerAchieveData.end())
         return;
 
-    m_playerAchieveData.at(plr->GetGUID())->_loading = false;
+    AchieveDataContainer *container = m_playerAchieveData.at(plr->GetGUID());
+    // No longer loading achievements
+    container->_loading = false;
+    // Process our retroactive achievements
+    if(container->m_retroActiveAcievements.size())
+    {
+        do
+        {
+            uint32 achievmentId = *container->m_retroActiveAcievements.begin();
+            container->m_retroActiveAcievements.erase(container->m_retroActiveAcievements.begin());
+            if(container->m_completedAchievements.find(achievmentId) == container->m_completedAchievements.end())
+                EarnAchievement(plr, achievmentId);
+        }while(container->m_retroActiveAcievements.size());
+    }
+
+    // Clear map of our retro achievements
+    container->m_retroActiveAcievements.clear();
 
     // Update retroactive criteria
     UpdateCriteriaValue(plr, ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL, plr->getLevel(), 0, 0, true);
@@ -457,7 +473,11 @@ void AchievementMgr::EarnAchievement(Player *plr, uint32 achievementId)
         return;
     AchieveDataContainer *container = m_playerAchieveData.at(plr->GetGUID());
     if(container->_loading)
+    {
+        container->m_retroActiveAcievements.insert(achievementId);
         return;
+    }
+
     AchievementEntry *entry = dbcAchievement.LookupEntry(achievementId);
     if(entry == NULL || !IsValidAchievement(plr, entry))
         return;

@@ -208,7 +208,7 @@ void ItemManager::InitializeItemPrototypes()
         {
             proto->Stats[i].Type = sparse->ItemStatType[i];
             proto->Stats[i].Value = sparse->ItemStatValue[i];
-            if(i > 5)
+            if(i >= 5)
                 continue;
             proto->Spells[i].Id = sparse->SpellId[i];
             proto->Spells[i].Trigger = sparse->SpellTrigger[i];
@@ -216,7 +216,7 @@ void ItemManager::InitializeItemPrototypes()
             proto->Spells[i].Cooldown = sparse->SpellCooldown[i];
             proto->Spells[i].Category = sparse->SpellCategory[i];
             proto->Spells[i].CategoryCooldown = sparse->SpellCategoryCooldown[i];
-            if(i > 3)
+            if(i >= 3)
                 continue;
             proto->ItemSocket[i] = sparse->SocketColor[i];
             proto->ItemContent[i] = sparse->SocketContent[i];
@@ -328,7 +328,7 @@ void ItemManager::LoadItemOverrides()
                     {
                         proto->Stats[i].Type = 0;
                         proto->Stats[i].Value = 0;
-                        if(i > 5)
+                        if(i >= 5)
                             continue;
                         proto->Spells[i].Id = 0;
                         proto->Spells[i].Trigger = 0;
@@ -336,7 +336,7 @@ void ItemManager::LoadItemOverrides()
                         proto->Spells[i].Cooldown = 0;
                         proto->Spells[i].Category = 0;
                         proto->Spells[i].CategoryCooldown = 0;
-                        if(i > 3)
+                        if(i >= 3)
                             continue;
                         proto->ItemSocket[i] = 0;
                         proto->ItemContent[i] = 0;
