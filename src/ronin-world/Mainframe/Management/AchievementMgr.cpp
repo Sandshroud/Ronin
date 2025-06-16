@@ -487,8 +487,6 @@ void AchievementMgr::EarnAchievement(Player *plr, uint32 achievementId)
     achievements->insert(std::make_pair(achievementId, time_t(UNIXTIME)));
     // Increment cached achievement points
     plr->getPlayerInfo()->achievementPoints += entry->points;
-    if(!plr->IsInWorld())
-        return;
 
     // Send our achievement earned packet
     WorldPacket data(SMSG_ACHIEVEMENT_EARNED, 8 + 4 + 4 + 4);
@@ -496,7 +494,9 @@ void AchievementMgr::EarnAchievement(Player *plr, uint32 achievementId)
     data << uint32(achievementId);
     data << RONIN_UTIL::secsToTimeBitFields(UNIXTIME);
     data << uint32(0);
-    plr->SendMessageToSet(&data, true, true, 50.f);
+    if(!plr->IsInWorld())
+        plr->PushPacket(&data);
+    else plr->SendMessageToSet(&data, true, true, 50.f);
 
     if(m_realmFirstAchievements.find(achievementId) != m_realmFirstAchievements.end())
         m_realmFirstCompleted.insert(achievementId);

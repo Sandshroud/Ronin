@@ -56,6 +56,39 @@ MMapManager::MMapManager(const char* dataPath, uint32 mapid) : m_dataPath(dataPa
 
     delete [] fileName;
 
+    pathLen = uint32(m_dataPath.length() + strlen("/000.mmtiles")+1);
+    fileName = new char[pathLen];
+    snprintf(fileName, pathLen, (m_dataPath+"/%03i.mmtiles").c_str(), ManagerMapId);
+    if ((file = fopen(fileName, "rb")) == NULL)
+    {
+        dtFreeNavMeshQuery(m_navMeshQuery);
+        dtFreeNavMesh(mesh);
+        delete [] fileName;
+        return;
+    }
+
+    delete [] fileName;
+
+    uint32 offsets[64][64];
+    fread(offsets, sizeof(uint32)*64*64, 1, file);
+    for(uint8 x = 0; x < 64; x++)
+    {
+        for(uint8 y = 0; y < 64; y++)
+        {
+            if(offsets[x][y] == 0)
+                continue;
+            // Pack our tileID and insert our file offset.
+            m_tileOffsets.insert(std::make_pair(packTileID(x, y), offsets[x][y]));
+        }
+    }
+
+    if(m_tileOffsets.empty())
+    {
+        dtFreeNavMeshQuery(m_navMeshQuery);
+        dtFreeNavMesh(mesh);
+        return;
+    }
+
     // store inside our map list
     m_navMesh = mesh;
 }
@@ -115,15 +148,17 @@ bool MMapManager::LoadNavMesh(uint32 x, uint32 y)
         return false;
 
     uint32 PackedTileID = packTileID(x, y);
-    dtTileRef reference = 0;
+    if(m_tileOffsets.find(PackedTileID) == m_tileOffsets.end())
+        return false;
 
+    dtTileRef reference = 0;
     ReferenceMap::iterator itr = TileReferences.find(PackedTileID);
     if(itr == TileReferences.end())
     {
         // load this tile :: mmaps/MMMXXYY.mmtile
-        uint32 pathLen = uint32(m_dataPath.length() + strlen("/0000000.mmtile")+1);
+        uint32 pathLen = uint32(m_dataPath.length() + strlen("/000.mmtiles")+1);
         char *fileName = new char[pathLen];
-        snprintf(fileName, pathLen, (m_dataPath+"/%03i%02i%02i.mmtile").c_str(), ManagerMapId, x, y);
+        snprintf(fileName, pathLen, (m_dataPath+"/%03i.mmtiles").c_str(), ManagerMapId);
         FILE *file = fopen(fileName, "rb");
         if (!file)
         {
@@ -131,6 +166,7 @@ bool MMapManager::LoadNavMesh(uint32 x, uint32 y)
             return false;
         }
         delete [] fileName;
+        fseek(file, m_tileOffsets[PackedTileID], SEEK_SET);
 
         // read header
         MmapTileHeader fileHeader;
@@ -150,7 +186,7 @@ bool MMapManager::LoadNavMesh(uint32 x, uint32 y)
         unsigned char* data = (unsigned char*)malloc(fileHeader.size);
 
         size_t result = fread(data, fileHeader.size, 1, file);
-        if(!result)
+        if(!result || data == NULL)
         {
             fclose(file);
             return false;
@@ -213,8 +249,8 @@ Position MMapManager::getNextPositionOnPathToLocation(float startx, float starty
         return Position(endx, endy, endz);
 
     //convert to nav coords.
-    float startPos[3] = { starty, startz, startx };
-    float endPos[3] = { endy, endz, endx };
+    float startPos[3] = { startx, startz, starty };
+    float endPos[3] = { endx, endz, endy };
     float mPolyPickingExtents[3] = { 2.00f, 4.00f, 2.00f };
     float closestPoint[3] = {0.0f, 0.0f, 0.0f};
     Position pos(endx, endy, endz);
@@ -264,9 +300,9 @@ Position MMapManager::getNextPositionOnPathToLocation(float startx, float starty
                 return pos;
             }
 
-            pos.y = actualpath[3]; //0 3 6
+            pos.x = actualpath[3]; //0 3 6
             pos.z = actualpath[4]; //1 4 7
-            pos.x = actualpath[5]; //2 5 8
+            pos.y = actualpath[5]; //2 5 8
             delete mPathFilter;
             mPathFilter = NULL;
             return pos;
@@ -282,8 +318,8 @@ bool MMapManager::getNextPositionOnPathToLocation(float startx, float starty, fl
 
     dtStatus result;
     //convert to nav coords.
-    float startPos[3] = { starty, startz, startx };
-    float endPos[3] = { endy, endz, endx };
+    float startPos[3] = { startx, startz, starty };
+    float endPos[3] = { endx, endz, endy };
     float mPolyPickingExtents[3] = { 2.00f, 4.00f, 2.00f };
     float closestPoint[3] = {0.0f, 0.0f, 0.0f};
     dtQueryFilter* mPathFilter = new dtQueryFilter();
@@ -330,9 +366,9 @@ bool MMapManager::getNextPositionOnPathToLocation(float startx, float starty, fl
                 return false;
             }
 
-            out.y = actualpath[3]; //0 3 6
+            out.x = actualpath[3]; //0 3 6
             out.z = actualpath[4]; //1 4 7
-            out.x = actualpath[5]; //2 5 8
+            out.y = actualpath[5]; //2 5 8
             delete mPathFilter;
             mPathFilter = NULL;
             return true;
@@ -386,7 +422,7 @@ dtPolyRef MMapManager::GetPathPolyByPosition(dtPolyRef const* polyPath, uint32 p
     for (uint32 i = 0; i < polyPathSize; ++i)
     {
         float closestPoint[3];
-        if (dtStatusFailed(m_navMeshQuery->closestPointOnPoly(polyPath[i], point, closestPoint)))
+        if (dtStatusFailed(m_navMeshQuery->closestPointOnPoly(polyPath[i], point, closestPoint, NULL)))
             continue;
 
         float d = dtVdist2DSqr(point, closestPoint);
@@ -402,7 +438,7 @@ dtPolyRef MMapManager::GetPathPolyByPosition(dtPolyRef const* polyPath, uint32 p
     }
 
     if (distance)
-        *distance = dtSqrt(minDist3d);
+        *distance = dtMathSqrtf(minDist3d);
 
     return (minDist2d < 3.0f) ? nearestPoly : 0;
 }
@@ -556,7 +592,7 @@ dtStatus MMapManager::findSmoothPath(dtQueryFilter* m_filter, float* startPos, f
         // Find movement delta.
         float delta[3];
         dtVsub(delta, steerPos, iterPos);
-        float len = dtSqrt(dtVdot(delta, delta));
+        float len = dtMathSqrtf(dtVdot(delta, delta));
         // If the steer target is end of path or off-mesh link, do not move past the location.
         if ((endOfPath || offMeshConnection) && len < 4.0f)
             len = 1.0f;
@@ -652,7 +688,7 @@ PositionMapContainer* MMapManager::BuildFullPath(unsigned short moveFlags, float
     dtPolyRef m_pathPolyRefs[74]; // array of detour polygon references
 
     float distToStartPoly, distToEndPoly;
-    float endPoint[3] = { endy, endz, endx }, startPoint[3] = { starty, startz, startx };
+    float endPoint[3] = { endx, endz, endy }, startPoint[3] = { startx, startz, starty };
     dtPolyRef mStartRef = GetPolyByLocation(mPathFilter, m_pathPolyRefs, m_maxLength, startPoint, &distToStartPoly);
     dtPolyRef mEndRef = GetPolyByLocation(mPathFilter, m_pathPolyRefs, m_maxLength, endPoint, &distToEndPoly);
     if(mStartRef == 0 || mEndRef == 0 || mStartRef == mEndRef)
@@ -722,7 +758,7 @@ PositionMapContainer* MMapManager::BuildFullPath(unsigned short moveFlags, float
     float x = startx, y = starty, z = startz;
     for (uint32 i = 0; i < pointCount-1; ++i)
     {
-        Position pos(pathPoints[i*3+2], pathPoints[i*3], pathPoints[i*3+1]);
+        Position pos(pathPoints[i*3], pathPoints[i*3+2], pathPoints[i*3+1]);
         map->InternalMap.insert(std::make_pair(counter++, pos));
         x = pos.x, y = pos.y, z = pos.z;
     }
@@ -736,12 +772,11 @@ bool MMapManager::GetWalkingHeightInternal(float positionx, float positiony, flo
 
     dtStatus result;
     //convert to nav coords.
-    float startPos[3] = { positionx, positiony, positionz };
-    float endPos[3] = { positionx, positiony, endz };
-    float mPolyPickingExtents[3] = { 2.00f, 2.00f, 4.00f };
+    float startPos[3] = { positionx, positionz, positiony };
+    float endPos[3] = { positionx, endz, positiony };
+    float mPolyPickingExtents[3] = { 5.0f, 500.f, 5.0f };
     float closestPoint[3] = {0.0f, 0.0f, 0.0f};
-    dtQueryFilter* mPathFilter = new dtQueryFilter();
-    if(mPathFilter)
+    if(dtQueryFilter* mPathFilter = new dtQueryFilter())
     {
         dtPolyRef mStartRef;
         result = m_navMeshQuery->findNearestPoly(startPos, mPolyPickingExtents, mPathFilter, &mStartRef, closestPoint);
@@ -775,28 +810,28 @@ bool MMapManager::GetWalkingHeightInternal(float positionx, float positiony, flo
 
             int mNumPathPoints;
             float actualpath[3*2];
-            dtPolyRef polyrefs = 0;
-            result = m_navMeshQuery->findStraightPath(startPos, endPos, mPathResults, mNumPathResults, actualpath, NULL, &polyrefs, &mNumPathPoints, 2);
-            if (dtStatusFailed(result))
+            dtPolyRef polyrefs[2] = {0};
+            result = m_navMeshQuery->findStraightPath(startPos, endPos, mPathResults, mNumPathResults, actualpath, NULL, polyrefs, &mNumPathPoints, 2);
+            if (dtStatusFailed(result) || mNumPathPoints < 1)
             {
                 delete mPathFilter;
                 mPathFilter = NULL;
                 return false;
             }
 
-            if(mNumPathPoints < 3)
+            if(mNumPathPoints < 2)
             {
-                out.y = positiony;
-                out.z = positionz;
-                out.x = positionx;
+                out.x = actualpath[0];
+                out.z = 0xFFFFFFFF;
+                out.y = actualpath[2];
                 delete mPathFilter;
                 mPathFilter = NULL;
                 return true;
             }
 
-            out.y = actualpath[3];
+            out.x = actualpath[3];
             out.z = actualpath[4];
-            out.x = actualpath[5];
+            out.y = actualpath[5];
             delete mPathFilter;
             mPathFilter = NULL;
             return true;

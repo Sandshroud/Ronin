@@ -94,6 +94,7 @@ typedef struct
 {
     CreatureSpawnArray CreatureSpawns;
     GameObjectSpawnArray GameObjectSpawns;
+    std::set<size_t> SpiritHealers;
 }CellSpawns;
 
 typedef std::map<std::pair<uint32, uint32>, CellSpawns > SpawnsMap;
@@ -141,7 +142,7 @@ public:
 
     RONIN_INLINE float GetLandHeight(float x, float y) { return _terrain->GetLandHeight(x, y); }
     RONIN_INLINE float GetWaterHeight(float x, float y) { return _terrain->GetWaterHeight(x, y); }
-    RONIN_INLINE uint8 GetWaterType(float x, float y) { return _terrain->GetWaterType(x, y); }
+    RONIN_INLINE uint16 GetWaterType(float x, float y) { return _terrain->GetWaterType(x, y); }
     RONIN_INLINE uint8 GetWalkableState(float x, float y) { return _terrain->GetWalkableState(x, y); }
 
     RONIN_INLINE uint16 GetAreaID(float x, float y) { return _terrain->GetAreaID(x, y); }
@@ -166,6 +167,6 @@ private:
     SpawnsMap m_spawns;
     MapEntry *_entry;
 
+    std::set<CreatureSpawn*> m_spiritHealer;
     SafeLocationStorage _safeLoc, _safeLocGraveyards;
-    std::map<uint32, std::vector<WorldSafeLocation*>> _safeLocByZone;
 };

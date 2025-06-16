@@ -138,6 +138,9 @@ void WorldManager::LoadSpawnData()
                     cspawn->vendormask = fields[10].GetInt32();
                     m_SpawnStorageMap[itr->second->MapID].CreatureSpawns.push_back(cspawn);
                     m_creatureDataShortcut.insert(std::make_pair(cspawn->guid.getLow(), cspawn));
+                    // Push our spirit healer into our map
+                    if(sCreatureDataMgr.IsSpiritHealer(data))
+                        m_SpawnStorageMap[itr->second->MapID].SpiritHealers.insert(m_creatureDataShortcut.size()-1);
                 }while(result->NextRow());
                 delete result;
             }
@@ -365,7 +368,7 @@ void WorldManager::LoadSpawnData()
     sLog.Notice("WorldManager", "%u spawns for instances loaded.", count);
 }
 
-void WorldManager::LoadMapTileData(TaskList & tl)
+void WorldManager::LoadMapTileData(ThreadTaskList & tl)
 {
     if(sWorld.ServerPreloading == 0)
         return;
@@ -379,7 +382,7 @@ void WorldManager::LoadMapTileData(TaskList & tl)
             ;//sRaidMgr.LoadTileData(itr->second);
         else if(itr->second->IsDungeon())
             ;//sInstanceMgr.LoadTileData(itr->second);
-        else tl.AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_LoadTileData, itr->second)));
+        else tl.AddTask(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_LoadTileData, itr->second));
     }
 }
 
@@ -446,7 +449,7 @@ uint8 WorldManager::ValidateMapId(uint32 mapId)
     return (m_maps.find(mapId) == m_maps.end()) ? 1 : 0;
 }
 
-void WorldManager::Load(TaskList * l)
+void WorldManager::Load(ThreadTaskList * l)
 {
     new WorldStateTemplateManager();
     sWorldStateTemplateManager.LoadFromDB();
@@ -455,18 +458,18 @@ void WorldManager::Load(TaskList * l)
 
     // create maps for any we don't have yet.
     for(std::map<uint32, MapEntry*>::iterator itr = m_loadedMaps.begin(); itr != m_loadedMaps.end(); itr++)
-        l->AddTask(new Task(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, itr->second)));
+        l->AddTask(new CallbackP1<WorldManager, MapEntry*>(this, &WorldManager::_CreateMap, itr->second));
 
-    l->wait();
+    l->wait(UNIXTIME, g_localTime);
 
     // Push our world safe locations to our map storage
     FillMapSafeLocations();
 
     // Queue our maps for processing
     for(std::map<uint32, Map*>::iterator itr = m_maps.begin(); itr != m_maps.end(); itr++)
-        l->AddTask(new Task(new CallbackP1<WorldManager, Map*>(this, &WorldManager::_ProcessMapData, itr->second)));
+        l->AddTask(new CallbackP1<WorldManager, Map*>(this, &WorldManager::_ProcessMapData, itr->second));
 
-    l->wait();
+    l->wait(UNIXTIME, g_localTime);
 
     for(auto itr = m_continentManagement.begin(); itr != m_continentManagement.end(); itr++)
         itr->second->SetThreadState(THREADSTATE_AWAITING);

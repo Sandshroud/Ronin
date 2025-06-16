@@ -3,8 +3,8 @@
 
 float UnitPathSystem::fInfinite = std::numeric_limits<float>::infinity();
 
-UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_orientationLock(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0),
-m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_forcedSendFlags(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0),
+UnitPathSystem::UnitPathSystem(Unit *unit) : m_Unit(unit), m_movementDisabled(false), m_orientationLock(false), m_autoPath(false), _waypointPath(NULL), m_autoPathDelay(0), _moveSpeed(MOVE_SPEED_WALK),
+m_pendingAutoPathDelay(0), m_pathCounter(0), m_pathStartTime(0), m_pathLength(0), m_forcedSendFlags(0), m_lastMSTimeUpdate(0), m_lastPositionUpdate(0), m_followTarget(0),
 srcPoint(), _destX(fInfinite), _destY(fInfinite), _destZ(0.f), _destO(0.f), _currDestX(fInfinite), _currDestY(fInfinite), _currDestZ(fInfinite), _tempMoveSpeed(fInfinite)
 {
 
@@ -263,6 +263,7 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
     m_pathCounter++;
     m_forcedSendFlags = 0;
+    PositionMapContainer *navMapContainer = NULL;
     m_lastMSTimeUpdate = m_pathStartTime = RONIN_UTIL::ThreadTimer::getThreadTime();
     m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
 
@@ -273,20 +274,43 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
     _currDestX = _destX = x, _currDestY = _destY = y, _currDestZ = _destZ = z, _destO = o;
     m_Unit->SetOrientation(m_Unit->calcAngle(srcPoint.pos.x, srcPoint.pos.y, x, y) * M_PI / 180.f);
 
+    MapInstance *instance = m_Unit->GetMapInstance();
+    float speed = _tempMoveSpeed == fInfinite ? m_Unit->GetMoveSpeed(_moveSpeed) : _tempMoveSpeed, dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
+    m_pathLength = (dist/speed)*1000.f;
+    m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(0, srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, -1.f))));
+
     if(sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y) && sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y))
-        sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, _currDestX, _currDestY, _currDestZ, true);
-    else
+        navMapContainer = sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, _currDestX, _currDestY, _currDestZ, true);
+
+    m_forcedSendFlags |= MOVEBCFLAG_DIRECT;
+    if(navMapContainer || m_pathLength > 1200)
     {
-        MapInstance *instance = m_Unit->GetMapInstance();
-        float speed = _tempMoveSpeed == fInfinite ? m_Unit->GetMoveSpeed(_moveSpeed) : _tempMoveSpeed, dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
-        m_pathLength = (dist/speed)*1000.f;
-        m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(0, srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, -1.f))));
+        m_forcedSendFlags |= MOVEBCFLAG_SPACED;
 
-        m_forcedSendFlags |= MOVEBCFLAG_DIRECT;
-        if(m_pathLength > 1200)
+        if(navMapContainer)
         {
-            m_forcedSendFlags |= MOVEBCFLAG_SPACED;
+            uint32 timeToMove = 0;
+            Position lastPos = { srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z };
+            for(auto itr = navMapContainer->InternalMap.begin(); itr != navMapContainer->InternalMap.end(); itr++)
+            {
+                Position pos = itr->second;
+                float delta_x = RONIN_UTIL::Diff(pos.x, lastPos.x), delta_y = RONIN_UTIL::Diff(pos.y, lastPos.y), delta_z = RONIN_UTIL::Diff(pos.z, lastPos.z);
+                dist = sqrtf(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+                timeToMove += (dist/speed)*1000.f;
 
+                if(pos.x == _destX && pos.y == _destY)
+                    break; // Destination is appended with path length.
+
+                // Add our calculated point to the map
+                m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, pos.x, pos.y, pos.z, -1.f))));
+                // Set our last position for next map
+                lastPos = { pos.x, pos.y, pos.z };
+            }
+            // Destination is appended at end
+            m_pathLength = timeToMove;
+        }
+        else
+        {
             int32 stepTiming = 500;
             if((m_pathLength/((float)stepTiming)) > 255)
                 stepTiming = std::max<int32>(500, float2int32(ceil(m_pathLength/25500.f)*100.f));
@@ -312,10 +336,102 @@ void UnitPathSystem::MoveToPoint(float x, float y, float z, float o)
 
                 m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, px, py, targetZ, -1.f))));
             }
-        } else m_forcedSendFlags |= MOVEBCFLAG_UNCOMP;
+        }
+    } else m_forcedSendFlags |= MOVEBCFLAG_UNCOMP;
 
-        m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ, -1.f))));
-    }
+    m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ, -1.f))));
+
+    BroadcastMovementPacket();
+}
+
+void UnitPathSystem::MoveToPoint2(float x, float y, float z, float o)
+{
+    if(m_movementDisabled || (_currDestX == x && _currDestY == y) || (m_Unit->GetPositionX() == x && m_Unit->GetPositionY() == y))
+        return;
+
+    // Clean up any existing paths
+    _CleanupPath();
+
+    m_pathCounter++;
+    m_forcedSendFlags = 0;
+    PositionMapContainer *navMapContainer = NULL;
+    m_lastMSTimeUpdate = m_pathStartTime = RONIN_UTIL::ThreadTimer::getThreadTime();
+    m_Unit->GetPosition(srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z);
+
+    // Set our last update point data to our source with no move time
+    lastUpdatePoint.timeStamp = 0;
+    m_Unit->GetPosition(lastUpdatePoint.pos.x, lastUpdatePoint.pos.y, lastUpdatePoint.pos.z);
+
+    _currDestX = _destX = x, _currDestY = _destY = y, _currDestZ = _destZ = z, _destO = o;
+    m_Unit->SetOrientation(m_Unit->calcAngle(srcPoint.pos.x, srcPoint.pos.y, x, y) * M_PI / 180.f);
+
+    MapInstance *instance = m_Unit->GetMapInstance();
+    float speed = _tempMoveSpeed == fInfinite ? m_Unit->GetMoveSpeed(_moveSpeed) : _tempMoveSpeed, dist = sqrtf(m_Unit->GetDistanceSq(x, y, z));
+    m_pathLength = (dist/speed)*1000.f;
+    m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(0, srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, -1.f))));
+
+    bool atPositon1 = false, atposition2 = false;
+    if((atPositon1 = sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), x, y)) && (atposition2 = sNavMeshInterface.IsNavmeshLoadedAtPosition(m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y)))
+        navMapContainer = sNavMeshInterface.BuildFullPath(m_Unit, m_Unit->GetMapId(), srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z, _currDestX, _currDestY, _currDestZ, true);
+
+    m_forcedSendFlags |= MOVEBCFLAG_DIRECT;
+    if(navMapContainer || m_pathLength > 1200)
+    {
+        m_forcedSendFlags |= MOVEBCFLAG_SPACED;
+
+        if(navMapContainer)
+        {
+            uint32 timeToMove = 0;
+            Position lastPos = { srcPoint.pos.x, srcPoint.pos.y, srcPoint.pos.z };
+            for(auto itr = navMapContainer->InternalMap.begin(); itr != navMapContainer->InternalMap.end(); itr++)
+            {
+                Position pos = itr->second;
+                float delta_x = RONIN_UTIL::Diff(pos.x, lastPos.x), delta_y = RONIN_UTIL::Diff(pos.y, lastPos.y), delta_z = RONIN_UTIL::Diff(pos.z, lastPos.z);
+                dist = sqrtf(delta_x*delta_x + delta_y*delta_y + delta_z*delta_z);
+                timeToMove += (dist/speed)*1000.f;
+
+                if(pos.x == _destX && pos.y == _destY)
+                    break; // Destination is appended with path length.
+
+                // Add our calculated point to the map
+                m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, pos.x, pos.y, pos.z, -1.f))));
+                // Set our last position for next map
+                lastPos = { pos.x, pos.y, pos.z };
+            }
+            // Destination is appended at end
+            m_pathLength = timeToMove;
+        }
+        else
+        {
+            int32 stepTiming = 500;
+            if((m_pathLength/((float)stepTiming)) > 255)
+                stepTiming = std::max<int32>(500, float2int32(ceil(m_pathLength/25500.f)*100.f));
+
+            bool ignoreTerrainHeight = m_Unit->canFly();
+            float maxZ = std::max<float>(srcPoint.pos.z, _destZ);
+            float terrainHeight = m_Unit->GetGroundHeight(), targetTHeight = instance ? instance->GetWalkableHeight(m_Unit, _destX, _destY, _destZ, _destZ) : _destZ, posToAdd = 0.f;
+            if(ignoreTerrainHeight)
+                posToAdd = ((_destZ-srcPoint.pos.z)/(((float)m_pathLength)/((float)stepTiming)));
+            else posToAdd = ((targetTHeight-terrainHeight)/(((float)m_pathLength)/((float)stepTiming)));
+
+            float lastCalcPoint = srcPoint.pos.z;// Path calculation
+            uint32 timeToMove = 0;
+            while((m_pathLength-timeToMove) > stepTiming)
+            {
+                timeToMove += stepTiming;
+                lastCalcPoint += posToAdd;
+
+                float p = float(timeToMove)/float(m_pathLength), px = srcPoint.pos.x-((srcPoint.pos.x-_destX)*p), py = srcPoint.pos.y-((srcPoint.pos.y-_destY)*p);
+                float targetZ = instance ? instance->GetWalkableHeight(m_Unit, px, py, maxZ, _destZ) : maxZ;
+                if(ignoreTerrainHeight && lastCalcPoint > targetZ)
+                    targetZ = lastCalcPoint;
+
+                m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(timeToMove, px, py, targetZ, -1.f))));
+            }
+        }
+    } else m_forcedSendFlags |= MOVEBCFLAG_UNCOMP;
+
+    m_movementPoints.Push(std::move(std::shared_ptr<MovementPoint>(new MovementPoint(m_pathLength, _destX, _destY, _destZ, -1.f))));
 
     BroadcastMovementPacket();
 }

@@ -121,7 +121,7 @@ public:
 
     void ParseMapDBCFiles();
     void LoadSpawnData();
-    void LoadMapTileData(TaskList & tl);
+    void LoadMapTileData(ThreadTaskList & tl);
     void _CreateMap(MapEntry *map);
     void _ProcessMapData(Map *map);
     void FillMapSafeLocations();
@@ -142,7 +142,7 @@ public:
     MapInstance *GetInstance(WorldObject* obj);
 
     void BuildXMLStats(char * m_file);
-    void Load(TaskList * l);
+    void Load(ThreadTaskList * l);
 
     // player left a group, boot him out of any instances he's not supposed to be in.
     void PlayerLeftGroup(Group * pGroup, Player* pPlayer);
@@ -300,7 +300,6 @@ private:
 
     CellSpawns *GetSpawn(uint32 mapId) { if(m_SpawnStorageMap.find(mapId) == m_SpawnStorageMap.end()) return NULL; return &m_SpawnStorageMap[mapId]; };
     std::map<uint32, CellSpawns> m_SpawnStorageMap;
-    CellSpawns m_spawnStorage_Kalimdor;
 
     std::map<uint32, uint32> m_loadingMaps;
 

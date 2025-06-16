@@ -46,10 +46,10 @@ void WorldSession::HandleSplitOpcode(WorldPacket& recv_data)
 
     int32 c = count;
     Item* i1 = _player->GetInventory()->GetInventoryItem(SrcInvSlot,SrcSlot);
-    if(!i1)
+    if(i1 == NULL)
         return;
-    Item* i2=_player->GetInventory()->GetInventoryItem(DstInvSlot,DstSlot);
 
+    Item* i2 = _player->GetInventory()->GetInventoryItem(DstInvSlot,DstSlot);
     if( (i1 && i1->IsWrapped()) || (i2 && i2->IsWrapped()) )
     {
         GetPlayer()->GetInventory()->BuildInventoryChangeError(i1, i2, INV_ERR_CANT_STACK);

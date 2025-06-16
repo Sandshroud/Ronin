@@ -111,6 +111,15 @@ enum MovementFlagsF : uint8
     MOVEMENTFLAG_MASK_F_ALL = 0xFF
 };
 
+enum NavigationFlags
+{
+    NAV_FLAG_GROUND,
+    NAV_FLAG_WATER,
+    NAV_FLAG_STEEP_GROUND,
+    NAV_FLAG_MAGMA_SLIME,
+    NAV_FLAG_ALL = 0x3F
+};
+
 enum MovementCodes : uint16
 {
     // Movement codes
@@ -387,6 +396,7 @@ public:
     bool isMoving() { return hasFlag(MOVEMENTFLAG_MASK_MOVING); }
     bool isTurning() { return hasFlag(MOVEMENTFLAG_MASK_TURNING); }
     bool isPitching() { return hasFlag(MOVEMENTFLAG_MASK_PITCHING); }
+    uint16 GetNavFlags() { return m_navigationFlags; }
 
     // Spline moving
     bool isSplineMovingActive();
@@ -646,6 +656,7 @@ protected: // Movement information
     bool m_isTransportLocked;
     WoWGuid m_moverGuid, m_transportGuid, m_clientGuid, m_clientTransGuid;
     uint8 m_movementFlagMask, m_movementFlags[6], m_serverFlags[6];
+    uint16 m_navigationFlags;
     LocationVector m_transportLocation, m_clientLocation, m_clientTransLocation;
     uint32 m_clientTime, m_serverTime, m_jumpTime, m_transportTime, m_transportTime2;
     int8 m_transportSeatId; uint32 m_vehicleId;

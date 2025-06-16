@@ -880,7 +880,7 @@ bool GMWarden::HandleNpcComeCommand(const char* args, WorldSession* m_session)
         return true;
     }
 
-    unit->MoveTo(m_session->GetPlayer()->GetPositionX(), m_session->GetPlayer()->GetPositionY(), m_session->GetPlayer()->GetPositionZ(), m_session->GetPlayer()->GetOrientation());
+    unit->GetMovementInterface()->GetPath()->MoveToPoint2(m_session->GetPlayer()->GetPositionX(), m_session->GetPlayer()->GetPositionY(), m_session->GetPlayer()->GetPositionZ(), m_session->GetPlayer()->GetOrientation());
     return true;
 }
 

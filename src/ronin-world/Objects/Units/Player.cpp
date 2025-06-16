@@ -3913,6 +3913,9 @@ bool Player::CanSee(WorldObject* obj) // * Invisibility & Stealth Detection - Pa
         return true;
     }
 
+    if((GetPhaseMask() & obj->GetPhaseMask()) == 0x0)
+        return false;
+
     switch(object_type) // we are alive or we haven't released our spirit yet
     {
         case TYPEID_PLAYER:

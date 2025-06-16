@@ -430,7 +430,7 @@ struct ItemSparseEntry
     uint32 RequiredCityRank;
     uint32 RequiredReputationFaction;
     uint32 RequiredReputationRank;
-    uint32 MaxCount;
+    int32 MaxCount;
     uint32 Stackable;
     uint32 ContainerSlots;
     int32  ItemStatType[10];
@@ -1944,7 +1944,7 @@ DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcManaRegenBase);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcSpellScalar);
 DBC_STORAGE_EXTERN_DBC_MACRO(gtFloat, dbcCombatRatingScaling);
 
-class TaskList;
+class ThreadTaskList;
 
 class DBCUnloader : public ThreadContext { public: bool run(); };
 class DBCLoader : public Singleton<DBCLoader>
@@ -1954,7 +1954,7 @@ public:
     DBCLoader() {};
     ~DBCLoader() {};
 
-    void FillDBCLoadList(TaskList &tl, const char* datapath, bool *result);
+    void FillDBCLoadList(ThreadTaskList &tl, const char* datapath, bool *result);
     static void StartCleanup() { sThreadManager.ExecuteTask("DBCCleanup", new DBCUnloader()); }
 
 private:

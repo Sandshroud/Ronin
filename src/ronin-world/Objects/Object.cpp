@@ -904,7 +904,7 @@ void WorldObject::Construct(WoWGuid guid, uint32 fieldCount)
 
     m_mapId = -1;
     m_wmoId = m_zoneId = m_areaId = 0;
-    m_phaseMask = 0xFFFF;
+    m_phaseMask = 0x0001;
     m_areaFlags = 0;
     m_lastMovementZone = 0;
     m_lastMovementArea = 0;

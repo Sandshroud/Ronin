@@ -196,6 +196,7 @@ source_group("Mainframe\\System" FILES ${sources})
 list(REMOVE_ITEM sources ${group_sources})
 #Set the rest of our file sources
 SET(SRCS ${SRCS} ${sources} ${group_sources} )
+
 #Set our precompiled header data
 include(PCHSupport)
 #Set our directories for includes

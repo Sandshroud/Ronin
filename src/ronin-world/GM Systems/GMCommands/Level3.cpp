@@ -1180,6 +1180,7 @@ bool GMWarden::HandleNpcReturnCommand(const char* args, WorldSession* m_session)
     if(!creature || !creature->IsSpawn()) 
         return true;
 
+    //creature->GetMovementInterface()->Resume();
     return true;
 }
 
@@ -2139,7 +2140,20 @@ bool GMWarden::HandleCollisionGetHeight(const char * args, WorldSession * m_sess
     if(plr == NULL)
         return true;
 
-    sChatHandler.SystemMessage(m_session, "Results: Curr pos: %f; Water: %f;", plr->GetGroundHeight(), plr->GetLiqHeight());
+    // Grab our ADT ground height before WMO checks
+    float ADTHeight = plr->GetMapInstance()->GetADTLandHeight(plr->GetPositionX(), plr->GetPositionY());
+
+    uint16 adtLiqType=0, vmoareaFlags=0, vmoLiquidType=0; // Grab our ADT liquid height before WMO checks
+    float ADTLiquid = plr->GetMapInstance()->GetADTWaterHeight(plr->GetPositionX(), plr->GetPositionY(), adtLiqType);
+
+    uint32 wmoID=0, areaId=0; // Grab our wmo height values
+    float groundHeight = NO_WMO_HEIGHT, liquidHeight = NO_WATER_HEIGHT;
+    sVMapInterface.GetWMOData(plr->GetMapInstance(), plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), wmoID, areaId, vmoareaFlags, groundHeight, vmoLiquidType, liquidHeight);
+
+    // NAvmesh
+    float navHeight = sNavMeshInterface.GetWalkingHeight(plr->GetMapId(), plr->GetPositionX(), plr->GetPositionY(), plr->GetPositionZ(), plr->GetGroundHeight());
+
+    sChatHandler.SystemMessage(m_session, "Results: Curr pos: %f; Water[%u]: %f; WMO[%u]:%u %u %f [%u]:%f; Nav %f;", ADTHeight, adtLiqType, ADTLiquid, wmoID, areaId, vmoareaFlags, groundHeight, vmoLiquidType, liquidHeight, navHeight);
     return true;
 }
 

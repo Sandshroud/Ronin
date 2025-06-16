@@ -26,14 +26,17 @@
 #include "stdlib.h"
 
 class ADTFile;
+struct MapCreationInfo;
 
 class WDTFile
 {
 private:
     MPQFile WDT;
     string filename;
+    MapCreationInfo *createInfo;
+
 public:
-    WDTFile(HANDLE mpqarchive, char* file_name, char* file_name1);
+    WDTFile(HANDLE mpqarchive, MapCreationInfo *info, char* file_name, char* file_name1);
     ~WDTFile(void);
     bool init(char* map_id, unsigned int mapID);
 

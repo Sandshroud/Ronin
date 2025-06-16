@@ -411,7 +411,7 @@ void ItemManager::LoadItemOverrides()
                 CHECK_OVERRIDE_VALUE(proto, RequiredFaction, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, RequiredFactionStanding, GetUInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, MaxCount, GetUInt32, field_Count, 0x02);
-                CHECK_OVERRIDE_VALUE(proto, Unique, GetUInt32, field_Count, 0x02);
+                CHECK_OVERRIDE_VALUE(proto, Unique, GetInt32, field_Count, 0x02);
                 CHECK_OVERRIDE_VALUE(proto, ContainerSlots, GetUInt32, field_Count, 0x02);
                 for(uint8 i = 0; i < 10; i++)
                 {
@@ -464,7 +464,15 @@ void ItemManager::LoadItemOverrides()
                 CHECK_OVERRIDE_VALUE(proto, StatScalingFactor, GetFloat, field_Count, 0x02);
 
                 if(overrideFlags > 0)
+                {
+                    // Add to our override list
                     m_overwritten.insert(std::make_pair(entry, overrideFlags));
+                    // Append override data to our override buffer
+                    m_overrideBuffer << uint32(((overrideFlags & 0x02) ? 0x50238EC2 : 0x919BE54E));
+                    m_overrideBuffer << uint32(sWorld.GetStartTime());
+                    m_overrideBuffer << entry;
+                }
+
                 proto = NULL;
                 overrideFlags = 0;
                 entry = field_Count = 0;
@@ -678,4 +686,20 @@ ItemPrototype* ItemManager::LookupEntry(uint32 entry)
     if(itr == itemPrototypeEnd())
         return NULL;
     return (*itr)->second;
+}
+
+void ItemManager::BuildHotfixOverrideList(WorldPacket &data)
+{
+    if(size_t count = HotfixOverridesSize())
+    {
+        data.WriteBits(count, 22);
+        data.FlushBits();
+        data.append(m_overrideBuffer.contents(), m_overrideBuffer.size());
+    }
+    else
+    {
+        // Write a null count
+        data.WriteBits<uint32>(0, 22);
+        data.FlushBits();
+    }
 }

@@ -26,7 +26,7 @@ extern SERVER_DECL SQLStorage<CreatureInfoExtra, HashMapStorageContainer<Creatur
 extern SERVER_DECL SQLStorage<GossipText, HashMapStorageContainer<GossipText> >                     NpcTextStorage;
 extern SERVER_DECL SQLStorage<PageText, HashMapStorageContainer<PageText> >                         PageTextStorage;
 
-void Storage_FillTaskList(TaskList & tl);
+void Storage_FillTaskList(ThreadTaskList & tl);
 void Storage_Cleanup();
 bool Storage_ReloadTable(const char * TableName);
 void Storage_LoadAdditionalTables();

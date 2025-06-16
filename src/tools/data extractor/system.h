@@ -26,17 +26,45 @@ enum ModelFlags
     MOD_HAS_BOUND = 1<<2
 };
 
+enum MapCompressionType : uint32
+{
+    MAP_RAW_TILES = 1,
+    MAP_RAW_CHUNKS,
+    MAP_COMPRESSED_TILES,
+    MAP_COMPRESSED_CHUNKS
+};
+
 extern const char * szWorkDirWmo;
 extern const char * szRawVMAPMagic;                         // vmap magic string for extracted raw vmap data
 
 extern HANDLE WorldMpq;
 extern HANDLE LocaleMpq;
 
+class WDTFile;
+class ADTFile;
+
+struct MapCreationInfo
+{
+    uint32 mapId;
+    WDTFile *WDT;
+
+    char fn[512], id[10], fileName[100], dirName[255];
+
+    ADTFile *chnkFiles[64][64];
+    ADTFile *WDTFiles[64][64];
+
+    VMAP::ModelSpawnMap modelSpawns;
+    VMAP::TiledModelSpawnMap tileModelSpawnSets;
+};
+
 bool GetMPQHandle(const char* file, HANDLE &mpqhandle);
+// Thread Unsafe
 bool FileExists(const char * file);
+// Thread safe
+bool WMOExists(const char * file);
 void strToLower(char* str);
 
-bool ExtractSingleWmo(HANDLE mpqArchive, std::string& fname);
-bool ExtractSingleModel(std::string& fname);
+int ExtractSingleWmo(HANDLE mpqArchive, std::string& fname);
+int ExtractSingleModel(std::string& fname);
 
 void ExtractGameobjectModels();

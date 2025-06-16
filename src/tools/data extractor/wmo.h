@@ -39,6 +39,7 @@
 class WMOInstance;
 class WMOManager;
 class MPQFile;
+struct MapCreationInfo;
 
 /* for whatever reason a certain company just can't stick to one coordinate system... */
 static inline Vec3D fixCoords(const Vec3D &v){ return Vec3D(v.z, v.x, v.y); }
@@ -122,10 +123,10 @@ public:
     int currx;
     int curry;
     WMOGroup* wmo;
-    int doodadset;
-    uint32 indx, id, d2, d3;
+    uint32 indx, id;
+    uint16 flags,doodadGroup,adtId,scale;
 
-    WMOInstance(MPQFile&f , char const* WmoInstName, uint32 mapID, uint32 tileX, uint32 tileY);
+    WMOInstance(MPQFile&f , MapCreationInfo *info, char const* WmoInstName, bool adt, uint32 mapID, uint32 tileX, uint32 tileY);
 
     static void reset();
 };

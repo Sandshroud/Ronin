@@ -419,24 +419,7 @@ void WorldSocket::Authenticate()
     SendPacket(&data);
 
     data.Initialize(SMSG_HOTFIX_NOTIFY, 12); // Blop or not, client will accept the info
-    if(size_t count = sItemMgr.HotfixOverridesSize())
-    {
-        data.WriteBits(count, 22);
-        data.FlushBits();
-
-        for(std::map<uint32, uint8>::iterator itr = sItemMgr.HotfixOverridesBegin(); itr != sItemMgr.HotfixOverridesEnd(); itr++)
-        {
-            data << uint32(((itr->second & 0x02) ? 0x50238EC2 : 0x919BE54E));
-            data << uint32(sWorld.GetStartTime());
-            data << itr->first;
-        }
-    }
-    else
-    {
-        // Write a null count
-        data.WriteBits<uint32>(0, 22);
-        data.FlushBits();
-    }
+    sItemMgr.BuildHotfixOverrideList(data);
     SendPacket(&data);
 
     data.Initialize(SMSG_TUTORIAL_FLAGS, 4 * 8);

@@ -25,9 +25,6 @@
 #include <algorithm>
 #include <cstdio>
 
-extern VMAP::ModelSpawnMap modelSpawns;
-extern VMAP::TiledModelSpawnMap tileModelSpawnSets;
-
 Model::Model(std::string &filename) : filename(filename), vertices(0), indices(0)
 {
     memset(&header, 0, sizeof(header));
@@ -71,6 +68,7 @@ bool Model::open(HANDLE mpqarchive)
 
 bool Model::ConvertToVMAPModel(const char * outfilename)
 {
+    Guard fileGuard(fileLock);
     int N[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
     FILE* output=fopen(outfilename, "wb");
     if (!output)
@@ -130,7 +128,7 @@ Vec3D fixCoordSystem2(Vec3D v)
     return Vec3D(v.x, v.z, v.y);
 }
 
-ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID, uint32 tileX, uint32 tileY)
+ModelInstance::ModelInstance(MPQFile& f, MapCreationInfo *info, char const* ModelInstName, uint32 mapID, uint32 tileX, uint32 tileY)
 {
     float ff[3];
     f.read(&id, 4);
@@ -145,6 +143,8 @@ ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID
 
     char tempname[512];
     sprintf(tempname, "%s/%s", szWorkDirWmo, ModelInstName);
+
+    Guard fileGuard(fileLock);
     FILE* input = NULL;
     fopen_s(&input, tempname, "r+b");
     if (input == NULL)
@@ -168,6 +168,6 @@ ModelInstance::ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID
     spawn.iBound = G3D::AABox::zero();
     spawn.name = ModelInstName;
 
-    modelSpawns.insert(std::make_pair(id, spawn));
-    tileModelSpawnSets[spawn.packedTile].insert(id);
+    info->modelSpawns.insert(std::make_pair(id, spawn));
+    info->tileModelSpawnSets[spawn.packedTile].insert(id);
 }

@@ -126,7 +126,7 @@ DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemDataEntry, db2Item);
 static const char *itemFormat = "uuuiiuuu";
 
 DECLARE_CLASS_INTERNAL_DB2_MACRO(ItemSparseEntry, db2ItemSparse);
-static const char *itemsparseFormat = "uuuuffuuuuiiuiuuuuuuuuuuiiiiiiiiiiuuuuuuuuuuiiiiiiiiiiiiiiiiiiiiuuufiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiusssssuuuuuiuuuuuuuuuuuuuuiufuuufii";
+static const char *itemsparseFormat = "uuuuffuuuuiiuiuuuuuuuiuuiiiiiiiiiiuuuuuuuuuuiiiiiiiiiiiiiiiiiiiiuuufiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiusssssuuuuuiuuuuuuuuuuuuuuiufuuufii";
 
 DECLARE_CLASS_INTERNAL_DBC_MACRO(ArmorLocationEntry, dbcArmorLocation);
 static const char *armorlocationFormat = "ufffff";
@@ -449,10 +449,10 @@ uint32 SpellEntry::IsSpellTeachingSkill(uint8 effectMask, uint8 *returnIndex)
 #ifdef DISABLE_DBC_MULTILOADING
 #define ADD_LOAD_DB(filename, format, stor) LoadDBC(result, filename, format, &stor)
 #else
-#define ADD_LOAD_DB(filename, format, stor) tl.AddTask(new Task(new CallbackP4<DBCLoader, bool*, std::string, const char*, decltype(stor)*>(this, &DBCLoader::LoadDBC, result, filename, format, &stor)))
+#define ADD_LOAD_DB(filename, format, stor) tl.AddTask(new CallbackP4<DBCLoader, bool*, std::string, const char*, decltype(stor)*>(this, &DBCLoader::LoadDBC, result, filename, format, &stor))
 #endif
 
-void DBCLoader::FillDBCLoadList(TaskList &tl, const char* datapath, bool *result)
+void DBCLoader::FillDBCLoadList(ThreadTaskList &tl, const char* datapath, bool *result)
 {
     ADD_LOAD_DB(format("%s/Achievement.dbc", datapath), achievementFormat, dbcAchievement);
     ADD_LOAD_DB(format("%s/Achievement_Criteria.dbc", datapath), achievementcriteriaFormat, dbcAchievementCriteria);

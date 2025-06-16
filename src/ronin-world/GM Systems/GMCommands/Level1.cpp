@@ -135,8 +135,17 @@ bool GMWarden::HandleGPSCommand(const char* args, WorldSession *m_session)
     snprintf((char*)buf, 256, "|cffffffff WMO: |cff00ff00[%u]%s |r", obj->GetWMOId(), "");
     sChatHandler.SystemMessage(m_session, buf);
 
-    snprintf((char*)buf, 256, "|cffffffff Area: |cff00ff00%u |cffffffffZone: |cff00ff00%u |cffffffffAreaFlags: |cff00ff00%u |cffffffffX: |cff00ff00%f |cffffffffY: |cff00ff00%f |cffffffffZ: |cff00ff00%f |cffffffffOrientation: |cff00ff00%f|r", obj->GetAreaId(), obj->GetZoneId(), obj->GetAreaFlags(), obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ(), obj->GetOrientation());
+    uint32 areaId = obj->GetAreaId(), zoneId = obj->GetZoneId(), areaFlags = obj->GetAreaFlags();
+    snprintf((char*)buf, 256, "|cffffffff Area: |cff00ff00%u |cffffffffZone: |cff00ff00%u |cffffffffAreaFlags: |cff00ff00%u |cffffffffX: |cff00ff00%f |cffffffffY: |cff00ff00%f |cffffffffZ: |cff00ff00%f |cffffffffOrientation: |cff00ff00%f|r", areaId, zoneId, areaFlags, obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ(), obj->GetOrientation());
     sChatHandler.SystemMessage(m_session, buf);
+
+    AreaTableEntry *areaEntry, *zoneEntry;
+    // Grab our areatable entry to see if we have or are a zone
+    if ((areaEntry = dbcAreaTable.LookupEntry(areaId)) && (zoneEntry = dbcAreaTable.LookupEntry(zoneId)))
+    {
+        snprintf((char*)buf, 256, "|cffffffff Areaname: |cff00ff00[%s] |cffffffff Zonename: |cff00ff00[%s] |r", areaEntry->name, zoneEntry->name);
+        sChatHandler.SystemMessage(m_session, buf);
+    }
 
     return true;
 }

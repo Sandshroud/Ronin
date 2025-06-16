@@ -19,7 +19,7 @@
 
 #pragma once
 
-typedef MMapManagerExt*(*mmap_manager_construction)(std::string dataDir, unsigned int mapId);
+typedef MMapManagerExt*(*mmap_manager_construction)(const char *dataDir, unsigned int mapId);
 
 class SERVER_DECL CNavMeshInterface : public Singleton<CNavMeshInterface>
 {

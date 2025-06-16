@@ -21,20 +21,60 @@
 
 #pragma once
 
-typedef struct
-{
-    uint16 areaInfo[16][16];
-    float V8[128][128], V9[129][129];
-
-    uint16 liquidType[16][16];
-    float liquidHeight[16][16], L9[144][144];
-}TileTerrainInformation;
-
 static const uint32 terrainHeaderSize = sizeof(uint32)*64*64; // size of [64][64] array.
-static const char *heightMapHeader = "HMAP434_1";
+static const char *heightMapHeader = "HMAP434_2";
+
 #define NO_LAND_HEIGHT 999999.0f
 #define NO_WATER_HEIGHT -50000.0f
-#define TERRAIN_TILE_SIZE 533.33333f
+
+#define TERRAIN_TILE_SIZE 533.3333f
+
+#define TILE_COUNT 64
+#define CHUNK_COUNT 64*16
+#define MAP_SCALE 64*16*9
+
+enum MapCompressionType : uint32
+{
+    MAP_RAW_TILES = 1,
+    MAP_RAW_CHUNKS,
+    MAP_COMPRESSED_TILES,
+    MAP_COMPRESSED_CHUNKS,
+    MAP_COMPRESSED_MAX
+};
+
+#define MAP_HEIGHT_NO_HEIGHT    0x0001
+#define MAP_HEIGHT_AS_INT16     0x0002
+#define MAP_HEIGHT_AS_INT8      0x0004
+#define MAP_HEIGHT_INVALID      0x00FF
+
+class MapDataLoader
+{
+    uint32 loadCounter;
+public:
+    MapDataLoader() : loadCounter(0) {};
+    ~MapDataLoader() {};
+
+    virtual bool LoadMapInforation(uint32 x, uint32 y, FILE *input, uint32 compressionType)
+    {
+        ++loadCounter;
+        return true;
+    }
+
+    bool UnloadData()
+    {
+        if(loadCounter--)
+            return false;
+        return true;
+    }
+
+    virtual uint16 GetAreaId(float x, float y) = 0;
+    virtual float GetTerrainHeight(float x, float y) = 0;
+
+    virtual uint16 GetWaterType(float x, float y) = 0;
+    virtual float GetWaterHeight(float x, float y) = 0;
+
+    virtual bool CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &areaId) = 0;
+};
 
 /* @class TerrainMgr
 
@@ -98,7 +138,7 @@ public:
       */
     float  GetLandHeight(float x, float y);
     float  GetWaterHeight(float x, float y);
-    uint8  GetWaterType(float x, float y);
+    uint16  GetWaterType(float x, float y);
     uint8  GetWalkableState(float x, float y);
     uint16 GetAreaID(float x, float y);
     bool CellHasAreaID(uint32 x, uint32 y, uint16 &AreaID);
@@ -120,13 +160,19 @@ private:
     std::map<std::pair<uint8, uint8>, uint32> m_tileOffsets;
 
     /// Load counter
-    uint32 LoadCounter[64][64];
+    uint32 LoadCounter[TILE_COUNT][TILE_COUNT];
 
     /// Our storage array. This contains pointers to all allocated TileInfo's.
-    std::map<std::pair<uint8, uint8>, TileTerrainInformation> tileInformation;
+    std::map<std::pair<uint8, uint8>, MapDataLoader*> tileInformation;
+    
+    /// Potential implementation
+    MapDataLoader *m_dataLoader;
 
     /// Our vmap management offset, stored for later activation
     uint32 m_vmapOffset;
+
+    /// Our map tiles can be compressed or decompressed for debug purposes
+    uint32 mapCompessionType;
 
 public:
     /* Initializes the file descriptor and readys it for data retreival.
@@ -189,15 +235,222 @@ protected:
        Parameter 2: tile y co-ordinate.
        Returns the memory address of the information for that tile.
       */
-    RONIN_INLINE TileTerrainInformation* GetTileInformation(uint32 x, uint32 y)
+    RONIN_INLINE MapDataLoader* GetTileInformation(uint32 x, uint32 y)
     {
         std::pair<uint8, uint8> tilePair = std::make_pair(x, y);
         if(tileInformation.find(tilePair) == tileInformation.end())
             return NULL;
-        return &tileInformation.at(tilePair);
+        return tileInformation.at(tilePair);
     }
 
     /* Checks whether a tile information is loaded or not.
       */
     RONIN_INLINE bool _TileInformationLoaded(uint32 x, uint32 y) { return tileInformation.find(std::make_pair(x, y)) != tileInformation.end(); }
+};
+
+class MapRawTileDataLoader : public MapDataLoader
+{
+private:
+    static const int CHUNK_SIZE = 16;
+    static const int CHUNK_SIZE_SQ = CHUNK_SIZE*CHUNK_SIZE;
+
+    static const int V9_SIZE = (CHUNK_SIZE*8)+1;
+    static const int V9_SIZE_SQ = V9_SIZE*V9_SIZE;
+    static const int V8_SIZE = CHUNK_SIZE*8;
+    static const int V8_SIZE_SQ = V8_SIZE*V8_SIZE;
+
+public:
+    MapRawTileDataLoader();
+    ~MapRawTileDataLoader();
+
+    bool LoadMapInforation(uint32 x, uint32 y, FILE *input, uint32 compressionType);
+
+    uint16 GetAreaId(float x, float y);
+    float GetTerrainHeight(float x, float y);
+
+    uint16 GetWaterType(float x, float y);
+    float GetWaterHeight(float x, float y);
+
+    bool CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &areaId);
+
+private:
+    uint16 areaInfo[CHUNK_SIZE*CHUNK_SIZE];
+    uint16 liquidType[CHUNK_SIZE*CHUNK_SIZE];
+
+    float V8[V8_SIZE*V8_SIZE], V9[V9_SIZE*V9_SIZE];
+    float liquidHeight[V9_SIZE*V9_SIZE];
+};
+
+class MapRawChunkDataLoader : public MapDataLoader
+{
+private:
+    static const int CHUNK_SIZE = 16;
+    static const int CHUNK_SIZE_SQ = CHUNK_SIZE*CHUNK_SIZE;
+
+    static const int V9_SIZE = 9;
+    static const int V9_SIZE_SQ = V9_SIZE*V9_SIZE;
+    static const int V8_SIZE = 8;
+    static const int V8_SIZE_SQ = V8_SIZE*V8_SIZE;
+
+public:
+    MapRawChunkDataLoader();
+    ~MapRawChunkDataLoader();
+
+    bool LoadMapInforation(uint32 x, uint32 y, FILE *input, uint32 compressionType);
+
+    uint16 GetAreaId(float x, float y);
+    float GetTerrainHeight(float x, float y);
+
+    uint16 GetWaterType(float x, float y);
+    float GetWaterHeight(float x, float y);
+
+    bool CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &areaId);
+
+private:
+
+    uint16 areaInfo[CHUNK_SIZE][CHUNK_SIZE];
+    uint16 liquidType[CHUNK_SIZE][CHUNK_SIZE];
+    struct chunkInfo
+    {
+        float cxpos, cypos;
+        float T8[V8_SIZE][V8_SIZE], T9[V9_SIZE][V9_SIZE];
+        float liquidHeight[V9_SIZE][V9_SIZE];
+    }mChunkInfo[CHUNK_SIZE][CHUNK_SIZE];
+};
+
+class MapRawDataLoader : public MapDataLoader
+{
+private:
+    static const int CHUNK_SIZE = 16;
+    static const int DATA_SIZE = TILE_COUNT*CHUNK_SIZE;
+    static const int DATA_SIZE_SQ = DATA_SIZE*DATA_SIZE;
+    static const int DATA_CENTER_ID = DATA_SIZE/2;
+
+    static const float DATA_CHUNK_SIZE;
+    static const float DATA_CHUNK_V8_SIZE;
+    static const float DATA_CHUNK_V9_SIZE;
+
+    static const int V9_SIZE = (DATA_SIZE*8)+1;
+    static const int V9_SIZE_SQ = V9_SIZE*V9_SIZE;
+    static const int V8_SIZE = DATA_SIZE*8;
+    static const int V8_SIZE_SQ = V8_SIZE*V8_SIZE;
+
+    static const int READ_CHUNK_SIZE = 16;
+    static const int READ_CHUNK_SIZE_SQ = READ_CHUNK_SIZE*READ_CHUNK_SIZE;
+
+    static const int READ_V9_SIZE = 9;
+    static const int READ_V9_SIZE_SQ = READ_V9_SIZE*READ_V9_SIZE;
+    static const int READ_V8_SIZE = 8;
+    static const int READ_V8_SIZE_SQ = READ_V8_SIZE*READ_V8_SIZE;
+public:
+    MapRawDataLoader();
+    ~MapRawDataLoader();
+
+    bool LoadMapInforation(uint32 x, uint32 y, FILE *input, uint32 compressionType);
+
+    uint16 GetAreaId(float x, float y);
+    float GetTerrainHeight(float x, float y);
+
+    uint16 GetWaterType(float x, float y);
+    float GetWaterHeight(float x, float y);
+
+    bool CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &areaId);
+
+private:
+    std::map<uint32, std::map<uint32, uint16>> m_areaInfo, m_liquidInfo;
+
+    struct heightPlane
+    {
+        float xmin[8][8], xmax[8][8];
+        float ymin[8][8], ymax[8][8];
+
+        enum heights
+        {
+            TOP_LEFT = 0,
+            TOP_RIGHT = 1,
+            BOTTOM_LEFT = 2,
+            BOTTOM_RIGHT = 3,
+            CENTER = 4,
+            MAX
+        };
+        float Theight[8][8][heights::MAX];
+        float Lheight[8][8][heights::MAX];
+
+        void init()
+        {
+            memset(&xmin, 0, sizeof(float)*8*8);
+            memset(&xmax, 0, sizeof(float)*8*8);
+            memset(&ymin, 0, sizeof(float)*8*8);
+            memset(&ymax, 0, sizeof(float)*8*8);
+            memset(&Theight, 0, sizeof(float)*8*8*heights::MAX);
+            memset(&Lheight, 0, sizeof(float)*8*8*heights::MAX);
+        }
+
+        bool isInPlane(uint8 tx, uint8 ty, float x, float y)
+        {
+            return x > xmin[tx][ty] && x < xmax[tx][ty] && y > ymin[tx][ty] && y < ymax[tx][ty];
+        }
+    }; //std::map<uint32, std::map<uint32, heightPlane>> m_heightPlanes;
+
+    struct heightPlaneStack
+    {
+        float xmin[16][16], xmax[16][16];
+        float ymin[16][16], ymax[16][16];
+
+        void init()
+        {
+            memset(&xmin, 0, sizeof(float)*16*16);
+            memset(&xmax, 0, sizeof(float)*16*16);
+            memset(&ymin, 0, sizeof(float)*16*16);
+            memset(&ymax, 0, sizeof(float)*16*16);
+            for(uint8 x = 0; x < 16; x++)
+                for(uint8 y = 0; y < 16; y++)
+                    _heightPlanes[x][y].init();
+        }
+
+        bool isInPlane(uint8 tx, uint8 ty, float x, float y)
+        {
+            return x > xmin[tx][ty] && x < xmax[tx][ty] && y > ymin[tx][ty] && y < ymax[tx][ty];
+        }
+
+        heightPlane _heightPlanes[16][16];
+    }m_heightPlanes;
+};
+
+class MapCompressedChunkDataLoader : public MapDataLoader
+{
+private:
+    static const int CHUNK_SIZE = 16;
+    static const int CHUNK_SIZE_SQ = CHUNK_SIZE*CHUNK_SIZE;
+
+    static const int V9_SIZE = (CHUNK_SIZE*8)+1;
+    static const int V9_SIZE_SQ = V9_SIZE*V9_SIZE;
+    static const int V8_SIZE = CHUNK_SIZE*8;
+    static const int V8_SIZE_SQ = V8_SIZE*V8_SIZE;
+
+    static const float DATA_CHUNK_V8_SIZE;
+
+public:
+    MapCompressedChunkDataLoader();
+    ~MapCompressedChunkDataLoader();
+
+    bool LoadMapInforation(uint32 x, uint32 y, FILE *input, uint32 compressionType);
+
+    uint16 GetAreaId(float x, float y);
+    float GetTerrainHeight(float x, float y);
+
+    uint16 GetWaterType(float x, float y);
+    float GetWaterHeight(float x, float y);
+
+    bool CellHasAreaID(uint32 CellX, uint32 CellY, uint16 &areaId);
+
+private:
+    uint16 areaInfo[CHUNK_SIZE][CHUNK_SIZE];
+    float data_V8[V8_SIZE][V8_SIZE], data_V9[V9_SIZE][V9_SIZE], data_L9[V9_SIZE][V9_SIZE];
+
+    struct LiquidChunk
+    {
+        uint16 type;
+        float minHeight;
+    } *m_liquidChunk[CHUNK_SIZE][CHUNK_SIZE];
 };

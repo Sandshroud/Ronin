@@ -67,3 +67,9 @@
 
 // Thread safe console log
 #include "ConsoleLog.h"
+
+// Thread Task
+#include "ThreadTask.h"
+
+// Thread Task List
+#include "ThreadTaskList.h"

@@ -134,6 +134,8 @@ void TransportMgr::ProcessTransports(uint32 uiDiff)
 
 void TransportMgr::PreloadMapInstance(uint32 msTime, MapInstance *instance, uint32 mapId)
 {
+    return;
+
     for(auto itr = m_transportDataStorage.begin(); itr != m_transportDataStorage.end(); ++itr)
     {
         TransportData *transData = itr->second;

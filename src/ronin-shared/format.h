@@ -48,33 +48,25 @@ RONIN_INLINE std::string vformat(const char *fmt, va_list argPtr)
 
     // MSVC does not support va_copy
     int actualSize = _vscprintf(fmt, argPtr) + 1;
-
     if (actualSize > bufSize)
     {
-        // Now use the heap.
-        char* heapBuffer = NULL;
-
-        if (actualSize < maxSize)
+        int fullSize = actualSize >= maxSize ? maxSize + 1 : actualSize;
+        if(fullSize)
         {
-            heapBuffer = (char*)malloc(maxSize + 1);
-            _vsnprintf(heapBuffer, maxSize, fmt, argPtr);
-            heapBuffer[maxSize] = '\0';
+            // Now use the heap.
+            if(char* heapBuffer = (char*)malloc(fullSize))
+            {
+                std::string result;
+                if(_vsnprintf(heapBuffer, fullSize, fmt, argPtr))
+                    result.append(heapBuffer);
+                free(heapBuffer);
+                return result;
+            }
         }
-        else
-        {
-            heapBuffer = (char*)malloc(actualSize);
-            vsprintf(heapBuffer, fmt, argPtr);
-        }
+    }
 
-        std::string formattedString(heapBuffer);
-        free(heapBuffer);
-        return formattedString;
-    }
-    else
-    {
-        vsprintf(stackBuffer, fmt, argPtr);
-        return std::string(stackBuffer);
-    }
+    vsprintf(stackBuffer, fmt, argPtr);
+    return std::string(stackBuffer);
 }
 
 #elif defined(_MSC_VER) && (_MSC_VER < 1300) && PLATFORM == PLATFORM_WIN

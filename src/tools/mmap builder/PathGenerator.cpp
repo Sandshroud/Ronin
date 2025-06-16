@@ -234,9 +234,14 @@ int finish(const char* message, int returnValue)
     return returnValue;
 }
 
+void OnCrash(bool Terminate)
+{
+
+}
+
 int main(int argc, char** argv)
 {
-    int threads = 3, mapnum = -1;
+    int threads = 8, mapnum = -1;
     float maxAngle = 55.0f;
     int tileX = -1, tileY = -1;
     bool skipLiquid = false,

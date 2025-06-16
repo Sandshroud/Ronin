@@ -97,9 +97,17 @@ namespace MMAP
                 float bmax[3],
                 dtNavMesh* navMesh);
 
-            void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY,
+            // move map building
+            void buildMoveMapTile(G3D::uint32 mapID,
+                G3D::uint32 tileX, G3D::uint32 tileY,
+                MapLoadData &loadData,
+                float bmin[3], float bmax[3], dtNavMesh* navMesh);
+
+            static void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY,
                 float* verts, int vertCount,
                 float* bmin, float* bmax);
+
+            void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData, float* bmin, float* bmax);
             void getGridBounds(G3D::uint32 mapID, G3D::uint32 &minX, G3D::uint32 &minY, G3D::uint32 &maxX, G3D::uint32 &maxY);
 
             bool shouldSkipMap(G3D::uint32 mapID);
@@ -121,21 +129,6 @@ namespace MMAP
 
             // build performance - not really used for now
             rcContext* m_rcContext;
-    };
-
-    class MapBuildRequest
-    {
-        public:
-            MapBuildRequest(G3D::uint32 mapId) : _mapId(mapId) {}
-
-            virtual int call()
-            {
-                /// @ Actually a creative way of unabstracting the class and returning a member variable
-                return (int)_mapId;
-            }
-
-        private:
-            G3D::uint32 _mapId;
     };
 }
 

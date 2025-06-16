@@ -106,7 +106,7 @@ Position CNavMeshInterface::BuildPath(uint32 mapid, float startx, float starty, 
 PositionMapContainer* CNavMeshInterface::BuildFullPath(Unit* m_Unit, uint32 mapid, float startx, float starty, float startz, float &endx, float &endy, float &endz, bool straight)
 {
     if(MMapManagerExt* mmap = GetOrCreateMMapManager(mapid))
-        return mmap->BuildFullPath(m_Unit->canFly(), startx, starty, startz, endx, endy, endz, straight);
+        return mmap->BuildFullPath(m_Unit->GetMovementInterface()->GetNavFlags(), startx, starty, startz, endx, endy, endz, straight);
     return NULL;
 }
 
@@ -117,5 +117,6 @@ float CNavMeshInterface::GetWalkingHeight(uint32 mapid, float x, float y, float 
     if(MMapManagerExt* mmap = GetOrCreateMMapManager(mapid))
         if(mmap->GetWalkingHeightInternal(x, y, z, z2, Step))
             height = Step.z;
+    printf("Point %f %f %f\n", Step.x, Step.y, Step.z);
     return height;
 }

@@ -18,6 +18,7 @@
 #pragma once
 
 #include "SharedDependencyDefines.h"
+//#include "threading\Threading.h"
 #include "MMapManagerExt.h"
 
 #define MMAP_MAGIC 0x4d4d4150   // 'MMAP'
@@ -54,13 +55,14 @@ public:
 
 private:
     std::string m_dataPath;
-//  Mutex m_Lock; // One day we'll need this, but for now, it's our silent knight, always watching...
+    //Mutex m_lock;
     uint32 ManagerMapId;
     dtNavMesh* m_navMesh;
     dtNavMeshQuery* m_navMeshQuery;
     dtTileRef lastTileRef;
     ReferenceMap TileReferences;
     ReverseReferenceMap TileLoadCount;
+    std::map<uint32, uint32> m_tileOffsets;
     uint32 packTileID(int32 x, int32 y) { return uint32(x << 16 | y); };
 
 public:

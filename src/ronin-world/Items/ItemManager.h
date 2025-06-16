@@ -49,7 +49,7 @@ struct ItemPrototype
     uint32 RequiredFaction;
     uint32 RequiredFactionStanding;
     uint32 MaxCount;
-    uint32 Unique;
+    int32 Unique;
     uint32 ContainerSlots;
     struct ItemStat
     {
@@ -170,11 +170,13 @@ public:
     std::map<uint32, uint8>::iterator HotfixOverridesBegin() { return m_overwritten.begin(); }
     std::map<uint32, uint8>::iterator HotfixOverridesEnd() { return m_overwritten.end(); }
     size_t HotfixOverridesSize() { return m_overwritten.size(); }
+    void BuildHotfixOverrideList(WorldPacket &data);
 
 private:
     iterator itemPrototypeFind(uint32 entry) { return iterator(m_itemPrototypeContainer.find(entry)); }
     std::map<uint32, ItemPrototype*> m_itemPrototypeContainer;
     std::map<uint32, uint8> m_overwritten;
+    ByteBuffer m_overrideBuffer;
 };
 
 #define sItemMgr ItemManager::getSingleton()

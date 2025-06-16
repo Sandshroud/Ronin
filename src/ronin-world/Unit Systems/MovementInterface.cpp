@@ -34,6 +34,8 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_clientGuid(
     for(uint8 i = 0; i < MOVEMENT_STATUS_MAX; i++)
         m_pendingEnable[i] = false;
 
+    m_navigationFlags = NAV_FLAG_ALL;
+
     // Sizeof1
     memset(m_movementFlags, 0, sizeof(uint8)*6);
     memset(m_serverFlags, 0, sizeof(uint8)*6);

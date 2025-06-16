@@ -14,7 +14,7 @@ include_directories( ${GLOBAL_INCLUDE_DIRS} )
 link_directories( ${EXTRA_LIBS_PATH} ${DEPENDENCY_LIBS} )
 add_executable( ${PROJECT_NAME} ${SRCS} )
 add_dependencies( ${PROJECT_NAME} bzip2 pcre zlib threading stormlib g3dlite vmaplib )
-target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} bzip2 pcre zlib threading stormlib g3dlite vmaplib )
+target_link_libraries( ${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} bzip2 pcre zlib threading stormlib g3dlite vmaplib ${EXTRA_LIBS} )
 #Set the solution folder to tools
 SET_PROPERTY(TARGET DataExtractor PROPERTY FOLDER "Tools")
 #Set the output folder to bin/tools

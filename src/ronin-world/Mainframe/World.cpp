@@ -538,55 +538,6 @@ void World::AddGlobalSession(WorldSession *session)
     m_sessionLock.Release();
 }
 
-bool BasicTaskExecutor::run()
-{
-    /* Set thread priority, this is a bitch for multiplatform :P */
-#ifdef WIN32
-    switch(priority)
-    {
-    case BTE_PRIORITY_LOW:
-        ::SetThreadPriority( ::GetCurrentThread(), THREAD_PRIORITY_LOWEST );
-        break;
-
-    case BTW_PRIORITY_HIGH:
-        ::SetThreadPriority( ::GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL );
-        break;
-
-    default:        // BTW_PRIORITY_MED
-        ::SetThreadPriority( ::GetCurrentThread(), THREAD_PRIORITY_NORMAL );
-        break;
-    }
-#else
-    struct sched_param param;
-    switch(priority)
-    {
-    case BTE_PRIORITY_LOW:
-        param.sched_priority = 0;
-        break;
-
-    case BTW_PRIORITY_HIGH:
-        param.sched_priority = 10;
-        break;
-
-    default:        // BTW_PRIORITY_MED
-        param.sched_priority = 5;
-        break;
-    }
-    pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
-#endif
-
-    // Execute the task in our new context.
-    cb->execute();
-#ifdef WIN32
-    ::SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_NORMAL);
-#else
-    param.sched_priority = 5;
-    pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
-#endif
-
-    return true;
-}
-
 uint32 World::GetWeekDay()
 {
     uint32 ret = 0;
@@ -611,16 +562,16 @@ bool World::SetInitialWorldSettings()
     new DBCLoader();
 
     // Fill the task list with jobs to do.
-    TaskList tl; bool dbcResult = true;
+    ThreadTaskList tl(8); bool dbcResult = true;
 
     // Fill tasklist with load tasks
     sDBCLoader.FillDBCLoadList(tl, DBCPath.c_str(), &dbcResult);
 
     // spawn worker threads (2 * number of cpus)
-    tl.spawn();
+    tl.spawn("World", "Server startup spawned", mainIni->ReadBoolean("Startup", "EnableMultithreadedLoading", true));
 
     // Wait for our DBCs to be finished loading
-    tl.wait();
+    tl.wait(UNIXTIME, g_localTime);
 
     if( !dbcResult)
     {
@@ -669,7 +620,7 @@ bool World::SetInitialWorldSettings()
 
     Storage_FillTaskList(tl);
 
-#define MAKE_TASK(sp, ptr) tl.AddTask(new Task(new CallbackP0<sp>(sp::getSingletonPtr(), &sp::ptr)))
+#define MAKE_TASK(sp, ptr) tl.AddTask(new CallbackP0<sp>(sp::getSingletonPtr(), &sp::ptr))
     MAKE_TASK(TaxiMgr, Initialize);
     MAKE_TASK(ItemManager, InitializeItemPrototypes);
     MAKE_TASK(CreatureDataManager, LoadFromDB);
@@ -680,7 +631,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, HashWMOAreaTables);
     MAKE_TASK(ObjectMgr, SetHighestGuids);
 
-    tl.wait(); // Load all the storage first
+    tl.wait(UNIXTIME, g_localTime); // Load all the storage first
     MAKE_TASK(WorldManager, ParseMapDBCFiles);
     MAKE_TASK(SpellManager, PoolSpellData);
     sWorldMgr.LoadMapTileData(tl);
@@ -690,7 +641,7 @@ bool World::SetInitialWorldSettings()
 
     Storage_LoadAdditionalTables();
 
-    sThreadManager.ExecuteTask("TaskExecutor", new BasicTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), BTE_PRIORITY_MED));
+    sThreadManager.ExecuteTask("TaskExecutor", new ThreadTaskExecutor(new CallbackP0<ObjectMgr>(ObjectMgr::getSingletonPtr(), &ObjectMgr::LoadPlayersInfo), TTE_PRIORITY_MED));
 
     MAKE_TASK(CreatureDataManager, LoadCreatureSpells);
     MAKE_TASK(GroupFinderMgr, LoadFromDB);
@@ -698,7 +649,7 @@ bool World::SetInitialWorldSettings()
     MAKE_TASK(ObjectMgr, LoadPlayerCreateInfo);
     MAKE_TASK(ObjectMgr, ProcessTitles);
     MAKE_TASK(ObjectMgr, ProcessCreatureFamilies);
-    tl.wait();
+    tl.wait(UNIXTIME, g_localTime);
 
     MAKE_TASK(SpellManager, LoadSpellFixes);
     MAKE_TASK(SpellProcManager, InitProcData);
@@ -720,7 +671,7 @@ bool World::SetInitialWorldSettings()
 #undef MAKE_TASK
 
     // wait for all loading to complete.
-    tl.wait();
+    tl.wait(UNIXTIME, g_localTime);
 
     // start mail system
     sLog.Notice("World","Starting Mail System...");
@@ -736,7 +687,7 @@ bool World::SetInitialWorldSettings()
     sWorldMgr.Load(&tl);
 
     // wait for the events to complete.
-    tl.wait();
+    tl.wait(UNIXTIME, g_localTime);
 
     // wait for them to exit, now.
     tl.kill();
@@ -754,7 +705,7 @@ bool World::SetInitialWorldSettings()
         sLog.Notice("World", "Background loot loading...");
 
         // loot background loading in a lower priority thread.
-        sThreadManager.ExecuteTask("LootLoader", new BasicTaskExecutor(new CallbackP0<LootMgr>(LootMgr::getSingletonPtr(), &LootMgr::LoadDelayedLoot), BTE_PRIORITY_LOW));
+        sThreadManager.ExecuteTask("LootLoader", new ThreadTaskExecutor(new CallbackP0<LootMgr>(LootMgr::getSingletonPtr(), &LootMgr::LoadDelayedLoot), TTE_PRIORITY_LOW));
     }
     else
     {
@@ -1512,132 +1463,6 @@ bool World::BuildMoTDPacket(WorldSession *session, WorldPacket *packet)
 
     packet->put(0, linecount);
     return linecount > 0;
-}
-
-void TaskList::AddTask(Task * task)
-{
-    queueLock.Acquire();
-    tasks.insert(task);
-    queueLock.Release();
-}
-
-Task * TaskList::GetTask()
-{
-    queueLock.Acquire();
-
-    Task* t = 0;
-    for(std::set<Task*>::iterator itr = tasks.begin(); itr != tasks.end(); itr++)
-    {
-        if(!(*itr)->in_progress)
-        {
-            t = (*itr);
-            t->in_progress = true;
-            break;
-        }
-    }
-    queueLock.Release();
-    return t;
-}
-
-void TaskList::spawn()
-{
-    running = true;
-    thread_count = 0;
-
-    uint32 threadcount = 1;
-    if(mainIni->ReadBoolean("Startup", "EnableMultithreadedLoading", true))
-    {
-        // get processor count
-#ifndef WIN32
-#if UNIX_FLAVOUR == UNIX_FLAVOUR_LINUX
-#ifdef X64
-        threadcount = 2;
-#else
-        long affmask;
-        sched_getaffinity(0, 4, (cpu_set_t*)&affmask);
-        threadcount = (BitCount8(affmask)) * 2;
-        if(threadcount > 8) threadcount = 8;
-        else if(threadcount <= 0) threadcount = 1;
-#endif
-#else
-        threadcount = 2;
-#endif
-#else
-        SYSTEM_INFO s;
-        GetSystemInfo(&s);
-        threadcount = s.dwNumberOfProcessors * 2;
-        if(threadcount > 8)
-            threadcount = 8;
-#endif
-    }
-
-    sLog.Notice("World", "Beginning %s server startup with %u thread(s).", (threadcount == 1) ? "progressive" : "parallel", threadcount);
-    for(uint32 x = 0; x < threadcount; ++x)
-        sThreadManager.ExecuteTask(format("TaskExecutor|%u", x).c_str(), new TaskExecutor(this));
-}
-
-void TaskList::wait()
-{
-    bool has_tasks = true;
-    time_t t;
-    while(has_tasks)
-    {
-        queueLock.Acquire();
-        has_tasks = false;
-        for(std::set<Task*>::iterator itr = tasks.begin(); itr != tasks.end(); itr++)
-        {
-            if(!(*itr)->completed)
-            {
-                has_tasks = true;
-                break;
-            }
-        }
-        queueLock.Release();
-
-        // keep updating time lol
-        t = time(NULL);
-        if( UNIXTIME != t )
-        {
-            UNIXTIME = t;
-            g_localTime = *localtime(&t);
-        }
-
-        Sleep(20);
-    }
-}
-
-void TaskList::kill()
-{
-    running = false;
-}
-
-void Task::execute()
-{
-    _cb->execute();
-}
-
-bool TaskExecutor::run()
-{
-    Task * t;
-    while(starter->running)
-    {
-        if(t = starter->GetTask())
-        {
-            t->execute();
-            t->completed = true;
-            starter->RemoveTask(t);
-            delete t;
-        } else Delay(20);
-    }
-    return true;
-}
-
-void TaskList::waitForThreadsToExit()
-{
-    while(thread_count)
-    {
-        Sleep(20);
-    }
 }
 
 void World::DeleteObject(WorldObject* obj)

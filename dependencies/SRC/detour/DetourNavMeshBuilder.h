@@ -69,7 +69,7 @@ struct dtNavMeshCreateParams
     ///
     /// 0 = Travel only from endpoint A to endpoint B.<br/>
     /// #DT_OFFMESH_CON_BIDIR = Bidirectional travel.
-    const unsigned char* offMeshConDir; 
+    const unsigned char* offMeshConDir;
     /// The user defined ids of the off-mesh connection. [Size: #offMeshConCount]
     const unsigned int* offMeshConUserID;
     /// The number of off-mesh connections. [Limit: >= 0]
@@ -146,3 +146,4 @@ function.
 @see dtCreateNavMeshData
 
 */
+

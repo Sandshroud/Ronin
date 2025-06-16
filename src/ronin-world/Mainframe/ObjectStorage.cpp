@@ -174,11 +174,11 @@ void ObjectMgr::LoadExtraItemStuff()
     }
 }
 
-#define make_task(storage, itype, storagetype, tablename, format) tl.AddTask( new Task( \
+#define make_task(storage, itype, storagetype, tablename, format) tl.AddTask( \
     new CallbackP3< /**/SQLStorage< itype, storagetype< itype > >/**/, DirectDatabase*, /**/ std::string/**/, /**/std::string/**/> \
-    (&storage, &SQLStorage< itype, storagetype< itype > >::Load, &WorldDatabase, tablename, format) ) )
+    (&storage, &SQLStorage< itype, storagetype< itype > >::Load, &WorldDatabase, tablename, format) )
 
-void Storage_FillTaskList(TaskList & tl)
+void Storage_FillTaskList(ThreadTaskList & tl)
 {
     make_task(CreatureInfoExtraStorage, CreatureInfoExtra, HashMapStorageContainer, "creature_info", gCreatureInfoExtra);
     make_task(GameObjectNameStorage, GameObjectInfo, HashMapStorageContainer, "gameobject_names", gGameObjectNameFormat);

@@ -85,6 +85,7 @@ private:
 public:
     void SetFollowTarget(Unit *target, float distance);
     void MoveToPoint(float x, float y, float z, float o = fInfinite);
+    void MoveToPoint2(float x, float y, float z, float o = fInfinite);
     void MoveWithSpeedToPoint(float speed, float x, float y, float z, float o = fInfinite);
     void UpdateOrientation(Unit *unitTarget);
     void SetOrientation(float orientation);

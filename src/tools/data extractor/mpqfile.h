@@ -42,10 +42,11 @@
 #include <SharedDependencyDefines.h>
 
 #include <g3dlite/G3D.h>
-#include "vmaplib/ModelSpawn.h"
+#include <vmaplib/ModelSpawn.h>
 
 #include <StormLib/StormLib.h>
 #include <StormLib/StormCommon.h>
+#include <threading/Threading.h>
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <cstdio>
@@ -63,6 +64,8 @@
 #endif
 
 using namespace std;
+
+extern Mutex fileLock;
 
 class MPQFile
 {

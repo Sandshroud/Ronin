@@ -25,6 +25,7 @@
 #include <vector>
 
 class MPQFile;
+struct MapCreationInfo;
 
 Vec3D fixCoordSystem(Vec3D v);
 
@@ -60,7 +61,7 @@ public:
     float sc;
 
     ModelInstance() : id(0), scale(0), flags(0), sc(0.0f) {}
-    ModelInstance(MPQFile& f, char const* ModelInstName, uint32 mapID, uint32 tileX, uint32 tileY);
+    ModelInstance(MPQFile& f, MapCreationInfo *info, char const* ModelInstName, uint32 mapID, uint32 tileX, uint32 tileY);
 
 };
 

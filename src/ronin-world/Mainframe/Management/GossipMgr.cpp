@@ -285,9 +285,6 @@ size_t GossipManager::_BuildBasicGossipMenu(WorldPacket *packet, uint32 &menuId,
         {
             if(Creature* pCreature = castPtr<Creature>(obj))
             {
-                /*if(uint32 textID = GetTextID<Creature>(pCreature->GetEntry()))
-                    textId = textID;*/
-
                 // Set our gossip menu ID
                 if(uint32 MenuId = pCreature->GetGossipId())
                     menuId = MenuId;

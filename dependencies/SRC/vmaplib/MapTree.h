@@ -77,7 +77,7 @@ namespace VMAP
             loadedTileMap iLoadedTiles;
             // stores <tree_index, reference_count> to invalidate tree values, unload map, and to be able to report errors
             loadedSpawnMap iLoadedSpawns;
-            // Sotred offsets for main map file
+            // Stored offsets for main map file
             fileOffsetMap iFileOffsets;
             // Load mapping
             std::map<G3D::uint32, std::vector<std::pair<uint32, std::string>>> loadedData;

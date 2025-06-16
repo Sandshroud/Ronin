@@ -30,6 +30,7 @@
 #define UNITSIZE (CHUNKSIZE / 8.0f)
 
 class Liquid;
+struct MapCreationInfo;
 
 struct vec { float x, y, z; };
 struct triangle { vec corners[3]; };
@@ -70,11 +71,26 @@ struct MapChunkHeader
     uint32 effectId;
 };
 
+struct chunk
+{
+    uint16 areaEntry;
+    float mapHeight, pointHeights[145];
+    uint32 holes;
+
+    uint16 liquidEntry;
+    bool show_liquid[9][9];
+    float liquid_height[9][9];
+    uint64 liquidMask;
+
+    float xpos, ypos;
+};
+
 class ADTFile
 {
 private:
     MPQFile ADT;
     std::string Adtfilename;
+    chunk _chunks[16][16];
 
 public:
     ADTFile(HANDLE mpqarchive, char* filename);
@@ -82,8 +98,10 @@ public:
     int nWMO, nMDX;
     std::map<uint32, std::string*> WMOInstanceNameMap, ModelInstanceNameMap;
 
-    bool parseCHNK(FILE *output);
-    void parseWMO(uint32 map_num, uint32 tileX, uint32 tileY);
+    bool parseCHNK(MapCreationInfo *storage, uint32 tileX, uint32 tileY);
+    void WriteCHNK(FILE *output);
+
+    void parseWMO(uint32 map_num, MapCreationInfo *mapInfo, uint32 tileX, uint32 tileY);
 };
 
 char const* GetPlainName(char const* FileName);

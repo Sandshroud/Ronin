@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <stdio.h>
 
-bool ExtractSingleModel(std::string& fname)
+int ExtractSingleModel(std::string& fname)
 {
     if (fname.substr(fname.length() - 4, 4) == ".mdx")
     {
@@ -44,14 +44,14 @@ bool ExtractSingleModel(std::string& fname)
     output += "/";
     output += name;
 
-    if (FileExists(output.c_str()))
-        return true;
+    if (WMOExists(output.c_str()))
+        return 2;
 
     Model mdl(originalName);
     if (!mdl.open(WorldMpq))
-        return false;
+        return 0;
 
-    return mdl.ConvertToVMAPModel(output.c_str());
+    return mdl.ConvertToVMAPModel(output.c_str()) ? 1 : 0;
 }
 
 void ExtractGameobjectModels()
@@ -92,7 +92,7 @@ void ExtractGameobjectModels()
 
         strToLower(ch_ext);
 
-        bool result = false;
+        int result = 0;
         if (!strcmp(ch_ext, ".wmo"))
             result = ExtractSingleWmo(WorldMpq, path);
         else if (!strcmp(ch_ext, ".mdl"))   // TODO: extract .mdl files, if needed

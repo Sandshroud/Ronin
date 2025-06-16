@@ -19,6 +19,9 @@
 #ifndef DETOURCOMMON_H
 #define DETOURCOMMON_H
 
+#include "DetourMath.h"
+#include <stddef.h>
+
 /**
 @defgroup detour Detour
 
@@ -31,6 +34,11 @@ feature to find minor members.
 
 /// @name General helper functions
 /// @{
+
+/// Used to ignore a function parameter.  VS complains about unused parameters
+/// and this silences the warning.
+///  @param [in]  Unused parameter
+template<class T> void dtIgnoreUnused(const T&) { }
 
 /// Swaps the values of the two parameters.
 ///  @param[in,out] a   Value A
@@ -66,11 +74,6 @@ template<class T> inline T dtSqr(T a) { return a*a; }
 ///  @return The value, clamped to the specified range.
 template<class T> inline T dtClamp(T v, T mn, T mx) { return v < mn ? mn : (v > mx ? mx : v); }
 
-/// Returns the square root of the value.
-///  @param[in]     x   The value.
-///  @return The square root of the vlaue.
-float dtSqrt(float x);
-
 /// @}
 /// @name Vector helper functions.
 /// @{
@@ -87,8 +90,8 @@ inline void dtVcross(float* dest, const float* v1, const float* v2)
 }
 
 /// Derives the dot product of two vectors. (@p v1 . @p v2)
-///  @param[in]     v1  A Vector [(x, y, z)]
-///  @param[in]     v2  A vector [(x, y, z)]
+///  @param[in]     v1      A Vector [(x, y, z)]
+///  @param[in]     v2      A vector [(x, y, z)]
 /// @return The dot product.
 inline float dtVdot(const float* v1, const float* v2)
 {
@@ -153,8 +156,8 @@ inline void dtVscale(float* dest, const float* v, const float t)
 }
 
 /// Selects the minimum value of each element from the specified vectors.
-///  @param[in,out] mn  A vector.  (Will be updated with the result.) [(x, y, z)]
-///  @param[in] v   A vector. [(x, y, z)]
+///  @param[in,out] mn      A vector.  (Will be updated with the result.) [(x, y, z)]
+///  @param[in]     v       A vector. [(x, y, z)]
 inline void dtVmin(float* mn, const float* v)
 {
     mn[0] = dtMin(mn[0], v[0]);
@@ -163,8 +166,8 @@ inline void dtVmin(float* mn, const float* v)
 }
 
 /// Selects the maximum value of each element from the specified vectors.
-///  @param[in,out] mx  A vector.  (Will be updated with the result.) [(x, y, z)]
-///  @param[in]     v   A vector. [(x, y, z)]
+///  @param[in,out] mx      A vector.  (Will be updated with the result.) [(x, y, z)]
+///  @param[in]     v       A vector. [(x, y, z)]
 inline void dtVmax(float* mx, const float* v)
 {
     mx[0] = dtMax(mx[0], v[0]);
@@ -193,15 +196,15 @@ inline void dtVcopy(float* dest, const float* a)
 }
 
 /// Derives the scalar length of the vector.
-///  @param[in]     v The vector. [(x, y, z)]
+///  @param[in]     v       The vector. [(x, y, z)]
 /// @return The scalar length of the vector.
 inline float dtVlen(const float* v)
 {
-    return dtSqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+    return dtMathSqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 }
 
 /// Derives the square of the scalar length of the vector. (len * len)
-///  @param[in]     v The vector. [(x, y, z)]
+///  @param[in]     v       The vector. [(x, y, z)]
 /// @return The square of the scalar length of the vector.
 inline float dtVlenSqr(const float* v)
 {
@@ -209,20 +212,20 @@ inline float dtVlenSqr(const float* v)
 }
 
 /// Returns the distance between two points.
-///  @param[in]     v1  A point. [(x, y, z)]
-///  @param[in]     v2  A point. [(x, y, z)]
+///  @param[in]     v1       A point. [(x, y, z)]
+///  @param[in]     v2       A point. [(x, y, z)]
 /// @return The distance between the two points.
 inline float dtVdist(const float* v1, const float* v2)
 {
     const float dx = v2[0] - v1[0];
     const float dy = v2[1] - v1[1];
     const float dz = v2[2] - v1[2];
-    return dtSqrt(dx*dx + dy*dy + dz*dz);
+    return dtMathSqrtf(dx*dx + dy*dy + dz*dz);
 }
 
 /// Returns the square of the distance between two points.
-///  @param[in]     v1  A point. [(x, y, z)]
-///  @param[in]     v2  A point. [(x, y, z)]
+///  @param[in]     v1       A point. [(x, y, z)]
+///  @param[in]     v2       A point. [(x, y, z)]
 /// @return The square of the distance between the two points.
 inline float dtVdistSqr(const float* v1, const float* v2)
 {
@@ -233,8 +236,8 @@ inline float dtVdistSqr(const float* v1, const float* v2)
 }
 
 /// Derives the distance between the specified points on the xz-plane.
-///  @param[in]     v1  A point. [(x, y, z)]
-///  @param[in]     v2  A point. [(x, y, z)]
+///  @param[in]     v1       A point. [(x, y, z)]
+///  @param[in]     v2       A point. [(x, y, z)]
 /// @return The distance between the point on the xz-plane.
 ///
 /// The vectors are projected onto the xz-plane, so the y-values are ignored.
@@ -242,12 +245,12 @@ inline float dtVdist2D(const float* v1, const float* v2)
 {
     const float dx = v2[0] - v1[0];
     const float dz = v2[2] - v1[2];
-    return dtSqrt(dx*dx + dz*dz);
+    return dtMathSqrtf(dx*dx + dz*dz);
 }
 
 /// Derives the square of the distance between the specified points on the xz-plane.
-///  @param[in]     v1  A point. [(x, y, z)]
-///  @param[in]     v2  A point. [(x, y, z)]
+///  @param[in]     v1       A point. [(x, y, z)]
+///  @param[in]     v2       A point. [(x, y, z)]
 /// @return The square of the distance between the point on the xz-plane.
 inline float dtVdist2DSqr(const float* v1, const float* v2)
 {
@@ -257,18 +260,18 @@ inline float dtVdist2DSqr(const float* v1, const float* v2)
 }
 
 /// Normalizes the vector.
-///  @param[in,out] v   The vector to normalize. [(x, y, z)]
+///  @param[in,out] v        The vector to normalize. [(x, y, z)]
 inline void dtVnormalize(float* v)
 {
-    float d = 1.0f / dtSqrt(dtSqr(v[0]) + dtSqr(v[1]) + dtSqr(v[2]));
+    float d = 1.0f / dtMathSqrtf(dtSqr(v[0]) + dtSqr(v[1]) + dtSqr(v[2]));
     v[0] *= d;
     v[1] *= d;
     v[2] *= d;
 }
 
 /// Performs a 'sloppy' colocation check of the specified points.
-///  @param[in]     p0  A point. [(x, y, z)]
-///  @param[in]     p1  A point. [(x, y, z)]
+///  @param[in]     p0       A point. [(x, y, z)]
+///  @param[in]     p1       A point. [(x, y, z)]
 /// @return True if the points are considered to be at the same location.
 ///
 /// Basically, this function will return true if the specified points are 
@@ -280,9 +283,31 @@ inline bool dtVequal(const float* p0, const float* p1)
     return d < thr;
 }
 
+/// Checks that the specified vector's components are all finite.
+///  @param[in]     v        A point. [(x, y, z)]
+/// @return True if all of the point's components are finite, i.e. not NaN
+/// or any of the infinities.
+inline bool dtVisfinite(const float* v)
+{
+    bool result =
+        dtMathIsfinite(v[0]) &&
+        dtMathIsfinite(v[1]) &&
+        dtMathIsfinite(v[2]);
+
+    return result;
+}
+
+/// Checks that the specified vector's 2D components are finite.
+///  @param[in]     v        A point. [(x, y, z)]
+inline bool dtVisfinite2D(const float* v)
+{
+    bool result = dtMathIsfinite(v[0]) && dtMathIsfinite(v[2]);
+    return result;
+}
+
 /// Derives the dot product of two vectors on the xz-plane. (@p u . @p v)
-///  @param[in]     u       A vector [(x, y, z)]
-///  @param[in]     v       A vector [(x, y, z)]
+///  @param[in]     u        A vector [(x, y, z)]
+///  @param[in]     v        A vector [(x, y, z)]
 /// @return The dot product on the xz-plane.
 ///
 /// The vectors are projected onto the xz-plane, so the y-values are ignored.
@@ -292,8 +317,8 @@ inline float dtVdot2D(const float* u, const float* v)
 }
 
 /// Derives the xz-plane 2D perp product of the two vectors. (uz*vx - ux*vz)
-///  @param[in]     u       The LHV vector [(x, y, z)]
-///  @param[in]     v       The RHV vector [(x, y, z)]
+///  @param[in]     u        The LHV vector [(x, y, z)]
+///  @param[in]     v        The RHV vector [(x, y, z)]
 /// @return The dot product on the xz-plane.
 ///
 /// The vectors are projected onto the xz-plane, so the y-values are ignored.
@@ -307,9 +332,9 @@ inline float dtVperp2D(const float* u, const float* v)
 /// @{
 
 /// Derives the signed xz-plane area of the triangle ABC, or the relationship of line AB to point C.
-///  @param[in]     a       Vertex A. [(x, y, z)]
-///  @param[in]     b       Vertex B. [(x, y, z)]
-///  @param[in]     c       Vertex C. [(x, y, z)]
+///  @param[in]     a        Vertex A. [(x, y, z)]
+///  @param[in]     b        Vertex B. [(x, y, z)]
+///  @param[in]     c        Vertex C. [(x, y, z)]
 /// @return The signed xz-plane area of the triangle.
 inline float dtTriArea2D(const float* a, const float* b, const float* c)
 {
@@ -355,20 +380,20 @@ inline bool dtOverlapBounds(const float* amin, const float* amax,
 }
 
 /// Derives the closest point on a triangle from the specified reference point.
-///  @param[out]    closest The closest point on the triangle.  
-///  @param[in]     p       The reference point from which to test. [(x, y, z)]
-///  @param[in]     a       Vertex A of triangle ABC. [(x, y, z)]
-///  @param[in]     b       Vertex B of triangle ABC. [(x, y, z)]
-///  @param[in]     c       Vertex C of triangle ABC. [(x, y, z)]
+///  @param[out]    closest  The closest point on the triangle.
+///  @param[in]     p        The reference point from which to test. [(x, y, z)]
+///  @param[in]     a        Vertex A of triangle ABC. [(x, y, z)]
+///  @param[in]     b        Vertex B of triangle ABC. [(x, y, z)]
+///  @param[in]     c        Vertex C of triangle ABC. [(x, y, z)]
 void dtClosestPtPointTriangle(float* closest, const float* p,
                               const float* a, const float* b, const float* c);
 
 /// Derives the y-axis height of the closest point on the triangle from the specified reference point.
-///  @param[in]     p       The reference point from which to test. [(x, y, z)]
-///  @param[in]     a       Vertex A of triangle ABC. [(x, y, z)]
-///  @param[in]     b       Vertex B of triangle ABC. [(x, y, z)]
-///  @param[in]     c       Vertex C of triangle ABC. [(x, y, z)]
-///  @param[out]    h       The resulting height.
+///  @param[in]     p        The reference point from which to test. [(x, y, z)]
+///  @param[in]     a        Vertex A of triangle ABC. [(x, y, z)]
+///  @param[in]     b        Vertex B of triangle ABC. [(x, y, z)]
+///  @param[in]     c        Vertex C of triangle ABC. [(x, y, z)]
+///  @param[out]    h        The resulting height.
 bool dtClosestHeightPointTriangle(const float* p, const float* a, const float* b, const float* c, float& h);
 
 bool dtIntersectSegmentPoly2D(const float* p0, const float* p1,
@@ -381,9 +406,9 @@ bool dtIntersectSegSeg2D(const float* ap, const float* aq,
                          float& s, float& t);
 
 /// Determines if the specified point is inside the convex polygon on the xz-plane.
-///  @param[in]     pt      The point to check. [(x, y, z)]
-///  @param[in]     verts   The polygon vertices. [(x, y, z) * @p nverts]
-///  @param[in]     nverts  The number of vertices. [Limit: >= 3]
+///  @param[in]     pt       The point to check. [(x, y, z)]
+///  @param[in]     verts    The polygon vertices. [(x, y, z) * @p nverts]
+///  @param[in]     nverts   The number of vertices. [Limit: >= 3]
 /// @return True if the point is inside the polygon.
 bool dtPointInPolygon(const float* pt, const float* verts, const int nverts);
 
@@ -393,17 +418,17 @@ bool dtDistancePtPolyEdgesSqr(const float* pt, const float* verts, const int nve
 float dtDistancePtSegSqr2D(const float* pt, const float* p, const float* q, float& t);
 
 /// Derives the centroid of a convex polygon.
-///  @param[out]    tc      The centroid of the polgyon. [(x, y, z)]
-///  @param[in]     idx     The polygon indices. [(vertIndex) * @p nidx]
-///  @param[in]     nidx    The number of indices in the polygon. [Limit: >= 3]
-///  @param[in]     verts   The polygon vertices. [(x, y, z) * vertCount]
+///  @param[out]    tc       The centroid of the polgyon. [(x, y, z)]
+///  @param[in]     idx      The polygon indices. [(vertIndex) * @p nidx]
+///  @param[in]     nidx     The number of indices in the polygon. [Limit: >= 3]
+///  @param[in]     verts    The polygon vertices. [(x, y, z) * vertCount]
 void dtCalcPolyCenter(float* tc, const unsigned short* idx, int nidx, const float* verts);
 
 /// Determines if the two convex polygons overlap on the xz-plane.
-///  @param[in]     polya       Polygon A vertices. [(x, y, z) * @p npolya]
-///  @param[in]     npolya      The number of vertices in polygon A.
-///  @param[in]     polyb       Polygon B vertices. [(x, y, z) * @p npolyb]
-///  @param[in]     npolyb      The number of vertices in polygon B.
+///  @param[in]     polya    Polygon A vertices. [(x, y, z) * @p npolya]
+///  @param[in]     npolya   The number of vertices in polygon A.
+///  @param[in]     polyb    Polygon B vertices. [(x, y, z) * @p npolyb]
+///  @param[in]     npolyb   The number of vertices in polygon B.
 /// @return True if the two polygons overlap.
 bool dtOverlapPolyPoly2D(const float* polya, const int npolya,
                          const float* polyb, const int npolyb);
@@ -479,6 +504,22 @@ inline void dtSwapEndian(float* v)
 
 void dtRandomPointInConvexPoly(const float* pts, const int npts, float* areas,
                                const float s, const float t, float* out);
+
+template<typename TypeToRetrieveAs>
+TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(const unsigned char*& buffer, const size_t distanceToAdvance)
+{
+    TypeToRetrieveAs* returnPointer = reinterpret_cast<TypeToRetrieveAs*>(buffer);
+    buffer += distanceToAdvance;
+    return returnPointer;
+}
+
+template<typename TypeToRetrieveAs>
+TypeToRetrieveAs* dtGetThenAdvanceBufferPointer(unsigned char*& buffer, const size_t distanceToAdvance)
+{
+    TypeToRetrieveAs* returnPointer = reinterpret_cast<TypeToRetrieveAs*>(buffer);
+    buffer += distanceToAdvance;
+    return returnPointer;
+}
 
 /// @}
 

@@ -23,17 +23,16 @@
 #include "SharedDependencyDefines.h"
 #include "G3D.h"
 
-enum NavTerrain
+enum NavTerrainType
 {
-    NAV_EMPTY   = 0x00,
-    NAV_GROUND  = 0x01,
-    NAV_MAGMA   = 0x02,
-    NAV_SLIME   = 0x04,
-    NAV_WATER   = 0x08,
-    NAV_UNUSED1 = 0x10,
-    NAV_UNUSED2 = 0x20,
-    NAV_UNUSED3 = 0x40,
-    NAV_UNUSED4 = 0x80
+    NAV_EMPTY           = 0,
+    NAV_GROUND          = 11,
+    NAV_TOO_STEEP       = 10,
+    NAV_WATER           = 9,
+    NAV_MAGMA_SLIME     = 8,
+    NAV_MAX_VALUE       = NAV_GROUND,
+    NAV_MIN_VALUE       = NAV_MAGMA_SLIME,
+    NAV_ALL_MASK        = 0x3F // max allowed value
     // we only have 8 bits
 };
 

@@ -32,7 +32,7 @@ char * wdtGetPlainName(char * FileName)
     return FileName;
 }
 
-WDTFile::WDTFile(HANDLE mpqarchive, char* file_name, char* file_name1) : WDT(mpqarchive, file_name, false)
+WDTFile::WDTFile(HANDLE mpqarchive, MapCreationInfo *info, char* file_name, char* file_name1) : WDT(mpqarchive, file_name, false), createInfo(info)
 {
     filename.append(file_name1,strlen(file_name1));
 }
@@ -92,7 +92,7 @@ bool WDTFile::init(char* /*map_id*/, unsigned int mapID)
                 {
                     int id;
                     WDT.read(&id, 4);
-                    WMOInstance inst(WDT,gWmoInstansName[id].c_str(), mapID, 65, 65);
+                    WMOInstance inst(WDT,createInfo,gWmoInstansName[id].c_str(), false, mapID, 65, 65);
                 }
 
                 delete[] gWmoInstansName;
