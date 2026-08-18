@@ -48,7 +48,7 @@ namespace MMAP
         void debugWrite(FILE* file, const rcPolyMesh* mesh);
         void debugWrite(FILE* file, const rcPolyMeshDetail* mesh);
 
-        void generateObjFile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
+        void generateObjFile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, ObjectLoadData &loadData);
     };
 }
 #endif

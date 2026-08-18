@@ -22,7 +22,7 @@
 #include "MMapManagerExt.h"
 
 #define MMAP_MAGIC 0x4d4d4150   // 'MMAP'
-#define MMAP_VERSION 4
+#define MMAP_VERSION 5
 
 struct MmapTileHeader
 {
@@ -30,22 +30,32 @@ struct MmapTileHeader
     uint32 dtVersion;
     uint32 mmapVersion;
     uint32 size;
-    bool usesLiquids : 1;
+    uint32 hasNextLayer;
 
     MmapTileHeader() : mmapMagic(MMAP_MAGIC), dtVersion(DT_NAVMESH_VERSION),
-        mmapVersion(MMAP_VERSION), size(0), usesLiquids(true) {}
+        mmapVersion(MMAP_VERSION), hasNextLayer(0), size(0) {}
 };
 
 struct TileReferenceC
 {
-    TileReferenceC(dtTileRef refid) { ID = refid; };
+    TileReferenceC() {};
     ~TileReferenceC() {};
 
-    dtTileRef ID;
+    void addReference(dtTileRef refId) { tileReferenceIds.insert(refId); }
+    void removeReference(dtTileRef refId) { tileReferenceIds.erase(refId); }
+
+    void IncrementCounter() { ++referenceCounter; }
+    bool DecreaseCounter() { return --referenceCounter == 0; }
+
+    size_t size() { return tileReferenceIds.size(); }
+    std::set<dtTileRef>::iterator begin() { return tileReferenceIds.begin(); }
+    void remove(std::set<dtTileRef>::iterator itr) { tileReferenceIds.erase(itr); }
+
+    uint32 referenceCounter;
+    std::set<dtTileRef> tileReferenceIds;
 };
 
 typedef std::map<uint32, TileReferenceC*> ReferenceMap;
-typedef std::map<dtTileRef, uint32> ReverseReferenceMap;
 
 class MMapManager : public MMapManagerExt
 {
@@ -61,7 +71,6 @@ private:
     dtNavMeshQuery* m_navMeshQuery;
     dtTileRef lastTileRef;
     ReferenceMap TileReferences;
-    ReverseReferenceMap TileLoadCount;
     std::map<uint32, uint32> m_tileOffsets;
     uint32 packTileID(int32 x, int32 y) { return uint32(x << 16 | y); };
 

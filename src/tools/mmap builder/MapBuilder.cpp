@@ -28,7 +28,7 @@
 #include "DetourCommon.h"
 
 #define MMAP_MAGIC 0x4d4d4150   // 'MMAP'
-#define MMAP_VERSION 4
+#define MMAP_VERSION 5
 
 time_t UNIXTIME;
 tm g_localTime;
@@ -41,10 +41,10 @@ struct MmapTileHeader
     G3D::uint32 dtVersion;
     G3D::uint32 mmapVersion;
     G3D::uint32 size;
-    bool usesLiquids : 1;
+    G3D::uint32 hasNextLayer;
 
     MmapTileHeader() : mmapMagic(MMAP_MAGIC), dtVersion(DT_NAVMESH_VERSION),
-        mmapVersion(MMAP_VERSION), size(0), usesLiquids(true) {}
+        mmapVersion(MMAP_VERSION), size(0), hasNextLayer(0) {}
 };
 
 namespace MMAP
@@ -158,40 +158,19 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    Mutex activeMapIdLock;
-    std::map<uint32, std::string> activeMapIDs;
-    void MapBuilder::buildAllMaps(int threads)
+    void MapBuilder::buildAllMaps(ThreadTaskList &threadList)
     {
-        if(false)//threads)
+        for (TileList::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
         {
-            ThreadTaskList taskList(threads);
-            taskList.spawn("MapBuilder", "Initializing", threads > 0);
-
-            for (TileList::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
+            G3D::uint32 mapID = it->first;
+            if (!shouldSkipMap(mapID))
             {
-                G3D::uint32 mapID = it->first;
-                if (shouldSkipMap(mapID))
-                    continue;
-
-                taskList.AddTask(new CallbackP1 <MapBuilder, G3D::uint32>(this, &MapBuilder::buildMap, mapID));
-            }
-
-            taskList.wait(UNIXTIME, g_localTime);
-            printf("Job Complete!                                    \n");
-            taskList.kill();
-            taskList.waitForThreadsToExit();
-        }
-        else
-        {
-            for (TileList::iterator it = m_tiles.begin(); it != m_tiles.end(); ++it)
-            {
-                G3D::uint32 mapID = it->first;
-                if (!shouldSkipMap(mapID))
-                {
-                    buildMap(mapID);
-                }
+                buildMap(mapID, threadList);
             }
         }
+
+        threadList.wait(UNIXTIME, g_localTime);
+        printf("Job Complete!                                    \n");
     }
 
     /**************************************************************************/
@@ -204,31 +183,18 @@ namespace MMAP
 
         float bmin[3] = { 0, 0, 0 };
         float bmax[3] = { 0, 0, 0 };
-        float lmin[3] = { 0, 0, 0 };
-        float lmax[3] = { 0, 0, 0 };
-        MeshData meshData;
+        MapTileLoadData loadData;
 
         // make sure we process maps which don't have tiles
         // initialize the static tree, which loads WDT models
-        if(!m_terrainBuilder->loadVMap(mapID, 64, 64, meshData))
+        if(!m_terrainBuilder->loadVMap(mapID, 64, 64, loadData))
             return;
 
         // get the coord bounds of the model data
-        if (meshData.solidVerts.size() + meshData.liquidVerts.size() == 0)
+        if (loadData.allVerts.size() == 0)
             return;
 
-        // get the coord bounds of the model data
-        if (meshData.solidVerts.size() && meshData.liquidVerts.size())
-        {
-            rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
-            rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
-            rcVmin(bmin, lmin);
-            rcVmax(bmax, lmax);
-        }
-        else if (meshData.solidVerts.size())
-            rcCalcBounds(meshData.solidVerts.getCArray(), meshData.solidVerts.size() / 3, bmin, bmax);
-        else
-            rcCalcBounds(meshData.liquidVerts.getCArray(), meshData.liquidVerts.size() / 3, lmin, lmax);
+        rcCalcBounds(loadData.allVerts.getCArray(), loadData.allVerts.size() / 3, bmin, bmax);
 
         // convert coord bounds to grid bounds
         maxX = 32 - bmin[0] / GRID_SIZE;
@@ -237,7 +203,7 @@ namespace MMAP
         minY = 32 - bmax[2] / GRID_SIZE;
     }
 
-    void MapBuilder::buildMeshFromFile(char* name)
+    void MapBuilder::buildMeshFromFile(char* name, ThreadTaskList &threadList)
     {
         FILE* file = fopen(name, "rb");
         if (!file)
@@ -302,28 +268,28 @@ namespace MMAP
             return;
         }
 
-        MeshData data;
+        MapTileLoadData loadData;
 
         for (G3D::uint32 i = 0; i < verticesCount; ++i)
-            data.solidVerts.append(verts[i]);
+            loadData.allVerts.append(verts[i]);
         delete[] verts;
 
         for (G3D::uint32 i = 0; i < indicesCount; ++i)
-            data.solidTris.append(inds[i]);
+            loadData.allTris.append(inds[i]);
         delete[] inds;
 
-        TerrainBuilder::cleanVertices(data.solidVerts, data.solidTris);
+        TerrainBuilder::cleanVertices(loadData.allVerts, loadData.allTris);
         // get bounds of current tile
         float bmin[3], bmax[3];
-        getTileBounds(tileX, tileY, data.solidVerts.getCArray(), data.solidVerts.size() / 3, bmin, bmax);
+        getTileBounds(tileX, tileY, loadData.allVerts.getCArray(), loadData.allVerts.size() / 3, bmin, bmax);
 
         // build navmesh tile
-        buildMoveMapTile(mapId, tileX, tileY, data, bmin, bmax, navMesh);
+        buildMoveMapTerrainTile(mapId, tileX, tileY, loadData, bmin, bmax, navMesh, threadList);
         fclose(file);
     }
 
     /**************************************************************************/
-    void MapBuilder::buildSingleTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY)
+    void MapBuilder::buildSingleTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, ThreadTaskList &threadList)
     {
         dtNavMesh* navMesh = NULL;
         buildNavMesh(mapID, navMesh);
@@ -334,27 +300,15 @@ namespace MMAP
         }
 
         m_terrainBuilder->InitializeMap(mapID);
-        buildTile(mapID, tileX, tileY, navMesh);
+        buildTile(mapID, tileX, tileY, navMesh, threadList);
         m_terrainBuilder->UnloadVMap(mapID);
         dtFreeNavMesh(navMesh);
     }
 
     /**************************************************************************/
-    void MapBuilder::buildMap(G3D::uint32 mapID)
+    void MapBuilder::buildMap(G3D::uint32 mapID, ThreadTaskList &threadList)
     {
-        activeMapIdLock.Acquire();
-        activeMapIDs.insert(std::make_pair(mapID, ThreadTaskList::format_name("[%u][64,64]").c_str()));
         printf("Building map %03u:                                          \n\n", mapID);
-        std::string mapIds = "ActiveMapIds:";
-        for(std::map<uint32, std::string>::iterator itr = activeMapIDs.begin(); itr != activeMapIDs.end(); itr++)
-        {
-            mapIds += " ";
-            mapIds += itr->second.c_str();
-        }
-
-        printf("%s                        \r", mapIds.c_str());
-        activeMapIdLock.Release();
-
         m_terrainBuilder->InitializeMap(mapID);
 
         std::set<G3D::uint32>* tiles = getTileList(mapID);
@@ -391,7 +345,7 @@ namespace MMAP
                     if (shouldSkipTile(mapID, tileX, tileY))
                         continue;
 
-                    buildTile(mapID, tileX, tileY, navMesh);
+                    buildTile(mapID, tileX, tileY, navMesh, threadList);
                 }
 
                 dtFreeNavMesh(navMesh);
@@ -399,66 +353,30 @@ namespace MMAP
         }
 
         m_terrainBuilder->UnloadVMap(mapID);
-
-        activeMapIdLock.Acquire();
-        activeMapIDs.erase(mapID);
-        mapIds = "ActiveMapIds:";
-        for(std::map<uint32, std::string>::iterator itr = activeMapIDs.begin(); itr != activeMapIDs.end(); itr++)
-        {
-            mapIds += " ";
-            mapIds += itr->second.c_str();
-        }
-
-        printf("%s                        \r", mapIds.c_str());
-
-        activeMapIdLock.Release();
     }
 
+    static std::string dialogBox;
+
     /**************************************************************************/
-    void MapBuilder::buildTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, dtNavMesh* navMesh)
+    void MapBuilder::buildTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, dtNavMesh* navMesh, ThreadTaskList &threadList)
     {
-        activeMapIdLock.Acquire();
-        std::string mapIds = "ActiveMapIds:";
-        mapIds = "ActiveMapIds:";
-        activeMapIDs[mapID] = ThreadTaskList::format_name("[%u][%02u,%02u]", mapID, tileX, tileY).c_str();
-        for(std::map<uint32, std::string>::iterator itr = activeMapIDs.begin(); itr != activeMapIDs.end(); itr++)
-        {
-            mapIds += " ";
-            mapIds += itr->second.c_str();
-        }
-
-        printf("%s                        \r", mapIds.c_str());
-        activeMapIdLock.Release();
-
-        //MeshData meshData;
-        MapLoadData *tileMap = new MapLoadData;
-        tileMap->loadInfoCount = 0;
-        for(int x = 0; x < 18; x++)
-        {
-            for(int y = 0; y < 18; y++)
-            {
-                tileMap->_chunkData[x][y].areaInfo = tileMap->_chunkData[x][y].liquidType = 0;
-                tileMap->_chunkData[x][y].xOffset = tileMap->_chunkData[x][y].yOffset = 0xFF;
-                tileMap->_chunkData[x][y].isHole = false;
-            }
-        }
+        MapTileLoadData loadData;
 
         bool res = true;
 
         // get heightmap data
-        res = m_terrainBuilder->loadMap(mapID, tileX, tileY, *tileMap);
+        res = m_terrainBuilder->loadMap(mapID, tileX, tileY, loadData);
 
         // get model data
-        if(m_terrainBuilder->loadVMap(mapID, tileY, tileX, *tileMap) == false && res == false)
+        if(m_terrainBuilder->loadVMap(mapID, tileX, tileY, loadData) == false && res == false)
             return;
 
         // get bounds of current tile
         float bmin[3], bmax[3];
-        getTileBounds(tileX, tileY, *tileMap, bmin, bmax);
+        getTileBounds(tileX, tileY, loadData, bmin, bmax);
 
         // build navmesh tile
-        buildMoveMapTile(mapID, tileX, tileY, *tileMap, bmin, bmax, navMesh);
-        delete tileMap;
+        buildMoveMapTerrainTile(mapID, tileX, tileY, loadData, bmin, bmax, navMesh, threadList);
     }
 
     /**************************************************************************/
@@ -536,828 +454,595 @@ namespace MMAP
         fclose(file);
     }
 
-    /**************************************************************************/
-    void MapBuilder::buildMoveMapTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY,
-        MeshData &meshData, float bmin[3], float bmax[3],
-        dtNavMesh* navMesh)
-    {   // 35,39 | -1821.15 -4208.10 3.15 | -4208.10 3.15 -1821.15
-        // console output
-        char tileString[20];
-        sprintf(tileString, "[%02i,%02i]: ", tileX, tileY);
+    inline bool overlapBounds(const float* amin, const float* amax, const float* bmin, const float* bmax)
+    {
+        bool overlap = true;
+        overlap = (amin[0] > bmax[0] || amax[0] < bmin[0]) ? false : overlap;
+        overlap = (amin[1] > bmax[1] || amax[1] < bmin[1]) ? false : overlap;
+        overlap = (amin[2] > bmax[2] || amax[2] < bmin[2]) ? false : overlap;
+        return overlap;
+    }
 
-        IntermediateValues iv;
+    // Simple, we input our terrain tris/verts and vmap tris/verts and filter the terrain areas where vmap exists
+    bool MapBuilder::filterObjectsFromTriangles(G3D::Array<float> &tVertArray, G3D::Array<int> &tTriArray, G3D::Array<int> &tTriFlags, G3D::Array<G3D::AABox*> &vmapData)
+    {
+        if(vmapData.size() == 0)
+            return true;
 
-        float* tVerts = meshData.solidVerts.getCArray();
-        int tVertCount = meshData.solidVerts.size() / 3;
-        int* tTris = meshData.solidTris.getCArray();
-        int tTriCount = meshData.solidTris.size() / 3;
+        int numTris = tTriArray.size()/3;
 
-        float* lVerts = meshData.liquidVerts.getCArray();
-        int lVertCount = meshData.liquidVerts.size() / 3;
-        int* lTris = meshData.liquidTris.getCArray();
-        int lTriCount = meshData.liquidTris.size() / 3;
-        G3D::uint8* lTriFlags = meshData.liquidType.getCArray();
-
-        // these are WORLD UNIT based metrics
-        // this are basic unit dimentions
-        // value have to divide GRID_SIZE(533.33333f) ( aka: 0.5333, 0.2666, 0.3333, 0.1333, etc )
-        const static float BASE_UNIT_DIM = m_bigBaseUnit ? 0.533333f : 0.266666f;
-
-        // All are in UNIT metrics!
-        const static int VERTEX_PER_MAP = int(GRID_SIZE/BASE_UNIT_DIM + 0.5f);
-        const static int VERTEX_PER_TILE = m_bigBaseUnit ? 40 : 80; // must divide VERTEX_PER_MAP
-        const static int TILES_PER_MAP = VERTEX_PER_MAP/VERTEX_PER_TILE;
-
-        rcConfig config;
-        memset(&config, 0, sizeof(rcConfig));
-
-        rcVcopy(config.bmin, bmin);
-        rcVcopy(config.bmax, bmax);
-
-        config.maxVertsPerPoly = DT_VERTS_PER_POLYGON;
-        config.cs = BASE_UNIT_DIM;
-        config.ch = BASE_UNIT_DIM;
-        config.walkableSlopeAngle = m_maxWalkableAngle;
-        config.walkableSlopeAngleNotNavigatable = 55;
-        config.tileSize = VERTEX_PER_TILE;
-        config.walkableRadius = m_bigBaseUnit ? 1 : 2;
-        config.borderSize = config.walkableRadius + 3;
-        config.maxEdgeLen = VERTEX_PER_TILE + 1;        //anything bigger than tileSize
-        config.walkableHeight = m_bigBaseUnit ? 3 : 6;
-        config.walkableClimb = m_bigBaseUnit ? 3 : 6;
-        config.minRegionArea = rcSqr(60);
-        config.mergeRegionArea = rcSqr(50);
-        config.maxSimplificationError = 1.8f;       // eliminates most jagged edges (tinny polygons)
-        config.detailSampleDist = config.cs * 16;
-        config.detailSampleMaxError = config.ch * 1;
-
-        switch (mapID)
+        bool ret = false;
+        for(int i = 0; i < numTris; i++)
         {
-        // Blade's Edge Arena
-        case 562: // This allows to walk on the ropes to the pillars
-            config.walkableRadius = 0;
-            break;
-        // Blackfathom Deeps
-        case 48: // Reduce the chance to have underground levels
-            config.ch *= 2;
-            break;
+            const float* v0 = &tVertArray[tTriArray[i*3+0]*3];
+            const float* v1 = &tVertArray[tTriArray[i*3+1]*3];
+            const float* v2 = &tVertArray[tTriArray[i*3+2]*3];
+            // Bound boxes are in X,Z,Y
+            G3D::Vector3 point0 = G3D::Vector3(v0[0], v0[1], v0[2]),
+                point1 = G3D::Vector3(v1[0], v1[1], v1[2]),
+                point2 = G3D::Vector3(v2[0], v2[1], v2[2]);
+
+            // Scan our vmap mesh bounding boxes to see if any terrain is contained within
+            for(int j = 0; j < vmapData.size(); j++)
+            {
+                const G3D::AABox *objBox = vmapData[j];
+                if(objBox->contains(point0) || objBox->contains(point1) || objBox->contains(point2))
+                {
+                    tTriFlags[i] = NAV_EMPTY; // Mark triangle as empty, should be marking as offmesh connection
+                }
+            }
+
+            // We haven't removed this triangle from mesh so we're returning with valid terrain mesh
+            if(tTriFlags[i] != NAV_EMPTY)
+                ret = true;
         }
 
-        // this sets the dimensions of the heightfield - should maybe happen before border padding
-        rcCalcGridSize(config.bmin, config.bmax, config.cs, &config.width, &config.height);
-
-        // allocate subregions : tiles
-        Tile* tiles = new Tile[TILES_PER_MAP * TILES_PER_MAP];
-
-        // Initialize per tile config.
-        rcConfig tileCfg = config;
-        tileCfg.width = config.tileSize + config.borderSize*2;
-        tileCfg.height = config.tileSize + config.borderSize*2;
-
-        // merge per tile poly and detail meshes
-        rcPolyMesh** pmmerge = new rcPolyMesh*[TILES_PER_MAP * TILES_PER_MAP];
-        if (!pmmerge)
-        {
-            printf("%s alloc pmmerge FAILED!             \n", tileString);
-            return;
-        }
-
-        rcPolyMeshDetail** dmmerge = new rcPolyMeshDetail*[TILES_PER_MAP * TILES_PER_MAP];
-        if (!dmmerge)
-        {
-            printf("%s alloc dmmerge FAILED!             \n", tileString);
-            return;
-        }
-
-        int nmerge = 0;
-        // build all tiles
-        for (int y = 0; y < TILES_PER_MAP; ++y)
-        {
-            for (int x = 0; x < TILES_PER_MAP; ++x)
-            {
-                Tile& tile = tiles[x + y * TILES_PER_MAP];
-
-                // Calculate the per tile bounding box.
-                tileCfg.bmin[0] = config.bmin[0] + x * float(config.tileSize * config.cs);
-                tileCfg.bmin[2] = config.bmin[2] + y * float(config.tileSize * config.cs);
-                tileCfg.bmax[0] = config.bmin[0] + (x + 1) * float(config.tileSize * config.cs);
-                tileCfg.bmax[2] = config.bmin[2] + (y + 1) * float(config.tileSize * config.cs);
-
-                tileCfg.bmin[0] -= tileCfg.borderSize * tileCfg.cs;
-                tileCfg.bmin[2] -= tileCfg.borderSize * tileCfg.cs;
-                tileCfg.bmax[0] += tileCfg.borderSize * tileCfg.cs;
-                tileCfg.bmax[2] += tileCfg.borderSize * tileCfg.cs;
-
-                // build heightfield
-                tile.solid = rcAllocHeightfield();
-                if (!tile.solid || !rcCreateHeightfield(m_rcContext, *tile.solid, tileCfg.width, tileCfg.height, tileCfg.bmin, tileCfg.bmax, tileCfg.cs, tileCfg.ch))
-                {
-                    printf("%s Failed building heightfield!            \n", tileString);
-                    continue;
-                }
-
-                // mark all walkable tiles, both liquids and solids
-
-                /* we want to have triangles with slope less than walkableSlopeAngleNotNavigatable (<= 90) to have NAV_AREA_GROUND
-                 * and with slope between walkableSlopeAngleNotNavigatable and walkableSlopeAngle (55 < .. <= 70) to have NAV_AREA_GROUND_STEEP.
-                 * we achieve this using recast API: memset everything to NAV_AREA_GROUND_STEEP, call rcClearUnwalkableTriangles with 70 so
-                 * any area above that will get RC_NULL_AREA (unwalkable), then call rcMarkWalkableTriangles with 55 to set NAV_AREA_GROUND
-                 * on anything below 55 . Players and idle Creatures can use NAV_AREA_GROUND, while Creatures in combat can use NAV_AREA_GROUND_STEEP.
-                 */
-                unsigned char* triFlags = new unsigned char[tTriCount];
-                memset(triFlags, NAV_TOO_STEEP, tTriCount*sizeof(unsigned char));
-                rcClearUnwalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngleNotNavigatable, tVerts, tVertCount, tTris, tTriCount, triFlags);
-                rcMarkWalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngle, tVerts, tVertCount, tTris, tTriCount, triFlags, NAV_GROUND);
-                rcRasterizeTriangles(m_rcContext, tVerts, tVertCount, tTris, triFlags, tTriCount, *tile.solid, config.walkableClimb);
-                delete[] triFlags;
-
-                rcFilterLowHangingWalkableObstacles(m_rcContext, config.walkableClimb, *tile.solid);
-                rcFilterLedgeSpans(m_rcContext, tileCfg.walkableHeight, tileCfg.walkableClimb, *tile.solid);
-                rcFilterWalkableLowHeightSpans(m_rcContext, tileCfg.walkableHeight, *tile.solid);
-
-                // add liquid triangles
-                rcRasterizeTriangles(m_rcContext, lVerts, lVertCount, lTris, lTriFlags, lTriCount, *tile.solid, config.walkableClimb);
-
-                // compact heightfield spans
-                tile.chf = rcAllocCompactHeightfield();
-                if (!tile.chf || !rcBuildCompactHeightfield(m_rcContext, tileCfg.walkableHeight, tileCfg.walkableClimb, *tile.solid, *tile.chf))
-                {
-                    printf("%s Failed compacting heightfield!            \n", tileString);
-                    continue;
-                }
-
-                // build polymesh intermediates
-                if (!rcErodeWalkableArea(m_rcContext, config.walkableRadius, *tile.chf))
-                {
-                    printf("%s Failed eroding area!                    \n", tileString);
-                    continue;
-                }
-
-                if (!rcMedianFilterWalkableArea(m_rcContext, *tile.chf))
-                {
-                    printf("%s Failed filtering walkable area!         \n", tileString);
-                    continue;
-                }
-
-                if (!rcBuildDistanceField(m_rcContext, *tile.chf))
-                {
-                    printf("%s Failed building distance field!         \n", tileString);
-                    continue;
-                }
-
-                if (!rcBuildRegions(m_rcContext, *tile.chf, tileCfg.borderSize, tileCfg.minRegionArea, tileCfg.mergeRegionArea))
-                {
-                    printf("%s Failed building regions!                \n", tileString);
-                    continue;
-                }
-
-                tile.cset = rcAllocContourSet();
-                if (!tile.cset || !rcBuildContours(m_rcContext, *tile.chf, tileCfg.maxSimplificationError, tileCfg.maxEdgeLen, *tile.cset))
-                {
-                    printf("%s Failed building contours!               \n", tileString);
-                    continue;
-                }
-
-                // build polymesh
-                tile.pmesh = rcAllocPolyMesh();
-                if (!tile.pmesh || !rcBuildPolyMesh(m_rcContext, *tile.cset, tileCfg.maxVertsPerPoly, *tile.pmesh))
-                {
-                    printf("%s Failed building polymesh!               \n", tileString);
-                    continue;
-                }
-
-                tile.dmesh = rcAllocPolyMeshDetail();
-                if (!tile.dmesh || !rcBuildPolyMeshDetail(m_rcContext, *tile.pmesh, *tile.chf, tileCfg.detailSampleDist, tileCfg.detailSampleMaxError, *tile.dmesh))
-                {
-                    printf("%s Failed building polymesh detail!        \n", tileString);
-                    continue;
-                }
-
-                // free those up
-                // we may want to keep them in the future for debug
-                // but right now, we don't have the code to merge them
-                rcFreeHeightField(tile.solid);
-                tile.solid = NULL;
-                rcFreeCompactHeightfield(tile.chf);
-                tile.chf = NULL;
-                rcFreeContourSet(tile.cset);
-                tile.cset = NULL;
-
-                pmmerge[nmerge] = tile.pmesh;
-                dmmerge[nmerge] = tile.dmesh;
-                nmerge++;
-            }
-        }
-
-        iv.polyMesh = rcAllocPolyMesh();
-        if (!iv.polyMesh)
-        {
-            printf("%s alloc iv.polyMesh FIALED!             \n", tileString);
-            delete[] pmmerge;
-            delete[] dmmerge;
-            delete[] tiles;
-            return;
-        }
-        rcMergePolyMeshes(m_rcContext, pmmerge, nmerge, *iv.polyMesh);
-
-        iv.polyMeshDetail = rcAllocPolyMeshDetail();
-        if (!iv.polyMeshDetail)
-        {
-            printf("%s alloc m_dmesh FIALED!             \n", tileString);
-            delete[] pmmerge;
-            delete[] dmmerge;
-            delete[] tiles;
-            return;
-        }
-        rcMergePolyMeshDetails(m_rcContext, dmmerge, nmerge, *iv.polyMeshDetail);
-
-        // free things up
-        delete[] pmmerge;
-        delete[] dmmerge;
-        delete[] tiles;
-
-        // set polygons as walkable
-        // TODO: special flags for DYNAMIC polygons, ie surfaces that can be turned on and off
-        for (int i = 0; i < iv.polyMesh->npolys; ++i)
-            if (uint8 area = iv.polyMesh->areas[i] & NAV_ALL_MASK)
-                iv.polyMesh->flags[i] = (area >= NAV_MIN_VALUE) ? (1 << (NAV_MAX_VALUE - iv.polyMesh->areas[i])) : NAV_GROUND;
-
-        // setup mesh parameters
-        dtNavMeshCreateParams params;
-        memset(&params, 0, sizeof(params));
-        params.verts = iv.polyMesh->verts;
-        params.vertCount = iv.polyMesh->nverts;
-        params.polys = iv.polyMesh->polys;
-        params.polyAreas = iv.polyMesh->areas;
-        params.polyFlags = iv.polyMesh->flags;
-        params.polyCount = iv.polyMesh->npolys;
-        params.nvp = iv.polyMesh->nvp;
-        params.detailMeshes = iv.polyMeshDetail->meshes;
-        params.detailVerts = iv.polyMeshDetail->verts;
-        params.detailVertsCount = iv.polyMeshDetail->nverts;
-        params.detailTris = iv.polyMeshDetail->tris;
-        params.detailTriCount = iv.polyMeshDetail->ntris;
-
-        params.offMeshConVerts = meshData.offMeshConnections.getCArray();
-        params.offMeshConCount = meshData.offMeshConnections.size()/6;
-        params.offMeshConRad = meshData.offMeshConnectionRads.getCArray();
-        params.offMeshConDir = meshData.offMeshConnectionDirs.getCArray();
-        params.offMeshConAreas = meshData.offMeshConnectionsAreas.getCArray();
-        params.offMeshConFlags = meshData.offMeshConnectionsFlags.getCArray();
-
-        params.walkableHeight = BASE_UNIT_DIM*config.walkableHeight;    // agent height
-        params.walkableRadius = BASE_UNIT_DIM*config.walkableRadius;    // agent radius
-        params.walkableClimb = BASE_UNIT_DIM*config.walkableClimb;      // keep less that walkableHeight (aka agent height)!
-        params.tileX = (((bmin[0] + bmax[0]) / 2) - navMesh->getParams()->orig[0]) / GRID_SIZE;
-        params.tileY = (((bmin[2] + bmax[2]) / 2) - navMesh->getParams()->orig[2]) / GRID_SIZE;
-        rcVcopy(params.bmin, bmin);
-        rcVcopy(params.bmax, bmax);
-        params.cs = config.cs;
-        params.ch = config.ch;
-        params.tileLayer = 0;
-        params.buildBvTree = true;
-
-        // 35,39 | -1821.15 -4208.10 3.15 | -4208.10 3.15 -1821.15
-        // will hold final navmesh
-        unsigned char* navData = NULL;
-        int navDataSize = 0;
-
-        do
-        {
-            // these values are checked within dtCreateNavMeshData - handle them here
-            // so we have a clear error message
-            if (params.nvp > DT_VERTS_PER_POLYGON)
-            {
-                printf("%s Invalid verts-per-polygon value!        \n", tileString);
-                continue;
-            }
-            if (params.vertCount >= 0xffff)
-            {
-                printf("%s Too many vertices!                      \n", tileString);
-                continue;
-            }
-            if (!params.vertCount || !params.verts)
-            {
-                // occurs mostly when adjacent tiles have models
-                // loaded but those models don't span into this tile
-
-                // message is an annoyance
-                //printf("%sNo vertices to build tile!              \n", tileString);
-                continue;
-            }
-            if (!params.polyCount || !params.polys ||
-                TILES_PER_MAP*TILES_PER_MAP == params.polyCount)
-            {
-                // we have flat tiles with no actual geometry - don't build those, its useless
-                // keep in mind that we do output those into debug info
-                // drop tiles with only exact count - some tiles may have geometry while having less tiles
-                printf("%s No polygons to build on tile!              \n", tileString);
-                continue;
-            }
-            if (!params.detailMeshes || !params.detailVerts || !params.detailTris)
-            {
-                printf("%s No detail mesh to build tile!           \n", tileString);
-                continue;
-            }
-
-            //printf("%s Building navmesh tile...           \r", tileString);
-            if (!dtCreateNavMeshData(&params, &navData, &navDataSize))
-            {
-                printf("%s Failed building navmesh tile!           \n", tileString);
-                continue;
-            }
-
-            dtTileRef tileRef = 0;
-            //printf("%s Adding tile to navmesh...           \r", tileString);
-            // DT_TILE_FREE_DATA tells detour to unallocate memory when the tile
-            // is removed via removeTile()
-            dtStatus dtResult = navMesh->addTile(navData, navDataSize, DT_TILE_FREE_DATA, 0, &tileRef);
-            if (!tileRef || dtResult != DT_SUCCESS)
-            {
-                printf("%s Failed adding tile to navmesh!           \n", tileString);
-                continue;
-            }
-
-            // file output
-            char fileName[255];
-            sprintf(fileName, "mmaps/%03u%02i%02i.mmtile", mapID, tileX, tileY);
-            FILE* file = fopen(fileName, "wb");
-            if (!file)
-            {
-                char message[1024];
-                sprintf(message, "Failed to open %s for writing!             \n", fileName);
-                perror(message);
-                navMesh->removeTile(tileRef, NULL, NULL);
-                continue;
-            }
-
-            //printf("%s Writing to file...             \r", tileString);
-
-            // write header
-            MmapTileHeader header;
-            header.usesLiquids = m_terrainBuilder->usesLiquids();
-            header.size = G3D::uint32(navDataSize);
-            fwrite(&header, sizeof(MmapTileHeader), 1, file);
-
-            // write data
-            fwrite(navData, sizeof(unsigned char), navDataSize, file);
-            fclose(file);
-
-            // now that tile is written to disk, we can unload it
-            navMesh->removeTile(tileRef, NULL, NULL);
-        }
-        while (0);
-
-        if (m_debugOutput)
-        {
-            // restore padding so that the debug visualization is correct
-            for (int i = 0; i < iv.polyMesh->nverts; ++i)
-            {
-                unsigned short* v = &iv.polyMesh->verts[i*3];
-                v[0] += (unsigned short)config.borderSize;
-                v[2] += (unsigned short)config.borderSize;
-            }
-
-            iv.generateObjFile(mapID, tileX, tileY, meshData);
-            iv.writeIV(mapID, tileX, tileY);
-        }
+        return ret;
     }
 
     static Mutex fileLock;
+
+    enum layerTypes
+    {   // Just differentiate
+        LAYER_TYPE_TERRAIN = 0,
+        LAYER_TYPE_VMAP,
+        MAX_LAYER_TYPE
+    };
+
+    void buildTrisVerticesFlagsFromLoadData(MapTileLoadData &loadData, int layer, int layerType, G3D::Array<float> &tVertArray, G3D::Array<int> &tTriArray, G3D::Array<int> &tTriFlags, G3D::Array<G3D::AABox*> &vmapData)
+    {
+        switch(layerType)
+        {
+        case LAYER_TYPE_TERRAIN:
+            {
+                switch(layer)
+                {
+                case 0:
+                    {
+                        tVertArray.append(loadData.terrainData[0].objVerts);
+                        tTriArray.append(loadData.terrainData[0].objTris);
+                        tTriFlags.append(loadData.terrainData[0].objFlags);
+                        for(auto itr = loadData.vmapData.begin(); itr != loadData.vmapData.end(); itr++)
+                            vmapData.append(&(*itr)->boundBox);
+                    }break;
+                case 1:
+                    {
+                        tVertArray.append(loadData.terrainData[1].objVerts);
+                        tTriArray.append(loadData.terrainData[1].objTris);
+                        tTriFlags.append(loadData.terrainData[1].objFlags);
+                        for(auto itr = loadData.vmapData.begin(); itr != loadData.vmapData.end(); itr++)
+                            vmapData.append(&(*itr)->boundBox);
+                    }break;
+                }break;
+            }break;
+        case LAYER_TYPE_VMAP:
+            {
+                for(auto itr = loadData.vmapData.begin(); itr != loadData.vmapData.end(); itr++)
+                {
+                    int offset = tVertArray.size()/3;
+                    tVertArray.append((*itr)->objVerts);
+                    TerrainBuilder::copyIndices((*itr)->objTris, tTriArray, offset);
+                    tTriFlags.append((*itr)->objFlags);
+                }
+            }break;
+        }
+    }
+
+    void getTileBoundingBoxInfoforTileConfig(MapTileLoadData &loadData, rcConfig &config, rcConfig &tileConfig, int layer, int layerType)
+    {
+        switch(layerType)
+        {
+        case LAYER_TYPE_TERRAIN:
+            {
+                switch(layer)
+                {
+                case 0:
+                    {
+                        tileConfig.bmin[1] = loadData.terrainData[0].boundBox.low()[1];
+                        tileConfig.bmax[1] = loadData.terrainData[0].boundBox.high()[1];
+                    }break;
+                case 1:
+                    {
+                        tileConfig.bmin[1] = loadData.terrainData[0].boundBox.low()[1];
+                        tileConfig.bmax[1] = loadData.terrainData[0].boundBox.high()[1];
+                    }break;
+                }break;
+            }break;
+        case LAYER_TYPE_VMAP:
+            {
+                if(loadData.vmapData.size())
+                {   // This function only really uses our height from the bound boxes, need to eventually utilize our assumed bound box to only base height off of intersected bound boxes for a reduced heightfield
+                    G3D::AABox stackedBoundBox(G3D::Vector3(tileConfig.bmin[0], tileConfig.bmin[1], tileConfig.bmin[2]), G3D::Vector3(tileConfig.bmax[0], tileConfig.bmax[1], tileConfig.bmax[2]));; // Grab all our vmap bound boxes and merge them into place, start with existing boundbox
+                    G3D::AABox tileBounds(G3D::Vector3(tileConfig.bmin[0], VMAP_INVALID_HEIGHT, tileConfig.bmin[2]), G3D::Vector3(tileConfig.bmax[0], VMAP_MAX_HEIGHT, tileConfig.bmax[2]));
+                    for(auto itr = loadData.vmapData.begin(); itr != loadData.vmapData.end(); itr++)
+                    {
+                        // Check if our vmap bound box intersects with our current tile
+                        if(!(*itr)->boundBox.intersects(tileBounds))
+                            continue;
+                        stackedBoundBox.merge((*itr)->boundBox);
+                    }
+                    tileConfig.bmin[1] = stackedBoundBox.low()[1];
+                    tileConfig.bmax[1] = stackedBoundBox.high()[1];
+                }
+            }break;
+        }
+    }
+
+    void MapBuilder::buildMoveMapSubTileFromContext(Tile *tileToBuild, MapSubtileBuildContext *context)
+    {
+        Tile &tile = *tileToBuild;
+        // Tile defaults to failed
+        context->builtHeightField = context->builtCompactHeightField = context->builtContourSet = context->builtPolyMesh = context->builtDetailMesh = false;
+
+        // build heightfield
+        tile.solid = rcAllocHeightfield();
+        if (!tile.solid || !rcCreateHeightfield(m_rcContext, *tile.solid, context->tileCfg.width, context->tileCfg.height, context->tileCfg.bmin, context->tileCfg.bmax, context->tileCfg.cs, context->tileCfg.ch))
+        {
+            printf("%s Failed building heightfield!            \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+        context->builtHeightField = true;
+
+        // Grab our loaded verts and tris
+        float *tVerts = context->tVertArray->getCArray();
+        int tVertCount = context->tVertArray->size() / 3;
+        int *tTris = context->tTriArray->getCArray();
+        int tTriCount = context->tTriArray->size() / 3;
+
+        // Rasterize our terrain triangles
+        rcRasterizeTriangles(m_rcContext, tVerts, tVertCount, tTris, context->triFlags, tTriCount, *tile.solid, context->tileCfg.walkableClimb);
+
+        // Filter our tile
+        rcFilterLowHangingWalkableObstacles(m_rcContext, context->tileCfg.walkableClimb, *tile.solid);
+        rcFilterLedgeSpans(m_rcContext, context->tileCfg.walkableHeight, context->tileCfg.walkableClimb, *tile.solid);
+        rcFilterWalkableLowHeightSpans(m_rcContext, context->tileCfg.walkableHeight, *tile.solid);
+
+        // compact heightfield spans
+        tile.chf = rcAllocCompactHeightfield();
+        if (!tile.chf || !rcBuildCompactHeightfield(m_rcContext, context->tileCfg.walkableHeight, context->tileCfg.walkableClimb, *tile.solid, *tile.chf))
+        {
+            printf("%s Failed compacting heightfield!            \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+        context->builtCompactHeightField = true;
+
+        // build polymesh intermediates
+        if (!rcErodeWalkableArea(m_rcContext, context->tileCfg.walkableRadius, *tile.chf))
+        {
+            printf("%s Failed eroding area!                    \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+
+        if (!rcMedianFilterWalkableArea(m_rcContext, *tile.chf))
+        {
+            printf("%s Failed filtering walkable area!         \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+
+        if (!rcBuildDistanceField(m_rcContext, *tile.chf))
+        {
+            printf("%s Failed building distance field!         \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+
+        if (!rcBuildRegions(m_rcContext, *tile.chf, context->tileCfg.borderSize, context->tileCfg.minRegionArea, context->tileCfg.mergeRegionArea))
+        {
+            printf("%s Failed building regions!                \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+
+        tile.cset = rcAllocContourSet();
+        if (!tile.cset || !rcBuildContours(m_rcContext, *tile.chf, context->tileCfg.maxSimplificationError, context->tileCfg.maxEdgeLen, *tile.cset))
+        {
+            printf("%s Failed building contours!               \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+        context->builtContourSet = true;
+
+        // build polymesh
+        tile.pmesh = rcAllocPolyMesh();
+        if (!tile.pmesh || !rcBuildPolyMesh(m_rcContext, *tile.cset, context->tileCfg.maxVertsPerPoly, *tile.pmesh))
+        {
+            printf("%s Failed building polymesh!               \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+        context->builtPolyMesh = true;
+
+        tile.dmesh = rcAllocPolyMeshDetail();
+        if (!tile.dmesh || !rcBuildPolyMeshDetail(m_rcContext, *tile.pmesh, *tile.chf, context->tileCfg.detailSampleDist, context->tileCfg.detailSampleMaxError, *tile.dmesh))
+        {
+            printf("%s Failed building polymesh detail!        \n%s\r", context->tileString, dialogBox.c_str());
+            return;
+        }
+        context->builtDetailMesh = true;
+    }
+
+    const static float BASE_UNIT_SIZE = 0.2666666f;
+
+    const static float buildConfig_moveSize[MAX_LAYER_TYPE] = { BASE_UNIT_SIZE*4, BASE_UNIT_SIZE };
+    const static float buildConfig_VERTEX_PER_MAP[MAX_LAYER_TYPE] = { (GRID_SIZE / buildConfig_moveSize[0] + 0.5f), (GRID_SIZE / buildConfig_moveSize[1] + 0.5f) };
+    const static int buildConfig_VERTEX_PER_TILE[MAX_LAYER_TYPE] = { 32, 128 };
+    const static int buildConfig_TILES_PER_MAP[MAX_LAYER_TYPE] = { int(buildConfig_VERTEX_PER_MAP[0]/buildConfig_VERTEX_PER_TILE[0]), int(buildConfig_VERTEX_PER_MAP[1]/buildConfig_VERTEX_PER_TILE[1]) };
+    const static int buildConfig_MinRegionArea[MAX_LAYER_TYPE] = { rcSqr(15), rcSqr(60) };
+    const static int buildConfig_MergeRegionArea[MAX_LAYER_TYPE] = { rcSqr(12), rcSqr(50) };
+
     /**************************************************************************/
-    void MapBuilder::buildMoveMapTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData, float bmin[3], float bmax[3], dtNavMesh* navMesh)
+    void MapBuilder::buildMoveMapTerrainTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData, float bmin[3], float bmax[3], dtNavMesh* navMesh, ThreadTaskList &threadList)
     {   // 35,39 | -1821.15 -4208.10 3.15 | -1821.15 3.15 -4208.10
+        // value have to divide GRID_SIZE(533.3333f) ( aka: 0.5333, 0.2666, 0.3333, 0.1333, etc )
+        rcConfig config[MAX_LAYER_TYPE];
+        memset(&config, 0, sizeof(rcConfig)*MAX_LAYER_TYPE);
+
+        rcVcopy(config[LAYER_TYPE_TERRAIN].bmin, bmin);
+        rcVcopy(config[LAYER_TYPE_TERRAIN].bmax, bmax);
+        rcVcopy(config[LAYER_TYPE_VMAP].bmin, bmin);
+        rcVcopy(config[LAYER_TYPE_VMAP].bmax, bmax);
+
+        for(int laterType = LAYER_TYPE_TERRAIN; laterType < MAX_LAYER_TYPE; laterType++)
+        {
+            config[laterType].maxVertsPerPoly = DT_VERTS_PER_POLYGON;
+            config[laterType].cs = buildConfig_moveSize[laterType];
+            config[laterType].ch = buildConfig_moveSize[laterType];
+            config[laterType].walkableSlopeAngle = m_maxWalkableAngle;
+            config[laterType].walkableSlopeAngleNotSteep = 55;
+            config[laterType].tileSize = buildConfig_VERTEX_PER_TILE[laterType];
+            config[laterType].walkableRadius = m_bigBaseUnit ? 1 : 2;
+            config[laterType].borderSize = config[laterType].walkableRadius + 3;
+            config[laterType].maxEdgeLen = buildConfig_VERTEX_PER_TILE[laterType] + 1;   //anything bigger than tileSize
+            config[laterType].walkableHeight = m_bigBaseUnit ? 3 : 6;
+            config[laterType].walkableClimb = m_bigBaseUnit ? 3 : 6;
+            config[laterType].minRegionArea = buildConfig_MinRegionArea[laterType];
+            config[laterType].mergeRegionArea = buildConfig_MergeRegionArea[laterType];
+            config[laterType].maxSimplificationError = 1.8f;             // eliminates most jagged edges (tiny polygons)
+            config[laterType].detailSampleDist = config[laterType].cs * 16;
+            config[laterType].detailSampleMaxError = config[laterType].ch * 1;
+
+            switch (mapID)
+            {
+            // Blade's Edge Arena
+            case 562: // This allows to walk on the ropes to the pillars
+                config[laterType].walkableRadius = 0;
+                break;
+            // Blackfathom Deeps
+            case 48: // Reduce the chance to have underground levels
+                config[laterType].ch *= 2;
+                break;
+            }
+
+            // this sets the dimensions of the heightfield - should maybe happen before border padding
+            rcCalcGridSize(config[laterType].bmin, config[laterType].bmax, config[laterType].cs, &config[laterType].width, &config[laterType].height);
+        }
+
+        const int MAX_LAYER_PER_NAVMESH = 3;
+        const int LayerToType[MAX_LAYER_PER_NAVMESH] = {LAYER_TYPE_TERRAIN, LAYER_TYPE_TERRAIN, LAYER_TYPE_VMAP}; // [Land][Water][VMAP]
+
         // console output
         char tileString[20];
-        sprintf(tileString, "[%02i,%02i]: ", tileX, tileY);
-
-        IntermediateValues iv;
-
-        // Base everything off of chunk counts for our tile
-        const static int TILES_PER_MAP = CHUNK_SIZE+2;
-        const static int VERTEX_PER_TILE = V8_CH_SIZE_SQ+V9_CH_SIZE_SQ; // must divide VERTEX_PER_MAP
-        const static int VERTEX_PER_MAP = TILES_PER_MAP*VERTEX_PER_TILE;
-
-        // value have to divide GRID_SIZE(533.33333f) ( aka: 0.5333, 0.2666, 0.3333, 0.1333, etc )
-        static float BASE_UNIT_MOVE_SIZE = (GRID_SIZE + (GRID_CHUNK_SIZE*2)) / VERTEX_PER_MAP;
-        // Current formula is (533.3333+((533.3333/16)*2))/2610 = 0.22988504313
-        // Recast will interpolate our supplied triangles with values based on this walk distance, so file size bloats based on how small this value is
-
-        rcConfig config;
-        memset(&config, 0, sizeof(rcConfig));
-
-        rcVcopy(config.bmin, bmin);
-        rcVcopy(config.bmax, bmax);
-
-        config.maxVertsPerPoly = DT_VERTS_PER_POLYGON;
-        config.cs = BASE_UNIT_MOVE_SIZE;
-        config.ch = BASE_UNIT_MOVE_SIZE;
-        config.walkableSlopeAngle = m_maxWalkableAngle;
-        config.walkableSlopeAngleNotNavigatable = 80;
-        config.tileSize = VERTEX_PER_TILE;
-        config.walkableRadius = m_bigBaseUnit ? 1 : 2;
-        config.borderSize = config.walkableRadius + 3;
-        config.maxEdgeLen = VERTEX_PER_TILE + 1;        //anything bigger than tileSize
-        config.walkableHeight = m_bigBaseUnit ? 3 : 6;
-        config.walkableClimb = m_bigBaseUnit ? 3 : 6;
-        config.minRegionArea = rcSqr(60);
-        config.mergeRegionArea = rcSqr(50);
-        config.maxSimplificationError = 1.8f;       // eliminates most jagged edges (tinny polygons)
-        config.detailSampleDist = config.cs * 16;
-        config.detailSampleMaxError = config.ch * 1;
-        if(mapID == 0 && tileX == 35 && tileY == 39)
-            printf("");
-
-        switch (mapID)
+        IntermediateValues iv[MAX_LAYER_PER_NAVMESH];
+        for(int layer = 0; layer < MAX_LAYER_PER_NAVMESH; layer++)
         {
-        // Blade's Edge Arena
-        case 562: // This allows to walk on the ropes to the pillars
-            config.walkableRadius = 0;
-            break;
-        // Blackfathom Deeps
-        case 48: // Reduce the chance to have underground levels
-            config.ch *= 2;
-            break;
-        }
+            sprintf(tileString, "[%02i,%02i|%i]: ", tileX, tileY, layer);
 
-        // this sets the dimensions of the heightfield - should maybe happen before border padding
-        rcCalcGridSize(config.bmin, config.bmax, config.cs, &config.width, &config.height);
-
-        // allocate subregions : tiles
-        Tile* tiles = new Tile[TILES_PER_MAP * TILES_PER_MAP];
-
-        // Initialize per tile config.
-        rcConfig tileCfg = config;
-        tileCfg.width = config.tileSize + config.borderSize*2;
-        tileCfg.height = config.tileSize + config.borderSize*2;
-
-        // merge per tile poly and detail meshes
-        rcPolyMesh** pmmerge = new rcPolyMesh*[TILES_PER_MAP * TILES_PER_MAP];
-        if (!pmmerge)
-        {
-            printf("%s alloc pmmerge FAILED!             \n", tileString);
-            return;
-        }
-
-        rcPolyMeshDetail** dmmerge = new rcPolyMeshDetail*[TILES_PER_MAP * TILES_PER_MAP];
-        if (!dmmerge)
-        {
-            printf("%s alloc dmmerge FAILED!             \n", tileString);
-            return;
-        }
-
-        int nmerge = 0;
-
-        float *cVMapVerts = loadData.vmapSolidVerts.getCArray();
-        int cVMapVertCount = loadData.vmapSolidVerts.size() / 3;
-
-        int *cVMapTris = loadData.vmapSolidTris.getCArray();
-        int cVMapTriCount = loadData.vmapSolidTris.size() / 3;
-
-        // Add Vmap Triangles
-        unsigned char *cVMapFlags = new unsigned char[cVMapTriCount];
-        memset(cVMapFlags, NAV_GROUND, cVMapTriCount*sizeof(unsigned char));
-        {   //rcMarkWalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngleNotSteep, cVerts, cVertCount, cTris, cTriCount, cFlags, NAV_GROUND);
-            float notWalkableThr = cosf(tileCfg.walkableSlopeAngle/180.0f*RC_PI), notNavigatableThr = cosf(tileCfg.walkableSlopeAngleNotNavigatable/180.0f*RC_PI);
-
-            float norm[3];
-
-            for (int i = 0; i < cVMapTriCount; ++i)
-            {
-                float grade = 0.f;
-                const int* tri = &cVMapTris[i*3];
-                float e0[3];//, e1[3];
-                float* v0 = &cVMapVerts[tri[0]*3], *v1 = &cVMapVerts[tri[1]*3], *v2 = &cVMapVerts[tri[2]*3];
-                //static void calcTriNormal(const float* v0, const float* v1, const float* v2, float* norm)
-                {   //calcTriNormal(&verts[tri[0]*3], &verts[tri[1]*3], &verts[tri[2]*3], norm);
-                    //float* v0 = &cVerts[tri[0]*3], *v1 = &cVerts[tri[1]*3], *v2 = &cVerts[tri[2]*3];
-                    //float e0[3], e1[3];
-                    e0[0] = std::min<float>(v0[0], std::min<float>(v1[0], v2[0]));
-                    e0[1] = std::min<float>(v0[1], std::min<float>(v1[1], v2[1]));
-                    e0[2] = std::min<float>(v0[2], std::min<float>(v1[2], v2[2]));
-
-                    float mid[3] = { (v0[0]+v1[0]+v2[0])/3.f, (v0[1]+v1[1]+v2[1])/3.f, (v0[2]+v1[2]+v2[2])/3.f };
-                    float dist = sqrtf(((mid[0]-e0[0])*(mid[0]-e0[0])) + ((mid[2]-e0[2])*(mid[2]-e0[2])));
-                    grade = ((mid[1] - e0[1])/dist)*100.f;
-
-                    /*rcVsub(e0, v1, v0);
-                    rcVsub(e1, v2, v0);
-                    rcVcross(norm, e0, e1);
-                    rcVnormalize(norm);*/
-                }
-                float gradeCosine = cosf((grade / 180.0f) * RC_PI);
-
-                // Mark flags of areas either too steep to include or not walkable
-                if (gradeCosine < notNavigatableThr)
-                    cVMapFlags[i] = NAV_EMPTY;
-                else if (gradeCosine < notWalkableThr)
-                    cVMapFlags[i] = NAV_TOO_STEEP;
+            int nmerge = 0;
+            G3D::Array<float> tVertArray;
+            G3D::Array<int> tTriArray;
+            G3D::Array<int> tTriFlags;
+            G3D::Array<G3D::AABox*> vmapData;
+            buildTrisVerticesFlagsFromLoadData(loadData, layer, LayerToType[layer], tVertArray, tTriArray, tTriFlags, vmapData);
+            if(!tVertArray.size())
+                continue; // We have no verts available
+            if(LayerToType[layer] != LAYER_TYPE_VMAP)
+            {    // Cull terrain that interacts with vmap objects
+                if(!filterObjectsFromTriangles(tVertArray, tTriArray, tTriFlags, vmapData))
+                    continue; // Vmapobj has culled all our terrain, end this layer here
             }
-        }
 
-        // build all tiles
-        for (int y = 0; y < TILES_PER_MAP; ++y)
-        {
-            for (int x = 0; x < TILES_PER_MAP; ++x)
+            // allocate subregions : tiles
+            Tile* tiles = new Tile[buildConfig_TILES_PER_MAP[LayerToType[layer]] * buildConfig_TILES_PER_MAP[LayerToType[layer]]];
+
+            // merge per tile poly and detail meshes
+            rcPolyMesh** pmmerge = new rcPolyMesh*[buildConfig_TILES_PER_MAP[LayerToType[layer]] * buildConfig_TILES_PER_MAP[LayerToType[layer]]];
+            if (!pmmerge)
             {
-                Tile& tile = tiles[x + y * TILES_PER_MAP];
-                if(loadData._chunkData[x][y].xOffset == 0xFF || loadData._chunkData[x][y].yOffset == 0xFF)
-                    continue;
+                printf("%s alloc pmmerge FAILED!             \n%s\r", tileString, dialogBox.c_str());
+                return;
+            }
 
-                MapLoadData::ChunkInfo *info = &loadData._chunkData[x][y];
-                // XZY
-                tileCfg.bmin[0] = loadData._chunkData[x][y].min[0];
-                tileCfg.bmin[1] = loadData._chunkData[x][y].min[1];
-                tileCfg.bmin[2] = loadData._chunkData[x][y].min[2];
+            rcPolyMeshDetail** dmmerge = new rcPolyMeshDetail*[buildConfig_TILES_PER_MAP[LayerToType[layer]] * buildConfig_TILES_PER_MAP[LayerToType[layer]]];
+            if (!dmmerge)
+            {
+                printf("%s alloc dmmerge FAILED!             \n%s\r", tileString, dialogBox.c_str());
+                return;
+            }
 
-                tileCfg.bmax[0] = loadData._chunkData[x][y].max[0];
-                tileCfg.bmax[1] = loadData._chunkData[x][y].max[1];
-                tileCfg.bmax[2] = loadData._chunkData[x][y].max[2];
+            // Grab our flags
+            int *cTriFlags = tTriFlags.getCArray();
+            int cTriFlagCount = tTriFlags.size();
 
-                // build heightfield
-                tile.solid = rcAllocHeightfield();
-                if (!tile.solid || !rcCreateHeightfield(m_rcContext, *tile.solid, tileCfg.width, tileCfg.height, tileCfg.bmin, tileCfg.bmax, tileCfg.cs, tileCfg.ch))
+            // Initialize flags for our terrain and copy in our existing terrain flags
+            unsigned char* triFlags = new unsigned char[cTriFlagCount];
+            memcpy_s(triFlags, cTriFlagCount, cTriFlags, cTriFlagCount);
+            // Process our tris and vertices to fill our tri flags with appropriate data
+            rcClearUnwalkableTriangles(m_rcContext, config[LayerToType[layer]].walkableSlopeAngle, tVertArray.getCArray(), tVertArray.size() / 3, tTriArray.getCArray(), tTriArray.size() / 3, triFlags, NAV_COLLISION);
+            rcMarkWalkableTriangles(m_rcContext, config[LayerToType[layer]].walkableSlopeAngleNotSteep, tVertArray.getCArray(), tVertArray.size() / 3, tTriArray.getCArray(), tTriArray.size() / 3, triFlags, NAV_GROUND);
+
+            printf("%s Building subtile context...           \r", tileString);
+            std::map<uint32, MapSubtileBuildContext*> m_tileContextMap;
+            // build all tiles
+            for (int x = 0; x < buildConfig_TILES_PER_MAP[LayerToType[layer]]; ++x)
+            {
+                for (int y = 0; y < buildConfig_TILES_PER_MAP[LayerToType[layer]]; ++y)
                 {
-                    printf("%s Failed building heightfield!            \n", tileString);
-                    continue;
+                    Tile& tile = tiles[x + y * buildConfig_TILES_PER_MAP[LayerToType[layer]]];
+                    MapSubtileBuildContext *context = new MapSubtileBuildContext();
+                    m_tileContextMap.insert(std::make_pair(packTileID(x, y), context));
+
+                    context->tileCfg = config[LayerToType[layer]];
+                    sprintf(context->tileString, "[%02i,%02i|%i]: ", tileX, tileY, layer);
+
+                    // Padd our tile with a buffer
+                    context->tileCfg.bmin[0] = config[LayerToType[layer]].bmin[0] + x * float(context->tileCfg.tileSize * context->tileCfg.cs);
+                    context->tileCfg.bmin[2] = config[LayerToType[layer]].bmin[2] + y * float(context->tileCfg.tileSize * context->tileCfg.cs);
+                    context->tileCfg.bmax[0] = config[LayerToType[layer]].bmin[0] + (x + 1) * float(context->tileCfg.tileSize * context->tileCfg.cs);
+                    context->tileCfg.bmax[2] = config[LayerToType[layer]].bmin[2] + (y + 1) * float(context->tileCfg.tileSize * context->tileCfg.cs);
+
+                    context->tileCfg.bmin[0] -= context->tileCfg.borderSize * context->tileCfg.cs;
+                    context->tileCfg.bmin[2] -= context->tileCfg.borderSize * context->tileCfg.cs;
+                    context->tileCfg.bmax[0] += context->tileCfg.borderSize * context->tileCfg.cs;
+                    context->tileCfg.bmax[2] += context->tileCfg.borderSize * context->tileCfg.cs;
+
+                    // Initialize per tile config.
+                    getTileBoundingBoxInfoforTileConfig(loadData, config[LayerToType[layer]], context->tileCfg, layer, LayerToType[layer]);
+
+                    context->tileCfg.height /= buildConfig_TILES_PER_MAP[LayerToType[layer]];
+                    context->tileCfg.width /= buildConfig_TILES_PER_MAP[LayerToType[layer]];
+
+                    // Set our context with our verts, tris, and flags
+                    context->tVertArray = &tVertArray;
+                    context->tTriArray = &tTriArray;
+                    context->triFlags = triFlags;
+                    context->cTriFlagCount = cTriFlagCount;
+
+                    // Queue into threadlist
+                    threadList.AddTask(new CallbackP2 <MapBuilder, Tile*, MapSubtileBuildContext*>(this, &MapBuilder::buildMoveMapSubTileFromContext, &tile, context));
                 }
+            }
 
-                float *cVerts = loadData._chunkData[x][y].combinedVerts.getCArray();
-                int cVertCount = loadData._chunkData[x][y].combinedVerts.size() / 3;
+            threadList.wait(UNIXTIME, g_localTime);
+            printf("%s Merging polymesh...           \r", tileString);
 
-                int *cTris = loadData._chunkData[x][y].combinedTris.getCArray();
-                int cTriCount = loadData._chunkData[x][y].combinedTris.size() / 3;
+            // Clean up our flags
+            delete triFlags;
 
-                unsigned char *cFlags = loadData._chunkData[x][y].combinedFlags.getCArray();
+            for (int x = 0; x < buildConfig_TILES_PER_MAP[LayerToType[layer]]; ++x)
+            {
+                for (int y = 0; y < buildConfig_TILES_PER_MAP[LayerToType[layer]]; ++y)
+                {
+                    Tile& tile = tiles[x + y * buildConfig_TILES_PER_MAP[LayerToType[layer]]];
+                    // Tile context is always created, safe to use at instead of search
+                    MapSubtileBuildContext *tileContext = m_tileContextMap.at(packTileID(x, y));
+                    m_tileContextMap.erase(packTileID(x, y));
 
-                /*void rcClearUnwalkableTriangles(rcContext* ctx, const float walkableSlopeAngle,
-                                const float* verts, int nv,
-                                const int* tris, int nt,
-                                unsigned char* areas) */
-                //rcClearUnwalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngle, cVerts, cVertCount, cTris, cTriCount, cFlags);
-                /*void rcMarkWalkableTriangles(rcContext* ctx, const float walkableSlopeAngle,
-                *            const float* verts, int nv,
-                *            const int* tris, int nt,
-                *            unsigned char* areas, unsigned char areaType) */
-                {   //rcMarkWalkableTriangles(m_rcContext, tileCfg.walkableSlopeAngleNotSteep, cVerts, cVertCount, cTris, cTriCount, cFlags, NAV_GROUND);
-                    float notWalkableThr = cosf(tileCfg.walkableSlopeAngle/180.0f*RC_PI), notNavigatableThr = cosf(tileCfg.walkableSlopeAngleNotNavigatable/180.0f*RC_PI);
-
-                    float norm[3];
-
-                    for (int i = 0; i < cTriCount; ++i)
+                    /// Free up a lot of data and check our allocation steps
+                    // we may want to keep them in the future for debug
+                    if(!tileContext->builtHeightField)
                     {
-                        int terrain = cFlags[i];
-                        // Added this to our code, only affect default terrain tiles, avoid water tiles.
-                        if(terrain != NAV_GROUND)
-                            continue;
-
-                        float grade = 0.f;
-                        const int* tri = &cTris[i*3];
-                        float e0[3], e1[3];
-                        float* v0 = &cVerts[tri[0]*3], *v1 = &cVerts[tri[1]*3], *v2 = &cVerts[tri[2]*3];
-                        //static void calcTriNormal(const float* v0, const float* v1, const float* v2, float* norm)
-                        {   //calcTriNormal(&verts[tri[0]*3], &verts[tri[1]*3], &verts[tri[2]*3], norm);
-                            //float* v0 = &cVerts[tri[0]*3], *v1 = &cVerts[tri[1]*3], *v2 = &cVerts[tri[2]*3];
-                            //float e0[3], e1[3];
-                            e0[0] = std::min<float>(v0[0], std::min<float>(v1[0], v2[0]));
-                            e0[1] = std::min<float>(v0[1], std::min<float>(v1[1], v2[1]));
-                            e0[2] = std::min<float>(v0[2], std::min<float>(v1[2], v2[2]));
-
-                            float mid[3] = { (v0[0]+v1[0]+v2[0])/3.f, (v0[1]+v1[1]+v2[1])/3.f, (v0[2]+v1[2]+v2[2])/3.f };
-                            float dist = sqrtf(((mid[0]-e0[0])*(mid[0]-e0[0])) + ((mid[2]-e0[2])*(mid[2]-e0[2])));
-                            grade = ((mid[1] - e0[1])/dist)*100.f;
-
-                            /*rcVsub(e0, v1, v0);
-                            rcVsub(e1, v2, v0);
-                            rcVcross(norm, e0, e1);
-                            rcVnormalize(norm);*/
-                        }
-                        float gradeCosine = cosf((grade / 180.0f) * RC_PI);
-
-                        // Mark flags of areas either too steep to include or not walkable
-                        if (gradeCosine < notNavigatableThr)
-                            cFlags[i] = NAV_EMPTY;
-                        else if (gradeCosine < notWalkableThr)
-                            cFlags[i] = NAV_TOO_STEEP;
+                        delete tileContext;
+                        continue;
                     }
+
+                    rcFreeHeightField(tile.solid);
+                    tile.solid = NULL;
+                    if(!tileContext->builtCompactHeightField)
+                    {
+                        delete tileContext;
+                        continue;
+                    }
+
+                    rcFreeCompactHeightfield(tile.chf);
+                    tile.chf = NULL;
+                    if(!tileContext->builtContourSet)
+                    {
+                        delete tileContext;
+                        continue;
+                    }
+
+                    rcFreeContourSet(tile.cset);
+                    tile.cset = NULL;
+                    // tile dealloc will clean these up?
+                    if(!tileContext->builtPolyMesh || !tileContext->builtDetailMesh)
+                    {
+                        if(tile.pmesh)
+                            delete tile.pmesh;
+                        if(tile.dmesh)
+                            delete tile.dmesh;
+                        delete tileContext;
+                        continue;
+                    }
+
+                    delete tileContext;
+                    pmmerge[nmerge] = tile.pmesh;
+                    dmmerge[nmerge] = tile.dmesh;
+                    nmerge++;
                 }
-                rcRasterizeTriangles(m_rcContext, cVerts, cVertCount, cTris, cFlags, cTriCount, *tile.solid, config.walkableClimb);
-
-                // Process our vmap terrain verts and triangles
-                rcRasterizeTriangles(m_rcContext, cVMapVerts, cVMapVertCount, cVMapTris, cVMapFlags, cVMapTriCount, *tile.solid, config.walkableClimb);
-
-                // Process our vmap liquid verts and triangles
-                cVerts = loadData.vmapLiquidVerts.getCArray();
-                cVertCount = loadData.vmapLiquidVerts.size() / 3;
-
-                cTris = loadData.vmapLiquidTris.getCArray();
-                cTriCount = loadData.vmapLiquidTris.size() / 3;
-
-                // Add Vmap liquid Triangles
-                cFlags = loadData.vmapLiquidTypes.getCArray();
-                rcRasterizeTriangles(m_rcContext, cVerts, cVertCount, cTris, cFlags, cTriCount, *tile.solid, config.walkableClimb);
-
-                // Filter our tile
-                rcFilterLowHangingWalkableObstacles(m_rcContext, config.walkableClimb, *tile.solid);
-                rcFilterLedgeSpans(m_rcContext, tileCfg.walkableHeight, tileCfg.walkableClimb, *tile.solid);
-                rcFilterWalkableLowHeightSpans(m_rcContext, tileCfg.walkableHeight, *tile.solid);
-
-                // compact heightfield spans
-                tile.chf = rcAllocCompactHeightfield();
-                if (!tile.chf || !rcBuildCompactHeightfield(m_rcContext, tileCfg.walkableHeight, tileCfg.walkableClimb, *tile.solid, *tile.chf))
-                {
-                    printf("%s Failed compacting heightfield!            \n", tileString);
-                    continue;
-                }
-
-                // build polymesh intermediates
-                if (!rcErodeWalkableArea(m_rcContext, config.walkableRadius, *tile.chf))
-                {
-                    printf("%s Failed eroding area!                    \n", tileString);
-                    continue;
-                }
-
-                if (!rcMedianFilterWalkableArea(m_rcContext, *tile.chf))
-                {
-                    printf("%s Failed filtering walkable area!         \n", tileString);
-                    continue;
-                }
-
-                if (!rcBuildDistanceField(m_rcContext, *tile.chf))
-                {
-                    printf("%s Failed building distance field!         \n", tileString);
-                    continue;
-                }
-
-                if (!rcBuildRegions(m_rcContext, *tile.chf, tileCfg.borderSize, tileCfg.minRegionArea, tileCfg.mergeRegionArea))
-                {
-                    printf("%s Failed building regions!                \n", tileString);
-                    continue;
-                }
-
-                tile.cset = rcAllocContourSet();
-                if (!tile.cset || !rcBuildContours(m_rcContext, *tile.chf, tileCfg.maxSimplificationError, tileCfg.maxEdgeLen, *tile.cset))
-                {
-                    printf("%s Failed building contours!               \n", tileString);
-                    continue;
-                }
-
-                // build polymesh
-                tile.pmesh = rcAllocPolyMesh();
-                if (!tile.pmesh || !rcBuildPolyMesh(m_rcContext, *tile.cset, tileCfg.maxVertsPerPoly, *tile.pmesh))
-                {
-                    printf("%s Failed building polymesh!               \n", tileString);
-                    continue;
-                }
-
-                tile.dmesh = rcAllocPolyMeshDetail();
-                if (!tile.dmesh || !rcBuildPolyMeshDetail(m_rcContext, *tile.pmesh, *tile.chf, tileCfg.detailSampleDist, tileCfg.detailSampleMaxError, *tile.dmesh))
-                {
-                    printf("%s Failed building polymesh detail!        \n", tileString);
-                    continue;
-                }
-
-                // free those up
-                // we may want to keep them in the future for debug
-                // but right now, we don't have the code to merge them
-                rcFreeHeightField(tile.solid);
-                tile.solid = NULL;
-                rcFreeCompactHeightfield(tile.chf);
-                tile.chf = NULL;
-                rcFreeContourSet(tile.cset);
-                tile.cset = NULL;
-
-                pmmerge[nmerge] = tile.pmesh;
-                dmmerge[nmerge] = tile.dmesh;
-                nmerge++;
             }
-        }
 
-        iv.polyMesh = rcAllocPolyMesh();
-        if (!iv.polyMesh)
-        {
-            printf("%s alloc iv.polyMesh FIALED!             \n", tileString);
+            iv[layer].polyMesh = rcAllocPolyMesh();
+            if (!iv[layer].polyMesh)
+            {
+                printf("%s alloc iv.polyMesh FIALED!             \n%s\r", tileString, dialogBox.c_str());
+                delete[] pmmerge;
+                delete[] dmmerge;
+                delete[] tiles;
+                return;
+            }
+            rcMergePolyMeshes(m_rcContext, pmmerge, nmerge, *iv[layer].polyMesh);
+
+            iv[layer].polyMeshDetail = rcAllocPolyMeshDetail();
+            if (!iv[layer].polyMeshDetail)
+            {
+                printf("%s alloc m_dmesh FIALED!             \n%s\r", tileString, dialogBox.c_str());
+                delete[] pmmerge;
+                delete[] dmmerge;
+                delete[] tiles;
+                return;
+            }
+            rcMergePolyMeshDetails(m_rcContext, dmmerge, nmerge, *iv[layer].polyMeshDetail);
+
+            // free things up
             delete[] pmmerge;
             delete[] dmmerge;
             delete[] tiles;
-            return;
         }
-        rcMergePolyMeshes(m_rcContext, pmmerge, nmerge, *iv.polyMesh);
 
-        iv.polyMeshDetail = rcAllocPolyMeshDetail();
-        if (!iv.polyMeshDetail)
+        // Push our intermediate values into our navmesh layers
+        dtNavMeshCreateParams params[MAX_LAYER_PER_NAVMESH];
+        for(int layer = 0; layer < MAX_LAYER_PER_NAVMESH; layer++)
         {
-            printf("%s alloc m_dmesh FIALED!             \n", tileString);
-            delete[] pmmerge;
-            delete[] dmmerge;
-            delete[] tiles;
-            return;
+            memset(&params[layer], 0, sizeof(params));
+            if(!iv[layer].polyMesh)
+                continue;
+
+            // set polygons as walkable
+            // TODO: special flags for DYNAMIC polygons, ie surfaces that can be turned on and off
+            for (int i = 0; i < iv[layer].polyMesh->npolys; ++i)
+                if (uint8 area = iv[layer].polyMesh->areas[i] & NAV_ALL_MASK)
+                    iv[layer].polyMesh->flags[i] = (area >= NAV_MIN_VALUE) ? (1 << (NAV_MAX_VALUE - iv[layer].polyMesh->areas[i])) : NAV_GROUND;
+
+            // setup mesh parameters
+            params[layer].verts = iv[layer].polyMesh->verts;
+            params[layer].vertCount = iv[layer].polyMesh->nverts;
+            params[layer].polys = iv[layer].polyMesh->polys;
+            params[layer].polyAreas = iv[layer].polyMesh->areas;
+            params[layer].polyFlags = iv[layer].polyMesh->flags;
+            params[layer].polyCount = iv[layer].polyMesh->npolys;
+            params[layer].nvp = iv[layer].polyMesh->nvp;
+            params[layer].detailMeshes = iv[layer].polyMeshDetail->meshes;
+            params[layer].detailVerts = iv[layer].polyMeshDetail->verts;
+            params[layer].detailVertsCount = iv[layer].polyMeshDetail->nverts;
+            params[layer].detailTris = iv[layer].polyMeshDetail->tris;
+            params[layer].detailTriCount = iv[layer].polyMeshDetail->ntris;
+
+            params[layer].offMeshConVerts = loadData.offMeshConnections.getCArray();
+            params[layer].offMeshConCount = loadData.offMeshConnections.size()/6;
+            params[layer].offMeshConRad = loadData.offMeshConnectionRads.getCArray();
+            params[layer].offMeshConDir = loadData.offMeshConnectionDirs.getCArray();
+            params[layer].offMeshConAreas = loadData.offMeshConnectionsAreas.getCArray();
+            params[layer].offMeshConFlags = loadData.offMeshConnectionsFlags.getCArray();
+
+            params[layer].walkableHeight = BASE_UNIT_SIZE*config[layer].walkableHeight;    // agent height
+            params[layer].walkableRadius = BASE_UNIT_SIZE*config[layer].walkableRadius;    // agent radius
+            params[layer].walkableClimb = BASE_UNIT_SIZE*config[layer].walkableClimb;      // keep less that walkableHeight (aka agent height)!
+            params[layer].tileX = (((bmin[0] + bmax[0]) / 2) - navMesh->getParams()->orig[0]) / GRID_SIZE;
+            params[layer].tileY = (((bmin[2] + bmax[2]) / 2) - navMesh->getParams()->orig[2]) / GRID_SIZE;
+            rcVcopy(params[layer].bmin, bmin);
+            rcVcopy(params[layer].bmax, bmax);
+            params[layer].cs = config[layer].cs;
+            params[layer].ch = config[layer].ch;
+            params[layer].tileLayer = layer;
+            params[layer].buildBvTree = true;
         }
-        rcMergePolyMeshDetails(m_rcContext, dmmerge, nmerge, *iv.polyMeshDetail);
 
-        // free things up
-        delete[] pmmerge;
-        delete[] dmmerge;
-        delete[] tiles;
-
-        // set polygons as walkable
-        // TODO: special flags for DYNAMIC polygons, ie surfaces that can be turned on and off
-        for (int i = 0; i < iv.polyMesh->npolys; ++i)
-            if (uint8 area = iv.polyMesh->areas[i] & NAV_ALL_MASK)
-                iv.polyMesh->flags[i] = (area >= NAV_MIN_VALUE) ? (1 << (NAV_MAX_VALUE - iv.polyMesh->areas[i])) : NAV_GROUND;
-
-        // setup mesh parameters
-        dtNavMeshCreateParams params;
-        memset(&params, 0, sizeof(params));
-        params.verts = iv.polyMesh->verts;
-        params.vertCount = iv.polyMesh->nverts;
-        params.polys = iv.polyMesh->polys;
-        params.polyAreas = iv.polyMesh->areas;
-        params.polyFlags = iv.polyMesh->flags;
-        params.polyCount = iv.polyMesh->npolys;
-        params.nvp = iv.polyMesh->nvp;
-        params.detailMeshes = iv.polyMeshDetail->meshes;
-        params.detailVerts = iv.polyMeshDetail->verts;
-        params.detailVertsCount = iv.polyMeshDetail->nverts;
-        params.detailTris = iv.polyMeshDetail->tris;
-        params.detailTriCount = iv.polyMeshDetail->ntris;
-
-        params.offMeshConVerts = loadData.offMeshConnections.getCArray();
-        params.offMeshConCount = loadData.offMeshConnections.size()/6;
-        params.offMeshConRad = loadData.offMeshConnectionRads.getCArray();
-        params.offMeshConDir = loadData.offMeshConnectionDirs.getCArray();
-        params.offMeshConAreas = loadData.offMeshConnectionsAreas.getCArray();
-        params.offMeshConFlags = loadData.offMeshConnectionsFlags.getCArray();
-
-        params.walkableHeight = BASE_UNIT_MOVE_SIZE*config.walkableHeight;    // agent height
-        params.walkableRadius = BASE_UNIT_MOVE_SIZE*config.walkableRadius;    // agent radius
-        params.walkableClimb = BASE_UNIT_MOVE_SIZE*config.walkableClimb;      // keep less that walkableHeight (aka agent height)!
-        params.tileX = (((bmin[0] + bmax[0]) / 2) - navMesh->getParams()->orig[0]) / GRID_SIZE;
-        params.tileY = (((bmin[2] + bmax[2]) / 2) - navMesh->getParams()->orig[2]) / GRID_SIZE;
-        rcVcopy(params.bmin, bmin);
-        rcVcopy(params.bmax, bmax);
-        params.cs = config.cs;
-        params.ch = config.ch;
-        params.tileLayer = 0;
-        params.buildBvTree = true;
-
-        // 35,39 | -1821.15 -4208.10 3.15 | -1821.15 3.15 -4208.10
         // will hold final navmesh
-        unsigned char* navData = NULL;
-        int navDataSize = 0;
+        unsigned char* navData[MAX_LAYER_PER_NAVMESH] = {NULL, NULL, NULL};
+        int navDataSize[MAX_LAYER_PER_NAVMESH] = { 0, 0, 0 };
+        int navlayerCount = 0;
 
         do
         {
-            // these values are checked within dtCreateNavMeshData - handle them here
-            // so we have a clear error message
-            if (params.nvp > DT_VERTS_PER_POLYGON)
+            for(int layer = 0; layer < MAX_LAYER_PER_NAVMESH; layer++)
             {
-                printf("%s Invalid verts-per-polygon value!        \n", tileString);
-                continue;
-            }
-            if (params.vertCount >= 0xffff)
-            {
-                printf("%s Too many vertices!                      \n", tileString);
-                continue;
-            }
-            if (!params.vertCount || !params.verts)
-            {
-                // occurs mostly when adjacent tiles have models
-                // loaded but those models don't span into this tile
+                sprintf(tileString, "[%02i,%02i|%i]: ", tileX, tileY, layer);
+                printf("%s Building navmesh tile...           \r", tileString);
 
-                // message is an annoyance
-                //printf("%sNo vertices to build tile!              \n", tileString);
-                continue;
+                // these values are checked within dtCreateNavMeshData - handle them here
+                // so we have a clear error message
+                if (!params[layer].vertCount || !params[layer].verts)
+                {
+                    // message is an annoyance
+                    if(layer == 0) // Only output error on layer 0
+                        printf("%sNo vertices to build tile!              \n%s\r", tileString, dialogBox.c_str());
+                    continue;
+                }
+                if (params[layer].nvp > DT_VERTS_PER_POLYGON)
+                {
+                    printf("%s Invalid verts-per-polygon value!        \n%s\r", tileString, dialogBox.c_str());
+                    continue;
+                }
+                if (params[layer].vertCount >= 0xffff)
+                {
+                    printf("%s Too many vertices!                      \n%s\r", tileString, dialogBox.c_str());
+                    continue;
+                }
+                if (!params[layer].polyCount || !params[layer].polys)
+                {
+                    // we have flat tiles with no actual geometry - don't build those, its useless
+                    // keep in mind that we do output those into debug info
+                    // drop tiles with only exact count - some tiles may have geometry while having less tiles
+                    printf("%s No polygons to build on tile!              \n%s\r", tileString, dialogBox.c_str());
+                    continue;
+                }
+                if (!params[layer].detailMeshes || !params[layer].detailVerts || !params[layer].detailTris)
+                {
+                    printf("%s No detail mesh to build tile!           \n%s\r", tileString, dialogBox.c_str());
+                    continue;
+                }
+
+                if (!dtCreateNavMeshData(&params[layer], &navData[layer], &navDataSize[layer]))
+                {
+                    printf("%s Failed building navmesh tile!           \n%s\r", tileString, dialogBox.c_str());
+                    continue;
+                }
+                navlayerCount++;
             }
-            if (!params.polyCount || !params.polys)
+
+            if(navlayerCount == 0)
             {
-                // we have flat tiles with no actual geometry - don't build those, its useless
-                // keep in mind that we do output those into debug info
-                // drop tiles with only exact count - some tiles may have geometry while having less tiles
-                printf("%s No polygons to build on tile!              \n", tileString);
-                continue;
-            }
-            if (!params.detailMeshes || !params.detailVerts || !params.detailTris)
-            {
-                printf("%s No detail mesh to build tile!           \n", tileString);
+                sprintf(tileString, "[%02i,%02i|ALL]: ", tileX, tileY);
+                printf("%s Failed building navmesh tile!           \n%s\r", tileString, dialogBox.c_str());
                 continue;
             }
 
-            //printf("%s Building navmesh tile...           \r", tileString);
-            if (!dtCreateNavMeshData(&params, &navData, &navDataSize))
+            bool result = false;
+            dtTileRef tileRef[MAX_LAYER_PER_NAVMESH] = { 0, 0, 0 };
+            for(int layer = 0; layer < MAX_LAYER_PER_NAVMESH; layer++)
             {
-                printf("%s Failed building navmesh tile!           \n", tileString);
-                continue;
+                if(navData[layer] == NULL)
+                    continue;
+
+                //printf("%s Adding tile to navmesh...           \r", tileString);
+                // DT_TILE_FREE_DATA tells detour to unallocate memory when the tile
+                // is removed via removeTile()
+                dtStatus dtResult = navMesh->addTile(navData[layer], navDataSize[layer], DT_TILE_FREE_DATA, 0, &tileRef[layer]);
+                if (!tileRef[layer] || dtResult != DT_SUCCESS)
+                    continue;
+                result = true;
             }
 
-            dtTileRef tileRef = 0;
-            //printf("%s Adding tile to navmesh...           \r", tileString);
-            // DT_TILE_FREE_DATA tells detour to unallocate memory when the tile
-            // is removed via removeTile()
-            dtStatus dtResult = navMesh->addTile(navData, navDataSize, DT_TILE_FREE_DATA, 0, &tileRef);
-            if (!tileRef || dtResult != DT_SUCCESS)
+            if(result == false)
             {
-                printf("%s Failed adding tile to navmesh!           \n", tileString);
+                sprintf(tileString, "[%02i,%02i|ALL]: ", tileX, tileY);
+                printf("%s Failed adding tile to navmesh!           \n%s\r", tileString, dialogBox.c_str());
                 continue;
             }
 
@@ -1369,9 +1054,10 @@ namespace MMAP
             if (!file && !(file = fopen(fileName, "w+b")))
             {
                 char message[1024];
-                sprintf(message, "Failed to open %s for writing!             \n", fileName);
+                sprintf(message, "Failed to open %s for writing!             \n%s\r", fileName, dialogBox.c_str());
                 perror(message);
-                navMesh->removeTile(tileRef, NULL, NULL);
+                for(int layer = 0; layer < MAX_LAYER_PER_NAVMESH; layer++)
+                    navMesh->removeTile(tileRef[layer], NULL, NULL);
                 fileLock.Release();
                 continue;
             }
@@ -1396,21 +1082,23 @@ namespace MMAP
 
             //printf("%s Writing to file...             \r", tileString);
 
-            // write header
+            // write header for layer 0
             MmapTileHeader header;
-            header.usesLiquids = m_terrainBuilder->usesLiquids();
-            header.size = G3D::uint32(navDataSize);
-            fwrite(&header, sizeof(MmapTileHeader), 1, file);
-
-            // write data
-            fwrite(navData, sizeof(unsigned char), navDataSize, file);
+            for(uint8 i = 0; i < MAX_LAYER_PER_NAVMESH; i++)
+            {
+                header.size = G3D::uint32(navDataSize[i]);
+                header.hasNextLayer = G3D::uint32(i == 2 ? 0 : 1);
+                fwrite(&header, sizeof(MmapTileHeader), 1, file);
+                // write data
+                if(header.size) fwrite(navData[i], sizeof(unsigned char), navDataSize[i], file);
+            }
             fclose(file);
 
             // now that tile is written to disk, we can unload it
-            navMesh->removeTile(tileRef, NULL, NULL);
+            for(int layer = 0; layer < MAX_LAYER_PER_NAVMESH; layer++)
+                navMesh->removeTile(tileRef[layer], NULL, NULL);
             fileLock.Release();
-        }
-        while (0);
+        }while (0);
     }
 
     /**************************************************************************/
@@ -1433,32 +1121,18 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void MapBuilder::getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData, float* bmin, float* bmax)
+    void MapBuilder::getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData, float* bmin, float* bmax)
     {
         // this is for width and depth
         bmin[0] = bmin[2] = bmax[0] = bmax[2] = 0.f;
         bmin[1] = VMAP_MAX_HEIGHT;
         bmax[1] = VMAP_INVALID_HEIGHT;
 
+        size_t length = 0;
         bool hasVert = false;
-        // this is for elevation
-        if(hasVert = loadData.solidVerts.size())
-        {
-            float *tmin = new float[3], *tmax = new float[3];
-            rcCalcBounds(loadData.solidVerts.getCArray(), (loadData.solidVerts.size()-3) / 3, tmin, tmax);
-            bmin[1] = G3D::min(bmin[1], tmin[1]);
-            bmax[1] = G3D::max(bmax[1], tmax[1]);
-            float height = tmin[1], height2 = tmax[1];
-            printf("");
-        }
-
-        if(hasVert = loadData.liquidVerts.size())
-        {
-            float *lmin = new float[3], *lmax = new float[3];
-            rcCalcBounds(loadData.liquidVerts.getCArray(), loadData.liquidVerts.size() / 3, lmin, lmax);
-            bmin[1] = G3D::min(bmin[1], lmin[1]);
-            bmax[1] = G3D::max(bmax[1], lmax[1]);
-        }
+        // Check vmap verts for bounding box height
+        if(hasVert = (length = loadData.allVerts.length()))
+            rcCalcBounds(loadData.allVerts.getCArray(), length/3, bmin, bmax);
 
         if(!hasVert)
         {
@@ -1467,10 +1141,10 @@ namespace MMAP
         }
 
         // this is for width and depth
-        bmax[2] = (32 - int(tileY)) * GRID_SIZE + GRID_CHUNK_SIZE;
-        bmax[0] = (32 - int(tileX)) * GRID_SIZE + GRID_CHUNK_SIZE;
-        bmin[2] = bmax[2] - GRID_SIZE - GRID_CHUNK_SIZE*2.f;
-        bmin[0] = bmax[0] - GRID_SIZE - GRID_CHUNK_SIZE*2.f;
+        bmax[0] = (32 - int(tileX)) * GRID_SIZE;
+        bmax[2] = (32 - int(tileY)) * GRID_SIZE;
+        bmin[0] = bmax[0] - GRID_SIZE;
+        bmin[2] = bmax[2] - GRID_SIZE;
     }
 
     /**************************************************************************/

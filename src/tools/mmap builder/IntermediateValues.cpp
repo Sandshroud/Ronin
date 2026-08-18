@@ -200,7 +200,7 @@ namespace MMAP
         fwrite(mesh->meshes, sizeof(int), mesh->nmeshes*4, file);
     }
 
-    void IntermediateValues::generateObjFile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData)
+    void IntermediateValues::generateObjFile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, ObjectLoadData &loadData)
     {
         char objFileName[255];
         sprintf(objFileName, "meshes/map%03u%02u%02u.obj", mapID, tileY, tileX);
@@ -217,10 +217,8 @@ namespace MMAP
         G3D::Array<float> allVerts;
         G3D::Array<int> allTris;
 
-        allTris.append(meshData.liquidTris);
-        allVerts.append(meshData.liquidVerts);
-        TerrainBuilder::copyIndices(meshData.solidTris, allTris, allVerts.size() / 3);
-        allVerts.append(meshData.solidVerts);
+        allTris.append(loadData.objTris);
+        allVerts.append(loadData.objVerts);
 
         float* verts = allVerts.getCArray();
         int vertCount = allVerts.size() / 3;

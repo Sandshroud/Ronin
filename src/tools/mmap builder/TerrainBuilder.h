@@ -33,17 +33,12 @@ namespace MMAP
 {
     enum Spot
     {
-        TOP     = 1,
-        RIGHT   = 2,
-        LEFT    = 3,
-        BOTTOM  = 4,
-        CENTER  = 5,
-        ENTIRE  = 6,
-
-        LOAD_CORNER1, // Top Left
-        LOAD_CORNER2, // Top Right
-        LOAD_CORNER3, // Bottom Left
-        LOAD_CORNER4  // Bottom Right
+        TOP     = 0,
+        RIGHT   = 1,
+        LEFT    = 2,
+        BOTTOM  = 3,
+        CENTER  = 4,
+        ENTIRE
     };
 
     enum MapCompressionType : G3D::uint32
@@ -55,94 +50,66 @@ namespace MMAP
         MAP_COMPRESSED_MAX
     };
 
+    struct ObjectLoadData
+    {
+        G3D::AABox boundBox;
+        G3D::Array<int> objTris;
+        G3D::Array<float> objVerts;
+        G3D::Array<int> objFlags;
+    };
+
+    static const float GRID_SIZE = 533.33333f;
     static const int CHUNK_SIZE = 16;
 
     static const int V9_CH_SIZE = 9;
     static const int V9_CH_SIZE_SQ = V9_CH_SIZE*V9_CH_SIZE;
     static const int V8_CH_SIZE = 8;
     static const int V8_CH_SIZE_SQ = V8_CH_SIZE*V8_CH_SIZE;
-    static const int CHUNK_DATA_SIZE = (CHUNK_SIZE+2)*(CHUNK_SIZE+2);
 
     static const int V9_SIZE = 129;
     static const int V9_SIZE_SQ = V9_SIZE*V9_SIZE;
     static const int V8_SIZE = 128;
     static const int V8_SIZE_SQ = V8_SIZE*V8_SIZE;
 
-    static const float GRID_SIZE = 533.33333f;
-    static const float GRID_PART_SIZE = GRID_SIZE/V9_SIZE;
     static const float GRID_CHUNK_SIZE = GRID_SIZE/CHUNK_SIZE;
+    static const float GRID_PART_SIZE = GRID_SIZE/V8_SIZE;
 
     // see contrib/extractor/system.cpp, CONF_use_minHeight
     static const float INVALID_MAP_LIQ_HEIGHT = -2000.f;
     static const float INVALID_MAP_LIQ_HEIGHT_MAX = 5000.0f;
 
-    // see following files:
-    // contrib/extractor/system.cpp
-    // src/game/Map.cpp
-    struct MapTileData
+    struct MapTileLoadData
     {
-        G3D::uint16 areaInfo[CHUNK_SIZE][CHUNK_SIZE];
-        G3D::uint16 liquidType[CHUNK_SIZE][CHUNK_SIZE];
+        // This is our output data for finished triangulation and vertices
+        ObjectLoadData terrainData[2];
+        G3D::Array<ObjectLoadData*> vmapData;
 
-        // Terrain V8, V9, and Liquid L8, L9
-        float V8[V8_SIZE][V8_SIZE], V9[V9_SIZE][V9_SIZE], L8[V8_SIZE][V8_SIZE], L9[V9_SIZE][V9_SIZE];
+        // Raw dumps, not ordered
+        G3D::Array<int> allTris;
+        G3D::Array<float> allVerts;
+
+        // offmesh connection data
+        G3D::Array<float> offMeshConnections;   // [p0y,p0z,p0x,p1y,p1z,p1x] - per connection
+        G3D::Array<float> offMeshConnectionRads;
+        G3D::Array<unsigned char> offMeshConnectionDirs;
+        G3D::Array<unsigned char> offMeshConnectionsAreas;
+        G3D::Array<unsigned short> offMeshConnectionsFlags;
     };
 
-    struct MapLoadData
+    struct MapChunkLoadData
     {
-        uint32 loadInfoCount;
         struct ChunkInfo// Chunk data is 16 chunks per tile plus portions from surrounding tiles
         {
-            uint16 areaInfo;
             uint16 liquidType;
-            uint8 xOffset, yOffset;
+            uint16 navLiquidType;
             bool isHole;
 
-            float min[3], max[3];
-
-            float xV8[V8_CH_SIZE][V8_CH_SIZE], yV8[V8_CH_SIZE][V8_CH_SIZE];
-            float xV9[V9_CH_SIZE][V9_CH_SIZE], yV9[V9_CH_SIZE][V9_CH_SIZE];
-
-            bool useLiquid[V8_CH_SIZE*V8_CH_SIZE*4], useLiquidV9[V9_CH_SIZE][V9_CH_SIZE];
+            bool useLiquid[V8_CH_SIZE*V8_CH_SIZE*4], useLiquidV8[V8_CH_SIZE][V8_CH_SIZE], useLiquidV9[V9_CH_SIZE][V9_CH_SIZE];
             float zT8[V8_CH_SIZE][V8_CH_SIZE], zT9[V9_CH_SIZE][V9_CH_SIZE];
             float zL8[V8_CH_SIZE][V8_CH_SIZE], zL9[V9_CH_SIZE][V9_CH_SIZE];
+        } _chunkData[CHUNK_SIZE][CHUNK_SIZE];
 
-            G3D::Array<int> solidTris, liquidTris;
-            G3D::Array<float> solidVerts, liquidVerts;
-            G3D::Array<int> combinedTris;
-            G3D::Array<float> combinedVerts;
-            G3D::Array<unsigned char> combinedFlags;
-        } _chunkData[CHUNK_SIZE+2][CHUNK_SIZE+2];
-
-        G3D::Array<float> solidVerts, liquidVerts;
-
-        G3D::Array<G3D::uint8> vmapLiquidTypes;
-        G3D::Array<int> vmapSolidTris, vmapLiquidTris;
-        G3D::Array<float> vmapSolidVerts, vmapLiquidVerts;
-
-        // offmesh connection data
-        G3D::Array<float> offMeshConnections;   // [p0y,p0z,p0x,p1y,p1z,p1x] - per connection
-        G3D::Array<float> offMeshConnectionRads;
-        G3D::Array<unsigned char> offMeshConnectionDirs;
-        G3D::Array<unsigned char> offMeshConnectionsAreas;
-        G3D::Array<unsigned short> offMeshConnectionsFlags;
-    };
-
-    struct MeshData
-    {
-        G3D::Array<float> solidVerts;
-        G3D::Array<int> solidTris;
-
-        G3D::Array<float> liquidVerts;
-        G3D::Array<int> liquidTris;
-        G3D::Array<G3D::uint8> liquidType;
-
-        // offmesh connection data
-        G3D::Array<float> offMeshConnections;   // [p0y,p0z,p0x,p1y,p1z,p1x] - per connection
-        G3D::Array<float> offMeshConnectionRads;
-        G3D::Array<unsigned char> offMeshConnectionDirs;
-        G3D::Array<unsigned char> offMeshConnectionsAreas;
-        G3D::Array<unsigned short> offMeshConnectionsFlags;
+        G3D::Array<float> solidVerts, waterVerts;
     };
 
     class TerrainBuilder
@@ -152,15 +119,11 @@ namespace MMAP
             ~TerrainBuilder();
 
             bool InitializeMap(G3D::uint32 mapID);
-            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
-            bool loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData);
 
-            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData);
-            bool loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData);
-            void loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, const char* offMeshFilePath);
+            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData);
+            bool loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData);
+            void loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData, const char* offMeshFilePath);
             void UnloadVMap(G3D::uint32 mapID);
-
-            bool usesLiquids() { return !m_skipLiquid; }
 
             // vert and triangle methods
             static void transform(std::vector<G3D::Vector3> &original, std::vector<G3D::Vector3> &transformed,
@@ -169,18 +132,13 @@ namespace MMAP
             static void copyIndices(std::vector<VMAP::MeshTriangle> &source, G3D::Array<int> &dest, int offest, bool flip);
             static void copyIndices(G3D::Array<int> &src, G3D::Array<int> &dest, int offset);
             static void cleanVertices(G3D::Array<float> &verts, G3D::Array<int> &tris);
+
         private:
-            /// Loads a portion of a map's ADT info
-            bool loadMapChunks(FILE *file, G3D::uint32 mapID, MapTileData &data);
+            /// Loads a tile's map data into vertices and triangles
+            bool _loadAndProcessMapChunks(FILE *file, G3D::uint32 mapId, uint32 tileX, uint32 tileY, MapChunkLoadData *chunkData, std::map<uint32, uint32> &chunk_map);
 
             /// Loads a portion of a map's ADT info
-            bool loadMapChunks(FILE *file, G3D::uint32 mapID, MapLoadData &loadData, Spot portion, G3D::uint32 fromTileX, G3D::uint32 fromTileY);
-
-            /// Loads a portion of a map's terrain
-            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, Spot portion);
-
-            /// Loads a portion of a map's terrain
-            bool loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData, Spot portion, G3D::uint32 fromTileX, G3D::uint32 fromTileY);
+            bool _loadMapChunks(FILE *file, G3D::uint32 mapID, uint32 tileX, uint32 tileY, MapChunkLoadData *chunkData, std::map<uint32, uint32> &chunk_map);
 
             /// Sets loop variables for selecting only certain parts of a map's terrain
             void getLoopVars(Spot portion, int &loopStart, int &loopEnd, int &loopInc);
@@ -201,7 +159,7 @@ namespace MMAP
             VMAP::VMapManager* vmapManager;
 
             /// Get the triangle's vector indices for a specific position
-            void getHeightTriangle(int square, Spot triangle, int* indices, bool chunk = false);
+            void getHeightTriangle(int square, Spot triangle, int* tIndices);
 
             // hide parameterless and copy constructor
             TerrainBuilder();

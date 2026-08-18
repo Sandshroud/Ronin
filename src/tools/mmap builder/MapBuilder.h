@@ -55,10 +55,27 @@ namespace MMAP
         rcPolyMeshDetail* dmesh;
     };
 
+    struct MapSubtileBuildContext
+    {
+        char tileString[20];
+        rcConfig tileCfg;
+        G3D::Array<float> *tVertArray;
+        G3D::Array<int> *tTriArray;
+        unsigned char *triFlags;
+        int cTriFlagCount;
+
+        bool builtHeightField;
+        bool builtCompactHeightField;
+        bool builtContourSet;
+        bool builtPolyMesh;
+        bool builtDetailMesh;
+    };
+
     class MapBuilder
     {
+        friend class TerrainBuilder;
         public:
-            MapBuilder(float maxWalkableAngle   = 55.f,
+            MapBuilder(float maxWalkableAngle   = 85.f,
                 bool skipLiquid          = false,
                 bool skipContinents      = false,
                 bool skipJunkMaps        = true,
@@ -70,14 +87,14 @@ namespace MMAP
             ~MapBuilder();
 
             // builds all mmap tiles for the specified map id (ignores skip settings)
-            void buildMap(G3D::uint32 mapID);
-            void buildMeshFromFile(char* name);
+            void buildMap(G3D::uint32 mapID, ThreadTaskList &threadList);
+            void buildMeshFromFile(char* name, ThreadTaskList &threadList);
 
             // builds an mmap tile for the specified map and its mesh
-            void buildSingleTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY);
+            void buildSingleTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, ThreadTaskList &threadList);
 
             // builds list of maps, then builds all of mmap tiles (based on the skip settings)
-            void buildAllMaps(int threads);
+            void buildAllMaps(ThreadTaskList &threadList);
 
         private:
             // detect maps and tiles
@@ -86,28 +103,26 @@ namespace MMAP
 
             void buildNavMesh(G3D::uint32 mapID, dtNavMesh* &navMesh);
 
-            void buildTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, dtNavMesh* navMesh);
+            void buildTile(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, dtNavMesh* navMesh, ThreadTaskList &threadList);
+
+            // Remove terrain vertices located within 3d Objects
+            bool filterObjectsFromTriangles(G3D::Array<float> &tVertArray,
+                G3D::Array<int> &tTriArray, G3D::Array<int> &tTriFlags,
+                G3D::Array<G3D::AABox*> &vmapData);
 
             // move map building
-            void buildMoveMapTile(G3D::uint32 mapID,
-                G3D::uint32 tileX,
-                G3D::uint32 tileY,
-                MeshData &meshData,
-                float bmin[3],
-                float bmax[3],
-                dtNavMesh* navMesh);
-
-            // move map building
-            void buildMoveMapTile(G3D::uint32 mapID,
+            void buildMoveMapTerrainTile(G3D::uint32 mapID,
                 G3D::uint32 tileX, G3D::uint32 tileY,
-                MapLoadData &loadData,
-                float bmin[3], float bmax[3], dtNavMesh* navMesh);
+                MapTileLoadData &loadData,
+                float bmin[3], float bmax[3], dtNavMesh* navMesh, ThreadTaskList &threadList);
+
+            void buildMoveMapSubTileFromContext(Tile *tile, MapSubtileBuildContext *context);
 
             static void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY,
                 float* verts, int vertCount,
                 float* bmin, float* bmax);
 
-            void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData, float* bmin, float* bmax);
+            void getTileBounds(G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData, float* bmin, float* bmax);
             void getGridBounds(G3D::uint32 mapID, G3D::uint32 &minX, G3D::uint32 &minY, G3D::uint32 &maxX, G3D::uint32 &maxY);
 
             bool shouldSkipMap(G3D::uint32 mapID);

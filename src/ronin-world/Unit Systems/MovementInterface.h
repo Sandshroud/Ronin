@@ -113,11 +113,22 @@ enum MovementFlagsF : uint8
 
 enum NavigationFlags
 {
-    NAV_FLAG_GROUND,
-    NAV_FLAG_WATER,
-    NAV_FLAG_STEEP_GROUND,
-    NAV_FLAG_MAGMA_SLIME,
+    NAV_FLAG_GROUND = 0x01,
+    NAV_FLAG_STEEP_GROUND = 0x02,
+    NAV_FLAG_WATER = 0x04,
+    NAV_FLAG_MAGMA_SLIME = 0x08,
+    NAV_FLAG_COLLISION = 0x10,
     NAV_FLAG_ALL = 0x3F
+
+    /*
+    * 
+    NAV_FLAT            = 13,
+    NAV_GROUND          = 12,
+    NAV_TOO_STEEP       = 11,
+    NAV_WATER           = 10,
+    NAV_MAGMA_SLIME     = 9,
+    NAV_COLLISION       = 8,
+    */
 };
 
 enum MovementCodes : uint16

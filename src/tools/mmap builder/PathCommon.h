@@ -26,12 +26,14 @@
 enum NavTerrainType
 {
     NAV_EMPTY           = 0,
-    NAV_GROUND          = 11,
-    NAV_TOO_STEEP       = 10,
-    NAV_WATER           = 9,
-    NAV_MAGMA_SLIME     = 8,
-    NAV_MAX_VALUE       = NAV_GROUND,
-    NAV_MIN_VALUE       = NAV_MAGMA_SLIME,
+    NAV_FLAT            = 13,
+    NAV_GROUND          = 12,
+    NAV_TOO_STEEP       = 11,
+    NAV_WATER           = 10,
+    NAV_MAGMA_SLIME     = 9,
+    NAV_COLLISION       = 8,
+    NAV_MAX_VALUE       = NAV_FLAT,
+    NAV_MIN_VALUE       = NAV_COLLISION,
     NAV_ALL_MASK        = 0x3F // max allowed value
     // we only have 8 bits
 };

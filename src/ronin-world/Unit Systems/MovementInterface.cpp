@@ -34,7 +34,7 @@ MovementInterface::MovementInterface(Unit *_unit) : m_Unit(_unit), m_clientGuid(
     for(uint8 i = 0; i < MOVEMENT_STATUS_MAX; i++)
         m_pendingEnable[i] = false;
 
-    m_navigationFlags = NAV_FLAG_ALL;
+    m_navigationFlags = NAV_FLAG_ALL&~NAV_FLAG_COLLISION;
 
     // Sizeof1
     memset(m_movementFlags, 0, sizeof(uint8)*6);
@@ -648,8 +648,10 @@ bool MovementInterface::UpdateMovementData(uint16 moveCode, bool distribute)
     case MOVEMENT_CODE_STOP_PITCH:
     case MOVEMENT_CODE_STOP_ASCEND:
     case MOVEMENT_CODE_STOP_SWIM:
+        break;
     case MOVEMENT_CODE_SET_FACING:
     case MOVEMENT_CODE_SET_PITCH:
+        // Broadcast pending every update cycle
         break;
     default:
         return true;
@@ -878,7 +880,7 @@ void MovementInterface::HandleBreathing(uint32 diff)
         if(!m_Unit->IsPlayer() || !castPtr<Player>(m_Unit)->GetTaxiPath())
         {
             // Allow travel in dark water on taxi or transport
-            if ((m_Unit->GetLiqFlags() & 0x10) && m_transportGuid.empty())
+            if ((m_Unit->GetLiqFlags() & 0x10) && m_transportGuid.empty() && m_Unit->GetWMOId() == 0)
                 m_underwaterState |= UNDERWATERSTATE_FATIGUE;
             else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;
         } else m_underwaterState &= ~UNDERWATERSTATE_FATIGUE;

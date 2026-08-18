@@ -48,80 +48,30 @@ namespace MMAP
     {
         switch (portion)
         {
-            case ENTIRE:
-                loopStart = 0;
-                loopEnd = V8_SIZE_SQ;
-                loopInc = 1;
-                break;
-            case TOP:
-                loopStart = 0;
-                loopEnd = V8_SIZE;
-                loopInc = 1;
-                break;
-            case LEFT:
-                loopStart = 0;
-                loopEnd = V8_SIZE_SQ - V8_SIZE + 1;
-                loopInc = V8_SIZE;
-                break;
-            case RIGHT:
-                loopStart = V8_SIZE - 1;
-                loopEnd = V8_SIZE_SQ;
-                loopInc = V8_SIZE;
-                break;
-            case BOTTOM:
-                loopStart = V8_SIZE_SQ - V8_SIZE;
-                loopEnd = V8_SIZE_SQ;
-                loopInc = 1;
-                break;
-        }
-    }
-
-    /**************************************************************************/
-    void TerrainBuilder::getChLoopVars(Spot portion, int &xStart, int &xEnd, int &yStart, int &yEnd)
-    {
-        switch (portion)
-        {
         case ENTIRE:
-            xStart = yStart = 0;
-            xEnd = yEnd = CHUNK_SIZE+2;
-            break;
-        case CENTER:
-            xStart = yStart = 1;
-            xEnd = yEnd = CHUNK_SIZE+1;
+            loopStart = 0;
+            loopEnd = V8_SIZE_SQ;
+            loopInc = 1;
             break;
         case TOP:
-            xStart = 0, xEnd = 1;
-            yStart = 1, yEnd = CHUNK_SIZE+1;
+            loopStart = 0;
+            loopEnd = V8_SIZE;
+            loopInc = 1;
             break;
         case LEFT:
-            xStart = 1, xEnd = CHUNK_SIZE+1;
-            yStart = 0, yEnd = 1;
+            loopStart = 0;
+            loopEnd = V8_SIZE_SQ - V8_SIZE + 1;
+            loopInc = V8_SIZE;
             break;
         case RIGHT:
-            xStart = 1, xEnd = CHUNK_SIZE+1;
-            yStart = CHUNK_SIZE+1, yEnd = CHUNK_SIZE+2;
+            loopStart = V8_SIZE - 1;
+            loopEnd = V8_SIZE_SQ;
+            loopInc = V8_SIZE;
             break;
         case BOTTOM:
-            xStart = CHUNK_SIZE+1, xEnd = CHUNK_SIZE+2;
-            yStart = 1, yEnd = CHUNK_SIZE+1;
-            break;
-
-            // Corners are one chunk each
-        case LOAD_CORNER1:
-            xStart = 0, xEnd = 1;
-            yStart = 0, yEnd = 1;
-            break;
-        case LOAD_CORNER2:
-            xStart = 0, xEnd = 1;
-            yStart = CHUNK_SIZE+1, yEnd = CHUNK_SIZE+2;
-            break;
-        case LOAD_CORNER3:
-            xStart = CHUNK_SIZE+1, xEnd = CHUNK_SIZE+2;
-            yStart = 0, yEnd = 1;
-            break;
-        case LOAD_CORNER4:
-            xStart = CHUNK_SIZE+1, xEnd = CHUNK_SIZE+2;
-            yStart = CHUNK_SIZE+1, yEnd = CHUNK_SIZE+2;
+            loopStart = V8_SIZE_SQ - V8_SIZE;
+            loopEnd = V8_SIZE_SQ;
+            loopInc = 1;
             break;
         }
     }
@@ -131,8 +81,8 @@ namespace MMAP
     {
         // wow coords: x, y, height
         // coord is mirroed about the horizontal axes
-        coord[0] = (xOffset - index%(V9_SIZE)*GRID_PART_SIZE) * -1.f;
-        coord[1] = (yOffset - (int)(index/(V9_SIZE))*GRID_PART_SIZE) * -1.f;
+        coord[0] = (xOffset + index%(V9_SIZE)*GRID_PART_SIZE) * -1.f;
+        coord[1] = (yOffset + (int)(index/(V9_SIZE))*GRID_PART_SIZE) * -1.f;
         coord[2] = height_map[index%(V9_SIZE)][index/(V9_SIZE)];
     }
 
@@ -141,40 +91,56 @@ namespace MMAP
     {
         // wow coords: x, y, height
         // coord is mirroed about the horizontal axes
-        coord[0] = (xOffset - index%(V8_SIZE)*GRID_PART_SIZE + GRID_PART_SIZE/2.f) * -1.f;
-        coord[1] = (yOffset - (int)(index/(V8_SIZE))*GRID_PART_SIZE + GRID_PART_SIZE/2.f) * -1.f;
+        coord[0] = (xOffset + index%(V8_SIZE)*GRID_PART_SIZE + GRID_PART_SIZE/2.f) * -1.f;
+        coord[1] = (yOffset + (int)(index/(V8_SIZE))*GRID_PART_SIZE + GRID_PART_SIZE/2.f) * -1.f;
         coord[2] = height_map[index%(V8_SIZE)][index/(V8_SIZE)];
     }
 
+    // Note that the bool simply assigns the function, it is not used
     /**************************************************************************/
-    void fillHeightCoord(bool V8, bool liquid, float point_distance, int x, int y, float xBase, float yBase, float z, MapLoadData::ChunkInfo *info, float (&min)[3], float (&max)[3])
+    void getHeightCoord(int index, bool v9, float xOffset, float yOffset, float* coord, float height)
     {
-        float endX, endY, endZ;
-        float xPOffset = x*point_distance, yPOffset = y*point_distance;
+        // wow coords: x, y, height
+        // coord is mirroed about the horizontal axes
+        coord[0] = (xOffset + index%(V9_SIZE)*GRID_PART_SIZE) * -1.f;
+        coord[1] = (yOffset + (int)(index/(V9_SIZE))*GRID_PART_SIZE) * -1.f;
+        coord[2] = height;
+    }
+
+    /**************************************************************************/
+    void getHeightCoord(int index, float xOffset, float yOffset, float* coord, float height)
+    {
+        // wow coords: x, y, height
+        // coord is mirroed about the horizontal axes
+        coord[0] = (xOffset + index%(V8_SIZE)*GRID_PART_SIZE + GRID_PART_SIZE/2.f) * -1.f;
+        coord[1] = (yOffset + (int)(index/(V8_SIZE))*GRID_PART_SIZE + GRID_PART_SIZE/2.f) * -1.f;
+        coord[2] = height;
+    }
+
+    /**************************************************************************/
+    void fillXYCoord(bool V8, float v8point_distance, float v9point_distance, int x, int y, float xBase, float yBase, float &outputX, float &outputY)
+    {
+        float endX, endY;
+        float xPOffset = x*v8point_distance, yPOffset = y*v8point_distance;
         if(V8)
         {
-            xPOffset+=point_distance/2.f;
-            yPOffset+=point_distance/2.f;
-            endX = info->xV8[x][y] = floor((xBase + xPOffset)*1000.f)/1000.f * -1.f;
-            endY = info->yV8[x][y] = floor((yBase + yPOffset)*1000.f)/1000.f * -1.f;
-
-            // Min Max x and y
-            min[0] = min[0] > info->xV8[x][y] ? info->xV8[x][y] : min[0];
-            min[2] = min[2] > info->yV8[x][y] ? info->yV8[x][y] : min[2];
-            max[0] = max[0] < info->xV8[x][y] ? info->xV8[x][y] : max[0];
-            max[2] = max[2] < info->yV8[x][y] ? info->yV8[x][y] : max[2];
+            xPOffset+=v8point_distance/2.f;
+            yPOffset+=v8point_distance/2.f;
+            endX = outputX = floor((xBase + xPOffset)*1000.f)/1000.f;
+            endY = outputY = floor((yBase + yPOffset)*1000.f)/1000.f;
         }
         else
         {
-            endX = info->xV9[x][y] = floor((xBase + xPOffset)*1000.f)/1000.f * -1.f;
-            endY = info->yV9[x][y] = floor((yBase + yPOffset)*1000.f)/1000.f * -1.f;
-
-            // Min Max x and y
-            min[0] = min[0] > info->xV9[x][y] ? info->xV9[x][y] : min[0];
-            min[2] = min[2] > info->yV9[x][y] ? info->yV9[x][y] : min[2];
-            max[0] = max[0] < info->xV9[x][y] ? info->xV9[x][y] : max[0];
-            max[2] = max[2] < info->yV9[x][y] ? info->yV9[x][y] : max[2];
+            xPOffset = x*v9point_distance, yPOffset = y*v9point_distance;
+            endX = outputX = floor((xBase + xPOffset)*1000.f)/1000.f;
+            endY = outputY = floor((yBase + yPOffset)*1000.f)/1000.f;
         }
+    }
+
+    /**************************************************************************/
+    void fillHeightCoord(bool V8, bool liquid, int x, int y, float z, MapChunkLoadData::ChunkInfo *info)
+    {
+        float endZ;
 
         // wow coords: x, y, height
         // coord is mirroed about the horizontal axes
@@ -185,25 +151,6 @@ namespace MMAP
         else if(V8)
             endZ = info->zL8[x][y] = z;
         else endZ = info->zL9[x][y] = z;
-
-        min[1] = z < min[1] ? z : min[1];
-        max[1] = z > max[1] ? z : max[1];
-    }
-
-    /**************************************************************************/
-    void fillPositionPoint(G3D::Array<float> &array, MapLoadData::ChunkInfo *info, bool V8, bool liquid, int x, int y)
-    {
-        // Order is x, z, y
-        array.append(info->xV9[x][y]);
-        if(liquid == false && V8)
-            array.append(info->zT8[x][y]);
-        else if(liquid == false)
-            array.append(info->zT9[x][y]);
-        else if(V8)
-            array.append(info->zL8[x][y]);
-        else
-            array.append(info->zL9[x][y]);
-        array.append(info->yV9[x][y]);
     }
 
     /**************************************************************************/
@@ -217,333 +164,14 @@ namespace MMAP
         return liquid_type[cellRow][cellCol];
     }
 
-    /**************************************************************************/
-    bool TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData)
+    void SetBounds(float min[], float max[], float x, float y, float z)
     {
-        if (loadMap(mapID, tileX, tileY, meshData, ENTIRE))
-        {
-            loadMap(mapID, tileX+1, tileY, meshData, LEFT);
-            loadMap(mapID, tileX-1, tileY, meshData, RIGHT);
-            loadMap(mapID, tileX, tileY+1, meshData, TOP);
-            loadMap(mapID, tileX, tileY-1, meshData, BOTTOM);
-            return true;
-        }
-        return false;
-    }
-
-    /**************************************************************************/
-    bool TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData)
-    {
-        if (loadMap(mapID, tileX, tileY, loadData, CENTER, tileX, tileY))
-        {
-            // Load bottom row of chunk from above
-            loadMap(mapID, tileX, tileY-1, loadData, TOP, tileX, tileY);
-            // Load right row of chunk from the left
-            loadMap(mapID, tileX-1, tileY, loadData, LEFT, tileX, tileY);
-            // Load left row of chunk from the right
-            loadMap(mapID, tileX+1, tileY, loadData, RIGHT, tileX, tileY);
-            // Load chunk below us
-            loadMap(mapID, tileX, tileY+1, loadData, BOTTOM, tileX, tileY);
-            // Load top left chunk corner
-            loadMap(mapID, tileX-1, tileY-1, loadData, LOAD_CORNER1, tileX, tileY);
-            // Load top right chunk corner
-            loadMap(mapID, tileX-1, tileY+1, loadData, LOAD_CORNER2, tileX, tileY);
-            // Load bottom left chunk corner
-            loadMap(mapID, tileX+1, tileY-1, loadData, LOAD_CORNER3, tileX, tileY);
-            // Load bottom right chunk corner
-            loadMap(mapID, tileX+1, tileY+1, loadData, LOAD_CORNER4, tileX, tileY);
-            return true;
-        }
-        return false;
-    }
-
-    /**************************************************************************/
-    bool TerrainBuilder::loadMapChunks(FILE *mapFile, G3D::uint32 mapID, MapTileData &data)
-    {
-        memset(&data.areaInfo, 0, sizeof(G3D::uint16)*CHUNK_SIZE*CHUNK_SIZE);
-        memset(&data.liquidType, 0, sizeof(G3D::uint16)*CHUNK_SIZE*CHUNK_SIZE);
-        memset(&data.V8, 0, sizeof(float)*V8_SIZE*V8_SIZE);
-        memset(&data.V9, 0, sizeof(float)*V9_SIZE*V9_SIZE);
-        memset(&data.L9, 0, sizeof(float)*V9_SIZE*V9_SIZE);
-
-        switch(m_mapCompressionType[mapID])
-        {
-        case MAP_RAW_TILES:
-            {   // Chunk stored in ordered arrays, no parsing
-                bool res = fread(&data.areaInfo, sizeof(uint16)*CHUNK_SIZE*CHUNK_SIZE, 1, mapFile) == 1;
-                if(res && fread(&data.liquidType, sizeof(uint16)*CHUNK_SIZE*CHUNK_SIZE, 1, mapFile) != 1)
-                    res = false;
-                if(res && fread(&data.V9, sizeof(float)*V9_SIZE_SQ, 1, mapFile) != 1)
-                    res = false;
-                if(res && fread(&data.V8, sizeof(float)*V8_SIZE_SQ, 1, mapFile) != 1)
-                    res = false;
-                if(res && fread(&data.L9, sizeof(float)*V9_SIZE_SQ, 1, mapFile) != 1)
-                    res = false;
-                return res;
-            }break;
-        case MAP_RAW_CHUNKS:
-            {
-                    bool res = fread(&data.areaInfo, sizeof(uint16)*CHUNK_SIZE*CHUNK_SIZE, 1, mapFile) == 1;
-                    if(res && fread(&data.liquidType, sizeof(uint16)*CHUNK_SIZE*CHUNK_SIZE, 1, mapFile) != 1)
-                        res = false;
-                    for(uint8 x = 0; x < CHUNK_SIZE; x++)
-                    {
-                        for(uint8 y = 0; y < CHUNK_SIZE; y++)
-                        {   // Todo
-                            res = false;
-                        }
-                    }
-                    return res;
-            }break;
-        case MAP_COMPRESSED_TILES:
-            // Not supported
-            break;
-        case MAP_COMPRESSED_CHUNKS: // Not supported
-            {
-                for(uint8 x = 0; x < 16; x++)
-                {
-                    for(uint8 y = 0; y < 16; y++)
-                    {
-                        uint8 chunk_id[2];
-                        float mapHeight, floatV8[8][8], floatV9[9][9];
-                        if(fread(&chunk_id, sizeof(uint8)*2, 1, mapFile) != 1)
-                            return false;
-                        if(fread(&data.areaInfo[x][y], sizeof(uint16), 1, mapFile) != 1)
-                            return false;
-                        if(fread(&mapHeight, sizeof(float), 1, mapFile) != 1)
-                            return false;
-
-                        for(uint8 cx = 0; cx <= 8; cx++)
-                        {
-                            for(uint8 cy = 0; cy <= 8; cy++)
-                            {
-                                floatV9[cx][cy] = mapHeight;
-                                if(cx == 8 || cy == 8)
-                                    continue;
-                                floatV8[cx][cy] = mapHeight;
-                            }
-                        }
-
-                        float mult;
-                        uint8 compFlags;
-                        if(fread(&compFlags, sizeof(uint8), 1, mapFile) != 1)
-                            return false;
-                        switch(compFlags)
-                        {
-                        case 0x04:
-                            uint8 uint8_V8[8*8], uint8_V9[9*9];
-                            if(fread(&uint8_V8, sizeof(uint8)*8*8, 1, mapFile) != 1)
-                                return false;
-                            if(fread(&uint8_V9, sizeof(uint8)*9*9, 1, mapFile) != 1)
-                                return false;
-                            if(fread(&mult, sizeof(float), 1, mapFile) != 1)
-                                return false;
-                            for(uint8 cx = 0; cx <= 8; cx++)
-                            {
-                                for(uint8 cy = 0; cy <= 8; cy++)
-                                {
-                                    floatV9[cx][cy] += mult*float(uint8_V9[cx*9+cy]);
-                                    if(cx == 8 || cy == 8)
-                                        continue;
-                                    floatV8[cx][cy] += mult*float(uint8_V8[cx*8+cy]);
-                                }
-                            }
-                            break;
-                        case 0x02:
-                            uint16 uint16V8[8*8], uint16V9[9*9];
-                            if(fread(&uint16V8, sizeof(uint16)*8*8, 1, mapFile) != 1)
-                                return false;
-                            if(fread(&uint16V9, sizeof(uint16)*9*9, 1, mapFile) != 1)
-                                return false;
-                            if(fread(&mult, sizeof(float), 1, mapFile) != 1)
-                                return false;
-                            for(uint8 cx = 0; cx <= 8; cx++)
-                            {
-                                for(uint8 cy = 0; cy <= 8; cy++)
-                                {
-                                    floatV9[cx][cy] += mult*float(uint16V9[cx*9+cy]);
-                                    if(cx == 8 || cy == 8)
-                                        continue;
-                                    floatV8[cx][cy] += mult*float(uint16V8[cx*8+cy]);
-                                }
-                            }
-                            break;
-                        case 0x01:
-                            break; // Flat land
-                        default:
-                            float V8[8*8], V9[9*9];
-                            if(fread(&V8, sizeof(float)*8*8, 1, mapFile) != 1)
-                                return false;
-                            if(fread(&V9, sizeof(float)*9*9, 1, mapFile) != 1)
-                                return false;
-                            for(uint8 cx = 0; cx <= 8; cx++)
-                            {
-                                for(uint8 cy = 0; cy <= 8; cy++)
-                                {
-                                    floatV9[cx][cy] += V9[cx*9+cy];
-                                    if(cx == 8 || cy == 8)
-                                        continue;
-                                    floatV8[cx][cy] += V8[cx*8+cy];
-                                }
-                            }
-                            break;
-                        }
-
-                        // Splice together chunks into our tile storage
-                        for(uint8 cx = 0; cx <= 8; cx++)
-                        {
-                            int i = x*8 + cx;
-                            for(uint8 cy = 0; cy <= 8; cy++)
-                            {
-                                int j = y*8 + cy;
-                                data.V9[i][j] = floatV9[cx][cy];
-
-                                if(cx == 8 || cy == 8)
-                                    continue;
-                                data.V8[i][j] = floatV8[cx][cy];
-                            }
-                        }
-
-                        // We don't use holes yet
-                        uint32 holes;
-                        if(fread(&holes, sizeof(uint32), 1, mapFile) != 1)
-                            return false;
-
-                        // Liquid reading
-                        if(fread(&data.liquidType[x][y], sizeof(uint16), 1, mapFile) != 1)
-                            return false;
-
-                        // Read our liquid height if we have it
-                        float liqHeight = INVALID_MAP_LIQ_HEIGHT;
-                        if(fread(&compFlags, sizeof(uint8), 1, mapFile) != 1)
-                            return false;
-                        if(compFlags != 0xFF) // 0xFF is dry land
-                            if(fread(&liqHeight, sizeof(float), 1, mapFile) != 1)
-                                return false;
-
-                        // Set our liquid V9 to read or invalid height
-                        for(uint8 cx = 0; cx <= 8; cx++)
-                            for(uint8 cy = 0; cy <= 8; cy++)
-                                floatV9[cx][cy] = liqHeight;
-
-                        if(compFlags != 0xFF) // 0xFF is dry land
-                        {
-                            float liqMult;
-                            switch(compFlags)
-                            {
-                            case 0x04:
-                                {
-                                    uint8 uint8L9[9*9];
-                                    if(fread(&uint8L9, sizeof(uint8)*9*9, 1, mapFile) != 1)
-                                        return false;
-                                    if(fread(&liqMult, sizeof(float), 1, mapFile) != 1)
-                                        return false;
-                                    for(uint8 cx = 0; cx <= 8; cx++)
-                                    {
-                                        for(uint8 cy = 0; cy <= 8; cy++)
-                                        {
-                                            if(uint8L9[cx*9+cy] == 0xFF)
-                                                floatV9[cx][cy] = INVALID_MAP_LIQ_HEIGHT;
-                                            else floatV9[cx][cy] += (liqMult*float(uint8L9[cx*9+cy]));
-                                        }
-                                    }
-                                }break;
-                            case 0x02:
-                                {
-                                    uint16 uint16L9[9*9];
-                                    if(fread(&uint16L9, sizeof(uint16)*9*9, 1, mapFile) != 1)
-                                        return false;
-                                    if(fread(&liqMult, sizeof(float), 1, mapFile) != 1)
-                                        return false;
-                                    for(uint8 cx = 0; cx <= 8; cx++)
-                                    {
-                                        for(uint8 cy = 0; cy <= 8; cy++)
-                                        {
-                                            if(uint16L9[cx*9+cy] == 0xFFFF)
-                                                floatV9[cx][cy] = INVALID_MAP_LIQ_HEIGHT;
-                                            else floatV9[cx][cy] += (liqMult*float(uint16L9[cx*9+cy]));
-                                        }
-                                    }
-                                }break;
-                            case 0x01: // Flat water
-                                {
-                                    uint64 liquid_mask;
-                                    if(fread(&liquid_mask, sizeof(uint64), 1, mapFile) != 1)
-                                        return false;
-                                    bool liquid_exists[9][9];
-                                    memset(&liquid_exists, 0, sizeof(bool)*9*9);
-                                    for(uint8 i = 0; i < 8; i++)
-                                    {
-                                        for(uint8 j = 0; j < 8; j++)
-                                        {
-                                            if(liquid_mask & 0x01)
-                                            {
-                                                liquid_exists[i][j] = true;
-                                                liquid_exists[i][j+1] = true;
-                                                liquid_exists[(i+1)][j] = true;
-                                                liquid_exists[(i+1)][j+1] = true;
-                                            }
-
-                                            liquid_mask>>=1;
-                                        }
-                                    }
-
-                                    // We only have to invalidate our non existing liquid
-                                    for(uint8 cx = 0; cx <= 8; cx++)
-                                        for(uint8 cy = 0; cy <= 8; cy++)
-                                            if(liquid_exists[cx][cy] == false)
-                                                floatV9[cx][cy] = INVALID_MAP_LIQ_HEIGHT;
-                                }break;
-                            default: // Uncompressed height offsets
-                                {
-                                    float L9[9*9];
-                                    if(fread(&L9, sizeof(float)*9*9, 1, mapFile) != 1)
-                                        return false;
-                                    for(uint8 cx = 0; cx <= 8; cx++)
-                                        for(uint8 cy = 0; cy <= 8; cy++)
-                                            floatV9[cx][cy] += L9[cx*9+cy];
-                                }break;
-                            }
-                        }
-
-                        // Splice together liquid chunks into our tile storage
-                        for(uint8 cx = 0; cx <= 8; cx++)
-                        {
-                            int i = x*8 + cx;
-                            for(uint8 cy = 0; cy <= 8; cy++)
-                            {
-                                int j = y*8 + cy;
-                                data.L9[i][j] = floatV9[cx][cy];
-                            }
-                        }
-                    }
-                }
-
-                // Fill V8 map based on average of 4 corners
-                for(uint32 i = 0; i < V8_SIZE; i++)
-                {
-                    for(uint32 j = 0; j < V8_SIZE; j++)
-                    {
-                        float heightMap[5] = { data.L9[i][j], data.L9[i+1][j], data.L9[i][j+1], data.L9[i+1][j+1], INVALID_MAP_LIQ_HEIGHT }, averageH = 0.f;
-                        uint8 iAvg = 0;
-                        for(uint8 i = 0; i < 4; i++)
-                        {
-                            if(heightMap[i] == INVALID_MAP_LIQ_HEIGHT)
-                                continue;
-                            averageH += heightMap[i];
-                            iAvg++;
-                        }
-
-                        if(iAvg == 0)
-                            data.L8[i][j] = INVALID_MAP_LIQ_HEIGHT;
-                        else data.L8[i][j] = averageH/((float)iAvg);
-                    }
-                }
-                // Check our compiled tile info
-                return true;
-            }break;
-        }
-        return false;
+        min[0] = G3D::min(min[0], x);
+        max[0] = G3D::max(max[0], x);
+        min[1] = G3D::min(min[1], z);
+        max[1] = G3D::max(max[1], z);
+        min[2] = G3D::min(min[2], y);
+        max[2] = G3D::max(max[2], y);
     }
 
     struct READ_ChunkData
@@ -552,6 +180,7 @@ namespace MMAP
         {
             uint16 areaInfo;
             uint16 liquidType;
+            uint16 navLiquidType;
             uint8 xOffset, yOffset;
             bool hasLiquid, isHole;
 
@@ -582,47 +211,176 @@ namespace MMAP
         case BOTTOM: // Bottom means we read the top row
             xStart = yStart = 0;
             break;
-
-            // Corners are one chunk each
-        case LOAD_CORNER1: // Top Left is Bottom Right Chunk
-            xStart = CHUNK_SIZE-1;
-            yStart = CHUNK_SIZE-1;
-            break;
-        case LOAD_CORNER2: // Top Right is Bottom Left chunk
-            xStart = CHUNK_SIZE-1;
-            yStart = CHUNK_SIZE-1;
-            break;
-        case LOAD_CORNER3: // Bottom left is Top Right Chunk
-            xStart = 0;
-            yStart = CHUNK_SIZE-1;
-            break;
-        case LOAD_CORNER4: // Bottom Right is Top Left Chunk
-            xStart = 0;
-            yStart = 0;
-            break;
         }
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::loadMapChunks(FILE *mapFile, G3D::uint32 mapID, MapLoadData &loadData, Spot portion, G3D::uint32 fromTileX, G3D::uint32 fromTileY)
+    bool TerrainBuilder::_loadAndProcessMapChunks(FILE *mapFile, G3D::uint32 mapID, uint32 tileX, uint32 tileY, MapChunkLoadData *chunkData, std::map<uint32, uint32> &chunk_map)
+    {
+        if(!_loadMapChunks(mapFile, mapID, tileX, tileY, chunkData, chunk_map))
+            return false;
+        fclose(mapFile);
+
+        // Process terrain height
+        float xoffset = (float(tileX)-32)*GRID_SIZE;
+        float yoffset = (float(tileY)-32)*GRID_SIZE;
+
+        // Ugly bits ahead
+        float coord[3];
+        int index = 0, counter = 0;
+        for(uint8 cy = 0; cy < 16; cy++)
+        {
+            for(uint8 ty = 0; ty < 8; ty++)
+            {
+                for(uint8 cx = 0; cx < 16; cx++)
+                {
+                    for(uint8 tx = 0; tx < 8; tx++)
+                    {
+                        // Grab our height coord from our chunk and append it to verts, also mark it as part of our bounding box
+                        chunk_map[index++] = (cx<<24)|(tx<<16)|(cy<<8)|ty;
+                        getHeightCoord(counter++, true, xoffset, yoffset, coord, chunkData->_chunkData[cx][cy].zT9[tx][ty]);
+                        chunkData->solidVerts.append(coord[0]);
+                        chunkData->solidVerts.append(coord[2]);
+                        chunkData->solidVerts.append(coord[1]);
+
+                        // Append either a valid liquid height or our terrain height
+                        if(chunkData->_chunkData[cx][cy].zL9[tx][ty] != INVALID_MAP_LIQ_HEIGHT)
+                            coord[2] = chunkData->_chunkData[cx][cy].zL9[tx][ty];
+                        chunkData->waterVerts.append(coord[0]);
+                        chunkData->waterVerts.append(coord[2]);
+                        chunkData->waterVerts.append(coord[1]);
+                    }
+
+                    if(cx == 15)
+                    {   // Grab our end of X and append it
+                        chunk_map[index++] = (cx<<24)|(8<<16)|(cy<<8)|ty;
+                        getHeightCoord(counter++, true, xoffset, yoffset, coord, chunkData->_chunkData[cx][cy].zT9[8][ty]);
+                        chunkData->solidVerts.append(coord[0]);
+                        chunkData->solidVerts.append(coord[2]);
+                        chunkData->solidVerts.append(coord[1]);
+
+                        // Append either a valid liquid height or our terrain height
+                        if(chunkData->_chunkData[cx][cy].zL9[8][ty] != INVALID_MAP_LIQ_HEIGHT)
+                            coord[2] = chunkData->_chunkData[cx][cy].zL9[8][ty];
+                        chunkData->waterVerts.append(coord[0]);
+                        chunkData->waterVerts.append(coord[2]);
+                        chunkData->waterVerts.append(coord[1]);
+                    }
+                }
+            }
+
+            if(cy == 15)
+            {
+                for(uint8 cx = 0; cx < 16; cx++)
+                {
+                    for(uint8 tx = 0; tx < 8; tx++)
+                    {
+                        chunk_map[index++] = (cx<<24)|(tx<<16)|(cy<<8)|8;
+                        getHeightCoord(counter++, true, xoffset, yoffset, coord, chunkData->_chunkData[cx][cy].zT9[tx][8]);
+                        chunkData->solidVerts.append(coord[0]);
+                        chunkData->solidVerts.append(coord[2]);
+                        chunkData->solidVerts.append(coord[1]);
+
+                        // Append either a valid liquid height or our terrain height
+                        if(chunkData->_chunkData[cx][cy].zL9[tx][8] != INVALID_MAP_LIQ_HEIGHT)
+                            coord[2] = chunkData->_chunkData[cx][cy].zL9[tx][8];
+                        chunkData->waterVerts.append(coord[0]);
+                        chunkData->waterVerts.append(coord[2]);
+                        chunkData->waterVerts.append(coord[1]);
+                    }
+
+                    if(cx == 15)
+                    {
+                        chunk_map[index++] = (cx<<24)|(8<<16)|(cy<<8)|8;
+                        getHeightCoord(counter++, true, xoffset, yoffset, coord, chunkData->_chunkData[cx][cy].zT9[8][8]);
+                        chunkData->solidVerts.append(coord[0]);
+                        chunkData->solidVerts.append(coord[2]);
+                        chunkData->solidVerts.append(coord[1]);
+
+                        // Append either a valid liquid height or our terrain height
+                        if(chunkData->_chunkData[cx][cy].zL9[8][8] != INVALID_MAP_LIQ_HEIGHT)
+                            coord[2] = chunkData->_chunkData[cx][cy].zL9[8][8];
+                        chunkData->waterVerts.append(coord[0]);
+                        chunkData->waterVerts.append(coord[2]);
+                        chunkData->waterVerts.append(coord[1]);
+                    }
+                }
+            }
+        }
+
+        counter = 0; // Append terrain V8 and reset counter
+        for(uint8 cy = 0; cy < 16; cy++)
+        {
+            for(uint8 ty = 0; ty < 8; ty++)
+            {
+                for(uint8 cx = 0; cx < 16; cx++)
+                {
+                    for(uint8 tx = 0; tx < 8; tx++)
+                    {
+                        chunk_map[index++] = (cx<<24)|(tx<<16)|(cy<<8)|ty;
+                        getHeightCoord(counter++, xoffset, yoffset, coord, chunkData->_chunkData[cx][cy].zT8[tx][ty]);
+                        chunkData->solidVerts.append(coord[0]);
+                        chunkData->solidVerts.append(coord[2]);
+                        chunkData->solidVerts.append(coord[1]);
+
+                        // Append either a valid liquid height or our terrain height
+                        if(chunkData->_chunkData[cx][cy].zL8[tx][ty] != INVALID_MAP_LIQ_HEIGHT)
+                            coord[2] = chunkData->_chunkData[cx][cy].zL8[tx][ty];
+                        chunkData->waterVerts.append(coord[0]);
+                        chunkData->waterVerts.append(coord[2]);
+                        chunkData->waterVerts.append(coord[1]);
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**************************************************************************
+    * Because the function is a million miles long, break it into these subfunctions for ease of reading
+    * Also allows our data to be pretty easily cleaned up
+    *****/
+    bool LoadMapFileIntoReadData(FILE *mapFile, READ_ChunkData *read_data);
+    void FillReadDataIntoLoadData(uint32 mapId, uint32 tileX, uint32 tileY, READ_ChunkData *read_data, MapChunkLoadData *loadData);
+    /**************************************************************************/
+
+    /**************************************************************************/
+    bool TerrainBuilder::_loadMapChunks(FILE *mapFile, G3D::uint32 mapID, uint32 tileX, uint32 tileY, MapChunkLoadData *loadData, std::map<uint32, uint32> &chunk_map)
     {
         ASSERT(m_mapCompressionType[mapID] == MAP_COMPRESSED_CHUNKS);
 
-        READ_ChunkData read_data;
+        READ_ChunkData *read_data = new READ_ChunkData();
+        bool result = LoadMapFileIntoReadData(mapFile, read_data);
+        fclose(mapFile);
+
+        // Process our input data into usable load data
+        if(result) FillReadDataIntoLoadData(mapID, tileX, tileY, read_data, loadData);
+
+        // Clean up read data
+        delete read_data;
+
+        // Check our compiled tile info
+        return result;
+    }
+
+    bool LoadMapFileIntoReadData(FILE *mapFile, READ_ChunkData *read_data)
+    {
         for(int x = 0; x < CHUNK_SIZE; x++)
         {
             for(int y = 0; y < CHUNK_SIZE; y++)
             {
+                read_data->_chunkData[x][y].hasLiquid = false;
+                read_data->_chunkData[x][y].navLiquidType = NAV_TOO_STEEP;
                 float mapHeight, floatV8[8][8], floatV9[9][9];
-                read_data._chunkData[x][y].hasLiquid = false;
 
                 // TODO:
-                read_data._chunkData[x][y].isHole = false;
-                if(fread(&read_data._chunkData[x][y].xOffset, sizeof(uint8), 1, mapFile) != 1)
+                read_data->_chunkData[x][y].isHole = false;
+                if(fread(&read_data->_chunkData[x][y].xOffset, sizeof(uint8), 1, mapFile) != 1)
                     return false;
-                if(fread(&read_data._chunkData[x][y].yOffset, sizeof(uint8), 1, mapFile) != 1)
+                if(fread(&read_data->_chunkData[x][y].yOffset, sizeof(uint8), 1, mapFile) != 1)
                     return false;
-                if(fread(&read_data._chunkData[x][y].areaInfo, sizeof(uint16), 1, mapFile) != 1)
+                if(fread(&read_data->_chunkData[x][y].areaInfo, sizeof(uint16), 1, mapFile) != 1)
                     return false;
                 if(fread(&mapHeight, sizeof(float), 1, mapFile) != 1)
                     return false;
@@ -642,6 +400,7 @@ namespace MMAP
                 uint8 compFlags;
                 if(fread(&compFlags, sizeof(uint8), 1, mapFile) != 1)
                     return false;
+
                 switch(compFlags)
                 {
                 case 0x04:
@@ -652,6 +411,7 @@ namespace MMAP
                         return false;
                     if(fread(&mult, sizeof(float), 1, mapFile) != 1)
                         return false;
+
                     for(uint8 cx = 0; cx <= 8; cx++)
                     {
                         for(uint8 cy = 0; cy <= 8; cy++)
@@ -671,6 +431,7 @@ namespace MMAP
                         return false;
                     if(fread(&mult, sizeof(float), 1, mapFile) != 1)
                         return false;
+
                     for(uint8 cx = 0; cx <= 8; cx++)
                     {
                         for(uint8 cy = 0; cy <= 8; cy++)
@@ -690,6 +451,7 @@ namespace MMAP
                         return false;
                     if(fread(&V9, sizeof(float)*9*9, 1, mapFile) != 1)
                         return false;
+
                     for(uint8 cx = 0; cx <= 8; cx++)
                     {
                         for(uint8 cy = 0; cy <= 8; cy++)
@@ -708,11 +470,11 @@ namespace MMAP
                 {
                     for(uint8 cy = 0; cy <= 8; cy++)
                     {
-                        read_data._chunkData[x][y].V9[cx][cy] = floatV9[cx][cy];
+                        read_data->_chunkData[x][y].V9[cx][cy] = floatV9[cx][cy];
 
                         if(cx == 8 || cy == 8)
                             continue;
-                        read_data._chunkData[x][y].V8[cx][cy] = floatV8[cx][cy];
+                        read_data->_chunkData[x][y].V8[cx][cy] = floatV8[cx][cy];
                     }
                 }
 
@@ -722,22 +484,23 @@ namespace MMAP
                     return false;
 
                 // Liquid reading
-                if(fread(&read_data._chunkData[x][y].liquidType, sizeof(uint16), 1, mapFile) != 1)
+                if(fread(&read_data->_chunkData[x][y].liquidType, sizeof(uint16), 1, mapFile) != 1)
                     return false;
 
                 // Decide if our liquid is usable or not...
                 bool usableLiquidType = true;
-                uint16 liquidType = read_data._chunkData[x][y].liquidType;
+                uint16 liquidType = read_data->_chunkData[x][y].liquidType;
                 if(liquidType & MAP_LIQUID_TYPE_SLIME || liquidType & MAP_LIQUID_TYPE_MAGMA)
-                    read_data._chunkData[x][y].liquidType = NAV_MAGMA_SLIME;
+                    read_data->_chunkData[x][y].navLiquidType = NAV_MAGMA_SLIME;
                 else if(liquidType & (MAP_LIQUID_TYPE_DARK_WATER|MAP_LIQUID_TYPE_OCEAN|MAP_LIQUID_TYPE_WATER))
-                    read_data._chunkData[x][y].liquidType = NAV_WATER;
+                    read_data->_chunkData[x][y].navLiquidType = NAV_WATER;
                 else usableLiquidType = false;
 
                 // Read our liquid height if we have it
                 float liqHeight = INVALID_MAP_LIQ_HEIGHT;
                 if(fread(&compFlags, sizeof(uint8), 1, mapFile) != 1)
                     return false;
+
                 if(compFlags != 0xFF) // 0xFF is dry land
                     if(fread(&liqHeight, sizeof(float), 1, mapFile) != 1)
                         return false;
@@ -750,7 +513,7 @@ namespace MMAP
                 if(compFlags != 0xFF) // 0xFF is dry land
                 {
                     // Set liquid to our true/false from earlier, read regardless of usable or not.
-                    read_data._chunkData[x][y].hasLiquid = usableLiquidType;
+                    read_data->_chunkData[x][y].hasLiquid = usableLiquidType;
 
                     float liqMult;
                     switch(compFlags)
@@ -760,8 +523,10 @@ namespace MMAP
                             uint8 uint8L9[9*9];
                             if(fread(&uint8L9, sizeof(uint8)*9*9, 1, mapFile) != 1)
                                 return false;
+
                             if(fread(&liqMult, sizeof(float), 1, mapFile) != 1)
                                 return false;
+
                             for(uint8 cx = 0; cx <= 8; cx++)
                             {
                                 for(uint8 cy = 0; cy <= 8; cy++)
@@ -777,8 +542,10 @@ namespace MMAP
                             uint16 uint16L9[9*9];
                             if(fread(&uint16L9, sizeof(uint16)*9*9, 1, mapFile) != 1)
                                 return false;
+
                             if(fread(&liqMult, sizeof(float), 1, mapFile) != 1)
                                 return false;
+
                             for(uint8 cx = 0; cx <= 8; cx++)
                             {
                                 for(uint8 cy = 0; cy <= 8; cy++)
@@ -794,6 +561,7 @@ namespace MMAP
                             uint64 liquid_mask;
                             if(fread(&liquid_mask, sizeof(uint64), 1, mapFile) != 1)
                                 return false;
+
                             bool liquid_exists[9][9];
                             memset(&liquid_exists, 0, sizeof(bool)*9*9);
                             for(uint8 i = 0; i < 8; i++)
@@ -823,6 +591,7 @@ namespace MMAP
                             float L9[9*9];
                             if(fread(&L9, sizeof(float)*9*9, 1, mapFile) != 1)
                                 return false;
+
                             for(uint8 cx = 0; cx <= 8; cx++)
                                 for(uint8 cy = 0; cy <= 8; cy++)
                                     floatV9[cx][cy] += L9[cx*9+cy];
@@ -835,7 +604,7 @@ namespace MMAP
                 {
                     for(uint8 cy = 0; cy <= 8; cy++)
                     {
-                        read_data._chunkData[x][y].L9[cx][cy] = floatV9[cx][cy];
+                        read_data->_chunkData[x][y].L9[cx][cy] = floatV9[cx][cy];
                     }
                 }
 
@@ -844,7 +613,7 @@ namespace MMAP
                 {
                     for(uint32 j = 0; j < V8_CH_SIZE; j++)
                     {
-                        float heightMap[5] = { read_data._chunkData[x][y].L9[i][j], read_data._chunkData[x][y].L9[i+1][j], read_data._chunkData[x][y].L9[i][j+1], read_data._chunkData[x][y].L9[i+1][j+1], INVALID_MAP_LIQ_HEIGHT }, averageH = 0.f;
+                        float heightMap[5] = { read_data->_chunkData[x][y].L9[i][j], read_data->_chunkData[x][y].L9[i+1][j], read_data->_chunkData[x][y].L9[i][j+1], read_data->_chunkData[x][y].L9[i+1][j+1], INVALID_MAP_LIQ_HEIGHT }, averageH = 0.f;
                         uint8 iAvg = 0;
                         for(uint8 i = 0; i < 4; i++)
                         {
@@ -855,139 +624,121 @@ namespace MMAP
                         }
 
                         if(iAvg == 0)
-                            read_data._chunkData[x][y].L8[i][j] = INVALID_MAP_LIQ_HEIGHT;
-                        else heightMap[4] = read_data._chunkData[x][y].L8[i][j] = averageH/((float)iAvg);
+                            read_data->_chunkData[x][y].L8[i][j] = INVALID_MAP_LIQ_HEIGHT;
+                        else heightMap[4] = read_data->_chunkData[x][y].L8[i][j] = averageH/((float)iAvg);
                     }
                 }
             }
         }
 
-        int readSX, readSY;
-        getChReadVars(portion, readSX, readSY);
+        return true;
+    }
 
-        int startX, endX, startY, endY;
-        getChLoopVars(portion, startX, endX, startY, endY);
-        int read_SX = readSX;
-        for(int x = startX; x < endX; x++)
+    void FillReadDataIntoLoadData(uint32 mapId, uint32 tileX, uint32 tileY, READ_ChunkData *read_data, MapChunkLoadData *loadData)
+    {
+        for (int x = 0; x < CHUNK_SIZE; x++)
         {
-            int rx = read_SX++;
-            int read_SY = readSY;
-            for(int y = startY; y < endY; y++)
+            for (int y = 0; y < CHUNK_SIZE; y++)
             {
-                int ry = read_SY++;
                 // Begin transfer of read chunk data into our load data stack.
-                loadData._chunkData[x][y].areaInfo = read_data._chunkData[rx][ry].areaInfo;
-                loadData._chunkData[x][y].liquidType = read_data._chunkData[rx][ry].liquidType;
-                loadData._chunkData[x][y].xOffset = read_data._chunkData[rx][ry].xOffset+startX-readSX;
-                loadData._chunkData[x][y].yOffset = read_data._chunkData[rx][ry].yOffset+startY-readSY;
+                loadData->_chunkData[x][y].liquidType = read_data->_chunkData[x][y].liquidType;
+                loadData->_chunkData[x][y].navLiquidType = read_data->_chunkData[x][y].navLiquidType;
                 // TODO: for now it's just default false or false flag
-                loadData._chunkData[x][y].isHole = read_data._chunkData[rx][ry].isHole;
-
-                int currTileX = fromTileX - 32, currTileY = fromTileY - 32;
-
-                // Process terrain height
-                float xbase = (float(currTileX)*GRID_SIZE) - GRID_CHUNK_SIZE + (GRID_CHUNK_SIZE*loadData._chunkData[x][y].xOffset);
-                float ybase = (float(currTileY)*GRID_SIZE) - GRID_CHUNK_SIZE + (GRID_CHUNK_SIZE*loadData._chunkData[x][y].yOffset);
-
-                // Min and max pre-calc
-                loadData._chunkData[x][y].min[0] = xbase * -1.f;
-                loadData._chunkData[x][y].min[2] = ybase * -1.f;
-                loadData._chunkData[x][y].min[1] = INVALID_MAP_LIQ_HEIGHT_MAX;
-
-                loadData._chunkData[x][y].max[0] = (xbase+GRID_CHUNK_SIZE) * -1.f;
-                loadData._chunkData[x][y].max[2] = (ybase+GRID_CHUNK_SIZE) * -1.f;
-                loadData._chunkData[x][y].max[1] = INVALID_MAP_LIQ_HEIGHT;
-
-                // Tile is structured as 9*9 points of edge with 8*8 points of center
-                float point_offset = GRID_CHUNK_SIZE/8.f;
+                loadData->_chunkData[x][y].isHole = read_data->_chunkData[x][y].isHole;
 
                 // From here we're interolating points on the x and y axis and positioning our z point
                 for(int i = 0; i < V9_CH_SIZE; i++)
                 {
                     for(int j = 0; j < V9_CH_SIZE; j++)
                     {
-                        loadData._chunkData[x][y].useLiquidV9[i][j] = false;
-                        fillHeightCoord(false, false, point_offset, i, j, xbase, ybase, read_data._chunkData[rx][ry].V9[i][j], &loadData._chunkData[x][y], loadData._chunkData[x][y].min, loadData._chunkData[x][y].max);
-                        fillHeightCoord(false, true, point_offset, i, j, xbase, ybase, read_data._chunkData[rx][ry].L9[i][j], &loadData._chunkData[x][y], loadData._chunkData[x][y].min, loadData._chunkData[x][y].max);
-                        if(read_data._chunkData[rx][ry].hasLiquid)
+                        loadData->_chunkData[x][y].useLiquidV9[i][j] = false;
+                        fillHeightCoord(false, false, i, j, read_data->_chunkData[x][y].V9[i][j], &loadData->_chunkData[x][y]);
+                        fillHeightCoord(false, true, i, j, read_data->_chunkData[x][y].L9[i][j], &loadData->_chunkData[x][y]);
+                        if(read_data->_chunkData[x][y].hasLiquid)
                         {   // Calculate out liquid use per corner, simple height compare
-                            float terrainHeight = read_data._chunkData[rx][ry].V9[i][j],
-                                liquidHeight = read_data._chunkData[rx][ry].L9[i][j];
+                            float terrainHeight = read_data->_chunkData[x][y].V9[i][j],
+                                liquidHeight = read_data->_chunkData[x][y].L9[i][j];
                             // We have caculated and decided wether to use our liquid or not.
-                            loadData._chunkData[x][y].useLiquidV9[i][j] = liquidHeight == INVALID_MAP_LIQ_HEIGHT ? false : liquidHeight > terrainHeight;
+                            loadData->_chunkData[x][y].useLiquidV9[i][j] = liquidHeight == INVALID_MAP_LIQ_HEIGHT ? false : liquidHeight > terrainHeight;
                         }
 
                         if(i == V8_CH_SIZE || j == V8_CH_SIZE)
                             continue;
 
-                        fillHeightCoord(true, false, point_offset, i, j, xbase, ybase, read_data._chunkData[rx][ry].V8[i][j], &loadData._chunkData[x][y], loadData._chunkData[x][y].min, loadData._chunkData[x][y].max);
-                        fillHeightCoord(true, true, point_offset, i, j, xbase, ybase, read_data._chunkData[rx][ry].L8[i][j], &loadData._chunkData[x][y], loadData._chunkData[x][y].min, loadData._chunkData[x][y].max);
+                        // 
+                        fillHeightCoord(true, false, i, j, read_data->_chunkData[x][y].V8[i][j], &loadData->_chunkData[x][y]);
+                        fillHeightCoord(true, true, i, j, read_data->_chunkData[x][y].L8[i][j], &loadData->_chunkData[x][y]);
 
-                        for (int q = TOP; q <= BOTTOM; q+=1)
+                        loadData->_chunkData[x][y].useLiquidV8[i][j] = read_data->_chunkData[x][y].L8[i][j] != INVALID_MAP_LIQ_HEIGHT;
+                        if(loadData->_chunkData[x][y].useLiquidV8[i][j])
                         {
-                            bool useLiquid = read_data._chunkData[rx][ry].hasLiquid;
-                            if(useLiquid)
-                            {   // Compare our height maps to decide if this tile quadrant uses the liquid data
-                                float liquidHeight[2] = {INVALID_MAP_LIQ_HEIGHT,INVALID_MAP_LIQ_HEIGHT},
-                                    terrainHeight[2] = {INVALID_MAP_LIQ_HEIGHT,INVALID_MAP_LIQ_HEIGHT};
-                                //j1i1---j2i1
-                                //  |\ T /|
-                                //  | \ / |
-                                //  |L 0 R|
-                                //  | / \ |
-                                //  |/ B \|
-                                //j1i2---j2i2
-                                switch(q)
-                                {
-                                case TOP:
-                                    terrainHeight[0] = read_data._chunkData[rx][ry].V9[i][j];
-                                    terrainHeight[1] = read_data._chunkData[rx][ry].V9[i][j+1];
-                                    liquidHeight[0] = read_data._chunkData[rx][ry].L9[i][j];
-                                    liquidHeight[1] = read_data._chunkData[rx][ry].L9[i][j+1];
-                                    break;
-                                case RIGHT:
-                                    terrainHeight[0] = read_data._chunkData[rx][ry].V9[i][j+1];
-                                    terrainHeight[1] = read_data._chunkData[rx][ry].V9[i+1][j+1];
-                                    liquidHeight[0] = read_data._chunkData[rx][ry].L9[i][j+1];
-                                    liquidHeight[1] = read_data._chunkData[rx][ry].L9[i+1][j+1];
-                                    break;
-                                case LEFT:
-                                    terrainHeight[0] = read_data._chunkData[rx][ry].V9[i][j];
-                                    terrainHeight[1] = read_data._chunkData[rx][ry].V9[i+1][j];
-                                    liquidHeight[0] = read_data._chunkData[rx][ry].L9[i][j];
-                                    liquidHeight[1] = read_data._chunkData[rx][ry].L9[i+1][j];
-                                    break;
-                                case BOTTOM:
-                                    terrainHeight[0] = read_data._chunkData[rx][ry].V9[i+1][j];
-                                    terrainHeight[1] = read_data._chunkData[rx][ry].V9[i+1][j+1];
-                                    liquidHeight[0] = read_data._chunkData[rx][ry].L9[i+1][j];
-                                    liquidHeight[1] = read_data._chunkData[rx][ry].L9[i+1][j+1];
-                                    break;
-                                default:
-                                    useLiquid = false;
-                                    break;
+                            for (int q = TOP; q <= BOTTOM; q+=1)
+                            {
+                                bool useLiquid = read_data->_chunkData[x][y].hasLiquid;
+                                if(useLiquid)
+                                {   // Compare our height maps to decide if this tile quadrant uses the liquid data
+                                    float liquidHeight[2] = {INVALID_MAP_LIQ_HEIGHT,INVALID_MAP_LIQ_HEIGHT},
+                                        terrainHeight[2] = {INVALID_MAP_LIQ_HEIGHT,INVALID_MAP_LIQ_HEIGHT};
+                                    //j1i1---j2i1
+                                    //  |\ T /|
+                                    //  | \ / |
+                                    //  |L 0 R|
+                                    //  | / \ |
+                                    //  |/ B \|
+                                    //j1i2---j2i2
+                                    switch(q)
+                                    {
+                                    case TOP:
+                                        terrainHeight[0] = read_data->_chunkData[x][y].V9[i][j];
+                                        terrainHeight[1] = read_data->_chunkData[x][y].V9[i][j+1];
+                                        liquidHeight[0] = read_data->_chunkData[x][y].L9[i][j];
+                                        liquidHeight[1] = read_data->_chunkData[x][y].L9[i][j+1];
+                                        break;
+                                    case RIGHT:
+                                        terrainHeight[0] = read_data->_chunkData[x][y].V9[i][j+1];
+                                        terrainHeight[1] = read_data->_chunkData[x][y].V9[i+1][j+1];
+                                        liquidHeight[0] = read_data->_chunkData[x][y].L9[i][j+1];
+                                        liquidHeight[1] = read_data->_chunkData[x][y].L9[i+1][j+1];
+                                        break;
+                                    case LEFT:
+                                        terrainHeight[0] = read_data->_chunkData[x][y].V9[i][j];
+                                        terrainHeight[1] = read_data->_chunkData[x][y].V9[i+1][j];
+                                        liquidHeight[0] = read_data->_chunkData[x][y].L9[i][j];
+                                        liquidHeight[1] = read_data->_chunkData[x][y].L9[i+1][j];
+                                        break;
+                                    case BOTTOM:
+                                        terrainHeight[0] = read_data->_chunkData[x][y].V9[i+1][j];
+                                        terrainHeight[1] = read_data->_chunkData[x][y].V9[i+1][j+1];
+                                        liquidHeight[0] = read_data->_chunkData[x][y].L9[i+1][j];
+                                        liquidHeight[1] = read_data->_chunkData[x][y].L9[i+1][j+1];
+                                        break;
+                                    default:
+                                        useLiquid = false;
+                                        break;
+                                    }
+
+                                    if(useLiquid) // Require both corners of liquid to be heigher than both corners of terrain for liquid to be used.
+                                        useLiquid = (liquidHeight[0] > terrainHeight[0] && liquidHeight[1] > terrainHeight[1]);
                                 }
 
-                                if(useLiquid) // Require both corners of liquid to be heigher than both corners of terrain for liquid to be used.
-                                    useLiquid = (liquidHeight[0] > terrainHeight[0] && liquidHeight[1] > terrainHeight[1]);
+                                // We have caculated and decided wether to use our liquid or not.
+                                loadData->_chunkData[x][y].useLiquid[(i*V8_CH_SIZE+j)*4+(q-TOP)] = useLiquid;
                             }
-
-                            // We have caculated and decided wether to use our liquid or not.
-                            loadData._chunkData[x][y].useLiquid[(i*V8_CH_SIZE+j)*4+(q-TOP)] = useLiquid;
                         }
-
                     }
                 }
 
                 //printf("Points: T: %lli|%lli L: %lli|%lli\n", v8posPointMap.size(), v9posPointMap.size(), L8posPointMap.size(), L9posPointMap.size());
             }
         }
-        // Check our compiled tile info
-        return true;
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, Spot portion)
+    bool getChunkLiquidData(MapChunkLoadData *chunkData, Spot s, uint32 chunkId0, uint32 chunkId1, uint32 chunkId2, uint16 &navLiquidType);
+    /**************************************************************************/
+
+    /**************************************************************************/
+    bool TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData)
     {
         if(tileX >= 64 || tileY >= 64)
             return false;
@@ -1009,331 +760,142 @@ namespace MMAP
             return false;
         }
 
-        MapTileData tileData;
-        bool result = loadMapChunks(mapFile, mapID, tileData);
-        fclose(mapFile);
-
+        std::map<uint32, uint32> chunk_map;
+        MapChunkLoadData *chunkData = new MapChunkLoadData();
+        // Fill our chunk data and chunk_map, loads from mapfile and fills vertices
+        bool result = _loadAndProcessMapChunks(mapFile, mapID, tileX, tileY, chunkData, chunk_map);
         if(!result)
-        {
+        {   // If we fail to load map chunks we don't close file
+            fclose(mapFile); // Close it here
             sLog.Error("TerrainMgr", "Bad terrain tile for [%03u][%02u][%02u].", mapID, tileX, tileY);
             return false;
         }
 
-        // Parse values for skippage
-        bool allOcean = true;
-        for(int x = 0; x < 16; x++)
-            for(int y = 0; y < 16; y++)
-                if(!(tileData.liquidType[x][y]&0x20))
-                    allOcean = false;
-        // We can skip tiles that are 100% ocean
-        if(allOcean)
-            return false;
+        // Append our chunk verts
+        loadData.terrainData[0].objVerts.append(chunkData->solidVerts);
+        loadData.terrainData[1].objVerts.append(chunkData->waterVerts);
+        loadData.allVerts.append(chunkData->solidVerts);
+        loadData.allVerts.append(chunkData->waterVerts);
 
-        // Process terrain height
-        int count = meshData.solidVerts.size() / 3;
-        float xoffset = (float(tileX)-32)*GRID_SIZE;
-        float yoffset = (float(tileY)-32)*GRID_SIZE;
+        // Use our chunk verts to set our boundbox
+        float bmin[3], bmax[3];
+        rcCalcBounds(chunkData->solidVerts.getCArray(), chunkData->solidVerts.size()/3, bmin, bmax);
+        loadData.terrainData[0].boundBox.set(G3D::Vector3(bmin[0], bmin[1], bmin[2]), G3D::Vector3(bmax[0], bmax[1], bmax[2]));
 
-        float coord[3];
-        G3D::Array<int> ttriangles, ltriangles;
-        for (int i = 0; i < V9_SIZE_SQ; ++i)
-        {
-            getHeightCoord(i, xoffset, yoffset, coord, tileData.V9);
-            meshData.solidVerts.append(coord[1]);
-            meshData.solidVerts.append(coord[2]);
-            meshData.solidVerts.append(coord[0]);
-        }
+        rcCalcBounds(chunkData->waterVerts.getCArray(), chunkData->waterVerts.size()/3, bmin, bmax);
+        loadData.terrainData[1].boundBox.set(G3D::Vector3(bmin[0], bmin[1], bmin[2]), G3D::Vector3(bmax[0], bmax[1], bmax[2]));
 
-        for (int i = 0; i < V8_SIZE_SQ; ++i)
-        {
-            getHeightCoord(i, xoffset, yoffset, coord, tileData.V8);
-            meshData.solidVerts.append(coord[1]);
-            meshData.solidVerts.append(coord[2]);
-            meshData.solidVerts.append(coord[0]);
-        }
-
-        int indices[] = { 0, 0, 0 };
+        // Append our tris
+        int tindices[] = { 0, 0, 0 };
         int loopStart = 0, loopEnd = 0, loopInc = 0, TriCount = 4;
-        getLoopVars(portion, loopStart, loopEnd, loopInc);
+        getLoopVars(ENTIRE, loopStart, loopEnd, loopInc);
         for (int i = loopStart; i < loopEnd; i += loopInc)
         {
             for (int j = TOP; j <= BOTTOM; j+=1)
             {
-                getHeightTriangle(i, Spot(j), indices);
-                ttriangles.append(indices[2] + count);
-                ttriangles.append(indices[1] + count);
-                ttriangles.append(indices[0] + count);
+                getHeightTriangle(i, Spot(j), tindices);
+                // Grab chunk data first
+                uint16 navLiquidType;
+                bool useWater = getChunkLiquidData(chunkData, Spot(j), chunk_map[tindices[0]], chunk_map[tindices[1]], chunk_map[tindices[2]], navLiquidType);
+
+                // Append our land terrain tris
+                loadData.terrainData[0].objTris.append(tindices[2]);
+                loadData.terrainData[0].objTris.append(tindices[1]);
+                loadData.terrainData[0].objTris.append(tindices[0]);
+                loadData.terrainData[0].objFlags.append(NAV_TOO_STEEP);
+
+                // Append our water terrain tris
+                loadData.terrainData[1].objTris.append(tindices[2]);
+                loadData.terrainData[1].objTris.append(tindices[1]);
+                loadData.terrainData[1].objTris.append(tindices[0]);
+                loadData.terrainData[1].objFlags.append(useWater ? navLiquidType : NAV_EMPTY);
             }
         }
 
-        count = meshData.liquidVerts.size() / 3;
-        for (int i = 0; i < V9_SIZE_SQ; ++i)
-        {
-            getHeightCoord(i, xoffset, yoffset, coord, tileData.L9);
-            meshData.liquidVerts.append(coord[1]);
-            meshData.liquidVerts.append(coord[2]);
-            meshData.liquidVerts.append(coord[0]);
-        }
+        copyIndices(loadData.terrainData[0].objTris, loadData.allTris, 0);
+        copyIndices(loadData.terrainData[1].objTris, loadData.allTris, chunkData->solidVerts.size()/3);
 
-        for (int i = 0; i < V8_SIZE_SQ; ++i)
-        {
-            getHeightCoord(i, xoffset, yoffset, coord, tileData.L8);
-            meshData.liquidVerts.append(coord[1]);
-            meshData.liquidVerts.append(coord[2]);
-            meshData.liquidVerts.append(coord[0]);
-        }
-
-        // generate triangles
-        for (int i = loopStart; i < loopEnd; i += loopInc)
-        {
-            for (int j = TOP; j <= BOTTOM; j+=1)
-            {
-                getHeightTriangle(i, Spot(j), indices);
-                ltriangles.append(indices[2] + count);
-                ltriangles.append(indices[1] + count);
-                ltriangles.append(indices[0] + count);
-            }
-        }
-
-        if ((ltriangles.size() + ttriangles.size()) == 0)
+        delete chunkData;
+        if ((loadData.terrainData[0].objTris.size() + loadData.terrainData[1].objTris.size()) == 0)
             return false;
-
-        // now that we have gathered the data, we can figure out which parts to keep:
-        // liquid above ground, ground above liquid
-        bool useTerrain, useLiquid;
-
-        float* tverts = meshData.solidVerts.getCArray();
-        int* ttris = ttriangles.getCArray();
-
-        float* lverts = meshData.liquidVerts.getCArray();
-        int* ltris = ltriangles.getCArray();
-
-        for (int i = loopStart; i < loopEnd; i+=loopInc)
-        {
-            for (int j = 0; j < 2; ++j)
-            {
-                // default is true, will change to false if needed
-                useTerrain = true, useLiquid = true;
-                G3D::uint16 liquidType = MAP_LIQUID_TYPE_NO_WATER;
-
-                // if there is no liquid, don't use liquid
-                if (!meshData.liquidVerts.size() || !ltriangles.size())
-                    useLiquid = false;
-                else
-                {
-                    liquidType = getLiquidType(i, tileData.liquidType);
-                    if(liquidType & MAP_LIQUID_TYPE_DARK_WATER)
-                    {
-                        useTerrain = false;
-                        useLiquid = false;
-                    }
-                    else if(liquidType & MAP_LIQUID_TYPE_SLIME || liquidType & MAP_LIQUID_TYPE_MAGMA)
-                        liquidType = NAV_MAGMA_SLIME;
-                    else if(liquidType & (MAP_LIQUID_TYPE_OCEAN|MAP_LIQUID_TYPE_WATER))
-                        liquidType = NAV_WATER;
-                    else useLiquid = false;
-                }
-
-                if(liquidType == MAP_LIQUID_TYPE_NO_WATER)
-                    useLiquid = false;
-
-                // if there is no terrain, don't use terrain
-                if (!ttriangles.size())
-                    useTerrain = false;
-
-                meshData.liquidType.append(liquidType);
-                for (int k = 0; k < 3*TriCount/2; ++k)
-                    meshData.liquidTris.append(ltris[k]);
-
-                for (int k = 0; k < 3*TriCount/2; ++k)
-                    meshData.solidTris.append(ttris[k]);
-
-                // advance to next set of triangles
-                ltris += 3*TriCount/2;
-                ttris += 3*TriCount/2;
-            }
-        }
-
-        return meshData.solidTris.size() || meshData.liquidTris.size();
-    }
-
-    /**************************************************************************/
-    bool TerrainBuilder::loadMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData, Spot portion, G3D::uint32 fromTileX, G3D::uint32 fromTileY)
-    {
-        if(tileX >= 64 || tileY >= 64)
-            return false;
-        if(m_mapOffsets[mapID][tileX][tileY] == 0)
-            return false;
-
-        char FileName[255];
-        sprintf(FileName, "Tiles/%03u.tiletree", mapID);
-
-        FILE* mapFile = NULL;
-        fopen_s(&mapFile, FileName, "rb");
-        if(mapFile == NULL)
-            return false;
-
-        // Go to our offset, skip the area info.
-        if(fseek(mapFile, m_mapOffsets[mapID][tileX][tileY], SEEK_SET))
-        {
-            fclose(mapFile);
-            return false;
-        }
-
-        MapTileData tileData;
-        bool result = loadMapChunks(mapFile, mapID, loadData, portion, fromTileX, fromTileY);
-        fclose(mapFile);
-
-        if(!result)
-        {
-            sLog.Error("TerrainMgr", "Bad terrain tile for [%03u][%02u][%02u].", mapID, tileX, tileY);
-            return false;
-        }
-
-        int startX, endX, startY, endY;
-        getChLoopVars(portion, startX, endX, startY, endY);
-        for(int x = startX; x < endX; x++)
-        {
-            for(int y = startY; y < endY; y++)
-            {
-                bool isHole = loadData._chunkData[x][y].isHole;
-                // Fill our V9 terrain data into verts
-                for(uint8 px = 0; px < V9_CH_SIZE; px++)
-                {
-                    for(uint8 py = 0; py < V9_CH_SIZE; py++)
-                    {
-                        fillPositionPoint(loadData._chunkData[x][y].solidVerts, &loadData._chunkData[x][y], false, false, px, py);
-                        fillPositionPoint(loadData.solidVerts, &loadData._chunkData[x][y], false, false, px, py);
-
-                        fillPositionPoint(loadData._chunkData[x][y].liquidVerts, &loadData._chunkData[x][y], false, true, px, py);
-                        fillPositionPoint(loadData.liquidVerts, &loadData._chunkData[x][y], false, true, px, py);
-
-                        fillPositionPoint(loadData._chunkData[x][y].combinedVerts, &loadData._chunkData[x][y], false, loadData._chunkData[x][y].useLiquidV9[px][py], px, py);
-                    }
-                }
-
-                // Fill our V8 terrain data into verts
-                for(uint8 px = 0; px < V8_CH_SIZE; px++)
-                {
-                    for(uint8 py = 0; py < V8_CH_SIZE; py++)
-                    {
-                        int index = px*V8_CH_SIZE+py;
-                        fillPositionPoint(loadData._chunkData[x][y].solidVerts, &loadData._chunkData[x][y], true, false, px, py);
-                        fillPositionPoint(loadData.solidVerts, &loadData._chunkData[x][y], true, false, px, py);
-
-                        fillPositionPoint(loadData._chunkData[x][y].liquidVerts, &loadData._chunkData[x][y], true, true, px, py);
-                        fillPositionPoint(loadData.liquidVerts, &loadData._chunkData[x][y], true, true, px, py);
-
-                        bool useLiquid = loadData._chunkData[x][y].useLiquid[index*4]
-                            && loadData._chunkData[x][y].useLiquid[index*4+1]
-                            && loadData._chunkData[x][y].useLiquid[index*4+2]
-                            && loadData._chunkData[x][y].useLiquid[index*4+3];
-                        fillPositionPoint(loadData._chunkData[x][y].combinedVerts, &loadData._chunkData[x][y], true, useLiquid, px, py);
-                    }
-                }
-
-                int mindice = 0, indices[] = { 0, 0, 0 };
-                for (int i = 0; i < V8_CH_SIZE_SQ; i++)
-                {
-                    // Append our 4 triangles from our center
-                    for (int j = TOP; j <= BOTTOM; j+=1)
-                    {
-                        // Checked above wether we will use the liquid quad or the terrain
-                        bool useWaterHeight = loadData._chunkData[x][y].useLiquid[i*4+(j-TOP)];
-
-                        getHeightTriangle(i, Spot(j), indices, true);
-
-                        if(useWaterHeight)
-                        {   // Append our liquid triangle
-                            loadData._chunkData[x][y].liquidTris.append(indices[2]);
-                            loadData._chunkData[x][y].liquidTris.append(indices[1]);
-                            loadData._chunkData[x][y].liquidTris.append(indices[0]);
-                            // Combine chunk
-                            loadData._chunkData[x][y].combinedTris.append(indices[2]);
-                            loadData._chunkData[x][y].combinedTris.append(indices[1]);
-                            loadData._chunkData[x][y].combinedTris.append(indices[0]);
-                            loadData._chunkData[x][y].combinedFlags.append(loadData._chunkData[x][y].liquidType);
-                            continue;
-                        }
-
-                        // Append our triangle for the terrain
-                        loadData._chunkData[x][y].solidTris.append(indices[2]);
-                        loadData._chunkData[x][y].solidTris.append(indices[1]);
-                        loadData._chunkData[x][y].solidTris.append(indices[0]);
-                        // Combine chunk
-                        loadData._chunkData[x][y].combinedTris.append(indices[2]);
-                        loadData._chunkData[x][y].combinedTris.append(indices[1]);
-                        loadData._chunkData[x][y].combinedTris.append(indices[0]);
-                        // Hole support is pending, but we add the info anyway... Default as nav empty or ground
-                        loadData._chunkData[x][y].combinedFlags.append(isHole ? NAV_EMPTY : NAV_GROUND);
-                    }
-                }
-                printf("");
-            }
-        }
-
         return true;
     }
 
     /**************************************************************************/
-    void TerrainBuilder::getHeightTriangle(int square, Spot triangle, int* indices, bool chunk)
+    void TerrainBuilder::getHeightTriangle(int square, Spot triangle, int* indices)
     {
-        if(chunk == false)
+        int rowOffset = square/V8_SIZE;
+        switch (triangle)
         {
-            int rowOffset = square/V8_SIZE;
-            switch (triangle)
-            {
-            case TOP:
-                indices[0] = square+rowOffset;                  //           0-----1 .... 128
-                indices[1] = square+1+rowOffset;                //           |\ T /|
-                indices[2] = (V9_SIZE_SQ)+square;               //           | \ / |
-                break;                                          //           |L 0 R| .. 127
-            case LEFT:                                          //           | / \ |
-                indices[0] = square+rowOffset;                  //           |/ B \|
-                indices[1] = (V9_SIZE_SQ)+square;               //          129---130 ... 386
-                indices[2] = square+V9_SIZE+rowOffset;          //           |\   /|
-                break;                                          //           | \ / |
-            case RIGHT:                                         //           | 128 | .. 255
-                indices[0] = square+1+rowOffset;                //           | / \ |
-                indices[1] = square+V9_SIZE+1+rowOffset;        //           |/   \|
-                indices[2] = (V9_SIZE_SQ)+square;               //          258---259 ... 515
-                break;
-            case BOTTOM:
-                indices[0] = (V9_SIZE_SQ)+square;
-                indices[1] = square+V9_SIZE+1+rowOffset;
-                indices[2] = square+V9_SIZE+rowOffset;
-                break;
-            default: break;
-            }
+        case TOP:
+            indices[0] = square+rowOffset;                  //           0-----1 .... 128
+            indices[1] = square+1+rowOffset;                //           |\ T /|
+            indices[2] = (V9_SIZE_SQ)+square;               //           | \ / |
+            break;                                          //           |L 0 R| .. 127
+        case LEFT:                                          //           | / \ |
+            indices[0] = square+rowOffset;                  //           |/ B \|
+            indices[1] = (V9_SIZE_SQ)+square;               //          129---130 ... 386
+            indices[2] = square+V9_SIZE+rowOffset;          //           |\   /|
+            break;                                          //           | \ / |
+        case RIGHT:                                         //           | 128 | .. 255
+            indices[0] = square+1+rowOffset;                //           | / \ |
+            indices[1] = square+V9_SIZE+1+rowOffset;        //           |/   \|
+            indices[2] = (V9_SIZE_SQ)+square;               //          258---259 ... 515
+            break;
+        case BOTTOM:
+            indices[0] = (V9_SIZE_SQ)+square;
+            indices[1] = square+V9_SIZE+1+rowOffset;
+            indices[2] = square+V9_SIZE+rowOffset;
+            break;
+        default: break;
         }
-        else
+    }
+
+    bool getChunkLiquidData(MapChunkLoadData *chunkData, Spot s, uint32 chunkId0, uint32 chunkId1, uint32 chunkId2, uint16 &navLiquidType)
+    {
+        uint32 p0ChunkId = chunkId0, p1ChunkId = chunkId1, p2ChunkId = chunkId2;
+        uint8 p0ty = p0ChunkId&0xFF, p1ty = p1ChunkId&0xFF, p2ty = p2ChunkId&0xFF;
+        p0ChunkId>>=8,p1ChunkId>>=8,p2ChunkId>>=8;
+        uint8 p0cy = p0ChunkId&0xFF, p1cy = p1ChunkId&0xFF, p2cy = p2ChunkId&0xFF;
+        p0ChunkId>>=8,p1ChunkId>>=8,p2ChunkId>>=8;
+        uint8 p0tx = p0ChunkId&0xFF, p1tx = p1ChunkId&0xFF, p2tx = p2ChunkId&0xFF;
+        p0ChunkId>>=8,p1ChunkId>>=8,p2ChunkId>>=8;
+        uint8 p0cx = p0ChunkId&0xFF, p1cx = p1ChunkId&0xFF, p2cx = p2ChunkId&0xFF;
+        ASSERT(p0cx < 16 && p0cy < 16 && p1cx < 16 && p1cy < 16 && p2cx < 16 && p2cy < 16);
+        // Only use our water chunk if all corners of liquid data apply
+
+        switch(s)
         {
-            int rowOffset = square/V8_CH_SIZE;
-            switch (triangle)
+        case TOP:
+            ASSERT(p0tx < 9 && p0ty < 9 && p1tx < 9 && p1ty < 9 && p2tx < 8 && p2ty < 8);
+            if(chunkData->_chunkData[p2cx][p2cy].useLiquidV8[p2tx][p2ty] && chunkData->_chunkData[p0cx][p0cy].useLiquidV9[p0tx][p0ty] && chunkData->_chunkData[p1cx][p1cy].useLiquidV9[p1tx][p1ty])
             {
-            case TOP:
-                indices[0] = square+rowOffset;                  //           0-----1 .... 8
-                indices[1] = square+1+rowOffset;                //           |\ T /|
-                indices[2] = (V9_CH_SIZE_SQ)+square;            //           | \ / |
-                break;                                          //           |L 0 R| .... 7
-            case LEFT:                                          //           | / \ |
-                indices[0] = square+rowOffset;                  //           |/ B \|
-                indices[2] = (V9_CH_SIZE_SQ)+square;            //           9-----10 ... 18
-                indices[1] = square+V9_CH_SIZE+rowOffset;       //           |\   /|
-                break;                                          //           | \ / |
-            case RIGHT:                                         //           |  55 | .... 63
-                indices[0] = square+1+rowOffset;                //           | / \ |
-                indices[1] = square+V9_CH_SIZE+1+rowOffset;     //           |/   \|
-                indices[2] = (V9_CH_SIZE_SQ)+square;            //           72----73 ... 80
-                break;
-            case BOTTOM:
-                indices[2] = (V9_CH_SIZE_SQ)+square;
-                indices[1] = square+V9_CH_SIZE+1+rowOffset;
-                indices[0] = square+V9_CH_SIZE+rowOffset;
-                break;
-            default: break;
-            }
+                navLiquidType = chunkData->_chunkData[p2cx][p2cy].navLiquidType;
+                return true;
+            }break;
+        case LEFT:
+            ASSERT(p0tx < 9 && p0ty < 9 && p1tx < 8 && p1ty < 8 && p2tx < 9 && p2ty < 9);
+            if(chunkData->_chunkData[p1cx][p1cy].useLiquidV8[p1tx][p1ty] && chunkData->_chunkData[p0cx][p0cy].useLiquidV9[p0tx][p0ty] && chunkData->_chunkData[p2cx][p2cy].useLiquidV9[p2tx][p2ty])
+            {
+                navLiquidType = chunkData->_chunkData[p1cx][p1cy].navLiquidType;
+                return true;
+            }break;
+        case RIGHT:
+            ASSERT(p0tx < 9 && p0ty < 9 && p1tx < 9 && p1ty < 9 && p2tx < 8 && p2ty < 8);
+            if(chunkData->_chunkData[p2cx][p2cy].useLiquidV8[p2tx][p2ty] && chunkData->_chunkData[p0cx][p0cy].useLiquidV9[p0tx][p0ty] && chunkData->_chunkData[p1cx][p1cy].useLiquidV9[p1tx][p1ty])
+            {
+                navLiquidType = chunkData->_chunkData[p2cx][p2cy].navLiquidType;
+                return true;
+            }break;
+        case BOTTOM:
+            ASSERT(p0tx < 8 && p0ty < 8 && p1tx < 9 && p1ty < 9 && p2tx < 9 && p2ty < 9);
+            if(chunkData->_chunkData[p0cx][p0cy].useLiquidV8[p0tx][p0ty] && chunkData->_chunkData[p2cx][p2cy].useLiquidV9[p2tx][p2ty] && chunkData->_chunkData[p1cx][p1cy].useLiquidV9[p1tx][p1ty])
+            {
+                navLiquidType = chunkData->_chunkData[p0cx][p0cy].navLiquidType;
+                return true;
+            }break;
         }
+        return false;
     }
 
     // DBC ids are stored in vmaps currently, so convert to terrain water flags
@@ -1421,177 +983,14 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData)
-    {
-        if(vmapManager == NULL)
-            return false;
-
-        char FileName[255];
-        sprintf(FileName, "Tiles/%03u.tiletree", mapID);
-
-        FILE* mapFile = NULL;
-        fopen_s(&mapFile, FileName, "rb");
-        if(mapFile == NULL)
-            return false;
-
-        bool result = vmapManager->loadMap(mapID, tileX, tileY, mapFile), retval = false;
-        do
-        {
-            if (result == false)
-                break;
-
-            InstanceTreeMap instanceTrees;
-            vmapManager->getInstanceMapTree(instanceTrees);
-            if (!instanceTrees[mapID])
-                break;
-
-            ModelInstance* models = NULL;
-            G3D::uint32 count = 0;
-            instanceTrees[mapID]->getModelInstances(models, count);
-            if (!models)
-                break;
-
-            for (G3D::uint32 i = 0; i < count; ++i)
-            {
-                ModelInstance instance = models[i];
-
-                // model instances exist in tree even though there are instances of that model in this tile
-                WorldModel* worldModel = instance.getWorldModel();
-                if (!worldModel)
-                    continue;
-
-                // now we have a model to add to the meshdata
-                retval = true;
-
-                std::vector<GroupModel> groupModels;
-                worldModel->getGroupModels(groupModels);
-
-                // all M2s need to have triangle indices reversed
-                bool isM2 = instance.name.find(".m2") != std::string::npos || instance.name.find(".M2") != std::string::npos;
-
-                // transform data
-                float scale = instance.iScale;
-                G3D::Matrix3 rotation = G3D::Matrix3::fromEulerAnglesXYZ(G3D::pi()*instance.iRot.z/-180.f, G3D::pi()*instance.iRot.x/-180.f, G3D::pi()*instance.iRot.y/-180.f);
-                G3D::Vector3 position = instance.iPos;
-                position.x -= 32*GRID_SIZE;
-                position.y -= 32*GRID_SIZE;
-
-                for (std::vector<GroupModel>::iterator it = groupModels.begin(); it != groupModels.end(); ++it)
-                {
-                    std::vector<G3D::Vector3> tempVertices;
-                    std::vector<G3D::Vector3> transformedVertices;
-                    std::vector<MeshTriangle> tempTriangles;
-                    WmoLiquid* liquid = NULL;
-
-                    it->getMeshData(tempVertices, tempTriangles, liquid);
-                    for(auto itr = tempVertices.begin(); itr != tempVertices.end(); ++itr)
-                    {
-                        float x = (*itr).x, y = (*itr).y, z = (*itr).z;
-                        printf("");
-                    }
-
-                    // first handle collision mesh
-                    transform(tempVertices, transformedVertices, scale, rotation, position);
-
-                    int offset = meshData.solidVerts.size() / 3;
-
-                    copyVertices(transformedVertices, meshData.solidVerts);
-                    copyIndices(tempTriangles, meshData.solidTris, offset, isM2);
-
-                    // now handle liquid data
-                    if (liquid)
-                    {
-                        std::vector<G3D::Vector3> liqVerts;
-                        std::vector<int> liqTris;
-                        G3D::uint32 tilesX, tilesY, vertsX, vertsY;
-                        G3D::Vector3 corner;
-                        liquid->getPosInfo(tilesX, tilesY, corner);
-                        vertsX = tilesX + 1;
-                        vertsY = tilesY + 1;
-                        G3D::uint8* flags = liquid->GetFlagsStorage();
-                        float* data = liquid->GetHeightStorage();
-                        G3D::uint8 type = NAV_EMPTY;
-
-                        // convert liquid type to NavTerrain
-                        switch (convertWaterIDToFlags(liquid->GetType()))
-                        {
-                        case 0x1:
-                        case 0x2:
-                            type = NAV_WATER;
-                            break;
-                        case 0x04:
-                        case 0x08:
-                            type = NAV_MAGMA_SLIME;
-                            break;
-                        }
-
-                        // indexing is weird...
-                        // after a lot of trial and error, this is what works:
-                        // vertex = y*vertsX+x
-                        // tile   = x*tilesY+y
-                        // flag   = y*tilesY+x
-
-                        G3D::Vector3 vert;
-                        for (G3D::uint32 x = 0; x < vertsX; ++x)
-                        {
-                            for (G3D::uint32 y = 0; y < vertsY; ++y)
-                            {
-                                vert = G3D::Vector3(corner.x + x * GRID_PART_SIZE, corner.y + y * GRID_PART_SIZE, data[y*vertsX + x]);
-                                vert = vert * rotation * scale + position;
-                                vert.x *= -1.f;
-                                vert.y *= -1.f;
-                                liqVerts.push_back(vert);
-                            }
-                        }
-
-                        int idx1, idx2, idx3, idx4;
-                        G3D::uint32 square;
-                        for (G3D::uint32 x = 0; x < tilesX; ++x)
-                        {
-                            for (G3D::uint32 y = 0; y < tilesY; ++y)
-                            {
-                                if ((flags[x+y*tilesX] & 0x0f) != 0x0f)
-                                {
-                                    square = x * tilesY + y;
-                                    idx1 = square+x;
-                                    idx2 = square+1+x;
-                                    idx3 = square+tilesY+1+1+x;
-                                    idx4 = square+tilesY+1+x;
-
-                                    // top triangle
-                                    liqTris.push_back(idx3);
-                                    liqTris.push_back(idx2);
-                                    liqTris.push_back(idx1);
-                                    // bottom triangle
-                                    liqTris.push_back(idx4);
-                                    liqTris.push_back(idx3);
-                                    liqTris.push_back(idx1);
-                                }
-                            }
-                        }
-
-                        G3D::uint32 liqOffset = meshData.liquidVerts.size() / 3;
-                        for (G3D::uint32 i = 0; i < liqVerts.size(); ++i)
-                            meshData.liquidVerts.append(liqVerts[i].x, liqVerts[i].z, liqVerts[i].y);
-
-                        for (G3D::uint32 i = 0; i < liqTris.size() / 3; ++i)
-                        {
-                            meshData.liquidTris.append(liqTris[i*3+1] + liqOffset, liqTris[i*3+2] + liqOffset, liqTris[i*3] + liqOffset);
-                            meshData.liquidType.append(type);
-                        }
-                    }
-                }
-            }
-        }
-        while (false);
-        fclose(mapFile);
-
-        vmapManager->unloadMap(mapID, tileX, tileY);
-        return retval;
+    void FillFlags(G3D::Array<int> &output, size_t fillSize, unsigned char fillValue)
+    {   // This is pretty temp, but it works
+        for(size_t i = 0; i < fillSize; i++)
+            output.append(fillValue);
     }
 
     /**************************************************************************/
-    bool TerrainBuilder::loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapLoadData &loadData)
+    bool TerrainBuilder::loadVMap(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData)
     {
         if(vmapManager == NULL)
             return false;
@@ -1654,20 +1053,23 @@ namespace MMAP
                     WmoLiquid* liquid = NULL;
 
                     it->getMeshData(tempVertices, tempTriangles, liquid);
-                    for(auto itr = tempVertices.begin(); itr != tempVertices.end(); ++itr)
-                    {
-                        float x = (*itr).x, y = (*itr).y, z = (*itr).z;
-                        printf("");
-                    }
 
                     // first handle collision mesh
                     transform(tempVertices, transformedVertices, scale, rotation, position);
 
-                    int offset = loadData.vmapSolidVerts.size() / 3;
+                    // Create and store object data in our load tile
+                    ObjectLoadData *vmapObj = new ObjectLoadData();
+                    loadData.vmapData.append(vmapObj);
 
-                    copyVertices(transformedVertices, loadData.solidVerts);
-                    copyVertices(transformedVertices, loadData.vmapSolidVerts);
-                    copyIndices(tempTriangles, loadData.vmapSolidTris, offset, isM2);
+                    copyVertices(transformedVertices, vmapObj->objVerts);
+                    copyIndices(tempTriangles, vmapObj->objTris, 0, isM2);
+                    FillFlags(vmapObj->objFlags, vmapObj->objTris.size()/3, NAV_GROUND);
+
+                    // Grab our mesh bound box, rotate, scale and position it, then invert our x and y axis
+                    G3D::AABox transformedBoundBox;
+                    it->GetMeshBoundTransformed(transformedBoundBox, rotation, scale, position, G3D::Vector3(-1.f, -1.f, 1.f));
+                    // Change our boundbox from x,y,z to x,z,y
+                    vmapObj->boundBox.set(G3D::Vector3(transformedBoundBox.low().x, transformedBoundBox.low().z, transformedBoundBox.low().y), G3D::Vector3(transformedBoundBox.high().x, transformedBoundBox.high().z, transformedBoundBox.high().y));
 
                     // now handle liquid data
                     if (liquid)
@@ -1741,17 +1143,14 @@ namespace MMAP
                             }
                         }
 
-                        G3D::uint32 liqOffset = loadData.vmapLiquidVerts.size() / 3;
+                        G3D::uint32 liqOffset = vmapObj->objVerts.size() / 3;
                         for (G3D::uint32 i = 0; i < liqVerts.size(); ++i)
-                        {
-                            loadData.liquidVerts.append(liqVerts[i].x, liqVerts[i].z, liqVerts[i].y);
-                            loadData.vmapLiquidVerts.append(liqVerts[i].x, liqVerts[i].z, liqVerts[i].y);
-                        }
+                            vmapObj->objVerts.append(liqVerts[i].x, liqVerts[i].z, liqVerts[i].y);
 
                         for (G3D::uint32 i = 0; i < liqTris.size() / 3; ++i)
                         {
-                            loadData.vmapLiquidTris.append(liqTris[i*3+1] + liqOffset, liqTris[i*3+2] + liqOffset, liqTris[i*3] + liqOffset);
-                            loadData.vmapLiquidTypes.append(type);
+                            vmapObj->objTris.append(liqTris[i*3+1] + liqOffset, liqTris[i*3+2] + liqOffset, liqTris[i*3] + liqOffset);
+                            vmapObj->objFlags.append(type);
                         }
                     }
                 }
@@ -1863,7 +1262,7 @@ namespace MMAP
     }
 
     /**************************************************************************/
-    void TerrainBuilder::loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MeshData &meshData, const char* offMeshFilePath)
+    void TerrainBuilder::loadOffMeshConnections(G3D::uint32 mapID, G3D::uint32 tileX, G3D::uint32 tileY, MapTileLoadData &loadData, const char* offMeshFilePath)
     {
         // no meshfile input given?
         if (offMeshFilePath == NULL)
@@ -1890,19 +1289,19 @@ namespace MMAP
 
             if (mapID == mid && tileX == tx && tileY == ty)
             {
-                meshData.offMeshConnections.append(p0[0]);
-                meshData.offMeshConnections.append(p0[2]);
-                meshData.offMeshConnections.append(p0[1]);
+                loadData.offMeshConnections.append(p0[0]);
+                loadData.offMeshConnections.append(p0[2]);
+                loadData.offMeshConnections.append(p0[1]);
 
-                meshData.offMeshConnections.append(p1[0]);
-                meshData.offMeshConnections.append(p1[2]);
-                meshData.offMeshConnections.append(p1[1]);
+                loadData.offMeshConnections.append(p1[0]);
+                loadData.offMeshConnections.append(p1[2]);
+                loadData.offMeshConnections.append(p1[1]);
 
-                meshData.offMeshConnectionDirs.append(1);          // 1 - both direction, 0 - one sided
-                meshData.offMeshConnectionRads.append(size);       // agent size equivalent
+                loadData.offMeshConnectionDirs.append(1);          // 1 - both direction, 0 - one sided
+                loadData.offMeshConnectionRads.append(size);       // agent size equivalent
                 // can be used same way as polygon flags
-                meshData.offMeshConnectionsAreas.append((unsigned char)0xFF);
-                meshData.offMeshConnectionsFlags.append((unsigned short)0xFF);  // all movement masks can make this path
+                loadData.offMeshConnectionsAreas.append((unsigned char)0xFF);
+                loadData.offMeshConnectionsFlags.append((unsigned short)0xFF);  // all movement masks can make this path
             }
 
         }

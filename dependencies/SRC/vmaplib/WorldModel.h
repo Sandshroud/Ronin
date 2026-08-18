@@ -88,6 +88,7 @@ namespace VMAP
             bool readFromFile(FILE* rf);
             const G3D::AABox& GetBound() const { return iBound; }
             void GetMeshBound(G3D::AABox &box) { return box.set(meshTree.getLow(), meshTree.getHigh()); }
+            void GetMeshBoundTransformed(G3D::AABox &box, G3D::Matrix3 rot, float scale, G3D::Vector3 pos, G3D::Vector3 modifier) { return box.set((meshTree.getLow() * rot * scale + pos)*modifier, (meshTree.getHigh() * rot * scale + pos)*modifier); }
             G3D::uint32 GetMogpFlags() const { return iMogpFlags; }
             G3D::uint32 GetWmoID() const { return iGroupWMOID; }
         protected:

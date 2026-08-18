@@ -123,15 +123,15 @@ static bool addSpan(rcHeightfield& hf, const int x, const int y,
         }
         else
         {
+            // Merge flags.
+            if (rcAbs((int)s->smax - (int)cur->smax) <= flagMergeThr)
+                s->area = rcMax(s->area, cur->area);
+
             // Merge spans.
             if (cur->smin < s->smin)
                 s->smin = cur->smin;
             if (cur->smax > s->smax)
                 s->smax = cur->smax;
-
-            // Merge flags.
-            if (rcAbs((int)s->smax - (int)cur->smax) <= flagMergeThr)
-                s->area = rcMax(s->area, cur->area);
 
             // Remove current span.
             rcSpan* next = cur->next;
@@ -237,7 +237,7 @@ static void dividePoly(const float* in, int nin,
     *nout2 = n;
 }
 
-static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
+static int rasterizeTri(const float* v0, const float* v1, const float* v2,
                          const unsigned char area, rcHeightfield& hf,
                          const float* bmin, const float* bmax,
                          const float cs, const float ics, const float ich,
@@ -258,7 +258,7 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
 
     // If the triangle does not touch the bbox of the heightfield, skip the triagle.
     if (!overlapBounds(bmin, bmax, tmin, tmax))
-        return true;
+        return 2;
 
     // Calculate the footprint of the triangle on the grid's y-axis
     int y0 = (int)((tmin[2] - bmin[2])*ics);
@@ -281,7 +281,8 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
         const float cz = bmin[2] + y*cs;
         dividePoly(in, nvIn, inrow, &nvrow, p1, &nvIn, cz+cs, 2);
         rcSwap(in, p1);
-        if (nvrow < 3) continue;
+        if (nvrow < 3)
+            continue;
 
         // find the horizontal bounds in the row
         float minX = inrow[0], maxX = inrow[0];
@@ -303,7 +304,8 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
             const float cx = bmin[0] + x*cs;
             dividePoly(inrow, nv2, p1, &nv, p2, &nv2, cx+cs, 0);
             rcSwap(inrow, p2);
-            if (nv < 3) continue;
+            if (nv < 3)
+                continue;
 
             // Calculate min and max of the span.
             float smin = p1[1], smax = p1[1];
@@ -316,8 +318,10 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
             smin -= bmin[1];
             smax -= bmin[1];
             // Skip the span if it is outside the heightfield bbox
-            if (smax < 0.0f) continue;
-            if (smin > by) continue;
+            if (smax < 0.0f)
+                continue;
+            if (smin > by)
+                continue;
             // Clamp the span to the heightfield bbox.
             if (smin < 0.0f) smin = 0;
             if (smax > by) smax = by;
@@ -327,11 +331,11 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
             unsigned short ismax = (unsigned short)rcClamp((int)ceilf(smax * ich), (int)ismin+1, RC_SPAN_MAX_HEIGHT);
 
             if (!addSpan(hf, x, y, ismin, ismax, area, flagMergeThr))
-                return false;
+                return 0;
         }
     }
 
-    return true;
+    return 1;
 }
 
 /// @par

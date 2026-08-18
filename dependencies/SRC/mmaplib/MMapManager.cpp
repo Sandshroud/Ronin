@@ -151,7 +151,6 @@ bool MMapManager::LoadNavMesh(uint32 x, uint32 y)
     if(m_tileOffsets.find(PackedTileID) == m_tileOffsets.end())
         return false;
 
-    dtTileRef reference = 0;
     ReferenceMap::iterator itr = TileReferences.find(PackedTileID);
     if(itr == TileReferences.end())
     {
@@ -171,43 +170,64 @@ bool MMapManager::LoadNavMesh(uint32 x, uint32 y)
         // read header
         MmapTileHeader fileHeader;
         fread(&fileHeader, sizeof(MmapTileHeader), 1, file);
-        if (fileHeader.mmapMagic != MMAP_MAGIC)
-        {
-            fclose(file);
-            return false;
-        }
 
-        if (fileHeader.mmapVersion != MMAP_VERSION)
+        bool hasNextLayer = false;
+        do
         {
-            fclose(file);
-            return false;
-        }
+            hasNextLayer = fileHeader.hasNextLayer > 0;
+            if (fileHeader.mmapMagic != MMAP_MAGIC)
+            {
+                fclose(file);
+                return false;
+            }
 
-        unsigned char* data = (unsigned char*)malloc(fileHeader.size);
+            if (fileHeader.mmapVersion != MMAP_VERSION)
+            {
+                fclose(file);
+                return false;
+            }
 
-        size_t result = fread(data, fileHeader.size, 1, file);
-        if(!result || data == NULL)
-        {
-            fclose(file);
-            return false;
-        }
+            if(fileHeader.size)
+            {
+                unsigned char* data = (unsigned char*)malloc(fileHeader.size);
+                size_t result = fread(data, fileHeader.size, 1, file);
+                if(!result || data == NULL)
+                {
+                    free(data);
+                    fclose(file);
+                    return false;
+                }
+
+                dtStatus dtresult;
+                dtTileRef reference = 0;
+                dtMeshHeader* header = (dtMeshHeader*)data;
+
+                // memory allocated for data is now managed by detour, and will be deallocated when the tile is removed
+                dtresult = m_navMesh->addTile(data, fileHeader.size, DT_TILE_FREE_DATA, 0, &reference);
+                if(dtStatusInProgress(dtresult)) // We already have it loaded, oops.
+                    free(data);
+                else if(dtStatusFailed(dtresult))
+                {
+                    fclose(file);
+                    free(data);
+                    return false;
+                } else if(TileReferences.find(PackedTileID) != TileReferences.end())
+                    TileReferences[PackedTileID]->addReference(reference);
+                else
+                {
+                    TileReferenceC *tileRefStack = new TileReferenceC();
+                    tileRefStack->addReference(reference);
+                    TileReferences.insert(std::make_pair(PackedTileID, tileRefStack));
+                }
+            }
+
+            if(hasNextLayer)
+                fread(&fileHeader, sizeof(MmapTileHeader), 1, file);
+        }while(hasNextLayer);
         fclose(file);
+    }
+    else itr->second->IncrementCounter();
 
-        dtStatus dtresult;
-        dtMeshHeader* header = (dtMeshHeader*)data;
-
-        // memory allocated for data is now managed by detour, and will be deallocated when the tile is removed
-        dtresult = m_navMesh->addTile(data, fileHeader.size, DT_TILE_FREE_DATA, 0, &reference);
-        if(dtStatusInProgress(dtresult)) // We already have it loaded, oops.
-            free(data);
-        else if(dtStatusFailed(dtresult))
-        {
-            free(data);
-            return false;
-        } else TileReferences.insert(std::make_pair(PackedTileID, new TileReferenceC(reference)));
-    } else reference = itr->second->ID;
-
-    TileLoadCount[reference]++;
     return true;
 }
 
@@ -221,17 +241,21 @@ void MMapManager::UnloadNavMesh(uint32 x, uint32 y)
     if(itr == TileReferences.end())
         return; // We aren't loaded, so why continue?
 
-    dtTileRef reference = itr->second->ID;
-    if(TileLoadCount[reference] == 1)
+    if(itr->second->DecreaseCounter())
     {
-        dtStatus status = m_navMesh->removeTile(reference, NULL, NULL);
-        if(dtStatusFailed(status))
-            return;
+        while(itr->second->size())
+        {
+            std::set<dtTileRef>::iterator refItr = itr->second->begin();
+            dtTileRef reference = *refItr;
+            itr->second->remove(refItr);
+
+            dtStatus status = m_navMesh->removeTile(reference, NULL, NULL);
+            if(dtStatusFailed(status))
+                continue;
+        }
         delete itr->second;
         TileReferences.erase(itr);
     }
-
-    TileLoadCount[reference]--;
 }
 
 bool MMapManager::IsNavmeshLoaded(uint32 x, uint32 y)
@@ -251,12 +275,14 @@ Position MMapManager::getNextPositionOnPathToLocation(float startx, float starty
     //convert to nav coords.
     float startPos[3] = { startx, startz, starty };
     float endPos[3] = { endx, endz, endy };
-    float mPolyPickingExtents[3] = { 2.00f, 4.00f, 2.00f };
+    float mPolyPickingExtents[3] = { 2.00f, 50.00f, 2.00f };
     float closestPoint[3] = {0.0f, 0.0f, 0.0f};
     Position pos(endx, endy, endz);
 
     dtStatus result;
     dtQueryFilter* mPathFilter = new dtQueryFilter();
+    // 13 is max, 8 is collision, set it as exclusion always
+    mPathFilter->setExcludeFlags(1 <<(13-8));
     if(mPathFilter)
     {
         dtPolyRef mStartRef;
@@ -323,6 +349,8 @@ bool MMapManager::getNextPositionOnPathToLocation(float startx, float starty, fl
     float mPolyPickingExtents[3] = { 2.00f, 4.00f, 2.00f };
     float closestPoint[3] = {0.0f, 0.0f, 0.0f};
     dtQueryFilter* mPathFilter = new dtQueryFilter();
+    // 13 is max, 8 is collision, set it as exclusion always
+    mPathFilter->setExcludeFlags(1 <<(13-8));
     if(mPathFilter)
     {
         dtPolyRef mStartRef;
@@ -681,6 +709,8 @@ PositionMapContainer* MMapManager::BuildFullPath(unsigned short moveFlags, float
         return NULL;
 
     dtQueryFilter* mPathFilter = new dtQueryFilter();
+    // 13 is max, 8 is collision, set it as exclusion always
+    mPathFilter->setExcludeFlags(1 <<(13-8));
 
     mPathFilter->setIncludeFlags(moveFlags);
 
@@ -774,10 +804,13 @@ bool MMapManager::GetWalkingHeightInternal(float positionx, float positiony, flo
     //convert to nav coords.
     float startPos[3] = { positionx, positionz, positiony };
     float endPos[3] = { positionx, endz, positiony };
-    float mPolyPickingExtents[3] = { 5.0f, 500.f, 5.0f };
+    float mPolyPickingExtents[3] = { 5.0f, 5.f, 5.0f };
     float closestPoint[3] = {0.0f, 0.0f, 0.0f};
     if(dtQueryFilter* mPathFilter = new dtQueryFilter())
     {
+        // 13 is max, 8 is collision, set it as exclusion always
+        mPathFilter->setExcludeFlags(1 <<(13-8));
+
         dtPolyRef mStartRef;
         result = m_navMeshQuery->findNearestPoly(startPos, mPolyPickingExtents, mPathFilter, &mStartRef, closestPoint);
         if(dtStatusFailed(result) || !mStartRef)
@@ -822,7 +855,7 @@ bool MMapManager::GetWalkingHeightInternal(float positionx, float positiony, flo
             if(mNumPathPoints < 2)
             {
                 out.x = actualpath[0];
-                out.z = 0xFFFFFFFF;
+                out.z = actualpath[1];
                 out.y = actualpath[2];
                 delete mPathFilter;
                 mPathFilter = NULL;

@@ -242,7 +242,7 @@ void OnCrash(bool Terminate)
 int main(int argc, char** argv)
 {
     int threads = 8, mapnum = -1;
-    float maxAngle = 55.0f;
+    float maxAngle = 85.0f;
     int tileX = -1, tileY = -1;
     bool skipLiquid = false,
          skipContinents = false,
@@ -281,16 +281,21 @@ int main(int argc, char** argv)
     MapBuilder builder(maxAngle, skipLiquid, skipContinents, skipJunkMaps,
                        skipBattlegrounds, debugOutput, bigBaseUnit, offMeshInputPath);
 
+    ThreadTaskList taskList(threads);
+    taskList.spawn("MapBuilder", "Spawning subtile builders", true);
+
     G3D::uint32 start = getMSTime();
     if (file)
-        builder.buildMeshFromFile(file);
+        builder.buildMeshFromFile(file, taskList);
     else if (tileX > -1 && tileY > -1 && mapnum >= 0)
-        builder.buildSingleTile(mapnum, tileX, tileY);
+        builder.buildSingleTile(mapnum, tileX, tileY, taskList);
     else if (mapnum >= 0)
-        builder.buildMap(G3D::uint32(mapnum));
+        builder.buildMap(G3D::uint32(mapnum), taskList);
     else
-        builder.buildAllMaps(threads);
+        builder.buildAllMaps(taskList);
 
+    taskList.kill();
+    taskList.waitForThreadsToExit();
     if (!silent)
         printf("Finished. MMAPS were built in %u ms!\n", getMSTime()-start);
     return 0;
